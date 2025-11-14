@@ -1,0 +1,105 @@
+name: 💾 Database Backup
+
+on:
+  schedule:
+    # Executar todos os dias às 3h UTC (0h BRT)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Permite execução manual
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  backup-production:
+    name: 💾 Backup Production Database
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 🔧 Install PostgreSQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: 💾 Create Database Backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="backup_production_${TIMESTAMP}.sql"
+          
+          echo "Creating backup: $BACKUP_FILE"
+          
+          pg_dump "${{ secrets.PROD_DATABASE_URL }}" > "$BACKUP_FILE"
+          
+          # Comprimir backup
+          gzip "$BACKUP_FILE"
+          
+          echo "✅ Backup created: ${BACKUP_FILE}.gz"
+          echo "BACKUP_FILE=${BACKUP_FILE}.gz" >> $GITHUB_ENV
+
+      - name: 📤 Upload Backup to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ github.run_number }}
+          path: "*.sql.gz"
+          retention-days: 30
+
+      - name: 📊 Backup Summary
+        run: |
+          BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+          
+          echo "## 💾 Backup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **File:** $BACKUP_FILE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size:** $BACKUP_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Retention:** 30 days" >> $GITHUB_STEP_SUMMARY
+          
+          echo "✅ Backup completed successfully"
+
+      - name: ❌ Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Backup failed!"
+          echo "🔔 ATENÇÃO: O backup do banco de dados falhou!"
+
+  # ==========================================
+  # BACKUP STAGING (Semanal)
+  # ==========================================
+  backup-staging:
+    name: 💾 Backup Staging Database
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * 0' # Apenas aos domingos
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Install PostgreSQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: 💾 Create Database Backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="backup_staging_${TIMESTAMP}.sql"
+          
+          pg_dump "${{ secrets.STAGING_DATABASE_URL }}" > "$BACKUP_FILE"
+          gzip "$BACKUP_FILE"
+          
+          echo "BACKUP_FILE=${BACKUP_FILE}.gz" >> $GITHUB_ENV
+
+      - name: 📤 Upload Backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-backup-${{ github.run_number }}
+          path: "*.sql.gz"
+          retention-days: 14
