@@ -3,8 +3,8 @@ import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import { Clock, User, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 import { StatusHistoryEntry } from "../contexts/ERPContext";
-import { format, parseISO } from "date-fns@4.1.0";
-import { ptBR } from "date-fns@4.1.0/locale";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface StatusHistoryTimelineProps {
   history: StatusHistoryEntry[];

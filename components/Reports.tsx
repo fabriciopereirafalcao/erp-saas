@@ -10,8 +10,8 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Download, TrendingUp, TrendingDown, Package, DollarSign, Users, ShoppingCart, FileText, Calendar, Filter, Printer, FileSpreadsheet, FileDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useERP } from "../contexts/ERPContext";
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns@4.1.0";
-import { ptBR } from "date-fns@4.1.0/locale";
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { exportToExcel, exportToPDF, formatCurrencyForExport, formatDateForExport } from "../utils/exportUtils";
 import { toast } from "sonner";
 import { formatDateLocal } from "../utils/dateUtils";

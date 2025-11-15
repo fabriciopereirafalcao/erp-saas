@@ -11,8 +11,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { useState, memo } from 'react';
-import logoImageLight from 'figma:asset/f6006f7e8991b908a5a049443bc875c2d89a4059.png';
-import logoImageDark from 'figma:asset/f57df3247935a56eba40e341a0b4dd156aca82a8.png';
 import { NavigationView } from '../App';
 
 interface TopBarProps {
@@ -39,9 +37,15 @@ export const TopBar = memo(function TopBar({ onNavigate }: TopBarProps) {
   return (
     <div className={`fixed top-0 left-0 right-0 h-16 border-b shadow-sm z-50 ${isDarkMode ? 'dark bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
       <div className="flex items-center h-full px-4 gap-4">
-        {/* Logo META ERP - versão leve */}
+        {/* Logo META ERP - versão texto */}
         <div className="flex items-center gap-2 min-w-[180px]">
-          <img src={isDarkMode ? logoImageDark : logoImageLight} alt="META ERP" className="h-10" />
+          <div className="flex items-center gap-2">
+            <Package className={`w-8 h-8 ${isDarkMode ? 'text-[#20FBE1]' : 'text-[#1AC9B4]'}`} />
+            <span className={`text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <span className="font-bold">META</span>
+              <span className="font-normal ml-1">ERP</span>
+            </span>
+          </div>
         </div>
 
         {/* Trial Banner Inline - apenas se estiver em trial */}
