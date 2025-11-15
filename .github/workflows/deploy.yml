@@ -95,15 +95,16 @@ jobs:
 
       - name: 📊 Check build size
         run: |
-             echo "📦 Build size analysis:"
-             if [ -d "dist/" ]; then
-               du -sh dist/
-               du -sh dist/assets/ 2>/dev/null || echo "No assets folder found"
-             else
-               echo "⚠️ dist/ folder not found. Listing current directory:"
-               ls -la
-             fi
-           continue-on-error: true
+          echo "📦 Build size analysis:"
+          if [ -d "dist/" ]; then
+            du -sh dist/
+            du -sh dist/assets/ 2>/dev/null || echo "No assets folder found"
+          else
+            echo "⚠️ dist/ folder not found. Listing current directory:"
+            ls -la
+          fi
+        continue-on-error: true
+
   # ==========================================
   # JOB 4: DEPLOY STAGING
   # ==========================================
