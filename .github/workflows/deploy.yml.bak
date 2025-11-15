@@ -32,7 +32,7 @@ jobs:
           cache: 'npm'
 
       - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: 🎨 Run ESLint
         run: npm run lint --if-present
@@ -61,7 +61,7 @@ jobs:
           cache: 'npm'
 
       - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: 🧪 Run tests
         run: npm test --if-present
@@ -86,7 +86,7 @@ jobs:
           cache: 'npm'
 
       - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: 🏗️ Build application
         run: npm run build
@@ -122,7 +122,7 @@ jobs:
           cache: 'npm'
 
       - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: 🏗️ Build for Staging
         run: npm run build
@@ -186,7 +186,7 @@ jobs:
           cache: 'npm'
 
       - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: 🏗️ Build for Production
         run: npm run build
