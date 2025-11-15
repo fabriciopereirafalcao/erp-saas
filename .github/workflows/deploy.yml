@@ -93,8 +93,8 @@ jobs:
         env:
           VITE_ENVIRONMENT: test
 
-        name: 📊 Check build size
-           run: |
+      - name: 📊 Check build size
+        run: |
              echo "📦 Build size analysis:"
              if [ -d "dist/" ]; then
                du -sh dist/
