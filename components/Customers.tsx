@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
 import { Plus, Search, Users, Mail, Phone, SearchIcon, Loader2, Building2, MoreVertical, Edit, History, Calendar, User, Package, Tag, DollarSign, Eye } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useERP } from "../contexts/ERPContext";
 import { validateCustomer, validateEmail, formatCPF, formatCNPJ, formatCEP, formatPhone, type ValidationResult } from "../utils/fieldValidation";
 import { ValidationFeedback } from "./ValidationFeedback";

@@ -15,7 +15,7 @@ import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Checkbox } from "./ui/checkbox";
 import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { format, parseISO } from "date-fns@4.1.0";
 import { ptBR } from "date-fns@4.1.0/locale";
 import { SalesOrderInvoice } from "./SalesOrderInvoice";

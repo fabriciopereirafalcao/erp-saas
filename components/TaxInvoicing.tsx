@@ -14,7 +14,7 @@ import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Plus, Search, FileText, Send, X, CheckCircle, XCircle, Clock, AlertCircle, Download, Printer, Copy, MoreVertical, Eye, Edit } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 // Tipos de dados fiscais
 interface NFeTaxItem {

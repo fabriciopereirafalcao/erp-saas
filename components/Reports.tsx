@@ -13,7 +13,7 @@ import { useERP } from "../contexts/ERPContext";
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns@4.1.0";
 import { ptBR } from "date-fns@4.1.0/locale";
 import { exportToExcel, exportToPDF, formatCurrencyForExport, formatDateForExport } from "../utils/exportUtils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { formatDateLocal } from "../utils/dateUtils";
 
 const COLORS = ['#16a34a', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];

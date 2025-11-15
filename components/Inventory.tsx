@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Search, Package, AlertTriangle, TrendingUp, TrendingDown, Box, Plus, Edit, ArrowLeftRight, MoreVertical, History, Clock, Info, Receipt } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "./PaginationControls";
 import { formatDateLocal } from "../utils/dateUtils";

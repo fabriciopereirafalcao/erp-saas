@@ -10,7 +10,7 @@ import { Textarea } from "./ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
 import { Plus, Search, DollarSign, MoreVertical, Edit, Trash2, Eye, TrendingDown, TrendingUp, Tag, Copy } from "lucide-react";
 import { useERP, PriceTableItem } from "../contexts/ERPContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function PriceTables() {
   const { priceTables, inventory, addPriceTable, updatePriceTable, deletePriceTable, getDefaultPriceTable } = useERP();

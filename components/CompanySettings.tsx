@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { Building2, MapPin, Mail, Phone, Globe, FileText, Landmark, Plus, Trash2, DollarSign, Image, Receipt, Info, Edit2, Save, X, History, Search, Loader2 } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import type { BankAccount, ICMSInterstateRate } from "../contexts/ERPContext";
 import { Switch } from "./ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";

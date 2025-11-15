@@ -46,7 +46,7 @@ import {
   exportLogs,
   AUDIT_MODULES
 } from "../utils/auditLogger";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { PaginationControls } from "./PaginationControls";
 import { usePagination } from "../hooks/usePagination";
 
