@@ -15,103 +15,11 @@ env:
 
 jobs:
   # ==========================================
-  # JOB 1: LINT E VALIDAÇÃO
-  # ==========================================
-  lint:
-    name: 🔍 Lint & Type Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 🎨 Run ESLint
-        run: npm run lint --if-present
-        continue-on-error: true
-
-      - name: 📝 TypeScript Check
-        run: npx tsc --noEmit
-        continue-on-error: true
-
-  # ==========================================
-  # JOB 2: TESTES
-  # ==========================================
-  test:
-    name: 🧪 Run Tests
-    runs-on: ubuntu-latest
-    needs: lint
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 🧪 Run tests
-        run: npm test --if-present
-        continue-on-error: true
-
-  # ==========================================
-  # JOB 3: BUILD TEST
-  # ==========================================
-  build-test:
-    name: 🏗️ Test Build
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 🏗️ Build application
-        run: npm run build
-        env:
-          VITE_ENVIRONMENT: test
-
-      - name: 📊 Check build size
-        run: |
-          echo "📦 Build size analysis:"
-          if [ -d "dist/" ]; then
-            du -sh dist/
-            du -sh dist/assets/ 2>/dev/null || echo "No assets folder found"
-          else
-            echo "⚠️ dist/ folder not found. Listing current directory:"
-            ls -la
-          fi
-        continue-on-error: true
-
-  # ==========================================
-  # JOB 4: DEPLOY STAGING
+  # JOB 1: DEPLOY STAGING
   # ==========================================
   deploy-staging:
     name: 🚀 Deploy to STAGING
     runs-on: ubuntu-latest
-    needs: [build-test]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: staging
@@ -121,43 +29,10 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 📋 Setup Vercel Project Config
-        run: |
-          mkdir -p .vercel
-          echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
-          cat .vercel/project.json
-
-      - name: 🏗️ Build for Staging
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
-          VITE_API_URL: ${{ secrets.STAGING_API_URL || format('{0}/functions/v1', secrets.STAGING_SUPABASE_URL) }}
-          VITE_APP_URL: ${{ secrets.STAGING_APP_URL || 'https://staging.meta-erp.vercel.app' }}
-          VITE_ENABLE_DEBUG: 'true'
-          VITE_ENVIRONMENT: 'staging'
-          NODE_ENV: 'production'
-
-      - name: 📦 Prepare Vercel Output
-        run: |
-          mkdir -p .vercel/output
-          cp -r dist .vercel/output/static
-          echo '{"version":3}' > .vercel/output/config.json
-
       - name: 🚀 Deploy to Vercel (Staging)
         run: |
           npm install -g vercel
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -182,12 +57,11 @@ jobs:
           echo "❌ Falha no deploy para STAGING"
 
   # ==========================================
-  # JOB 5: DEPLOY PRODUCTION
+  # JOB 2: DEPLOY PRODUCTION
   # ==========================================
   deploy-production:
     name: 🚀 Deploy to PRODUCTION
     runs-on: ubuntu-latest
-    needs: [build-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
@@ -197,44 +71,10 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📚 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 📋 Setup Vercel Project Config
-        run: |
-          mkdir -p .vercel
-          echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
-          cat .vercel/project.json
-
-      - name: 🏗️ Build for Production
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
-          VITE_API_URL: ${{ secrets.PROD_API_URL || format('{0}/functions/v1', secrets.PROD_SUPABASE_URL) }}
-          VITE_APP_URL: ${{ secrets.PROD_APP_URL || 'https://meta-erp.vercel.app' }}
-          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          VITE_ENABLE_DEBUG: 'false'
-          VITE_ENVIRONMENT: 'production'
-          NODE_ENV: 'production'
-
-      - name: 📦 Prepare Vercel Output
-        run: |
-          mkdir -p .vercel/output
-          cp -r dist .vercel/output/static
-          echo '{"version":3}' > .vercel/output/config.json
-
       - name: 🚀 Deploy to Vercel (Production)
         run: |
           npm install -g vercel
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -270,7 +110,7 @@ jobs:
           echo "🔍 Verificar logs acima para detalhes"
 
   # ==========================================
-  # JOB 6: NOTIFICATION (opcional)
+  # JOB 3: NOTIFICATION (opcional)
   # ==========================================
   notify:
     name: 📢 Send Notifications
