@@ -136,14 +136,9 @@ jobs:
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
           cat .vercel/project.json
 
-      - name: 🏗️ Build for Staging with Vercel
-        run: |
-          npm install -g vercel
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗️ Build for Staging
+        run: npm run build
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ secrets.STAGING_API_URL || format('{0}/functions/v1', secrets.STAGING_SUPABASE_URL) }}
@@ -152,8 +147,17 @@ jobs:
           VITE_ENVIRONMENT: 'staging'
           NODE_ENV: 'production'
 
+      - name: 📦 Prepare Vercel Output
+        run: |
+          mkdir -p .vercel/output
+          cp -r dist .vercel/output/static
+          echo '{"version":3}' > .vercel/output/config.json
+
       - name: 🚀 Deploy to Vercel (Staging)
-        run: vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+        run: |
+          npm install -g vercel
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -208,14 +212,9 @@ jobs:
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
           cat .vercel/project.json
 
-      - name: 🏗️ Build for Production with Vercel
-        run: |
-          npm install -g vercel
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗️ Build for Production
+        run: npm run build
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VITE_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ secrets.PROD_API_URL || format('{0}/functions/v1', secrets.PROD_SUPABASE_URL) }}
@@ -225,8 +224,17 @@ jobs:
           VITE_ENVIRONMENT: 'production'
           NODE_ENV: 'production'
 
+      - name: 📦 Prepare Vercel Output
+        run: |
+          mkdir -p .vercel/output
+          cp -r dist .vercel/output/static
+          echo '{"version":3}' > .vercel/output/config.json
+
       - name: 🚀 Deploy to Vercel (Production)
-        run: vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+        run: |
+          npm install -g vercel
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
