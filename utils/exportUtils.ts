@@ -1,7 +1,7 @@
 // Utilitários para exportação de dados para Excel e PDF
 
-import { format } from "date-fns@4.1.0";
-import { ptBR } from "date-fns@4.1.0/locale";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 /**
  * Exporta dados para Excel (CSV)
