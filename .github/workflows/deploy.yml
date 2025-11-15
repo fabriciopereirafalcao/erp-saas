@@ -135,20 +135,25 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
-          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
-          VITE_APP_URL: ${{ secrets.STAGING_APP_URL }}
+          VITE_API_URL: ${{ secrets.STAGING_API_URL || format('{0}/functions/v1', secrets.STAGING_SUPABASE_URL) }}
+          VITE_APP_URL: ${{ secrets.STAGING_APP_URL || 'https://staging.meta-erp.vercel.app' }}
           VITE_ENABLE_DEBUG: 'true'
           VITE_ENVIRONMENT: 'staging'
           NODE_ENV: 'production'
 
+      - name: 📋 Setup Vercel Project Config
+        run: |
+          mkdir -p .vercel
+          echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+          cat .vercel/project.json
+
       - name: 🚀 Deploy to Vercel (Staging)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./
-          scope: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          npm install -g vercel
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: 📦 Deploy Supabase Functions (Staging)
         run: |
@@ -199,22 +204,26 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
-          VITE_API_URL: ${{ secrets.PROD_API_URL }}
-          VITE_APP_URL: ${{ secrets.PROD_APP_URL }}
+          VITE_API_URL: ${{ secrets.PROD_API_URL || format('{0}/functions/v1', secrets.PROD_SUPABASE_URL) }}
+          VITE_APP_URL: ${{ secrets.PROD_APP_URL || 'https://meta-erp.vercel.app' }}
           VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           VITE_ENABLE_DEBUG: 'false'
           VITE_ENVIRONMENT: 'production'
           NODE_ENV: 'production'
 
+      - name: 📋 Setup Vercel Project Config
+        run: |
+          mkdir -p .vercel
+          echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+          cat .vercel/project.json
+
       - name: 🚀 Deploy to Vercel (Production)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
-          scope: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          npm install -g vercel
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: 📦 Deploy Supabase Functions (Production)
         run: |
