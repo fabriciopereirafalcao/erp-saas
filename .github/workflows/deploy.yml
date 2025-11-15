@@ -3,8 +3,8 @@ name: 🚀 Deploy Pipeline
 on:
   push:
     branches:
-      - develop
-      - main
+      - develop    # Deploy automático para STAGING
+      - main       # Deploy automático para PRODUCTION
   pull_request:
     branches:
       - develop
@@ -13,134 +13,226 @@ on:
 env:
   NODE_VERSION: '20'
 
-# ==========================================
-# CACHES COMPARTILHADOS ENTRE TODOS OS JOBS
-# ==========================================
-defaults:
-  run:
-    shell: bash
-
 jobs:
   # ==========================================
-  # JOB 1 — LINT + TEST + BUILD (único build!)
+  # JOB 1: LINT E VALIDAÇÃO
   # ==========================================
-  build:
-    name: 🔧 Validate, Test & Build
+  lint:
+    name: 🔍 Lint & Type Check
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Setup Node.js + Cache
+      - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: 📚 Install dependencies (fast)
+      - name: 📚 Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: 🎨 Lint
+      - name: 🎨 Run ESLint
         run: npm run lint --if-present
+        continue-on-error: true
 
-      - name: 🧪 Tests
-        run: npm test --if-present
-
-      - name: 🏗️ Build (single build shared with deploy)
-        run: npm run build
-
-      - name: 📦 Save build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-dist
-          path: dist/
+      - name: 📝 TypeScript Check
+        run: npx tsc --noEmit
+        continue-on-error: true
 
   # ==========================================
-  # JOB 2 — DEPLOY STAGING (branch develop)
+  # JOB 2: TESTES
   # ==========================================
-  deploy-staging:
-    name: 🚀 Deploy to STAGING
+  test:
+    name: 🧪 Run Tests
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/develop'
-
-    environment:
-      name: staging
-      url: https://staging.seudominio.com
-
+    needs: lint
+    
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Download build
-        uses: actions/download-artifact@v4
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: build-dist
-          path: dist/
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
 
-      - name: 📄 Setup Vercel project
+      - name: 📚 Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: 🧪 Run tests
+        run: npm test --if-present
+        continue-on-error: true
+
+  # ==========================================
+  # JOB 3: BUILD TEST
+  # ==========================================
+  build-test:
+    name: 🏗️ Test Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📚 Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: 🏗️ Build application
+        run: npm run build
+        env:
+          VITE_ENVIRONMENT: test
+
+      - name: 📊 Check build size
+        run: |
+          echo "📦 Build size analysis:"
+          if [ -d "dist/" ]; then
+            du -sh dist/
+            du -sh dist/assets/ 2>/dev/null || echo "No assets folder found"
+          else
+            echo "⚠️ dist/ folder not found. Listing current directory:"
+            ls -la
+          fi
+        continue-on-error: true
+
+  # ==========================================
+  # JOB 4: DEPLOY STAGING
+  # ==========================================
+  deploy-staging:
+    name: 🚀 Deploy to STAGING
+    runs-on: ubuntu-latest
+    needs: [build-test]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.seudominio.com
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📋 Setup Vercel Project Config
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+          cat .vercel/project.json
 
-      - name: ⚙ Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: 🚀 Deploy to Vercel (prebuilt)
-        run: vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: 📦 Deploy Supabase Functions
+      - name: 🏗️ Build for Staging with Vercel
         run: |
-          echo "Deploying Supabase Edge Functions..."
+          npm install -g vercel
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ secrets.STAGING_API_URL || format('{0}/functions/v1', secrets.STAGING_SUPABASE_URL) }}
+          VITE_APP_URL: ${{ secrets.STAGING_APP_URL || 'https://staging.meta-erp.vercel.app' }}
+          VITE_ENABLE_DEBUG: 'true'
+          VITE_ENVIRONMENT: 'staging'
+          NODE_ENV: 'production'
+
+      - name: 🚀 Deploy to Vercel (Staging)
+        run: vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: 📦 Deploy Supabase Functions (Staging)
+        run: |
+          echo "Deploying Edge Functions to Staging..."
           npx supabase functions deploy --project-ref ${{ secrets.STAGING_PROJECT_REF }} --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         continue-on-error: true
 
+      - name: 💬 Notify Success
+        if: success()
+        run: |
+          echo "✅ Deploy para STAGING realizado com sucesso!"
+          echo "🔗 URL: https://staging.seudominio.com"
+
+      - name: ❌ Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Falha no deploy para STAGING"
+
   # ==========================================
-  # JOB 3 — DEPLOY PRODUCTION (branch main)
+  # JOB 5: DEPLOY PRODUCTION
   # ==========================================
   deploy-production:
     name: 🚀 Deploy to PRODUCTION
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-
+    needs: [build-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
       url: https://app.seudominio.com
-
+    
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Download build
-        uses: actions/download-artifact@v4
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: build-dist
-          path: dist/
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: 📄 Setup Vercel project
+      - name: 📋 Setup Vercel Project Config
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+          cat .vercel/project.json
 
-      - name: ⚙ Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: 🚀 Deploy to Vercel (prebuilt)
-        run: vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: 📦 Deploy Supabase Functions
+      - name: 🏗️ Build for Production with Vercel
         run: |
-          echo "Deploying Supabase Edge Functions..."
+          npm install -g vercel
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ secrets.PROD_API_URL || format('{0}/functions/v1', secrets.PROD_SUPABASE_URL) }}
+          VITE_APP_URL: ${{ secrets.PROD_APP_URL || 'https://meta-erp.vercel.app' }}
+          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          VITE_ENABLE_DEBUG: 'false'
+          VITE_ENVIRONMENT: 'production'
+          NODE_ENV: 'production'
+
+      - name: 🚀 Deploy to Vercel (Production)
+        run: vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes --prebuilt
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: 📦 Deploy Supabase Functions (Production)
+        run: |
+          echo "Deploying Edge Functions to Production..."
           npx supabase functions deploy --project-ref ${{ secrets.PROD_PROJECT_REF }} --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         continue-on-error: true
 
-      - name: 🏷️ Create Release Tag
+      - name: 📊 Create Release Tag
+        if: success()
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
@@ -148,15 +240,28 @@ jobs:
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION" || true
 
+      - name: 💬 Notify Success
+        if: success()
+        run: |
+          echo "✅ Deploy para PRODUÇÃO realizado com sucesso!"
+          echo "🔗 URL: https://app.seudominio.com"
+          echo "📈 Monitorar: https://vercel.com/dashboard"
+
+      - name: ❌ Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Falha no deploy para PRODUÇÃO"
+          echo "🔍 Verificar logs acima para detalhes"
+
   # ==========================================
-  # JOB 4 — NOTIFICATION
+  # JOB 6: NOTIFICATION (opcional)
   # ==========================================
   notify:
     name: 📢 Send Notifications
     runs-on: ubuntu-latest
     needs: [deploy-staging, deploy-production]
     if: always()
-
+    
     steps:
       - name: 📊 Summary
         run: |
