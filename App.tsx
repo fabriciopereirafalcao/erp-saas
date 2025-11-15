@@ -1,155 +1,155 @@
 import { useState, lazy, Suspense } from "react";
-import { Sidebar } from "./components/Sidebar";
-import { TopBar } from "./components/TopBar";
-import { Toaster } from "./components/ui/sonner";
-import { ERPProvider } from "./contexts/ERPContext";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
-import { AuthFlow } from "./components/auth/AuthFlow";
-import { LoadingScreen } from "./components/LoadingScreen";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { FEATURES, IS_DEVELOPMENT } from "./utils/environment";
-import { DebugPersistence } from "./components/DebugPersistence";
+import { Sidebar } from "./components/Sidebar.tsx";
+import { TopBar } from "./components/TopBar.tsx";
+import { Toaster } from "./components/ui/sonner.tsx";
+import { ERPProvider } from "./contexts/ERPContext.tsx";
+import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
+import { ThemeProvider } from "./contexts/ThemeContext.tsx";
+import { AuthFlow } from "./components/auth/AuthFlow.tsx";
+import { LoadingScreen } from "./components/LoadingScreen.tsx";
+import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
+import { DebugPersistence } from "./components/DebugPersistence.tsx";
 
 // Importar utilitário de limpeza (disponível no console do navegador)
-import "./utils/cleanDuplicates";
+import "./utils/cleanDuplicates.ts";
 
 // ⚡ LAZY LOADING - Componentes carregados sob demanda
 const Dashboard = lazy(() =>
-  import("./components/Dashboard").then((m) => ({
+  import("./components/Dashboard.tsx").then((m) => ({
     default: m.Dashboard,
   })),
 );
 const Inventory = lazy(() =>
-  import("./components/Inventory").then((m) => ({
+  import("./components/Inventory.tsx").then((m) => ({
     default: m.Inventory,
   })),
 );
 const SalesOrders = lazy(() =>
-  import("./components/SalesOrders").then((m) => ({
+  import("./components/SalesOrders.tsx").then((m) => ({
     default: m.SalesOrders,
   })),
 );
 const PurchaseOrders = lazy(() =>
-  import("./components/PurchaseOrders").then((m) => ({
+  import("./components/PurchaseOrders.tsx").then((m) => ({
     default: m.PurchaseOrders,
   })),
 );
 const Customers = lazy(() =>
-  import("./components/Customers").then((m) => ({
+  import("./components/Customers.tsx").then((m) => ({
     default: m.Customers,
   })),
 );
 const Suppliers = lazy(() =>
-  import("./components/Suppliers").then((m) => ({
+  import("./components/Suppliers.tsx").then((m) => ({
     default: m.Suppliers,
   })),
 );
 const FinancialTransactions = lazy(() =>
-  import("./components/FinancialTransactions").then((m) => ({
+  import("./components/FinancialTransactions.tsx").then((m) => ({
     default: m.FinancialTransactions,
   })),
 );
 const AccountsPayableReceivable = lazy(() =>
-  import("./components/AccountsPayableReceivable").then(
+  import("./components/AccountsPayableReceivable.tsx").then(
     (m) => ({ default: m.AccountsPayableReceivable }),
   ),
 );
 const BalanceReconciliation = lazy(() =>
-  import("./components/BalanceReconciliation").then((m) => ({
+  import("./components/BalanceReconciliation.tsx").then((m) => ({
     default: m.BalanceReconciliation,
   })),
 );
 const CashFlow = lazy(() =>
-  import("./components/CashFlow").then((m) => ({
+  import("./components/CashFlow.tsx").then((m) => ({
     default: m.CashFlow,
   })),
 );
 const Reports = lazy(() =>
-  import("./components/Reports").then((m) => ({
+  import("./components/Reports.tsx").then((m) => ({
     default: m.Reports,
   })),
 );
 const PriceTables = lazy(() =>
-  import("./components/PriceTables").then((m) => ({
+  import("./components/PriceTables.tsx").then((m) => ({
     default: m.PriceTables,
   })),
 );
 const CompanySettings = lazy(() =>
-  import("./components/CompanySettings").then((m) => ({
+  import("./components/CompanySettings.tsx").then((m) => ({
     default: m.CompanySettings,
   })),
 );
 const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicing").then((m) => ({
+  import("./components/TaxInvoicing.tsx").then((m) => ({
     default: m.TaxInvoicing,
   })),
 );
 const UsersPermissions = lazy(() =>
-  import("./components/UsersPermissions").then((m) => ({
+  import("./components/UsersPermissions.tsx").then((m) => ({
     default: m.UsersPermissions,
   })),
 );
 
 // Novos cadastros
 const ChartOfAccounts = lazy(() =>
-  import("./components/ChartOfAccounts").then((m) => ({
+  import("./components/ChartOfAccounts.tsx").then((m) => ({
     default: m.ChartOfAccounts,
   })),
 );
 const CostCenters = lazy(() =>
-  import("./components/CostCenters").then((m) => ({
+  import("./components/CostCenters.tsx").then((m) => ({
     default: m.CostCenters,
   })),
 );
 const DigitalCertificate = lazy(() =>
-  import("./components/DigitalCertificate").then((m) => ({
+  import("./components/DigitalCertificate.tsx").then((m) => ({
     default: m.DigitalCertificate,
   })),
 );
 const Salespeople = lazy(() =>
-  import("./components/Salespeople").then((m) => ({
+  import("./components/Salespeople.tsx").then((m) => ({
     default: m.Salespeople,
   })),
 );
 const Buyers = lazy(() =>
-  import("./components/Buyers").then((m) => ({
+  import("./components/Buyers.tsx").then((m) => ({
     default: m.Buyers,
   })),
 );
 const ProductCategories = lazy(() =>
-  import("./components/ProductCategories").then((m) => ({
+  import("./components/ProductCategories.tsx").then((m) => ({
     default: m.ProductCategories,
   })),
 );
 const StockLocations = lazy(() =>
-  import("./components/StockLocations").then((m) => ({
+  import("./components/StockLocations.tsx").then((m) => ({
     default: m.StockLocations,
   })),
 );
 const ManufacturingBatches = lazy(() =>
-  import("./components/ManufacturingBatches").then((m) => ({
+  import("./components/ManufacturingBatches.tsx").then((m) => ({
     default: m.ManufacturingBatches,
   })),
 );
 
 // Perfil do usuário
 const ProfileView = lazy(() =>
-  import("./components/ProfileView").then((m) => ({
+  import("./components/ProfileView.tsx").then((m) => ({
     default: m.ProfileView,
   })),
 );
 
 // Aceitar convite
 const AcceptInvite = lazy(() =>
-  import("./components/AcceptInvite").then((m) => ({
+  import("./components/AcceptInvite.tsx").then((m) => ({
     default: m.AcceptInvite,
   })),
 );
 
 // Configurações de Email
 const EmailSettings = lazy(() =>
-  import("./components/EmailSettings").then((m) => ({
+  import("./components/EmailSettings.tsx").then((m) => ({
     default: m.EmailSettings,
   })),
 );
@@ -157,7 +157,7 @@ const EmailSettings = lazy(() =>
 // Importação condicional do SystemAudit (apenas em dev)
 const SystemAudit = IS_DEVELOPMENT
   ? lazy(() =>
-      import("./components/SystemAudit").then((m) => ({
+      import("./components/SystemAudit.tsx").then((m) => ({
         default: m.SystemAudit,
       })),
     )
