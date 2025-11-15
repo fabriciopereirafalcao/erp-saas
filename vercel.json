@@ -1,7 +1,4 @@
 {
-  "buildCommand": "echo 'Using pre-built dist folder from CI'",
-  "outputDirectory": "dist",
-  "installCommand": "echo 'Dependencies already installed in CI'",
   "framework": null,
   "rewrites": [
     {
