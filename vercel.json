@@ -1,9 +1,8 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "echo 'Using pre-built dist folder from CI'",
   "outputDirectory": "dist",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
-  "framework": "vite",
+  "installCommand": "echo 'Dependencies already installed in CI'",
+  "framework": null,
   "rewrites": [
     {
       "source": "/(.*)",
