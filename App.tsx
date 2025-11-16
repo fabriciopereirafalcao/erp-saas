@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
@@ -340,6 +341,7 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <AppContent />
+        <SpeedInsights />
       </AuthProvider>
     </ThemeProvider>
   );
