@@ -64,6 +64,7 @@
     "vite": "^5.1.0",
     "typescript": "^5.4.2",
     "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
     "autoprefixer": "^10.4.18",
     "postcss": "^8.4.35"
   }
