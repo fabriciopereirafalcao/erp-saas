@@ -313,11 +313,15 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
 });
 
 // Listar convites da empresa (apenas owner/admin)
+// Endpoint que retorna todos os convites da empresa do usuário logado
 app.get("/make-server-686b5e88/invites", async (c) => {
+  console.log('🔍 Endpoint /invites chamado!');
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    console.log('🔑 Access token:', accessToken ? 'Presente' : 'Ausente');
 
     if (!accessToken) {
+      console.error('❌ Token de autenticação não fornecido');
       return c.json({ error: 'Token de autenticação não fornecido' }, 401);
     }
 
