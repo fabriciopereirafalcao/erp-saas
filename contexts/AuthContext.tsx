@@ -114,30 +114,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // ✅ Autenticação real com Supabase
-    // Verificar sessão atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    // Verificar sessão atual com tratamento de erros
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Erro ao verificar sessão:', error);
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setCompany(null);
+          setLoading(false);
+          return;
+        }
 
-    // Escutar mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           await loadUserProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setCompany(null);
         }
-        
+      } catch (error) {
+        console.error('Erro crítico ao inicializar autenticação:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setCompany(null);
+      } finally {
+        // ⚡ CRÍTICO: Sempre desabilitar loading, mesmo em caso de erro
         setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Escutar mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await loadUserProfile(session.user.id);
+          } else {
+            setProfile(null);
+            setCompany(null);
+          }
+        } catch (error) {
+          console.error('Erro ao processar mudança de autenticação:', error);
+        } finally {
+          setLoading(false);
+        }
       }
     );
 
