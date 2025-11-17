@@ -256,8 +256,11 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       status: 'pending',
     };
 
+    console.log('💾 Salvando convite no KV store com chave:', `invite:${inviteToken}`);
+    console.log('📦 Dados do convite:', inviteData);
     await kv.set(`invite:${inviteToken}`, JSON.stringify(inviteData));
-
+    console.log('✅ Convite salvo com sucesso!');
+    
     // Construir link de convite
     const baseUrl = c.req.url.split('/make-server')[0];
     const inviteLink = `${baseUrl}?token=${inviteToken}`;
@@ -360,18 +363,39 @@ app.get("/make-server-686b5e88/invites", async (c) => {
     const allInvites = await kv.getByPrefix('invite:');
     console.log('📋 Total de convites no sistema:', allInvites.length);
     
+    // Debug: Mostrar todos os convites encontrados
+    if (allInvites.length > 0) {
+      console.log('🔍 Convites encontrados no KV store:');
+      allInvites.forEach((invite: any, index: number) => {
+        console.log(`  ${index + 1}. Key: ${invite.key}`);
+        try {
+          const data = JSON.parse(invite.value);
+          console.log(`     Email: ${data.email}, Company ID: ${data.company_id}, Status: ${data.status}`);
+        } catch (e) {
+          console.log(`     ⚠️ Erro ao parsear: ${e.message}`);
+        }
+      });
+    } else {
+      console.log('⚠️ Nenhum convite encontrado no KV store!');
+    }
+    
     // Filtrar convites da empresa
     const companyInvites = allInvites
       .filter((invite: any) => {
         try {
-          const inviteData = JSON.parse(invite.value);
-          return inviteData.company_id === companyId;
-        } catch {
+          // O value já vem como objeto (JSONB) do banco, não precisa parse
+          const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
+          const matches = inviteData.company_id === companyId;
+          console.log(`🔍 Comparando: ${inviteData.company_id} === ${companyId} ? ${matches}`);
+          return matches;
+        } catch (e) {
+          console.log(`❌ Erro ao processar convite ${invite.key}: ${e.message}`);
           return false;
         }
       })
       .map((invite: any) => {
-        const inviteData = JSON.parse(invite.value);
+        // O value já vem como objeto (JSONB) do banco, não precisa parse
+        const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
         const token = invite.key.replace('invite:', '');
         
         return {
