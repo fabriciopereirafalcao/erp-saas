@@ -206,6 +206,8 @@ function AppContent() {
   const [currentView, setCurrentView] =
     useState<NavigationView>("dashboard");
 
+  console.log('[AppContent] 🔍 Estado atual:', { user: !!user, loading });
+
   // Verificar se há um token de convite na URL
   const hasInviteToken = () => {
     const params = new URLSearchParams(window.location.search);
@@ -214,11 +216,15 @@ function AppContent() {
 
   // Mostrar tela de loading enquanto verifica autenticação
   if (loading) {
+    console.log('[AppContent] ⏳ Mostrando LoadingScreen...');
     return <LoadingScreen />;
   }
 
+  console.log('[AppContent] ✅ Loading finalizado, renderizando conteúdo...');
+
   // Se houver token de convite na URL, mostrar tela de aceite (independente de estar logado)
   if (hasInviteToken()) {
+    console.log('[AppContent] 📧 Token de convite detectado');
     return (
       <Suspense fallback={<LoadingScreen />}>
         <AcceptInvite
@@ -234,8 +240,11 @@ function AppContent() {
 
   // Mostrar tela de autenticação se não estiver logado
   if (!user) {
+    console.log('[AppContent] 🔐 Usuário não autenticado, mostrando AuthFlow');
     return <AuthFlow />;
   }
+
+  console.log('[AppContent] ✅ Usuário autenticado, mostrando app completo');
 
   // ⚡ Renderizar view com Suspense para lazy loading
   const renderView = () => {
