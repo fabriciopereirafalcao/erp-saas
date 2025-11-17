@@ -31,7 +31,10 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Send,
+  Copy,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { validateEmail } from "../utils/fieldValidation";
@@ -48,6 +51,18 @@ interface User {
   createdAt: string;
   lastAccess?: string;
   avatar?: string;
+}
+
+interface Invite {
+  id: string;
+  email: string;
+  role: string;
+  status: "Pendente" | "Aceito" | "Expirado" | "Cancelado";
+  invitedBy: string;
+  invitedAt: string;
+  acceptedAt?: string;
+  expiresAt: string;
+  inviteLink: string;
 }
 
 interface Role {
@@ -335,6 +350,65 @@ export function UsersPermissions() {
     }
   ]);
 
+  // Mock de convites
+  const [invites, setInvites] = useState<Invite[]>([
+    {
+      id: "INV-001",
+      email: "julia.martins@empresa.com",
+      role: "manager",
+      status: "Pendente",
+      invitedBy: "João Silva",
+      invitedAt: "2024-11-10",
+      expiresAt: "2024-11-17",
+      inviteLink: "https://app.metaerp.com/accept-invite?token=abc123xyz"
+    },
+    {
+      id: "INV-002",
+      email: "roberto.costa@empresa.com",
+      role: "salesperson",
+      status: "Pendente",
+      invitedBy: "João Silva",
+      invitedAt: "2024-11-12",
+      expiresAt: "2024-11-19",
+      inviteLink: "https://app.metaerp.com/accept-invite?token=def456uvw"
+    },
+    {
+      id: "INV-003",
+      email: "fernanda.lima@empresa.com",
+      role: "financial",
+      status: "Aceito",
+      invitedBy: "João Silva",
+      invitedAt: "2024-11-05",
+      acceptedAt: "2024-11-06",
+      expiresAt: "2024-11-12",
+      inviteLink: "https://app.metaerp.com/accept-invite?token=ghi789rst"
+    },
+    {
+      id: "INV-004",
+      email: "marcos.silva@empresa.com",
+      role: "buyer",
+      status: "Expirado",
+      invitedBy: "João Silva",
+      invitedAt: "2024-10-20",
+      expiresAt: "2024-10-27",
+      inviteLink: "https://app.metaerp.com/accept-invite?token=jkl012mno"
+    },
+    {
+      id: "INV-005",
+      email: "paula.santos@empresa.com",
+      role: "viewer",
+      status: "Cancelado",
+      invitedBy: "João Silva",
+      invitedAt: "2024-11-08",
+      expiresAt: "2024-11-15",
+      inviteLink: "https://app.metaerp.com/accept-invite?token=pqr345stu"
+    }
+  ]);
+
+  // Estado para filtros de convites
+  const [inviteSearchTerm, setInviteSearchTerm] = useState("");
+  const [inviteStatusFilter, setInviteStatusFilter] = useState<string>("all");
+
   // Filtrar usuários
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -349,6 +423,20 @@ export function UsersPermissions() {
       return matchesSearch && matchesStatus && matchesRole;
     });
   }, [users, searchTerm, statusFilter, roleFilter]);
+
+  // Filtrar convites
+  const filteredInvites = useMemo(() => {
+    return invites.filter(invite => {
+      const matchesSearch = 
+        invite.email.toLowerCase().includes(inviteSearchTerm.toLowerCase()) ||
+        invite.role.toLowerCase().includes(inviteSearchTerm.toLowerCase()) ||
+        invite.id.toLowerCase().includes(inviteSearchTerm.toLowerCase());
+      
+      const matchesStatus = inviteStatusFilter === "all" || invite.status === inviteStatusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [invites, inviteSearchTerm, inviteStatusFilter]);
 
   // Estatísticas
   const stats = useMemo(() => {
@@ -524,14 +612,74 @@ export function UsersPermissions() {
     }));
   };
 
+  // Funções para gerenciar convites
+  const handleResendInvite = (inviteId: string) => {
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite) return;
+
+    if (invite.status !== "Pendente") {
+      toast.error("Só é possível reenviar convites pendentes");
+      return;
+    }
+
+    // Atualizar data de expiração
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+
+    setInvites(invites.map(i => 
+      i.id === inviteId 
+        ? { ...i, expiresAt: newExpiresAt.toISOString().split('T')[0] }
+        : i
+    ));
+
+    toast.success(`Convite reenviado para ${invite.email}`);
+  };
+
+  const handleCopyInviteLink = (inviteLink: string) => {
+    navigator.clipboard.writeText(inviteLink);
+    toast.success("Link do convite copiado para a área de transferência!");
+  };
+
+  const handleCancelInvite = (inviteId: string) => {
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite) return;
+
+    if (invite.status !== "Pendente") {
+      toast.error("Só é possível cancelar convites pendentes");
+      return;
+    }
+
+    if (confirm("Tem certeza que deseja cancelar este convite?")) {
+      setInvites(invites.map(i => 
+        i.id === inviteId 
+          ? { ...i, status: "Cancelado" as const }
+          : i
+      ));
+      toast.success("Convite cancelado com sucesso!");
+    }
+  };
+
+  const handleDeleteInvite = (inviteId: string) => {
+    if (confirm("Tem certeza que deseja excluir este convite?")) {
+      setInvites(invites.filter(i => i.id !== inviteId));
+      toast.success("Convite excluído com sucesso!");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Ativo":
+      case "Pendente":
         return "bg-green-100 text-green-700";
+      case "Aceito":
+        return "bg-blue-100 text-blue-700";
       case "Inativo":
         return "bg-gray-100 text-gray-700";
       case "Bloqueado":
+      case "Cancelado":
         return "bg-red-100 text-red-700";
+      case "Expirado":
+        return "bg-orange-100 text-orange-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -540,10 +688,15 @@ export function UsersPermissions() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "Ativo":
+      case "Aceito":
         return <CheckCircle2 className="w-4 h-4" />;
+      case "Pendente":
+        return <Clock className="w-4 h-4" />;
       case "Inativo":
         return <XCircle className="w-4 h-4" />;
       case "Bloqueado":
+      case "Cancelado":
+      case "Expirado":
         return <AlertCircle className="w-4 h-4" />;
       default:
         return <Users className="w-4 h-4" />;
@@ -619,8 +772,9 @@ export function UsersPermissions() {
 
       {/* Abas */}
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="invites">Convites</TabsTrigger>
           <TabsTrigger value="roles">Perfis de Acesso</TabsTrigger>
         </TabsList>
 
@@ -755,6 +909,125 @@ export function UsersPermissions() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        {/* ABA: CONVITES */}
+        <TabsContent value="invites" className="space-y-4">
+          {/* Filtros e Ações */}
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Pesquisar por email, perfil ou ID..."
+                value={inviteSearchTerm}
+                onChange={(e) => setInviteSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={inviteStatusFilter} onValueChange={setInviteStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="Pendente">Pendente</SelectItem>
+                <SelectItem value="Aceito">Aceito</SelectItem>
+                <SelectItem value="Expirado">Expirado</SelectItem>
+                <SelectItem value="Cancelado">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Tabela de Convites */}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Perfil</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Convidado por</TableHead>
+                  <TableHead>Data do Convite</TableHead>
+                  <TableHead>Data de Expiração</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInvites.map((invite) => (
+                  <TableRow key={invite.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        {invite.email}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{getRoleName(invite.role)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(invite.status)}>
+                        <span className="flex items-center gap-1">
+                          {getStatusIcon(invite.status)}
+                          {invite.status}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {invite.invitedBy}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(invite.invitedAt).toLocaleDateString('pt-BR')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                          {invite.status === "Pendente" && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleResendInvite(invite.id)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Reenviar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyInviteLink(invite.inviteLink)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copiar Link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCancelInvite(invite.id)}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Cancelar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteInvite(invite.id)}
                             className="text-red-600"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
