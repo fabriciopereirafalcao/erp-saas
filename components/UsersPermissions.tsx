@@ -13,6 +13,7 @@ import { Switch } from "./ui/switch";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { 
   Plus, 
   Search, 
@@ -41,6 +42,31 @@ import { validateEmail } from "../utils/fieldValidation";
 import { InviteUserDialog } from "./InviteUserDialog";
 import { supabase } from "../utils/supabase/client";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
+import { useERP } from "../contexts/ERPContext";
+
+// Helper para verificar se os dados essenciais da empresa estão cadastrados
+const isCompanyDataComplete = (companySettings: any): { complete: boolean; missingFields: string[] } => {
+  const missingFields: string[] = [];
+  
+  // Campos obrigatórios dos Dados Gerais
+  if (!companySettings.cnpj || companySettings.cnpj.trim() === '') missingFields.push('CNPJ');
+  if (!companySettings.companyName || companySettings.companyName.trim() === '') missingFields.push('Razão Social');
+  if (!companySettings.tradeName || companySettings.tradeName.trim() === '') missingFields.push('Nome Fantasia');
+  if (!companySettings.email || companySettings.email.trim() === '') missingFields.push('Email');
+  if (!companySettings.phone || companySettings.phone.trim() === '') missingFields.push('Telefone');
+  
+  // Campos obrigatórios do Endereço
+  if (!companySettings.zipCode || companySettings.zipCode.trim() === '') missingFields.push('CEP');
+  if (!companySettings.street || companySettings.street.trim() === '') missingFields.push('Logradouro');
+  if (!companySettings.number || companySettings.number.trim() === '') missingFields.push('Número');
+  if (!companySettings.city || companySettings.city.trim() === '') missingFields.push('Cidade');
+  if (!companySettings.state || companySettings.state.trim() === '') missingFields.push('Estado');
+  
+  return {
+    complete: missingFields.length === 0,
+    missingFields
+  };
+};
 
 // Tipos
 interface User {
@@ -130,6 +156,7 @@ const MODULES = [
 ];
 
 export function UsersPermissions() {
+  const { companySettings, setActiveSection } = useERP();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -138,6 +165,9 @@ export function UsersPermissions() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  
+  // Verificar se dados da empresa estão completos
+  const companyDataStatus = isCompanyDataComplete(companySettings);
 
   // Estado do formulário de usuário
   const [userForm, setUserForm] = useState({
@@ -837,10 +867,27 @@ export function UsersPermissions() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleNewUser} className="bg-[rgb(32,251,225)] hover:bg-green-700 text-[rgb(0,0,0)]">
-              <Plus className="w-4 h-4 mr-2" />
-              Convidar Usuário
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button 
+                      onClick={handleNewUser} 
+                      className="bg-[rgb(32,251,225)] hover:bg-green-700 text-[rgb(0,0,0)]"
+                      disabled={!companyDataStatus.complete}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Convidar Usuário
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!companyDataStatus.complete && (
+                  <TooltipContent>
+                    <p>Cadastre os dados da empresa primeiro</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Tabela de Usuários */}
@@ -950,6 +997,42 @@ export function UsersPermissions() {
 
         {/* ABA: CONVITES */}
         <TabsContent value="invites" className="space-y-4">
+          {/* Alerta: Cadastro da empresa obrigatório */}
+          {!companyDataStatus.complete && (
+            <Alert className="border-orange-200 bg-orange-50">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              <AlertDescription className="ml-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-orange-900 mb-2">
+                      Cadastre os dados da sua empresa antes de convidar usuários
+                    </p>
+                    <p className="text-sm text-orange-700 mb-3">
+                      Para manter a organização e profissionalismo, é necessário cadastrar as informações básicas da empresa antes de convidar membros para a equipe.
+                    </p>
+                    <div className="bg-white rounded-md p-3 border border-orange-100">
+                      <p className="text-sm font-medium text-orange-900 mb-2">Campos obrigatórios pendentes:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {companyDataStatus.missingFields.map((field) => (
+                          <Badge key={field} variant="outline" className="border-orange-300 text-orange-700 bg-orange-50">
+                            {field}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setActiveSection('company')}
+                    className="bg-orange-600 hover:bg-orange-700 whitespace-nowrap"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Ir para Minha Empresa
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Filtros e Ações */}
           <div className="flex gap-4 mb-6">
             <div className="flex-1 relative">
@@ -959,9 +1042,10 @@ export function UsersPermissions() {
                 value={inviteSearchTerm}
                 onChange={(e) => setInviteSearchTerm(e.target.value)}
                 className="pl-10"
+                disabled={!companyDataStatus.complete}
               />
             </div>
-            <Select value={inviteStatusFilter} onValueChange={setInviteStatusFilter}>
+            <Select value={inviteStatusFilter} onValueChange={setInviteStatusFilter} disabled={!companyDataStatus.complete}>
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
@@ -976,7 +1060,7 @@ export function UsersPermissions() {
             <Button 
               onClick={loadInvites} 
               variant="outline"
-              disabled={loadingInvites}
+              disabled={loadingInvites || !companyDataStatus.complete}
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loadingInvites ? 'animate-spin' : ''}`} />
               Atualizar
@@ -984,7 +1068,7 @@ export function UsersPermissions() {
           </div>
 
           {/* Tabela de Convites */}
-          <Card>
+          <Card className={!companyDataStatus.complete ? 'opacity-50 pointer-events-none' : ''}>
             <Table>
               <TableHeader>
                 <TableRow>
