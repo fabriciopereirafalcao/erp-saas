@@ -76,38 +76,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[AuthContext] 🔍 Carregando perfil do usuário:', userId);
       
-      // ⚡ OTIMIZAÇÃO: Query combinada com JOIN para reduzir chamadas
-      const { data: profileData, error: profileError } = await supabase
+      // ⚡ TIMEOUT: Se a query demorar mais de 5 segundos, abortar
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 5000)
+      );
+      
+      // Query do perfil do usuário
+      const profilePromise = supabase
         .from('users')
-        .select(`
-          *,
-          companies (*)
-        `)
+        .select('*')
         .eq('id', userId)
         .single();
+      
+      console.log('[AuthContext] 📡 Buscando dados do usuário...');
+      const { data: profileData, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error('[AuthContext] ❌ Erro ao buscar perfil:', profileError);
         throw profileError;
       }
 
-      console.log('[AuthContext] ✅ Perfil carregado:', profileData);
-
-      // Extrair company da query combinada
-      const { companies, ...userProfile } = profileData as any;
-      
-      setProfile(userProfile);
-      console.log('[AuthContext] ✅ Profile setado:', userProfile);
-      
-      // Definir company se existir
-      if (companies) {
-        const companyData = Array.isArray(companies) ? companies[0] : companies;
-        setCompany(companyData);
-        console.log('[AuthContext] ✅ Company setada:', companyData);
+      if (!profileData) {
+        console.error('[AuthContext] ❌ Perfil não encontrado');
+        throw new Error('Perfil não encontrado');
       }
+
+      console.log('[AuthContext] ✅ Perfil carregado:', profileData);
+      setProfile(profileData);
+      console.log('[AuthContext] ✅ Profile setado');
+      
+      // Buscar company separadamente (não travar se falhar)
+      if (profileData.company_id) {
+        try {
+          console.log('[AuthContext] 📡 Buscando dados da empresa:', profileData.company_id);
+          
+          const companyPromise = supabase
+            .from('companies')
+            .select('*')
+            .eq('id', profileData.company_id)
+            .single();
+          
+          const { data: companyData, error: companyError } = await Promise.race([
+            companyPromise,
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout ao carregar company')), 5000)
+            )
+          ]) as any;
+          
+          if (companyError) {
+            console.warn('[AuthContext] ⚠️ Erro ao buscar company (não crítico):', companyError);
+          } else if (companyData) {
+            console.log('[AuthContext] ✅ Company carregada:', companyData);
+            setCompany(companyData);
+          }
+        } catch (error) {
+          console.warn('[AuthContext] ⚠️ Erro ao carregar company (não crítico):', error);
+          // Continuar mesmo sem company
+        }
+      } else {
+        console.log('[AuthContext] ℹ️ Usuário sem company_id');
+      }
+      
     } catch (error) {
       console.error('[AuthContext] ❌ Erro crítico ao carregar perfil:', error);
       // Não propagar o erro - permitir que o app continue
+      // O usuário ainda pode usar o app mesmo sem perfil completo
     }
   };
 
@@ -187,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             console.log('[AuthContext] 👤 Usuário autenticado após mudança, carregando perfil...');
             await loadUserProfile(session.user.id);
+            console.log('[AuthContext] ✅ Perfil carregado após mudança de auth');
           } else {
             console.log('[AuthContext] ℹ️ Usuário desconectado');
             setProfile(null);
@@ -195,7 +232,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error('[AuthContext] ❌ Erro ao processar mudança de autenticação:', error);
         } finally {
+          console.log('[AuthContext] ✅ Finalizando loading após mudança de auth...');
           setLoading(false);
+          console.log('[AuthContext] ✅ Loading=false (listener)');
         }
       }
     );
