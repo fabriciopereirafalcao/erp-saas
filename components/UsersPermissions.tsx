@@ -35,7 +35,8 @@ import {
   XCircle,
   Send,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import { validateEmail } from "../utils/fieldValidation";
