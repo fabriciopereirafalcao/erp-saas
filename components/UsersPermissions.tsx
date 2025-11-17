@@ -397,11 +397,12 @@ export function UsersPermissions() {
   }, []);
 
   const loadInvites = async () => {
+    console.log('🔄 Carregando convites...');
     setLoadingInvites(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('Usuário não logado');
+        console.log('❌ Usuário não logado');
         setLoadingInvites(false);
         return;
       }
@@ -421,6 +422,7 @@ export function UsersPermissions() {
       }
 
       const data = await response.json();
+      console.log('✅ Convites recebidos:', data.invites?.length || 0);
       
       // Mapear os dados do backend para o formato esperado
       const mappedInvites: Invite[] = data.invites.map((invite: any) => {
@@ -449,8 +451,9 @@ export function UsersPermissions() {
       });
 
       setInvites(mappedInvites);
+      console.log('✅ Convites mapeados e salvos no estado:', mappedInvites.length);
     } catch (error: any) {
-      console.error('Erro ao carregar convites:', error);
+      console.error('❌ Erro ao carregar convites:', error);
       toast.error('Erro ao carregar convites', {
         description: error.message
       });
@@ -503,8 +506,19 @@ export function UsersPermissions() {
   };
 
   // Callback quando convite é criado com sucesso
-  const handleInviteSuccess = () => {
+  const handleInviteSuccess = async () => {
+    // Aguardar um momento para garantir que o convite foi salvo no backend
+    await new Promise(resolve => setTimeout(resolve, 500));
     loadInvites(); // Recarregar lista de convites
+  };
+
+  // Handler para quando o diálogo de convite fechar
+  const handleInviteDialogChange = (open: boolean) => {
+    setIsInviteDialogOpen(open);
+    // Se está fechando o diálogo, recarregar a lista
+    if (!open) {
+      loadInvites();
+    }
   };
 
   // Abrir diálogo para editar usuário
@@ -1505,7 +1519,7 @@ export function UsersPermissions() {
       {/* Dialog de Convidar Usuário */}
       <InviteUserDialog 
         open={isInviteDialogOpen} 
-        onOpenChange={setIsInviteDialogOpen} 
+        onOpenChange={handleInviteDialogChange} 
         onSuccess={handleInviteSuccess}
       />
     </div>
