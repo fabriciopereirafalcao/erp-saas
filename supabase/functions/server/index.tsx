@@ -238,6 +238,26 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este email já está cadastrado na empresa' }, 400);
     }
 
+    // Verificar se já existe um convite pendente para este email na empresa
+    const allInvites = await kv.getByPrefix('invite:');
+    const existingInvite = allInvites.find((invite: any) => {
+      try {
+        const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
+        return (
+          inviteData.email === email &&
+          inviteData.company_id === profile.company_id &&
+          inviteData.status === 'pending' &&
+          new Date(inviteData.expires_at) > new Date() // Ainda não expirado
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (existingInvite) {
+      return c.json({ error: 'Este e-mail já foi convidado' }, 400);
+    }
+
     // Criar token único para o convite
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date();
