@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -39,6 +39,8 @@ import {
 import { toast } from "sonner";
 import { validateEmail } from "../utils/fieldValidation";
 import { InviteUserDialog } from "./InviteUserDialog";
+import { supabase } from "../utils/supabase/client";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
 
 // Tipos
 interface User {
@@ -350,64 +352,81 @@ export function UsersPermissions() {
     }
   ]);
 
-  // Mock de convites
-  const [invites, setInvites] = useState<Invite[]>([
-    {
-      id: "INV-001",
-      email: "julia.martins@empresa.com",
-      role: "manager",
-      status: "Pendente",
-      invitedBy: "João Silva",
-      invitedAt: "2024-11-10",
-      expiresAt: "2024-11-17",
-      inviteLink: "https://app.metaerp.com/accept-invite?token=abc123xyz"
-    },
-    {
-      id: "INV-002",
-      email: "roberto.costa@empresa.com",
-      role: "salesperson",
-      status: "Pendente",
-      invitedBy: "João Silva",
-      invitedAt: "2024-11-12",
-      expiresAt: "2024-11-19",
-      inviteLink: "https://app.metaerp.com/accept-invite?token=def456uvw"
-    },
-    {
-      id: "INV-003",
-      email: "fernanda.lima@empresa.com",
-      role: "financial",
-      status: "Aceito",
-      invitedBy: "João Silva",
-      invitedAt: "2024-11-05",
-      acceptedAt: "2024-11-06",
-      expiresAt: "2024-11-12",
-      inviteLink: "https://app.metaerp.com/accept-invite?token=ghi789rst"
-    },
-    {
-      id: "INV-004",
-      email: "marcos.silva@empresa.com",
-      role: "buyer",
-      status: "Expirado",
-      invitedBy: "João Silva",
-      invitedAt: "2024-10-20",
-      expiresAt: "2024-10-27",
-      inviteLink: "https://app.metaerp.com/accept-invite?token=jkl012mno"
-    },
-    {
-      id: "INV-005",
-      email: "paula.santos@empresa.com",
-      role: "viewer",
-      status: "Cancelado",
-      invitedBy: "João Silva",
-      invitedAt: "2024-11-08",
-      expiresAt: "2024-11-15",
-      inviteLink: "https://app.metaerp.com/accept-invite?token=pqr345stu"
-    }
-  ]);
+  // Convites do banco de dados
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
 
   // Estado para filtros de convites
   const [inviteSearchTerm, setInviteSearchTerm] = useState("");
   const [inviteStatusFilter, setInviteStatusFilter] = useState<string>("all");
+
+  // Carregar convites do banco de dados
+  useEffect(() => {
+    loadInvites();
+  }, []);
+
+  const loadInvites = async () => {
+    setLoadingInvites(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('Usuário não logado');
+        setLoadingInvites(false);
+        return;
+      }
+
+      // Buscar convites do backend
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/invites`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar convites');
+      }
+
+      const data = await response.json();
+      
+      // Mapear os dados do backend para o formato esperado
+      const mappedInvites: Invite[] = data.invites.map((invite: any) => {
+        // Calcular status baseado na data de expiração e se foi aceito
+        let status: "Pendente" | "Aceito" | "Expirado" | "Cancelado" = "Pendente";
+        
+        if (invite.accepted_at) {
+          status = "Aceito";
+        } else if (new Date(invite.expires_at) < new Date()) {
+          status = "Expirado";
+        } else if (invite.status === 'cancelled') {
+          status = "Cancelado";
+        }
+
+        return {
+          id: invite.id,
+          email: invite.email,
+          role: invite.role,
+          status: status,
+          invitedBy: invite.inviter_name || "Sistema",
+          invitedAt: invite.created_at ? new Date(invite.created_at).toLocaleDateString('pt-BR') : '-',
+          acceptedAt: invite.accepted_at ? new Date(invite.accepted_at).toLocaleDateString('pt-BR') : undefined,
+          expiresAt: new Date(invite.expires_at).toLocaleDateString('pt-BR'),
+          inviteLink: invite.invite_link
+        };
+      });
+
+      setInvites(mappedInvites);
+    } catch (error: any) {
+      console.error('Erro ao carregar convites:', error);
+      toast.error('Erro ao carregar convites', {
+        description: error.message
+      });
+    } finally {
+      setLoadingInvites(false);
+    }
+  };
 
   // Filtrar usuários
   const filteredUsers = useMemo(() => {
@@ -450,6 +469,11 @@ export function UsersPermissions() {
   // Abrir diálogo para criar usuário
   const handleNewUser = () => {
     setIsInviteDialogOpen(true);
+  };
+
+  // Callback quando convite é criado com sucesso
+  const handleInviteSuccess = () => {
+    loadInvites(); // Recarregar lista de convites
   };
 
   // Abrir diálogo para editar usuário
@@ -949,6 +973,14 @@ export function UsersPermissions() {
                 <SelectItem value="Cancelado">Cancelado</SelectItem>
               </SelectContent>
             </Select>
+            <Button 
+              onClick={loadInvites} 
+              variant="outline"
+              disabled={loadingInvites}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingInvites ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
           </div>
 
           {/* Tabela de Convites */}
@@ -966,78 +998,103 @@ export function UsersPermissions() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvites.map((invite) => (
-                  <TableRow key={invite.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        {invite.email}
+                {loadingInvites ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Carregando convites...
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getRoleName(invite.role)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(invite.status)}>
-                        <span className="flex items-center gap-1">
-                          {getStatusIcon(invite.status)}
-                          {invite.status}
-                        </span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {invite.invitedBy}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(invite.invitedAt).toLocaleDateString('pt-BR')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          {invite.status === "Pendente" && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleResendInvite(invite.id)}>
-                                <Send className="mr-2 h-4 w-4" />
-                                Reenviar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleCopyInviteLink(invite.inviteLink)}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copiar Link
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleCancelInvite(invite.id)}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancelar
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteInvite(invite.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredInvites.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      {invites.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Mail className="w-8 h-8 text-gray-300" />
+                          <p>Nenhum convite enviado ainda</p>
+                          <p className="text-sm">Convide membros para a sua equipe usando o botão acima</p>
+                        </div>
+                      ) : (
+                        "Nenhum convite encontrado com os filtros aplicados"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredInvites.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          {invite.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getRoleName(invite.role)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(invite.status)}>
+                          <span className="flex items-center gap-1">
+                            {getStatusIcon(invite.status)}
+                            {invite.status}
+                          </span>
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {invite.invitedBy}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4" />
+                          {invite.invitedAt}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4" />
+                          {invite.expiresAt}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            {invite.status === "Pendente" && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleResendInvite(invite.id)}>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Reenviar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCopyInviteLink(invite.inviteLink)}>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Copiar Link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCancelInvite(invite.id)}>
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Cancelar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteInvite(invite.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -1359,7 +1416,11 @@ export function UsersPermissions() {
       </Dialog>
 
       {/* Dialog de Convidar Usuário */}
-      <InviteUserDialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen} />
+      <InviteUserDialog 
+        open={isInviteDialogOpen} 
+        onOpenChange={setIsInviteDialogOpen} 
+        onSuccess={handleInviteSuccess}
+      />
     </div>
   );
 }

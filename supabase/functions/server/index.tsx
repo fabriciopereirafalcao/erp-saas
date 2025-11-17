@@ -312,6 +312,85 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
   }
 });
 
+// Listar convites da empresa (apenas owner/admin)
+app.get("/make-server-686b5e88/invites", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+
+    if (!accessToken) {
+      return c.json({ error: 'Token de autenticação não fornecido' }, 401);
+    }
+
+    // Validar token e obter usuário
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.error('Erro de autenticação:', authError);
+      return c.json({ error: 'Token inválido ou expirado' }, 401);
+    }
+
+    // Buscar company_id do usuário
+    const userDataStr = await kv.get(`user:${user.id}`);
+    if (!userDataStr) {
+      return c.json({ error: 'Dados do usuário não encontrados' }, 404);
+    }
+
+    const userData = JSON.parse(userDataStr);
+    const companyId = userData.company_id;
+
+    // Buscar todos os convites da empresa
+    const allInvites = await kv.getByPrefix('invite:');
+    
+    // Filtrar convites da empresa
+    const companyInvites = allInvites
+      .filter((invite: any) => {
+        try {
+          const inviteData = JSON.parse(invite.value);
+          return inviteData.company_id === companyId;
+        } catch {
+          return false;
+        }
+      })
+      .map((invite: any) => {
+        const inviteData = JSON.parse(invite.value);
+        const token = invite.key.replace('invite:', '');
+        
+        return {
+          id: token,
+          email: inviteData.email,
+          role: inviteData.role,
+          status: inviteData.status,
+          company_id: inviteData.company_id,
+          invited_by: inviteData.invited_by,
+          inviter_name: inviteData.inviter_name,
+          created_at: inviteData.created_at,
+          expires_at: inviteData.expires_at,
+          accepted_at: inviteData.accepted_at,
+          invite_link: `${c.req.url.split('/functions')[0]}/accept-invite?token=${token}`
+        };
+      })
+      // Ordenar por data de criação (mais recentes primeiro)
+      .sort((a: any, b: any) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+    return c.json({
+      success: true,
+      invites: companyInvites,
+      total: companyInvites.length
+    });
+
+  } catch (error) {
+    console.error('Erro ao listar convites:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
 // Aceitar convite e criar conta
 app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
   try {
