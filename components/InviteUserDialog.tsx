@@ -181,6 +181,15 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
                   O convite expira em 7 dias. Após criado, você poderá copiar o link e enviar manualmente.
                 </AlertDescription>
               </Alert>
+
+              {/* Aviso sobre modo de teste do Resend */}
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-sm">
+                  <strong>🧪 Modo de Teste:</strong> Emails estão sendo enviados para <strong>fabriciopereirafalcao@gmail.com</strong> durante o desenvolvimento. 
+                  Para enviar emails reais, verifique um domínio em: <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline">resend.com/domains</a>
+                </AlertDescription>
+              </Alert>
             </div>
 
             <DialogFooter>
@@ -204,7 +213,8 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
                 <AlertDescription className="text-green-800">
                   {emailSent ? (
                     <>
-                      📧 <strong>Email enviado!</strong> Um convite foi enviado automaticamente para <strong>{email}</strong>.
+                      📧 <strong>Email enviado!</strong> Um convite foi enviado para <strong>fabriciopereirafalcao@gmail.com</strong> (modo de teste).<br/>
+                      <span className="text-xs mt-1 block">O email original era para: {email}</span>
                     </>
                   ) : (
                     <>
