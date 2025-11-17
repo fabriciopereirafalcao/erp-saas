@@ -157,7 +157,7 @@ const MODULES = [
 ];
 
 export function UsersPermissions() {
-  const { companySettings, setActiveSection } = useERP();
+  const { companySettings } = useERP();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -1023,11 +1023,13 @@ export function UsersPermissions() {
                     </div>
                   </div>
                   <Button
-                    onClick={() => setActiveSection('company')}
+                    onClick={() => {
+                      toast.info("Acesse 'Minha Empresa' na engrenagem da barra superior para completar os dados necessários.");
+                    }}
                     className="bg-orange-600 hover:bg-orange-700 whitespace-nowrap"
                   >
                     <Building2 className="w-4 h-4 mr-2" />
-                    Ir para Minha Empresa
+                    Como Completar?
                   </Button>
                 </div>
               </AlertDescription>

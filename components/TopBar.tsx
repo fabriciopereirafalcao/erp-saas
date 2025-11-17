@@ -100,7 +100,7 @@ export const TopBar = memo(function TopBar({ onNavigate }: TopBarProps) {
               
               <DropdownMenuItem onClick={() => onNavigate('company')}>
                 <Building2 className="w-4 h-4 mr-2" />
-                Configurações da Empresa
+                Minha Empresa
               </DropdownMenuItem>
               
               <DropdownMenuItem onClick={() => onNavigate('chartOfAccounts')}>
