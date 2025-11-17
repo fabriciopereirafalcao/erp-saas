@@ -74,8 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Carregar perfil do usuário
   const loadUserProfile = async (userId: string) => {
     try {
-      console.log('[AuthContext] 🔍 Carregando perfil do usuário:', userId);
-      
       // ⚡ TIMEOUT: Se a query demorar mais de 5 segundos, abortar
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 5000)
@@ -88,31 +86,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', userId)
         .single();
       
-      console.log('[AuthContext] 📡 Buscando dados do usuário...');
       const { data: profileData, error: profileError } = await Promise.race([
         profilePromise,
         timeoutPromise
       ]) as any;
 
       if (profileError) {
-        console.error('[AuthContext] ❌ Erro ao buscar perfil:', profileError);
+        console.error('[AuthContext] Erro ao buscar perfil:', profileError);
         throw profileError;
       }
 
       if (!profileData) {
-        console.error('[AuthContext] ❌ Perfil não encontrado');
+        console.error('[AuthContext] Perfil não encontrado');
         throw new Error('Perfil não encontrado');
       }
 
-      console.log('[AuthContext] ✅ Perfil carregado:', profileData);
       setProfile(profileData);
-      console.log('[AuthContext] ✅ Profile setado');
       
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
         try {
-          console.log('[AuthContext] 📡 Buscando dados da empresa:', profileData.company_id);
-          
           const companyPromise = supabase
             .from('companies')
             .select('*')
@@ -127,21 +120,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ]) as any;
           
           if (companyError) {
-            console.warn('[AuthContext] ⚠️ Erro ao buscar company (não crítico):', companyError);
+            console.warn('[AuthContext] Erro ao buscar company:', companyError);
           } else if (companyData) {
-            console.log('[AuthContext] ✅ Company carregada:', companyData);
             setCompany(companyData);
           }
         } catch (error) {
-          console.warn('[AuthContext] ⚠️ Erro ao carregar company (não crítico):', error);
+          console.warn('[AuthContext] Erro ao carregar company:', error);
           // Continuar mesmo sem company
         }
-      } else {
-        console.log('[AuthContext] ℹ️ Usuário sem company_id');
       }
       
     } catch (error) {
-      console.error('[AuthContext] ❌ Erro crítico ao carregar perfil:', error);
+      console.error('[AuthContext] Erro crítico ao carregar perfil:', error);
       // Não propagar o erro - permitir que o app continue
       // O usuário ainda pode usar o app mesmo sem perfil completo
     }
@@ -151,7 +141,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 🔓 BYPASS AUTH: Usar dados MOCK em desenvolvimento
     if (FEATURES.BYPASS_AUTH) {
-      console.log('🔓 [BYPASS_AUTH] Autenticação desabilitada - usando dados MOCK');
       setUser(MOCK_USER);
       setProfile(MOCK_PROFILE);
       setCompany(MOCK_COMPANY);
@@ -161,18 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // ✅ Autenticação real com Supabase
-    // Verificar sessão atual com tratamento de erros
     const initializeAuth = async () => {
-      console.log('[AuthContext] 🚀 Iniciando verificação de autenticação...');
-      
       try {
-        console.log('[AuthContext] 📡 Buscando sessão do Supabase...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        console.log('[AuthContext] 📡 Resposta recebida:', { session: !!session, error: !!error });
-        
         if (error) {
-          console.error('[AuthContext] ❌ Erro ao verificar sessão:', error);
+          console.error('[AuthContext] Erro ao verificar sessão:', error);
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -180,69 +163,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           return;
         }
-
-        console.log('[AuthContext] ℹ️ Sessão:', session ? 'ENCONTRADA' : 'NÃO ENCONTRADA');
         
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log('[AuthContext] 👤 Usuário autenticado, carregando perfil...');
           await loadUserProfile(session.user.id);
-          console.log('[AuthContext] ✅ Perfil carregado com sucesso!');
-        } else {
-          console.log('[AuthContext] ℹ️ Nenhum usuário autenticado');
         }
       } catch (error) {
-        console.error('[AuthContext] ❌ Erro crítico ao inicializar autenticação:', error);
+        console.error('[AuthContext] Erro crítico ao inicializar autenticação:', error);
         setSession(null);
         setUser(null);
         setProfile(null);
         setCompany(null);
       } finally {
         // ⚡ CRÍTICO: Sempre desabilitar loading, mesmo em caso de erro
-        console.log('[AuthContext] ✅ Finalizando loading...');
         setLoading(false);
-        console.log('[AuthContext] ✅ Loading finalizado! Estado: loading=false');
       }
     };
 
-    console.log('[AuthContext] 🏁 Executando initializeAuth...');
     initializeAuth();
 
     // Escutar mudanças de autenticação
-    console.log('[AuthContext] 👂 Configurando listener de mudanças de auth...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[AuthContext] 🔔 Mudança de auth detectada:', event);
-        
         try {
           setSession(session);
           setUser(session?.user ?? null);
           
           if (session?.user) {
-            console.log('[AuthContext] 👤 Usuário autenticado após mudança, carregando perfil...');
             await loadUserProfile(session.user.id);
-            console.log('[AuthContext] ✅ Perfil carregado após mudança de auth');
           } else {
-            console.log('[AuthContext] ℹ️ Usuário desconectado');
             setProfile(null);
             setCompany(null);
           }
         } catch (error) {
-          console.error('[AuthContext] ❌ Erro ao processar mudança de autenticação:', error);
+          console.error('[AuthContext] Erro ao processar mudança de autenticação:', error);
         } finally {
-          console.log('[AuthContext] ✅ Finalizando loading após mudança de auth...');
           setLoading(false);
-          console.log('[AuthContext] ✅ Loading=false (listener)');
         }
       }
     );
 
-    return () => {
-      console.log('[AuthContext] 🧹 Limpando subscription...');
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   // Login
