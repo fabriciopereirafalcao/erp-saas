@@ -102,6 +102,33 @@ export const authFetch = async (
       throw new Error('Não autorizado');
     }
     
+    // Verificar se recebeu erro 500
+    if (response.status === 500) {
+      console.error('❌ Erro 500 recebido na requisição:', url);
+      
+      // Tentar obter mensagem de erro do backend
+      let errorMessage = 'Ocorreu um erro no servidor. Por favor, tente novamente.';
+      try {
+        const errorData = await response.clone().json();
+        if (errorData.error) {
+          // Usar mensagem do backend, mas sem expor detalhes técnicos
+          errorMessage = errorData.error.includes('Erro interno:') 
+            ? 'Ocorreu um erro no servidor. Por favor, tente novamente.'
+            : errorData.error;
+        }
+      } catch {
+        // Se não conseguir parsear JSON, usar mensagem padrão
+      }
+      
+      // Mostrar toast com erro amigável
+      toast.error('Erro no servidor', {
+        description: errorMessage,
+        duration: 5000,
+      });
+      
+      throw new Error(errorMessage);
+    }
+    
     return response;
     
   } catch (error: any) {
