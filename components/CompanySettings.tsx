@@ -1063,7 +1063,7 @@ export function CompanySettings() {
           </div>
 
           <div className="grid gap-4">
-            {companySettings.bankAccounts.map((account) => (
+            {(companySettings.bankAccounts || []).map((account) => (
               <Card key={account.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -1097,7 +1097,7 @@ export function CompanySettings() {
               </Card>
             ))}
 
-            {companySettings.bankAccounts.length === 0 && (
+            {(companySettings.bankAccounts || []).length === 0 && (
               <Card className="p-8 text-center text-gray-500">
                 <Landmark className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                 <p>Nenhuma conta bancária cadastrada</p>
@@ -1122,7 +1122,7 @@ export function CompanySettings() {
           </DialogHeader>
 
           <div className="overflow-y-auto max-h-[60vh]">
-            {companyHistory.length === 0 ? (
+            {(!companyHistory || companyHistory.length === 0) ? (
               <div className="text-center py-12">
                 <History className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">Nenhuma alteração registrada</p>
@@ -1132,7 +1132,7 @@ export function CompanySettings() {
               </div>
             ) : (
               <div className="space-y-4">
-                {companyHistory.map((entry, index) => (
+                {(companyHistory || []).map((entry, index) => (
                   <Card key={entry.id} className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
