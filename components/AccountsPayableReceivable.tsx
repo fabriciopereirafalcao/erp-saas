@@ -22,6 +22,13 @@ export function AccountsPayableReceivable() {
     markTransactionAsPaid
   } = useERP();
 
+  // ✅ Proteções contra arrays undefined
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeSalesOrders = salesOrders || [];
+  const safePurchaseOrders = purchaseOrders || [];
+  const safePaymentMethods = paymentMethods || [];
+  const safeBankAccounts = companySettings?.bankAccounts || [];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatusReceivable, setFilterStatusReceivable] = useState("Todos");
   const [filterStatusPayable, setFilterStatusPayable] = useState("Todos");
@@ -38,12 +45,12 @@ export function AccountsPayableReceivable() {
   const getLinkedOrder = (txn: any) => {
     if (txn.origin === "Pedido" && txn.reference) {
       // Primeiro tentar buscar em pedidos de venda
-      const salesOrder = salesOrders.find(o => o.id === txn.reference);
+      const salesOrder = safeSalesOrders.find(o => o.id === txn.reference);
       if (salesOrder) {
         return salesOrder;
       }
       // Se não encontrar, buscar em pedidos de compra
-      const purchaseOrder = purchaseOrders.find(o => o.id === txn.reference);
+      const purchaseOrder = safePurchaseOrders.find(o => o.id === txn.reference);
       if (purchaseOrder) {
         return purchaseOrder;
       }
@@ -59,12 +66,12 @@ export function AccountsPayableReceivable() {
   };
 
   // Filtrar transações a receber
-  const receivableTransactions = financialTransactions.filter(t => 
+  const receivableTransactions = safeFinancialTransactions.filter(t => 
     t.type === "Receita" && (t.status === "A Receber" || t.status === "A Vencer" || t.status === "Vencido")
   );
 
   // Filtrar transações a pagar
-  const payableTransactions = financialTransactions.filter(t => 
+  const payableTransactions = safeFinancialTransactions.filter(t => 
     t.type === "Despesa" && (t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido")
   );
 
@@ -115,7 +122,7 @@ export function AccountsPayableReceivable() {
     return dueDate < today;
   }).reduce((sum, t) => sum + t.amount, 0);
 
-  const receivablesMonth = financialTransactions.filter(t =>
+  const receivablesMonth = safeFinancialTransactions.filter(t =>
     t.type === "Receita" && 
     t.status === "Recebido" && 
     t.paymentDate &&
@@ -143,7 +150,7 @@ export function AccountsPayableReceivable() {
     return dueDate < today;
   }).reduce((sum, t) => sum + t.amount, 0);
 
-  const payablesMonth = financialTransactions.filter(t =>
+  const payablesMonth = safeFinancialTransactions.filter(t =>
     t.type === "Despesa" && 
     t.status === "Pago" && 
     t.paymentDate &&
@@ -157,15 +164,15 @@ export function AccountsPayableReceivable() {
   const handleOpenReceiveDialog = (transactionId: string) => {
     setReceivingTransaction(transactionId);
     setEffectiveDate(new Date());
-    setReceiveBankAccountId(companySettings.bankAccounts[0]?.id || "");
-    setReceivePaymentMethodId(paymentMethods.find(pm => pm.isActive)?.id || "");
+    setReceiveBankAccountId(safeBankAccounts[0]?.id || "");
+    setReceivePaymentMethodId(safePaymentMethods.find(pm => pm.isActive)?.id || "");
     setShowReceiveDialog(true);
   };
 
   const handleMarkAsReceived = () => {
     if (!receivingTransaction) return;
     
-    const transaction = financialTransactions.find(t => t.id === receivingTransaction);
+    const transaction = safeFinancialTransactions.find(t => t.id === receivingTransaction);
     if (!transaction) {
       return;
     }
@@ -175,8 +182,8 @@ export function AccountsPayableReceivable() {
     }
 
     const formattedDate = effectiveDate.toISOString().split('T')[0];
-    const bankAccount = companySettings.bankAccounts.find(b => b.id === receiveBankAccountId);
-    const paymentMethod = paymentMethods.find(pm => pm.id === receivePaymentMethodId);
+    const bankAccount = safeBankAccounts.find(b => b.id === receiveBankAccountId);
+    const paymentMethod = safePaymentMethods.find(pm => pm.id === receivePaymentMethodId);
     
     if (transaction.type === "Receita") {
       markTransactionAsReceived(
@@ -703,7 +710,7 @@ export function AccountsPayableReceivable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {receivingTransaction && financialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
+              {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
                 ? "Confirmar Recebimento" 
                 : "Confirmar Pagamento"}
             </DialogTitle>
@@ -715,7 +722,7 @@ export function AccountsPayableReceivable() {
           <div className="space-y-4">
             <div>
               <label className="text-sm">
-                Data de {receivingTransaction && financialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
+                Data de {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
               </label>
               <Input
                 type="date"
@@ -731,7 +738,7 @@ export function AccountsPayableReceivable() {
                   <SelectValue placeholder="Selecione a conta" />
                 </SelectTrigger>
                 <SelectContent>
-                  {companySettings.bankAccounts.map(bank => (
+                  {safeBankAccounts.map(bank => (
                     <SelectItem key={bank.id} value={bank.id}>
                       {bank.bankName} - {bank.accountNumber}
                     </SelectItem>
@@ -747,7 +754,7 @@ export function AccountsPayableReceivable() {
                   <SelectValue placeholder="Selecione a forma" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.filter(pm => pm.isActive).map(pm => (
+                  {safePaymentMethods.filter(pm => pm.isActive).map(pm => (
                     <SelectItem key={pm.id} value={pm.id}>
                       {pm.name}
                     </SelectItem>
@@ -763,11 +770,11 @@ export function AccountsPayableReceivable() {
             </Button>
             <Button
               onClick={handleMarkAsReceived}
-              className={receivingTransaction && financialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
+              className={receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
                 ? "bg-green-600 hover:bg-green-700" 
                 : "bg-blue-600 hover:bg-blue-700"}
             >
-              Confirmar {receivingTransaction && financialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
+              Confirmar {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
             </Button>
           </DialogFooter>
         </DialogContent>
