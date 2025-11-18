@@ -34,6 +34,17 @@ export function FinancialTransactions() {
     purchaseOrders
   } = useERP();
 
+  // ✅ Proteções contra arrays undefined
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeCustomers = customers || [];
+  const safeSuppliers = suppliers || [];
+  const safeAccountCategories = accountCategories || [];
+  const safePaymentMethods = paymentMethods || [];
+  const safeSalesOrders = salesOrders || [];
+  const safePurchaseOrders = purchaseOrders || [];
+  const safeBankAccounts = companySettings?.bankAccounts || [];
+  const safeCostCenters = companySettings?.costCenters || [];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"Todas" | "Receita" | "Despesa">("Todas");
   const [filterStatus, setFilterStatus] = useState<string>("Todos");
@@ -80,12 +91,12 @@ export function FinancialTransactions() {
   const getLinkedOrder = (txn: any) => {
     if (txn.origin === "Pedido" && txn.reference) {
       // Primeiro tentar buscar em pedidos de venda
-      const salesOrder = salesOrders.find(o => o.id === txn.reference);
+      const salesOrder = safeSalesOrders.find(o => o.id === txn.reference);
       if (salesOrder) {
         return salesOrder;
       }
       // Se não encontrar, buscar em pedidos de compra
-      const purchaseOrder = purchaseOrders.find(o => o.id === txn.reference);
+      const purchaseOrder = safePurchaseOrders.find(o => o.id === txn.reference);
       if (purchaseOrder) {
         return purchaseOrder;
       }
@@ -102,7 +113,7 @@ export function FinancialTransactions() {
     return dueDate < today && (txn.status === "A Receber" || txn.status === "A Pagar" || txn.status === "A Vencer" || txn.status === "Vencido");
   };
 
-  const filteredTransactions = financialTransactions.filter(txn => {
+  const filteredTransactions = safeFinancialTransactions.filter(txn => {
     const matchesSearch =
       txn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       txn.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,11 +128,11 @@ export function FinancialTransactions() {
     return matchesSearch && matchesType && matchesStatus && matchesOrigin;
   });
 
-  const totalReceitas = financialTransactions
+  const totalReceitas = safeFinancialTransactions
     .filter(t => t.type === "Receita" && (t.status === "Recebido" || t.status === "Pago"))
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalDespesas = financialTransactions
+  const totalDespesas = safeFinancialTransactions
     .filter(t => t.type === "Despesa" && (t.status === "Pago" || t.status === "Recebido"))
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -131,7 +142,7 @@ export function FinancialTransactions() {
     setIsTransferMode(transferMode);
     
     if (transactionId) {
-      const transaction = financialTransactions.find(t => t.id === transactionId);
+      const transaction = safeFinancialTransactions.find(t => t.id === transactionId);
       if (transaction) {
         setEditingTransaction(transactionId);
         setFormData({
@@ -156,7 +167,7 @@ export function FinancialTransactions() {
         partyType: "Outro",
         partyId: "",
         partyName: "",
-        categoryId: accountCategories[0]?.id || "",
+        categoryId: safeAccountCategories[0]?.id || "",
         amount: "",
         costCenterId: "",
         description: "",
@@ -166,8 +177,8 @@ export function FinancialTransactions() {
       
       // Resetar dados de transferência
       setTransferData({
-        sourceAccountId: companySettings.bankAccounts[0]?.id || "",
-        destinationAccountId: companySettings.bankAccounts[1]?.id || "",
+        sourceAccountId: safeBankAccounts[0]?.id || "",
+        destinationAccountId: safeBankAccounts[1]?.id || "",
         amount: "",
         date: new Date(),
         description: ""
@@ -200,8 +211,8 @@ export function FinancialTransactions() {
     }
 
     const amount = parseFloat(transferData.amount) / 100;
-    const sourceAccount = companySettings.bankAccounts.find(b => b.id === transferData.sourceAccountId);
-    const destinationAccount = companySettings.bankAccounts.find(b => b.id === transferData.destinationAccountId);
+    const sourceAccount = safeBankAccounts.find(b => b.id === transferData.sourceAccountId);
+    const destinationAccount = safeBankAccounts.find(b => b.id === transferData.destinationAccountId);
 
     if (!sourceAccount || !destinationAccount) {
       toast.error("Contas bancárias não encontradas");
@@ -209,8 +220,8 @@ export function FinancialTransactions() {
     }
 
     // Encontrar categoria de transferência ou usar primeira categoria
-    const transferCategory = accountCategories.find(c => c.name.toLowerCase().includes("transferência")) || accountCategories[0];
-    const paymentMethod = paymentMethods.find(pm => pm.isActive);
+    const transferCategory = safeAccountCategories.find(c => c.name.toLowerCase().includes("transferência")) || safeAccountCategories[0];
+    const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
 
     const transactionDate = transferData.date.toISOString().split('T')[0];
 
@@ -295,8 +306,8 @@ export function FinancialTransactions() {
       return;
     }
 
-    const category = accountCategories.find(c => c.id === formData.categoryId);
-    const costCenter = companySettings.costCenters.find(c => c.id === formData.costCenterId);
+    const category = safeAccountCategories.find(c => c.id === formData.categoryId);
+    const costCenter = safeCostCenters.find(c => c.id === formData.costCenterId);
 
     const numInstallments = parseInt(formData.installments);
     const totalAmount = parseFloat(formData.amount) / 100;
@@ -375,15 +386,15 @@ export function FinancialTransactions() {
     setReceivingTransaction(transactionId);
     setEffectiveDate(new Date());
     // Definir valores padrão para conta e forma de pagamento
-    setReceiveBankAccountId(companySettings.bankAccounts[0]?.id || "");
-    setReceivePaymentMethodId(paymentMethods.find(pm => pm.isActive)?.id || "");
+    setReceiveBankAccountId(safeBankAccounts[0]?.id || "");
+    setReceivePaymentMethodId(safePaymentMethods.find(pm => pm.isActive)?.id || "");
     setShowReceiveDialog(true);
   };
 
   const handleMarkAsReceived = () => {
     if (!receivingTransaction) return;
     
-    const transaction = financialTransactions.find(t => t.id === receivingTransaction);
+    const transaction = safeFinancialTransactions.find(t => t.id === receivingTransaction);
     if (!transaction) {
       toast.error("Transação não encontrada");
       return;
@@ -410,8 +421,8 @@ export function FinancialTransactions() {
     }
 
     const formattedDate = effectiveDate.toISOString().split('T')[0];
-    const bankAccount = companySettings.bankAccounts.find(b => b.id === receiveBankAccountId);
-    const paymentMethod = paymentMethods.find(pm => pm.id === receivePaymentMethodId);
+    const bankAccount = safeBankAccounts.find(b => b.id === receiveBankAccountId);
+    const paymentMethod = safePaymentMethods.find(pm => pm.id === receivePaymentMethodId);
     
     if (transaction.type === "Receita") {
       markTransactionAsReceived(
@@ -443,7 +454,7 @@ export function FinancialTransactions() {
     // Primeiro, tentar usar parentTransactionId se existir
     if (transaction.parentTransactionId) {
       const parentId = transaction.parentTransactionId;
-      const byParentId = financialTransactions.filter(t => 
+      const byParentId = safeFinancialTransactions.filter(t => 
         t.id === parentId || t.parentTransactionId === parentId
       );
       if (byParentId.length > 0) return byParentId;
@@ -455,7 +466,7 @@ export function FinancialTransactions() {
     // - TotalInstallments igual
     // - InstallmentNumbers sequenciais
     if (transaction.totalInstallments && transaction.totalInstallments > 1) {
-      const candidates = financialTransactions.filter(t => 
+      const candidates = safeFinancialTransactions.filter(t => 
         t.type === transaction.type &&
         t.partyName === transaction.partyName &&
         t.date === transaction.date &&
@@ -475,7 +486,7 @@ export function FinancialTransactions() {
   };
 
   const handleOpenEditDialog = (transactionId: string, mode: "single" | "all" = "single") => {
-    const transaction = financialTransactions.find(t => t.id === transactionId);
+    const transaction = safeFinancialTransactions.find(t => t.id === transactionId);
     if (!transaction) {
       toast.error("Transação não encontrada");
       return;
@@ -571,19 +582,19 @@ export function FinancialTransactions() {
       return;
     }
 
-    const transaction = financialTransactions.find(t => t.id === editingTransaction);
+    const transaction = safeFinancialTransactions.find(t => t.id === editingTransaction);
     if (!transaction) {
       toast.error("Transação não encontrada");
       return;
     }
 
-    const category = accountCategories.find(c => c.id === formData.categoryId);
-    const costCenter = companySettings.costCenters.find(c => c.id === formData.costCenterId);
+    const category = safeAccountCategories.find(c => c.id === formData.categoryId);
+    const costCenter = safeCostCenters.find(c => c.id === formData.costCenterId);
 
     // Se for edição de todas as parcelas (toda a transação)
     if (editingInstallmentMode === "all" && transaction.totalInstallments && transaction.totalInstallments > 1) {
       // Buscar todas as transações do mesmo grupo
-      const allInstallments = financialTransactions.filter(t => 
+      const allInstallments = safeFinancialTransactions.filter(t => 
         t.parentTransactionId === transaction.parentTransactionId ||
         t.id === transaction.parentTransactionId ||
         (transaction.parentTransactionId && t.parentTransactionId === transaction.parentTransactionId)
@@ -661,8 +672,8 @@ export function FinancialTransactions() {
 
         // Criar novas parcelas
         const currentMaxInstallment = Math.max(...allInstallments.map(t => t.installmentNumber || 0));
-        const bankAccount = companySettings.bankAccounts[0];
-        const paymentMethod = paymentMethods.find(pm => pm.isActive);
+        const bankAccount = safeBankAccounts[0];
+        const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
 
         for (let i = 0; i < parcelasACriar; i++) {
           const installmentNumber = currentMaxInstallment + i + 1;
@@ -1140,7 +1151,7 @@ export function FinancialTransactions() {
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {companySettings.bankAccounts.map(account => (
+                      {safeBankAccounts.map(account => (
                         <SelectItem key={account.id} value={account.id}>
                           {account.bankName} - Saldo: R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </SelectItem>
@@ -1160,7 +1171,7 @@ export function FinancialTransactions() {
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {companySettings.bankAccounts.map(account => (
+                      {safeBankAccounts.map(account => (
                         <SelectItem key={account.id} value={account.id}>
                           {account.bankName} - Saldo: R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </SelectItem>
@@ -1367,7 +1378,7 @@ export function FinancialTransactions() {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accountCategories
+                  {safeAccountCategories
                     .filter(cat => cat.type === formData.type && cat.isActive)
                     .map(category => (
                       <SelectItem key={category.id} value={category.id}>
@@ -1409,7 +1420,7 @@ export function FinancialTransactions() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  {companySettings.costCenters.map(center => (
+                  {safeCostCenters.map(center => (
                     <SelectItem key={center.id} value={center.id}>
                       {center.name}
                     </SelectItem>
@@ -1582,7 +1593,7 @@ export function FinancialTransactions() {
           </DialogHeader>
 
           {receivingTransaction && (() => {
-            const txn = financialTransactions.find(t => t.id === receivingTransaction);
+            const txn = safeFinancialTransactions.find(t => t.id === receivingTransaction);
             const linkedOrder = txn ? getLinkedOrder(txn) : null;
             
             return txn ? (
@@ -1671,14 +1682,14 @@ export function FinancialTransactions() {
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {companySettings.bankAccounts.map((account) => (
+                      {safeBankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
                           {account.bankName} - {account.accountType} ({account.agency}/{account.accountNumber})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {companySettings.bankAccounts.length === 0 && (
+                  {safeBankAccounts.length === 0 && (
                     <p className="text-xs text-amber-600 mt-1">
                       ⚠️ Nenhuma conta cadastrada. Cadastre em Minha Empresa.
                     </p>
@@ -1696,14 +1707,14 @@ export function FinancialTransactions() {
                       <SelectValue placeholder="Selecione a forma de pagamento" />
                     </SelectTrigger>
                     <SelectContent>
-                      {paymentMethods.filter(pm => pm.isActive).map((method) => (
+                      {safePaymentMethods.filter(pm => pm.isActive).map((method) => (
                         <SelectItem key={method.id} value={method.id}>
                           {method.name} {method.type && `(${method.type})`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {paymentMethods.filter(pm => pm.isActive).length === 0 && (
+                  {safePaymentMethods.filter(pm => pm.isActive).length === 0 && (
                     <p className="text-xs text-amber-600 mt-1">
                       ⚠️ Nenhuma forma de pagamento ativa. Cadastre em Minha Empresa.
                     </p>
@@ -1885,7 +1896,7 @@ export function FinancialTransactions() {
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accountCategories
+                  {safeAccountCategories
                     .filter(cat => cat.type === formData.type)
                     .map(category => (
                       <SelectItem key={category.id} value={category.id}>
@@ -1953,7 +1964,7 @@ export function FinancialTransactions() {
             )}
 
             {/* Centro de Custo */}
-            {companySettings.costCenters.length > 0 && (
+            {safeCostCenters.length > 0 && (
               <div>
                 <Label>Centro de Custo</Label>
                 <Select
@@ -1965,7 +1976,7 @@ export function FinancialTransactions() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Nenhum</SelectItem>
-                    {companySettings.costCenters.map(center => (
+                    {safeCostCenters.map(center => (
                       <SelectItem key={center.id} value={center.id}>
                         {center.name}
                       </SelectItem>
