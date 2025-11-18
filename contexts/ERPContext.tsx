@@ -23,6 +23,10 @@ import {
 import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
+import { authGet, authPatch } from '../utils/authFetch';
+import { projectId } from '../utils/supabase/info';
+import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
+import { useAuth } from './AuthContext';
 
 // ==================== INTERFACES ====================
 
@@ -654,6 +658,13 @@ const initialAccountsPayable: AccountPayable[] = [];
 // ==================== PROVIDER ====================
 
 export function ERPProvider({ children }: { children: ReactNode }) {
+  // Integração com AuthContext para obter company_id
+  const { profile } = useAuth();
+  
+  // Estado de carregamento de dados do backend
+  const [isLoadingCompanySettings, setIsLoadingCompanySettings] = useState(false);
+  const [companySettingsLoaded, setCompanySettingsLoaded] = useState(false);
+  
   // Carrega dados do localStorage ou usa valores iniciais
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const loaded = loadFromStorage(STORAGE_KEYS.CUSTOMERS, initialCustomers);
@@ -1194,8 +1205,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   }, [cashFlowEntries]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.COMPANY_SETTINGS, companySettings);
-  }, [companySettings]);
+    // Salvar no localStorage com prefixo de company_id para isolamento
+    if (profile?.company_id) {
+      const cacheKey = `${STORAGE_KEYS.COMPANY_SETTINGS}_${profile.company_id}`;
+      saveToStorage(cacheKey, companySettings);
+    } else {
+      // Fallback para chave antiga (será migrado depois)
+      saveToStorage(STORAGE_KEYS.COMPANY_SETTINGS, companySettings);
+    }
+  }, [companySettings, profile?.company_id]);
 
   useEffect(() => {
     saveToStorage('companyHistory', companyHistory);
@@ -1212,6 +1230,101 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.LAST_ANALYSIS_DATE, lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
   }, [lastAnalysisDate]);
+
+  // ==================== INTEGRAÇÃO COM BACKEND ====================
+  
+  /**
+   * Carregar companySettings do backend quando o usuário fizer login
+   */
+  useEffect(() => {
+    const loadCompanySettingsFromBackend = async () => {
+      // Não carregar se já carregou ou se não tem profile
+      if (companySettingsLoaded || !profile?.company_id || isLoadingCompanySettings) {
+        return;
+      }
+
+      try {
+        setIsLoadingCompanySettings(true);
+        console.log('🔄 Carregando configurações da empresa do backend...');
+
+        const response = await authGet(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/company`
+        );
+
+        if (response.success && response.company) {
+          console.log('✅ Dados da empresa carregados do backend');
+          
+          // Mapear dados do banco para CompanySettings
+          const backendSettings = mapDatabaseToSettings(response.company);
+          
+          // Verificar se há dados no localStorage (migração)
+          const localSettings = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+          
+          // Se localStorage tem dados mais completos (CNPJ preenchido, contas bancárias, etc)
+          // fazer migração automática para o backend
+          const shouldMigrate = 
+            localSettings.cnpj && 
+            !backendSettings.cnpj &&
+            localSettings.bankAccounts.length > 0;
+          
+          if (shouldMigrate) {
+            console.log('🔄 Migrando dados do localStorage para o backend...');
+            await migrateLocalStorageToBackend(localSettings);
+            setCompanySettings(localSettings);
+          } else {
+            // Usar dados do backend
+            setCompanySettings(backendSettings);
+          }
+          
+          setCompanySettingsLoaded(true);
+        }
+      } catch (error: any) {
+        console.error('❌ Erro ao carregar configurações da empresa:', error);
+        
+        // Em caso de erro, usar dados do localStorage como fallback
+        const localSettings = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+        setCompanySettings(localSettings);
+        
+        toast.error('Erro ao carregar dados da empresa', {
+          description: 'Usando dados locais temporariamente.'
+        });
+      } finally {
+        setIsLoadingCompanySettings(false);
+      }
+    };
+
+    loadCompanySettingsFromBackend();
+  }, [profile?.company_id, companySettingsLoaded]);
+
+  /**
+   * Migrar dados do localStorage para o backend
+   */
+  const migrateLocalStorageToBackend = async (settings: CompanySettings) => {
+    try {
+      console.log('📤 Enviando dados para o backend...');
+      
+      const updates = mapSettingsToDatabase(settings);
+      
+      await authPatch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/company`,
+        updates
+      );
+      
+      console.log('✅ Migração concluída com sucesso!');
+      toast.success('Dados migrados', {
+        description: 'Suas configurações foram salvas no servidor.'
+      });
+      
+      // Limpar localStorage antigo após migração bem-sucedida
+      // (mantém apenas como cache com prefixo de company_id)
+      const cacheKey = `${STORAGE_KEYS.COMPANY_SETTINGS}_${profile?.company_id}`;
+      saveToStorage(cacheKey, settings);
+      
+    } catch (error: any) {
+      console.error('❌ Erro na migração:', error);
+      throw error;
+    }
+  };
 
   // ==================== VALIDAÇÃO DE INTEGRIDADE ====================
   
@@ -2847,9 +2960,36 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // ==================== COMPANY SETTINGS ACTIONS ====================
 
-  const updateCompanySettings = (updates: Partial<CompanySettings>, showToast: boolean = false) => {
+  const updateCompanySettings = async (updates: Partial<CompanySettings>, showToast: boolean = false) => {
     const oldSettings = companySettings;
+    
+    // Atualizar estado local imediatamente (otimistic update)
     setCompanySettings(prev => ({ ...prev, ...updates }));
+    
+    // Sincronizar com backend em background
+    if (profile?.company_id) {
+      try {
+        const dbUpdates = mapSettingsToDatabase({ ...companySettings, ...updates });
+        
+        await authPatch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/company`,
+          dbUpdates
+        );
+        
+        console.log('✅ Configurações sincronizadas com o backend');
+      } catch (error: any) {
+        console.error('❌ Erro ao sincronizar configurações:', error);
+        
+        // Em caso de erro, reverter mudanças locais
+        setCompanySettings(oldSettings);
+        
+        toast.error('Erro ao salvar configurações', {
+          description: 'As alterações não foram salvas. Tente novamente.'
+        });
+        
+        return; // Não continuar se falhou
+      }
+    }
     
     // Registrar histórico de mudanças
     const changes: CompanyHistoryEntry['changes'] = [];
@@ -2930,28 +3070,32 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       ...accountData,
       id: `BANK-${String(maxId + 1).padStart(3, '0')}`
     };
-    setCompanySettings(prev => ({
-      ...prev,
-      bankAccounts: [...prev.bankAccounts, newAccount]
-    }));
+    
+    const updatedSettings = {
+      ...companySettings,
+      bankAccounts: [...companySettings.bankAccounts, newAccount]
+    };
+    
+    // Atualizar estado local e sincronizar com backend
+    updateCompanySettings({ bankAccounts: updatedSettings.bankAccounts }, false);
     toast.success("Conta bancária adicionada!");
   };
 
   const updateBankAccount = (id: string, updates: Partial<BankAccount>) => {
-    setCompanySettings(prev => ({
-      ...prev,
-      bankAccounts: prev.bankAccounts.map(acc => 
-        acc.id === id ? { ...acc, ...updates } : acc
-      )
-    }));
+    const updatedBankAccounts = companySettings.bankAccounts.map(acc => 
+      acc.id === id ? { ...acc, ...updates } : acc
+    );
+    
+    // Atualizar estado local e sincronizar com backend
+    updateCompanySettings({ bankAccounts: updatedBankAccounts }, false);
     toast.success("Conta bancária atualizada!");
   };
 
   const deleteBankAccount = (id: string) => {
-    setCompanySettings(prev => ({
-      ...prev,
-      bankAccounts: prev.bankAccounts.filter(acc => acc.id !== id)
-    }));
+    const updatedBankAccounts = companySettings.bankAccounts.filter(acc => acc.id !== id);
+    
+    // Atualizar estado local e sincronizar com backend
+    updateCompanySettings({ bankAccounts: updatedBankAccounts }, false);
     toast.success("Conta bancária removida!");
   };
 

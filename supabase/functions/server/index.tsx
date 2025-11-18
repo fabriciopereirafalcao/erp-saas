@@ -713,6 +713,129 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
   }
 });
 
+// =====================================================
+// COMPANY SETTINGS ROUTES
+// =====================================================
+
+// Buscar dados da empresa do usuário logado
+app.get("/make-server-686b5e88/company", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    if (!accessToken) {
+      return c.json({ error: 'Token de autenticação não fornecido' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar perfil do usuário para obter company_id
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Buscar dados da empresa
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', profile.company_id)
+      .single();
+
+    if (companyError) {
+      console.error('Erro ao buscar empresa:', companyError);
+      return c.json({ error: `Erro ao buscar empresa: ${companyError.message}` }, 500);
+    }
+
+    if (!company) {
+      return c.json({ error: 'Empresa não encontrada' }, 404);
+    }
+
+    return c.json({ 
+      success: true,
+      company 
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar empresa:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
+// Atualizar dados da empresa (apenas owner/admin)
+app.patch("/make-server-686b5e88/company", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const updates = await c.req.json();
+
+    if (!accessToken) {
+      return c.json({ error: 'Token de autenticação não fornecido' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar perfil do usuário
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('company_id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Verificar permissão (apenas owner e admin podem editar)
+    if (profile.role !== 'owner' && profile.role !== 'admin') {
+      return c.json({ error: 'Sem permissão para editar dados da empresa' }, 403);
+    }
+
+    // Atualizar empresa
+    const { data: company, error: updateError } = await supabase
+      .from('companies')
+      .update(updates)
+      .eq('id', profile.company_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Erro ao atualizar empresa:', updateError);
+      return c.json({ error: `Erro ao atualizar empresa: ${updateError.message}` }, 500);
+    }
+
+    return c.json({
+      success: true,
+      company
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar empresa:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
 // Health check
 app.get("/make-server-686b5e88/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
