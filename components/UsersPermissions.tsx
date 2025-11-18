@@ -44,6 +44,7 @@ import { InviteUserDialog } from "./InviteUserDialog";
 import { supabase } from "../utils/supabase/client";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { useERP } from "../contexts/ERPContext";
+import { authGet, authPost, authPatch, authDelete } from "../utils/authFetch";
 
 // Helper para verificar se os dados essenciais da empresa estão cadastrados
 const isCompanyDataComplete = (companySettings: any): { complete: boolean; missingFields: string[] } => {
@@ -400,28 +401,11 @@ export function UsersPermissions() {
     console.log('🔄 Carregando convites...');
     setLoadingInvites(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('❌ Usuário não logado');
-        setLoadingInvites(false);
-        return;
-      }
-
-      // Buscar convites do backend
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/invites`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
+      // Buscar convites do backend usando authGet (com tratamento automático de 401)
+      const data = await authGet(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/invites`
       );
-
-      if (!response.ok) {
-        throw new Error('Erro ao carregar convites');
-      }
-
-      const data = await response.json();
+      
       console.log('✅ Convites recebidos:', data.invites?.length || 0);
       
       // Mapear os dados do backend para o formato esperado

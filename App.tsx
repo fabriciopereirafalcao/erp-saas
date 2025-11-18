@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { Suspense, lazy, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
@@ -11,6 +11,7 @@ import { LoadingScreen } from "./components/LoadingScreen.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
+import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
 
 // Importar utilitário de limpeza (disponível no console do navegador)
 import "./utils/cleanDuplicates.ts";

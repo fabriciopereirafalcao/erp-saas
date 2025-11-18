@@ -208,6 +208,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Verificação periódica de sessão (a cada 5 minutos)
+  useEffect(() => {
+    // Não executar em modo BYPASS_AUTH
+    if (FEATURES.BYPASS_AUTH) {
+      return;
+    }
+
+    const checkSessionValidity = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Se não houver sessão e o usuário estava logado, fazer logout
+        if (!session && user) {
+          console.warn('🚨 Sessão inválida detectada - fazendo logout');
+          await signOut();
+        }
+      } catch (error) {
+        console.error('[AuthContext] Erro ao verificar validade da sessão:', error);
+      }
+    };
+
+    // Verificar a cada 5 minutos
+    const interval = setInterval(checkSessionValidity, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   // Login
   const signIn = async (email: string, password: string) => {
     try {
