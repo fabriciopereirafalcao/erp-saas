@@ -1,6 +1,7 @@
 /**
  * Utilitário para persistência de dados no localStorage
  * Garante que os dados cadastrados permaneçam entre navegações
+ * Com isolamento por company_id para multi-tenancy
  */
 
 const STORAGE_PREFIX = 'erp_system_';
@@ -25,6 +26,68 @@ export const STORAGE_KEYS = {
   AUDIT_ISSUES: `${STORAGE_PREFIX}audit_issues`,
   LAST_ANALYSIS_DATE: `${STORAGE_PREFIX}last_analysis_date`,
 };
+
+/**
+ * Gera chave de storage isolada por company_id
+ * Garante que cada empresa tenha seus próprios dados no localStorage
+ * 
+ * @param baseKey - Chave base do STORAGE_KEYS
+ * @param companyId - ID da empresa (opcional)
+ * @returns Chave isolada por empresa ou chave base (fallback)
+ */
+export function getStorageKey(baseKey: string, companyId?: string): string {
+  if (companyId) {
+    return `${baseKey}_${companyId}`;
+  }
+  return baseKey; // Fallback para dados antigos ou quando não há company_id
+}
+
+/**
+ * Migra dados da chave antiga (sem company_id) para a nova chave (com company_id)
+ * Remove a chave antiga após migração bem-sucedida
+ * 
+ * @param baseKey - Chave base do STORAGE_KEYS
+ * @param companyId - ID da empresa
+ * @returns true se houve migração, false caso contrário
+ */
+export function migrateStorageData<T>(baseKey: string, companyId: string): T | null {
+  if (!isLocalStorageAvailable()) {
+    return null;
+  }
+
+  try {
+    const oldKey = baseKey;
+    const newKey = getStorageKey(baseKey, companyId);
+
+    // Verificar se já existe dado na nova chave
+    const existingData = localStorage.getItem(newKey);
+    if (existingData !== null) {
+      console.log(`ℹ️ Dados já existem na nova chave: ${newKey}`);
+      return null; // Já migrado
+    }
+
+    // Verificar se existe dado na chave antiga
+    const oldData = localStorage.getItem(oldKey);
+    if (oldData === null) {
+      console.log(`ℹ️ Nenhum dado antigo para migrar: ${oldKey}`);
+      return null; // Nada para migrar
+    }
+
+    // Migrar dados
+    const parsedData = JSON.parse(oldData) as T;
+    localStorage.setItem(newKey, oldData);
+    localStorage.removeItem(oldKey);
+
+    console.log(`✅ Dados migrados: ${oldKey} → ${newKey}`, {
+      itemCount: Array.isArray(parsedData) ? parsedData.length : 'N/A'
+    });
+
+    return parsedData;
+  } catch (error) {
+    console.error(`❌ Erro ao migrar dados de ${baseKey}:`, error);
+    return null;
+  }
+}
 
 /**
  * Verifica se localStorage está disponível

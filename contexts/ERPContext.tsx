@@ -21,7 +21,7 @@ import {
   AUDIT_MODULES 
 } from '../utils/auditLogger';
 import { AuditIssue } from '../utils/systemAnalyzer';
-import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/localStorage';
+import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
 import { authGet, authPatch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
@@ -1132,82 +1132,148 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     loadFromStorage('reconciliationStatus', {})
   );
 
+  // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
+  
+  /**
+   * Hook que migra dados do localStorage quando o company_id fica disponível
+   * Garante isolamento de dados entre empresas
+   */
+  useEffect(() => {
+    if (!profile?.company_id) {
+      return; // Aguardar company_id estar disponível
+    }
+
+    const companyId = profile.company_id;
+    console.log(`🔄 Migrando dados para isolamento por company_id: ${companyId}`);
+
+    // Migrar cada tipo de dado
+    const migrateIfNeeded = <T,>(
+      baseKey: string,
+      currentData: T,
+      setter: (data: T) => void
+    ) => {
+      const migratedData = migrateStorageData<T>(baseKey, companyId);
+      if (migratedData !== null && Array.isArray(migratedData) && migratedData.length > 0) {
+        setter(migratedData);
+        console.log(`  ✅ ${baseKey}: ${migratedData.length} registros migrados`);
+      }
+    };
+
+    // Executar migrações
+    migrateIfNeeded(STORAGE_KEYS.CUSTOMERS, customers, setCustomers);
+    migrateIfNeeded(STORAGE_KEYS.SUPPLIERS, suppliers, setSuppliers);
+    migrateIfNeeded(STORAGE_KEYS.INVENTORY, inventory, setInventory);
+    migrateIfNeeded(STORAGE_KEYS.SALES_ORDERS, salesOrders, setSalesOrders);
+    migrateIfNeeded('purchaseOrders', purchaseOrders, setPurchaseOrders);
+    migrateIfNeeded(STORAGE_KEYS.STOCK_MOVEMENTS, stockMovements, setStockMovements);
+    migrateIfNeeded(STORAGE_KEYS.PRICE_TABLES, priceTables, setPriceTables);
+    migrateIfNeeded(STORAGE_KEYS.PRODUCT_CATEGORIES, productCategories, setProductCategories);
+    migrateIfNeeded('salespeople', salespeople, setSalespeople);
+    migrateIfNeeded('buyers', buyers, setBuyers);
+    migrateIfNeeded(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods, setPaymentMethods);
+    migrateIfNeeded(STORAGE_KEYS.ACCOUNT_CATEGORIES, accountCategories, setAccountCategories);
+    migrateIfNeeded(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, financialTransactions, setFinancialTransactions);
+    migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, accountsReceivable, setAccountsReceivable);
+    migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_PAYABLE, accountsPayable, setAccountsPayable);
+    migrateIfNeeded(STORAGE_KEYS.BANK_MOVEMENTS, bankMovements, setBankMovements);
+    migrateIfNeeded(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries, setCashFlowEntries);
+
+    console.log(`✅ Migração concluída para company_id: ${companyId}`);
+  }, [profile?.company_id]); // Executar apenas quando company_id mudar
+
   // ==================== PERSISTÊNCIA AUTOMÁTICA ====================
   
   // Salva dados automaticamente no localStorage sempre que mudarem
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.CUSTOMERS, customers);
-  }, [customers]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.CUSTOMERS, profile.company_id), customers);
+  }, [customers, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.SUPPLIERS, suppliers);
-  }, [suppliers]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.SUPPLIERS, profile.company_id), suppliers);
+  }, [suppliers, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.SALES_ORDERS, salesOrders);
-  }, [salesOrders]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.SALES_ORDERS, profile.company_id), salesOrders);
+  }, [salesOrders, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('purchaseOrders', purchaseOrders);
-  }, [purchaseOrders]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey('purchaseOrders', profile.company_id), purchaseOrders);
+  }, [purchaseOrders, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.INVENTORY, inventory);
-  }, [inventory]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.INVENTORY, profile.company_id), inventory);
+  }, [inventory, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.STOCK_MOVEMENTS, stockMovements);
-  }, [stockMovements]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.STOCK_MOVEMENTS, profile.company_id), stockMovements);
+  }, [stockMovements, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PRICE_TABLES, priceTables);
-  }, [priceTables]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.PRICE_TABLES, profile.company_id), priceTables);
+  }, [priceTables, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PRODUCT_CATEGORIES, productCategories);
-  }, [productCategories]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.PRODUCT_CATEGORIES, profile.company_id), productCategories);
+  }, [productCategories, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('salespeople', salespeople);
-  }, [salespeople]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey('salespeople', profile.company_id), salespeople);
+  }, [salespeople, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('buyers', buyers);
-  }, [buyers]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey('buyers', profile.company_id), buyers);
+  }, [buyers, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods);
-  }, [paymentMethods]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.PAYMENT_METHODS, profile.company_id), paymentMethods);
+  }, [paymentMethods, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ACCOUNT_CATEGORIES, accountCategories);
-  }, [accountCategories]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.ACCOUNT_CATEGORIES, profile.company_id), accountCategories);
+  }, [accountCategories, profile?.company_id]);
 
   useEffect(() => {
+    if (!profile?.company_id) return;
     // Salvar diretamente - duplicados já foram removidos pelo setter
-    saveToStorage(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, internalFinancialTransactions);
-  }, [internalFinancialTransactions]);
+    saveToStorage(getStorageKey(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, profile.company_id), internalFinancialTransactions);
+  }, [internalFinancialTransactions, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, accountsReceivable);
-  }, [accountsReceivable]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, profile.company_id), accountsReceivable);
+  }, [accountsReceivable, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ACCOUNTS_PAYABLE, accountsPayable);
-  }, [accountsPayable]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.ACCOUNTS_PAYABLE, profile.company_id), accountsPayable);
+  }, [accountsPayable, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.BANK_MOVEMENTS, bankMovements);
-  }, [bankMovements]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.BANK_MOVEMENTS, profile.company_id), bankMovements);
+  }, [bankMovements, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries);
-  }, [cashFlowEntries]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.CASH_FLOW_ENTRIES, profile.company_id), cashFlowEntries);
+  }, [cashFlowEntries, profile?.company_id]);
 
   useEffect(() => {
     // Salvar no localStorage com prefixo de company_id para isolamento
     if (profile?.company_id) {
-      const cacheKey = `${STORAGE_KEYS.COMPANY_SETTINGS}_${profile.company_id}`;
+      const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile.company_id);
       saveToStorage(cacheKey, companySettings);
     } else {
       // Fallback para chave antiga (será migrado depois)
@@ -1257,8 +1323,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           // Mapear dados do banco para CompanySettings
           const backendSettings = mapDatabaseToSettings(response.company);
           
-          // Verificar se há dados no localStorage (migração)
-          const localSettings = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+          // Verificar se há dados no localStorage com isolamento por company_id (migração)
+          const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile.company_id);
+          const localSettings = loadFromStorage(cacheKey, initialCompanySettings);
           
           // Se localStorage tem dados mais completos (CNPJ preenchido, contas bancárias, etc)
           // fazer migração automática para o backend
@@ -1282,7 +1349,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.error('❌ Erro ao carregar configurações da empresa:', error);
         
         // Em caso de erro, usar dados do localStorage como fallback
-        const localSettings = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+        const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile.company_id);
+        const localSettings = loadFromStorage(cacheKey, initialCompanySettings);
         setCompanySettings(localSettings);
         
         toast.error('Erro ao carregar dados da empresa', {
@@ -1317,7 +1385,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Limpar localStorage antigo após migração bem-sucedida
       // (mantém apenas como cache com prefixo de company_id)
-      const cacheKey = `${STORAGE_KEYS.COMPANY_SETTINGS}_${profile?.company_id}`;
+      const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile?.company_id);
       saveToStorage(cacheKey, settings);
       
     } catch (error: any) {
