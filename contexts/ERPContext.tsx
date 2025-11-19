@@ -1515,7 +1515,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   const addCustomer = (customerData: Omit<Customer, 'id' | 'totalOrders' | 'totalSpent'>) => {
     // Gerar ID baseado no maior ID existente + 1
-    const maxId = customers.reduce((max, customer) => {
+    const maxId = (customers || []).reduce((max, customer) => {
       const idNum = parseInt(customer.id.replace('CLI-', ''));
       return Math.max(max, idNum);
     }, 0);
@@ -1538,7 +1538,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   const addSupplier = (supplierData: Omit<Supplier, 'id' | 'totalPurchases' | 'totalSpent'>) => {
     // Gerar ID baseado no maior ID existente + 1
-    const maxId = suppliers.reduce((max, supplier) => {
+    const maxId = (suppliers || []).reduce((max, supplier) => {
       const idNum = parseInt(supplier.id.replace('FOR-', ''));
       return Math.max(max, idNum);
     }, 0);
@@ -3063,7 +3063,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Bank Accounts
   const addBankAccount = (accountData: Omit<BankAccount, 'id'>) => {
     // Gerar ID baseado no maior ID existente + 1, não no length do array
-    const maxId = companySettings.bankAccounts.reduce((max, account) => {
+    const maxId = (companySettings?.bankAccounts || []).reduce((max, account) => {
       const idNum = parseInt(account.id.replace('BANK-', ''));
       return Math.max(max, idNum);
     }, 0);
@@ -3104,7 +3104,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Revenue Groups
   const addRevenueGroup = (groupData: Omit<RevenueGroup, 'id'>) => {
     // Encontrar o maior ID numérico existente
-    const maxId = companySettings.revenueGroups.reduce((max, group) => {
+    const maxId = (companySettings?.revenueGroups || []).reduce((max, group) => {
       const numericId = parseInt(group.id.replace('RG-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3141,7 +3141,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Expense Groups
   const addExpenseGroup = (groupData: Omit<ExpenseGroup, 'id'>) => {
     // Encontrar o maior ID numérico existente
-    const maxId = companySettings.expenseGroups.reduce((max, group) => {
+    const maxId = (companySettings?.expenseGroups || []).reduce((max, group) => {
       const numericId = parseInt(group.id.replace('EG-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3178,7 +3178,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Cost Centers
   const addCostCenter = (centerData: Omit<CostCenter, 'id'>) => {
     // Encontrar o maior ID numérico existente
-    const maxId = companySettings.costCenters.reduce((max, center) => {
+    const maxId = (companySettings?.costCenters || []).reduce((max, center) => {
       const numericId = parseInt(center.id.replace('CC-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3215,7 +3215,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ==================== SALESPERSON AND BUYER ACTIONS ====================
   
   const addSalesperson = (salespersonData: Omit<Salesperson, 'id'>) => {
-    const maxId = salespeople.reduce((max, person) => {
+    const maxId = (salespeople || []).reduce((max, person) => {
       const numericId = parseInt(person.id.replace('SP-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3241,7 +3241,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const addBuyer = (buyerData: Omit<Buyer, 'id'>) => {
-    const maxId = buyers.reduce((max, person) => {
+    const maxId = (buyers || []).reduce((max, person) => {
       const numericId = parseInt(person.id.replace('BY-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3271,7 +3271,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Payment Methods
   const addPaymentMethod = (methodData: Omit<PaymentMethod, 'id'>) => {
     // Encontrar o maior ID numérico existente
-    const maxId = paymentMethods.reduce((max, method) => {
+    const maxId = (paymentMethods || []).reduce((max, method) => {
       const numericId = parseInt(method.id.replace('PM-', ''));
       return numericId > max ? numericId : max;
     }, 0);
@@ -3299,7 +3299,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Account Categories
   const addAccountCategory = (categoryData: Omit<AccountCategory, 'id'>) => {
     // Encontrar o maior ID numérico existente
-    const maxId = accountCategories.reduce((max, category) => {
+    const maxId = (accountCategories || []).reduce((max, category) => {
       const numericId = parseInt(category.id.replace('AC-', ''));
       return numericId > max ? numericId : max;
     }, 0);
