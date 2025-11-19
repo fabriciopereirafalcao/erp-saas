@@ -1458,20 +1458,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     reference: string,
     bankAccountId?: string
   ) => {
-    const category = accountCategories.find(cat => 
+    const category = (accountCategories || []).find(cat => 
       cat.type === type && cat.isActive
     );
     
+    const bankAccounts = companySettings?.bankAccounts || [];
     const bank = bankAccountId 
-      ? companySettings.bankAccounts.find(b => b.id === bankAccountId)
-      : companySettings.bankAccounts.find(b => b.isPrimary) || companySettings.bankAccounts[0];
+      ? bankAccounts.find(b => b.id === bankAccountId)
+      : bankAccounts.find(b => b.isPrimary) || bankAccounts[0];
     
-    const paymentMethod = paymentMethods.find(pm => pm.isActive) || paymentMethods[0];
+    const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
     
     const today = new Date().toISOString().split('T')[0];
     
     // Gerar ID baseado no maior ID existente + 1
-    const maxId = financialTransactions.reduce((max, tx) => {
+    const maxId = (financialTransactions || []).reduce((max, tx) => {
       const idNum = parseInt(tx.id.replace('FT-', ''));
       return Math.max(max, idNum);
     }, 0);
@@ -2121,7 +2122,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
 
     // VERIFICAR SE JÁ EXISTE TRANSAÇÃO COM MESMA REFERÊNCIA
-    const existingTransaction = financialTransactions.find(
+    const existingTransaction = (financialTransactions || []).find(
       t => t.reference === order.id && t.status !== "Cancelado"
     );
     if (existingTransaction) {
@@ -2144,11 +2145,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`🔄 Criando conta a receber para pedido ${order.id}...`);
       
-      const category = accountCategories.find(cat => cat.type === "Receita" && cat.isActive);
+      const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+      const bankAccounts = companySettings?.bankAccounts || [];
       const bank = order.bankAccountId 
-        ? companySettings.bankAccounts.find(b => b.id === order.bankAccountId)
-        : companySettings.bankAccounts.find(b => b.isPrimary) || companySettings.bankAccounts[0];
-      const paymentMethod = paymentMethods.find(pm => pm.isActive) || paymentMethods[0];
+        ? bankAccounts.find(b => b.id === order.bankAccountId)
+        : bankAccounts.find(b => b.isPrimary) || bankAccounts[0];
+      const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
       
       // CORREÇÃO: Usar issueDate do pedido como data da transação
       const transactionDate = order.issueDate || order.orderDate;
@@ -2253,7 +2255,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
 
     // VERIFICAR SE JÁ EXISTE TRANSAÇÃO PAGA COM MESMA REFERÊNCIA
-    const existingPaidTransaction = financialTransactions.find(
+    const existingPaidTransaction = (financialTransactions || []).find(
       t => t.reference === order.id && t.status === "Recebido"
     );
     if (existingPaidTransaction) {
@@ -2313,7 +2315,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Fallback: Buscar no estado (para mudanças manuais de status fora do fluxo automático)
-        const existingTransactionByReference = financialTransactions.find(
+        const existingTransactionByReference = (financialTransactions || []).find(
           t => t.reference === order.id && t.status !== "Cancelado" && t.status !== "Recebido"
         );
         
@@ -2345,7 +2347,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Fallback: tentar buscar por actionFlags (para compatibilidade com fluxos antigos)
         console.log(`🔍 Procurando transação por actionFlags: ${order.actionFlags.financialTransactionId}`);
         
-        const existingTransaction = financialTransactions.find(
+        const existingTransaction = (financialTransactions || []).find(
           t => t.id === order.actionFlags.financialTransactionId
         );
         
@@ -2390,8 +2392,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Criar nova transação se necessário
       if (isNewTransaction) {
-        const category = accountCategories.find(cat => cat.type === "Receita" && cat.isActive);
-        const paymentMethod = paymentMethods.find(pm => pm.isActive) || paymentMethods[0];
+        const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+        const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
         const newTransactionId = generateNextFinancialTransactionId();
         
         // CORREÇÃO: Usar issueDate do pedido como data da transação
@@ -3384,7 +3386,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Marcar transação como recebida
   const markTransactionAsReceived = (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => {
-    const transaction = financialTransactions.find(t => t.id === id);
+    const transaction = (financialTransactions || []).find(t => t.id === id);
     if (!transaction) {
       toast.error("Transação não encontrada!");
       return;
@@ -3522,7 +3524,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Marcar transação como paga
   const markTransactionAsPaid = (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => {
-    const transaction = financialTransactions.find(t => t.id === id);
+    const transaction = (financialTransactions || []).find(t => t.id === id);
     if (!transaction) {
       toast.error("Transação não encontrada!");
       return;
@@ -4195,7 +4197,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
 
     // VERIFICAR SE JÁ EXISTE TRANSAÇÃO COM MESMA REFERÊNCIA
-    const existingTransaction = financialTransactions.find(
+    const existingTransaction = (financialTransactions || []).find(
       t => t.reference === order.id && t.status !== "Cancelado"
     );
     if (existingTransaction) {
@@ -4220,8 +4222,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       // Obter categoria de despesa
       const category = order.expenseCategoryId 
-        ? accountCategories.find(c => c.id === order.expenseCategoryId)
-        : accountCategories.find(cat => cat.type === "Despesa" && cat.isActive);
+        ? (accountCategories || []).find(c => c.id === order.expenseCategoryId)
+        : (accountCategories || []).find(cat => cat.type === "Despesa" && cat.isActive);
       
       if (!category) {
         console.error(`❌ Categoria de despesa não encontrada`);
@@ -4229,16 +4231,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
 
       // Obter fornecedor
-      const supplier = suppliers.find(s => s.id === order.supplierId);
+      const supplier = (suppliers || []).find(s => s.id === order.supplierId);
       if (!supplier) {
         console.error(`❌ Fornecedor não encontrado: ${order.supplierId}`);
         return { success: false, message: 'Fornecedor não encontrado' };
       }
 
       // Obter conta bancária
+      const bankAccounts = companySettings?.bankAccounts || [];
       const bank = order.bankAccountId 
-        ? companySettings.bankAccounts.find(b => b.id === order.bankAccountId)
-        : companySettings.bankAccounts.find(b => b.isPrimary) || companySettings.bankAccounts[0];
+        ? bankAccounts.find(b => b.id === order.bankAccountId)
+        : bankAccounts.find(b => b.isPrimary) || bankAccounts[0];
 
       if (!bank) {
         console.error(`❌ Conta bancária não configurada`);
@@ -4246,7 +4249,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
 
       // Obter forma de pagamento
-      const paymentMethod = paymentMethods.find(pm => pm.isActive) || paymentMethods[0];
+      const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
 
       // CORREÇÃO: Usar issueDate do pedido como data da transação
       const transactionDate = order.issueDate || order.orderDate;

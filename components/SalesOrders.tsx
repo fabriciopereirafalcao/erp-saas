@@ -44,6 +44,16 @@ interface PaymentInstallment {
 
 export function SalesOrders() {
   const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople } = useERP();
+  
+  // ✅ Proteções contra arrays undefined
+  const safeSalesOrders = salesOrders || [];
+  const safeCustomers = customers || [];
+  const safeInventory = inventory || [];
+  const safePriceTables = priceTables || [];
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeAccountCategories = accountCategories || [];
+  const safeSalespeople = salespeople || [];
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -97,7 +107,7 @@ export function SalesOrders() {
   // Parcelas de pagamento
   const [installments, setInstallments] = useState<PaymentInstallment[]>([]);
 
-  const filteredOrders = salesOrders
+  const filteredOrders = safeSalesOrders
     .filter(order =>
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -114,8 +124,8 @@ export function SalesOrders() {
   const { paginatedData, pagination, controls } = usePagination(filteredOrders, 10);
 
   // Obter informações auxiliares
-  const selectedCustomer = customers.find(c => c.id === orderHeader.customerId);
-  const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : priceTables.find(t => t.isDefault);
+  const selectedCustomer = safeCustomers.find(c => c.id === orderHeader.customerId);
+  const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : safePriceTables.find(t => t.isDefault);
 
   // Helper: Obter cor do badge de status com ícone
   const getStatusColor = (status: string) => {
@@ -147,7 +157,7 @@ export function SalesOrders() {
 
   // Helper: Obter informações de parcelas do pedido
   const getInstallmentsInfo = (orderId: string) => {
-    const orderTransactions = financialTransactions.filter(
+    const orderTransactions = safeFinancialTransactions.filter(
       t => t.origin === "Pedido" && t.reference === orderId && t.status !== "Cancelado"
     );
     
@@ -165,7 +175,7 @@ export function SalesOrders() {
     if (editingOrderId) return;
     
     if (orderHeader.customerId) {
-      const customer = customers.find(c => c.id === orderHeader.customerId);
+      const customer = safeCustomers.find(c => c.id === orderHeader.customerId);
       
       // Carregar tabela de preço personalizada do cliente
       if (customer?.priceTableId) {
@@ -178,7 +188,7 @@ export function SalesOrders() {
         }
       } else {
         // Usar tabela padrão se cliente não tiver tabela específica
-        const defaultTable = priceTables.find(t => t.isDefault);
+        const defaultTable = safePriceTables.find(t => t.isDefault);
         if (defaultTable) {
           setOrderHeader(prev => ({ ...prev, priceTableId: defaultTable.id }));
         }
@@ -240,7 +250,7 @@ export function SalesOrders() {
       return;
     }
 
-    const product = inventory.find(p => p.id === selectedProduct);
+    const product = safeInventory.find(p => p.id === selectedProduct);
     if (!product) {
       toast.error("Produto não encontrado");
       return;
@@ -284,7 +294,7 @@ export function SalesOrders() {
     let unitPrice = product.pricePerUnit;
     const priceTable = orderHeader.priceTableId 
       ? getPriceTableById(orderHeader.priceTableId) 
-      : priceTables.find(t => t.isDefault);
+      : safePriceTables.find(t => t.isDefault);
     
     if (priceTable) {
       const priceItem = priceTable.items.find(item => item.productName === product.productName);
@@ -417,7 +427,7 @@ export function SalesOrders() {
       return;
     }
 
-    const customer = customers.find(c => c.id === orderHeader.customerId);
+    const customer = safeCustomers.find(c => c.id === orderHeader.customerId);
     if (!customer) {
       toast.error("Cliente não encontrado");
       return;
@@ -425,7 +435,7 @@ export function SalesOrders() {
 
     // CORREÇÃO: Validar estoque para cada item do pedido
     for (const item of orderItems) {
-      const product = inventory.find(p => p.id === item.productId);
+      const product = safeInventory.find(p => p.id === item.productId);
       if (!product) {
         toast.error(`Produto "${item.productName}" não encontrado no estoque!`);
         return;
@@ -523,7 +533,7 @@ export function SalesOrders() {
 
   // Função para alterar status do pedido com proteções contra alteração manual de status automáticos
   const handleStatusChange = (orderId: string, newStatus: string) => {
-    const order = salesOrders.find(o => o.id === orderId);
+    const order = safeSalesOrders.find(o => o.id === orderId);
     if (!order) {
       toast.error("Pedido não encontrado!");
       return;
@@ -621,7 +631,7 @@ export function SalesOrders() {
   // Função para duplicar pedido
   const handleDuplicateOrder = (order: typeof salesOrders[0]) => {
     // Criar uma cópia do pedido com nova data e novo ID
-    const customer = customers.find(c => c.id === order.customerId);
+    const customer = safeCustomers.find(c => c.id === order.customerId);
     if (!customer) {
       toast.error("Cliente não encontrado");
       return;
@@ -807,7 +817,7 @@ export function SalesOrders() {
                             <SelectValue placeholder="Selecione o cliente" />
                           </SelectTrigger>
                           <SelectContent>
-                            {customers.map((customer) => (
+                            {safeCustomers.map((customer) => (
                               <SelectItem key={customer.id} value={customer.id}>
                                 {customer.company || customer.name} - {customer.id}
                               </SelectItem>
@@ -839,7 +849,7 @@ export function SalesOrders() {
                                   <span className="text-gray-500 italic">Vendedor Avulso</span>
                                 </div>
                               </SelectItem>
-                              {salespeople.map((person) => (
+                              {safeSalespeople.map((person) => (
                                 <SelectItem key={person.id} value={person.name}>
                                   <div className="flex items-center gap-2">
                                     <User className="w-4 h-4" />
@@ -1282,7 +1292,7 @@ export function SalesOrders() {
                               <SelectValue placeholder="Selecione o produto" />
                             </SelectTrigger>
                             <SelectContent>
-                              {inventory.map((product) => (
+                              {safeInventory.map((product) => (
                                 <SelectItem key={product.id} value={product.id}>
                                   {product.productName} - R$ {(product.pricePerUnit || 0).toFixed(2)} ({product.currentStock || 0} {product.unit} em estoque)
                                 </SelectItem>
@@ -1290,7 +1300,7 @@ export function SalesOrders() {
                             </SelectContent>
                           </Select>
                           {selectedProduct && (() => {
-                            const product = inventory.find(p => p.id === selectedProduct);
+                            const product = safeInventory.find(p => p.id === selectedProduct);
                             return product ? (
                               <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                                 <Package className="w-3 h-3" />
@@ -1313,7 +1323,7 @@ export function SalesOrders() {
                               placeholder="Ex: 100"
                             />
                             {selectedProduct && (() => {
-                              const product = inventory.find(p => p.id === selectedProduct);
+                              const product = safeInventory.find(p => p.id === selectedProduct);
                               return product ? (
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                                   {product.unit}
@@ -1322,7 +1332,7 @@ export function SalesOrders() {
                             })()}
                           </div>
                           {itemQuantity && selectedProduct && (() => {
-                            const product = inventory.find(p => p.id === selectedProduct);
+                            const product = safeInventory.find(p => p.id === selectedProduct);
                             const qty = Number(itemQuantity);
                             return product && qty > 0 ? (
                               <p className="text-xs text-gray-600 mt-1">
@@ -1375,7 +1385,7 @@ export function SalesOrders() {
                             </span>
                           </div>
                           {itemDiscountAmount && Number(itemDiscountAmount) > 0 && itemQuantity && selectedProduct && (() => {
-                            const product = inventory.find(p => p.id === selectedProduct);
+                            const product = safeInventory.find(p => p.id === selectedProduct);
                             const qty = Number(itemQuantity);
                             const discount = Number(itemDiscountAmount);
                             if (!product || qty <= 0) return null;
@@ -1407,7 +1417,7 @@ export function SalesOrders() {
 
                       {/* Preview do Item */}
                       {selectedProduct && itemQuantity && Number(itemQuantity) > 0 && (() => {
-                        const product = inventory.find(p => p.id === selectedProduct);
+                        const product = safeInventory.find(p => p.id === selectedProduct);
                         const qty = Number(itemQuantity);
                         const discount = Number(itemDiscountAmount) || 0;
                         
@@ -1814,7 +1824,7 @@ export function SalesOrders() {
           </TableHeader>
           <TableBody>
             {paginatedData.map((order) => {
-              const priceTable = order.priceTableId ? getPriceTableById(order.priceTableId) : priceTables.find(t => t.isDefault);
+              const priceTable = order.priceTableId ? getPriceTableById(order.priceTableId) : safePriceTables.find(t => t.isDefault);
               const firstDueDate = calculateFirstDueDate(order);
               const installmentsInfo = getInstallmentsInfo(order.id);
               
