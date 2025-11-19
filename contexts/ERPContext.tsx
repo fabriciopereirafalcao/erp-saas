@@ -3075,7 +3075,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     const updatedSettings = {
       ...companySettings,
-      bankAccounts: [...companySettings.bankAccounts, newAccount]
+      bankAccounts: [...(companySettings?.bankAccounts || []), newAccount]
     };
     
     // Atualizar estado local e sincronizar com backend
@@ -3084,7 +3084,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const updateBankAccount = (id: string, updates: Partial<BankAccount>) => {
-    const updatedBankAccounts = companySettings.bankAccounts.map(acc => 
+    const updatedBankAccounts = (companySettings?.bankAccounts || []).map(acc => 
       acc.id === id ? { ...acc, ...updates } : acc
     );
     
@@ -3094,7 +3094,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteBankAccount = (id: string) => {
-    const updatedBankAccounts = companySettings.bankAccounts.filter(acc => acc.id !== id);
+    const updatedBankAccounts = (companySettings?.bankAccounts || []).filter(acc => acc.id !== id);
     
     // Atualizar estado local e sincronizar com backend
     updateCompanySettings({ bankAccounts: updatedBankAccounts }, false);
@@ -3115,7 +3115,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
     setCompanySettings(prev => ({
       ...prev,
-      revenueGroups: [...prev.revenueGroups, newGroup]
+      revenueGroups: [...(prev?.revenueGroups || []), newGroup]
     }));
     toast.success("Grupo de receita adicionado!");
   };
@@ -3123,7 +3123,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const updateRevenueGroup = (id: string, updates: Partial<RevenueGroup>) => {
     setCompanySettings(prev => ({
       ...prev,
-      revenueGroups: prev.revenueGroups.map(group => 
+      revenueGroups: (prev?.revenueGroups || []).map(group => 
         group.id === id ? { ...group, ...updates } : group
       )
     }));
@@ -3133,7 +3133,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const deleteRevenueGroup = (id: string) => {
     setCompanySettings(prev => ({
       ...prev,
-      revenueGroups: prev.revenueGroups.filter(group => group.id !== id)
+      revenueGroups: (prev?.revenueGroups || []).filter(group => group.id !== id)
     }));
     toast.success("Grupo de receita removido!");
   };
@@ -3152,7 +3152,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
     setCompanySettings(prev => ({
       ...prev,
-      expenseGroups: [...prev.expenseGroups, newGroup]
+      expenseGroups: [...(prev?.expenseGroups || []), newGroup]
     }));
     toast.success("Grupo de gasto adicionado!");
   };
@@ -3160,7 +3160,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const updateExpenseGroup = (id: string, updates: Partial<ExpenseGroup>) => {
     setCompanySettings(prev => ({
       ...prev,
-      expenseGroups: prev.expenseGroups.map(group => 
+      expenseGroups: (prev?.expenseGroups || []).map(group => 
         group.id === id ? { ...group, ...updates } : group
       )
     }));
@@ -3170,7 +3170,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const deleteExpenseGroup = (id: string) => {
     setCompanySettings(prev => ({
       ...prev,
-      expenseGroups: prev.expenseGroups.filter(group => group.id !== id)
+      expenseGroups: (prev?.expenseGroups || []).filter(group => group.id !== id)
     }));
     toast.success("Grupo de gasto removido!");
   };
@@ -3189,7 +3189,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
     setCompanySettings(prev => ({
       ...prev,
-      costCenters: [...prev.costCenters, newCenter]
+      costCenters: [...(prev?.costCenters || []), newCenter]
     }));
     toast.success("Centro de custo adicionado!");
   };
@@ -3197,7 +3197,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const updateCostCenter = (id: string, updates: Partial<CostCenter>) => {
     setCompanySettings(prev => ({
       ...prev,
-      costCenters: prev.costCenters.map(center => 
+      costCenters: (prev?.costCenters || []).map(center => 
         center.id === id ? { ...center, ...updates } : center
       )
     }));
@@ -3207,7 +3207,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const deleteCostCenter = (id: string) => {
     setCompanySettings(prev => ({
       ...prev,
-      costCenters: prev.costCenters.filter(center => center.id !== id)
+      costCenters: (prev?.costCenters || []).filter(center => center.id !== id)
     }));
     toast.success("Centro de custo removido!");
   };
@@ -3224,19 +3224,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       ...salespersonData,
       id: `SP-${String(maxId + 1).padStart(3, '0')}`
     };
-    setSalespeople(prev => [...prev, newSalesperson]);
+    setSalespeople(prev => [...(prev || []), newSalesperson]);
     toast.success("Vendedor adicionado com sucesso!");
   };
 
   const updateSalesperson = (id: string, updates: Partial<Salesperson>) => {
-    setSalespeople(prev => prev.map(person => 
+    setSalespeople(prev => (prev || []).map(person => 
       person.id === id ? { ...person, ...updates } : person
     ));
     toast.success("Vendedor atualizado!");
   };
 
   const deleteSalesperson = (id: string) => {
-    setSalespeople(prev => prev.filter(person => person.id !== id));
+    setSalespeople(prev => (prev || []).filter(person => person.id !== id));
     toast.success("Vendedor removido!");
   };
 
@@ -3250,19 +3250,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       ...buyerData,
       id: `BY-${String(maxId + 1).padStart(3, '0')}`
     };
-    setBuyers(prev => [...prev, newBuyer]);
+    setBuyers(prev => [...(prev || []), newBuyer]);
     toast.success("Comprador adicionado com sucesso!");
   };
 
   const updateBuyer = (id: string, updates: Partial<Buyer>) => {
-    setBuyers(prev => prev.map(person => 
+    setBuyers(prev => (prev || []).map(person => 
       person.id === id ? { ...person, ...updates } : person
     ));
     toast.success("Comprador atualizado!");
   };
 
   const deleteBuyer = (id: string) => {
-    setBuyers(prev => prev.filter(person => person.id !== id));
+    setBuyers(prev => (prev || []).filter(person => person.id !== id));
     toast.success("Comprador removido!");
   };
 
@@ -3280,19 +3280,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       ...methodData,
       id: `PM-${String(maxId + 1).padStart(3, '0')}`
     };
-    setPaymentMethods(prev => [...prev, newMethod]);
+    setPaymentMethods(prev => [...(prev || []), newMethod]);
     toast.success("Forma de pagamento adicionada!");
   };
 
   const updatePaymentMethod = (id: string, updates: Partial<PaymentMethod>) => {
-    setPaymentMethods(prev => prev.map(method => 
+    setPaymentMethods(prev => (prev || []).map(method => 
       method.id === id ? { ...method, ...updates } : method
     ));
     toast.success("Forma de pagamento atualizada!");
   };
 
   const deletePaymentMethod = (id: string) => {
-    setPaymentMethods(prev => prev.filter(method => method.id !== id));
+    setPaymentMethods(prev => (prev || []).filter(method => method.id !== id));
     toast.success("Forma de pagamento removida!");
   };
 
@@ -3308,19 +3308,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       ...categoryData,
       id: `AC-${String(maxId + 1).padStart(3, '0')}`
     };
-    setAccountCategories(prev => [...prev, newCategory]);
+    setAccountCategories(prev => [...(prev || []), newCategory]);
     toast.success("Categoria de conta adicionada!");
   };
 
   const updateAccountCategory = (id: string, updates: Partial<AccountCategory>) => {
-    setAccountCategories(prev => prev.map(category => 
+    setAccountCategories(prev => (prev || []).map(category => 
       category.id === id ? { ...category, ...updates } : category
     ));
     toast.success("Categoria de conta atualizada!");
   };
 
   const deleteAccountCategory = (id: string) => {
-    setAccountCategories(prev => prev.filter(category => category.id !== id));
+    setAccountCategories(prev => (prev || []).filter(category => category.id !== id));
     toast.success("Categoria de conta removida!");
   };
 
