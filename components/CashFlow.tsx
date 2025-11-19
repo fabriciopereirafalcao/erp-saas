@@ -29,6 +29,16 @@ export function CashFlow() {
     suppliers
   } = useERP();
 
+  // ✅ Proteções contra arrays undefined
+  const safeCashFlowEntries = cashFlowEntries || [];
+  const safeAccountsReceivable = accountsReceivable || [];
+  const safeAccountsPayable = accountsPayable || [];
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeBankAccounts = companySettings?.bankAccounts || [];
+  const safeCostCenters = companySettings?.costCenters || [];
+  const safeCustomers = customers || [];
+  const safeSuppliers = suppliers || [];
+
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,9 +72,9 @@ export function CashFlow() {
     // Calcular saldo inicial baseado nos filtros
     let initialBalance = 0;
     if (selectedBank === "all") {
-      initialBalance = companySettings.bankAccounts.reduce((sum, bank) => sum + bank.balance, 0);
+      initialBalance = safeBankAccounts.reduce((sum, bank) => sum + bank.balance, 0);
     } else {
-      const bank = companySettings.bankAccounts.find(b => b.id === selectedBank);
+      const bank = safeBankAccounts.find(b => b.id === selectedBank);
       initialBalance = bank ? bank.balance : 0;
     }
 
@@ -83,7 +93,7 @@ export function CashFlow() {
       const dayInitialBalance = currentBalance;
       
       // Aplicar filtros nas transações
-      let filteredTransactions = financialTransactions;
+      let filteredTransactions = safeFinancialTransactions;
       
       if (selectedBank !== "all") {
         filteredTransactions = filteredTransactions.filter(t => t.bankAccountId === selectedBank);
@@ -144,11 +154,11 @@ export function CashFlow() {
         });
 
       // PROJEÇÕES MANUAIS - Sempre incluídas
-      const projectedIncome = cashFlowEntries
+      const projectedIncome = safeCashFlowEntries
         .filter(e => e.date === dateStr && e.type === "Entrada" && e.status === "Projetado")
         .reduce((sum, e) => sum + e.amount, 0);
 
-      const projectedExpenses = cashFlowEntries
+      const projectedExpenses = safeCashFlowEntries
         .filter(e => e.date === dateStr && e.type === "Saída" && e.status === "Projetado")
         .reduce((sum, e) => sum + e.amount, 0);
 
@@ -196,9 +206,9 @@ export function CashFlow() {
     // Calcular saldo inicial baseado nos filtros
     let initialBalance = 0;
     if (selectedBankMonthly === "all") {
-      initialBalance = companySettings.bankAccounts.reduce((sum, bank) => sum + bank.balance, 0);
+      initialBalance = safeBankAccounts.reduce((sum, bank) => sum + bank.balance, 0);
     } else {
-      const bank = companySettings.bankAccounts.find(b => b.id === selectedBankMonthly);
+      const bank = safeBankAccounts.find(b => b.id === selectedBankMonthly);
       initialBalance = bank ? bank.balance : 0;
     }
 
@@ -210,7 +220,7 @@ export function CashFlow() {
       const monthEndDate = new Date(year, monthIndex + 1, 0);
 
       // Aplicar filtros nas transações
-      let filteredTransactions = financialTransactions;
+      let filteredTransactions = safeFinancialTransactions;
       
       if (selectedBankMonthly !== "all") {
         filteredTransactions = filteredTransactions.filter(t => t.bankAccountId === selectedBankMonthly);
@@ -294,8 +304,8 @@ export function CashFlow() {
 
   // Criar lista de parceiros (clientes + fornecedores)
   const partners = [
-    ...customers.map(c => ({ id: c.id, name: c.name, type: 'Cliente' })),
-    ...suppliers.map(s => ({ id: s.id, name: s.name, type: 'Fornecedor' }))
+    ...safeCustomers.map(c => ({ id: c.id, name: c.name, type: 'Cliente' })),
+    ...safeSuppliers.map(s => ({ id: s.id, name: s.name, type: 'Fornecedor' }))
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const handleSave = () => {
@@ -498,7 +508,7 @@ export function CashFlow() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {companySettings.bankAccounts.map(bank => (
+                    {safeBankAccounts.map(bank => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.bankName} - {bank.accountNumber}
                       </SelectItem>
@@ -698,7 +708,7 @@ export function CashFlow() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {companySettings.bankAccounts.map(bank => (
+                    {safeBankAccounts.map(bank => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.bankName} - {bank.accountNumber}
                       </SelectItem>
@@ -890,14 +900,14 @@ export function CashFlow() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cashFlowEntries.length === 0 ? (
+                  {safeCashFlowEntries.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         Nenhuma projeção manual adicionada
                       </td>
                     </tr>
                   ) : (
-                    cashFlowEntries.map((entry) => (
+                    safeCashFlowEntries.map((entry) => (
                       <tr key={entry.id} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm">{formatDateLocal(entry.date)}</td>
                         <td className="px-4 py-3 text-sm">
