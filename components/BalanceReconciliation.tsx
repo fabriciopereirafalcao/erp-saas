@@ -18,19 +18,24 @@ export function BalanceReconciliation() {
     toggleReconciliationStatus
   } = useERP();
 
+  // ✅ Proteções contra arrays undefined
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeBankAccounts = companySettings?.bankAccounts || [];
+  const safeReconciliationStatus = reconciliationStatus || {};
+
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedBank, setSelectedBank] = useState<string>("");
 
   // Ao carregar, seleciona automaticamente a conta principal (isPrimary) ou a primeira conta
   useEffect(() => {
-    if (!selectedBank && companySettings.bankAccounts.length > 0) {
-      const primaryBank = companySettings.bankAccounts.find(b => b.isPrimary);
-      const defaultBank = primaryBank || companySettings.bankAccounts[0];
+    if (!selectedBank && safeBankAccounts.length > 0) {
+      const primaryBank = safeBankAccounts.find(b => b.isPrimary);
+      const defaultBank = primaryBank || safeBankAccounts[0];
       if (defaultBank) {
         setSelectedBank(defaultBank.id);
       }
     }
-  }, [companySettings.bankAccounts, selectedBank]);
+  }, [safeBankAccounts, selectedBank]);
 
   // Calcular fluxo de caixa diário para o banco selecionado
   const monthStart = startOfMonth(selectedMonth);
@@ -40,7 +45,7 @@ export function BalanceReconciliation() {
   const calculateDailyReconciliation = () => {
     if (!selectedBank) return [];
 
-    const bank = companySettings.bankAccounts.find(b => b.id === selectedBank);
+    const bank = safeBankAccounts.find(b => b.id === selectedBank);
     if (!bank) return [];
 
     const reconciliationData: any[] = [];
@@ -53,7 +58,7 @@ export function BalanceReconciliation() {
       const dayInitialBalance = currentBalance;
       
       // Filtrar transações realizadas do banco selecionado
-      const filteredTransactions = financialTransactions.filter(t => t.bankAccountId === selectedBank);
+      const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
       
       // Entradas realizadas (Recebido)
       const realizedIncome = filteredTransactions
@@ -70,7 +75,7 @@ export function BalanceReconciliation() {
 
       // Buscar status de conciliação
       const reconciliationKey = `${selectedBank}-${dateStr}`;
-      const isReconciled = reconciliationStatus[reconciliationKey] || false;
+      const isReconciled = safeReconciliationStatus[reconciliationKey] || false;
 
       reconciliationData.push({
         date: format(day, 'dd/MM/yyyy'),
@@ -192,7 +197,7 @@ export function BalanceReconciliation() {
                 <SelectValue placeholder="Selecione um banco" />
               </SelectTrigger>
               <SelectContent>
-                {companySettings.bankAccounts.map(bank => (
+                {safeBankAccounts.map(bank => (
                   <SelectItem key={bank.id} value={bank.id}>
                     {bank.bankName} - {bank.accountNumber}
                   </SelectItem>
