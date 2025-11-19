@@ -30,6 +30,16 @@ export function Reports() {
     companySettings
   } = useERP();
 
+  // ✅ Proteções contra arrays undefined
+  const safeSalesOrders = salesOrders || [];
+  const safeCustomers = customers || [];
+  const safeSuppliers = suppliers || [];
+  const safeInventory = inventory || [];
+  const safeAccountsPayable = accountsPayable || [];
+  const safeAccountsReceivable = accountsReceivable || [];
+  const safeFinancialTransactions = financialTransactions || [];
+  const safeBankAccounts = companySettings?.bankAccounts || [];
+
   const [period, setPeriod] = useState("6meses");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -68,14 +78,14 @@ export function Reports() {
 
   // Filtrar dados por período
   const filteredSalesOrders = useMemo(() => {
-    return salesOrders.filter(order => {
+    return safeSalesOrders.filter(order => {
       const orderDate = new Date(order.issueDate || order.orderDate);
       const inPeriod = isWithinInterval(orderDate, dateRange);
       const matchesCustomer = selectedCustomer === "all" || order.customerId === selectedCustomer;
       const matchesProduct = selectedProduct === "all" || order.productName.includes(selectedProduct);
       return inPeriod && matchesCustomer && matchesProduct;
     });
-  }, [salesOrders, dateRange, selectedCustomer, selectedProduct]);
+  }, [safeSalesOrders, dateRange, selectedCustomer, selectedProduct]);
 
   // Métricas gerais
   const metrics = useMemo(() => {
@@ -88,11 +98,11 @@ export function Reports() {
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
-    const totalAccountsReceivable = accountsReceivable
+    const totalAccountsReceivable = safeAccountsReceivable
       .filter(a => a.status === "Pendente")
       .reduce((sum, a) => sum + a.amount, 0);
 
-    const totalAccountsPayable = accountsPayable
+    const totalAccountsPayable = safeAccountsPayable
       .filter(a => a.status === "Pendente")
       .reduce((sum, a) => sum + a.amount, 0);
 
@@ -105,7 +115,7 @@ export function Reports() {
       totalAccountsPayable,
       netCashFlow: totalAccountsReceivable - totalAccountsPayable
     };
-  }, [filteredSalesOrders, accountsReceivable, accountsPayable]);
+  }, [filteredSalesOrders, safeAccountsReceivable, safeAccountsPayable]);
 
   // Vendas por mês
   const salesByMonth = useMemo(() => {
@@ -193,7 +203,7 @@ export function Reports() {
 
   // Estoque por produto
   const inventoryReport = useMemo(() => {
-    return inventory
+    return safeInventory
       .map(item => {
         const quantity = item.quantity || 0;
         const costPerUnit = item.costPerUnit || 0;
@@ -208,7 +218,7 @@ export function Reports() {
         };
       })
       .sort((a, b) => b.value - a.value);
-  }, [inventory]);
+  }, [safeInventory]);
 
   // Contas a receber por vencimento
   const receivablesByDueDate = useMemo(() => {
@@ -219,7 +229,7 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    accountsReceivable.filter(a => a.status === "Pendente").forEach(account => {
+    safeAccountsReceivable.filter(a => a.status === "Pendente").forEach(account => {
       const dueDate = new Date(account.dueDate);
       const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -243,7 +253,7 @@ export function Reports() {
       { name: "30 dias", value: due30days, color: "#8b5cf6" },
       { name: "Futuro", value: dueFuture, color: "#16a34a" }
     ].filter(item => item.value > 0);
-  }, [accountsReceivable]);
+  }, [safeAccountsReceivable]);
 
   // Contas a pagar por vencimento
   const payablesByDueDate = useMemo(() => {
@@ -254,7 +264,7 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    accountsPayable.filter(a => a.status === "Pendente").forEach(account => {
+    safeAccountsPayable.filter(a => a.status === "Pendente").forEach(account => {
       const dueDate = new Date(account.dueDate);
       const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -278,7 +288,7 @@ export function Reports() {
       { name: "30 dias", value: due30days, color: "#8b5cf6" },
       { name: "Futuro", value: dueFuture, color: "#16a34a" }
     ].filter(item => item.value > 0);
-  }, [accountsPayable]);
+  }, [safeAccountsPayable]);
 
   // DRE Simplificado
   const dre = useMemo(() => {
@@ -439,7 +449,7 @@ export function Reports() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {customers.map(customer => (
+                  {safeCustomers.map(customer => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.company || customer.name}
                     </SelectItem>
@@ -455,7 +465,7 @@ export function Reports() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {suppliers.map(supplier => (
+                  {safeSuppliers.map(supplier => (
                     <SelectItem key={supplier.id} value={supplier.id}>
                       {supplier.company || supplier.name}
                     </SelectItem>
@@ -785,7 +795,7 @@ export function Reports() {
           <Card className="p-6">
             <h3 className="text-gray-900 mb-4">Saldos das Contas Bancárias</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {companySettings.bankAccounts.map((account) => (
+              {safeBankAccounts.map((account) => (
                 <div key={account.id} className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">{account.bankName}</p>
                   <p className="text-xs text-gray-500 mb-2">
@@ -814,7 +824,7 @@ export function Reports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {financialTransactions.slice(0, 20).map((transaction) => (
+                  {safeFinancialTransactions.slice(0, 20).map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{formatDateLocal(transaction.date)}</TableCell>
                       <TableCell>
@@ -950,7 +960,7 @@ export function Reports() {
             <div className="grid grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Total de Clientes</p>
-                <p className="text-2xl text-blue-700">{customers.length}</p>
+                <p className="text-2xl text-blue-700">{safeCustomers.length}</p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600">Clientes Ativos</p>
@@ -979,7 +989,7 @@ export function Reports() {
             <div className="grid grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600">Total de Fornecedores</p>
-                <p className="text-2xl text-blue-700">{suppliers.length}</p>
+                <p className="text-2xl text-blue-700">{safeSuppliers.length}</p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600">Fornecedores Ativos</p>
