@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User } from 'lucide-react';
+import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -15,10 +15,11 @@ import { NavigationView } from '../App';
 
 interface TopBarProps {
   onNavigate: (view: NavigationView) => void;
+  onToggleSidebar?: () => void;
 }
 
 // ⚡ Memoizado para evitar rerenders desnecessários
-export const TopBar = memo(function TopBar({ onNavigate }: TopBarProps) {
+export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopBarProps) {
   const { profile, company, signOut } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -37,6 +38,17 @@ export const TopBar = memo(function TopBar({ onNavigate }: TopBarProps) {
   return (
     <div className={`fixed top-0 left-0 right-0 h-16 border-b shadow-sm z-50 ${isDarkMode ? 'dark bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
       <div className="flex items-center h-full px-4 gap-4">
+        {/* Botão hambúrguer para mobile */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="md:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          aria-label="Abrir menu"
+        >
+          <Menu className="w-6 h-6" />
+        </Button>
+
         {/* Logo META ERP - versão texto */}
         <div className="flex items-center gap-2 min-w-[180px]">
           <div className="flex items-center gap-2">

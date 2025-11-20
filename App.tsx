@@ -206,6 +206,7 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [currentView, setCurrentView] =
     useState<NavigationView>("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Verificar se há um token de convite na URL
   const hasInviteToken = () => {
@@ -309,7 +310,10 @@ function AppContent() {
     <ERPProvider>
       <div className="flex flex-col h-screen bg-gray-50">
         {/* TopBar fixa no topo */}
-        <TopBar onNavigate={setCurrentView} />
+        <TopBar
+          onNavigate={setCurrentView}
+          onToggleSidebar={() => setIsSidebarOpen(true)}
+        />
 
         {/* Container principal: Sidebar + Conteúdo */}
         <div
@@ -319,6 +323,8 @@ function AppContent() {
           <Sidebar
             currentView={currentView}
             onNavigate={setCurrentView}
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
           />
           <main className="flex-1 overflow-auto bg-gray-50">
             {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
