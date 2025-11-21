@@ -362,7 +362,7 @@ function isEmailServiceConfigured(): boolean {
 // AUTH ROUTES
 // =====================================================
 
-app.post("/auth/signup", async (c) => {
+app.post("/make-server-686b5e88/auth/signup", async (c) => {
   try {
     const { email, password, name, companyName, cnpj } = await c.req.json();
 
@@ -457,7 +457,7 @@ app.post("/auth/signup", async (c) => {
 // USER MANAGEMENT & INVITES ROUTES
 // =====================================================
 
-app.get("/users", async (c) => {
+app.get("/make-server-686b5e88/users", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     
@@ -504,7 +504,7 @@ app.get("/users", async (c) => {
   }
 });
 
-app.post("/users/invite", async (c) => {
+app.post("/make-server-686b5e88/users/invite", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const { email, role } = await c.req.json();
@@ -642,7 +642,7 @@ app.post("/users/invite", async (c) => {
   }
 });
 
-app.get("/invites", async (c) => {
+app.get("/make-server-686b5e88/invites", async (c) => {
   console.log('🔍 Endpoint /invites chamado!');
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -748,7 +748,7 @@ app.get("/invites", async (c) => {
   }
 });
 
-app.post("/users/accept-invite", async (c) => {
+app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
   try {
     const { token, name, password } = await c.req.json();
 
@@ -835,7 +835,7 @@ app.post("/users/accept-invite", async (c) => {
   }
 });
 
-app.delete("/users/:userId", async (c) => {
+app.delete("/make-server-686b5e88/users/:userId", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const userIdToDelete = c.req.param('userId');
@@ -910,7 +910,7 @@ app.delete("/users/:userId", async (c) => {
   }
 });
 
-app.patch("/users/:userId/role", async (c) => {
+app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const userIdToUpdate = c.req.param('userId');
@@ -985,7 +985,7 @@ app.patch("/users/:userId/role", async (c) => {
 // COMPANY SETTINGS ROUTES
 // =====================================================
 
-app.get("/company", async (c) => {
+app.get("/make-server-686b5e88/company", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     
@@ -1039,7 +1039,7 @@ app.get("/company", async (c) => {
   }
 });
 
-app.patch("/company", async (c) => {
+app.patch("/make-server-686b5e88/company", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const updates = await c.req.json();
@@ -1097,10 +1097,14 @@ app.patch("/company", async (c) => {
 
 // =====================================================
 // HEALTH & TEST ROUTES
+// Force deploy: v2024-11-21
 // =====================================================
+
+console.log('🚀 Registrando rotas...');
 
 // Rota raiz - Health check (para teste no dashboard)
 app.get("/", (c) => {
+  console.log('✅ Rota / chamada');
   return c.json({ 
     status: "ok", 
     service: "make-server-686b5e88",
@@ -1111,6 +1115,7 @@ app.get("/", (c) => {
 
 // Rota com prefixo - Para teste no dashboard do Supabase
 app.get("/make-server-686b5e88", (c) => {
+  console.log('✅ Rota /make-server-686b5e88 chamada');
   return c.json({ 
     status: "ok", 
     service: "make-server-686b5e88",
@@ -1119,11 +1124,13 @@ app.get("/make-server-686b5e88", (c) => {
   });
 });
 
-app.get("/health", (c) => {
+app.get("/make-server-686b5e88/health", (c) => {
+  console.log('✅ Rota /health chamada');
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-app.get("/email/status", (c) => {
+app.get("/make-server-686b5e88/email/status", (c) => {
+  console.log('✅ Rota /email/status chamada');
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const configured = isEmailServiceConfigured();
   
@@ -1150,7 +1157,7 @@ app.get("/email/status", (c) => {
   });
 });
 
-app.post("/email/test", async (c) => {
+app.post("/make-server-686b5e88/email/test", async (c) => {
   try {
     const { to } = await c.req.json();
 
@@ -1246,5 +1253,8 @@ app.post("/email/test", async (c) => {
     }, 500);
   }
 });
+
+console.log('✅ Todas as rotas registradas!');
+console.log('🚀 Iniciando servidor Hono...');
 
 Deno.serve(app.fetch);
