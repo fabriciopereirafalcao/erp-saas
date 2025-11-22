@@ -1309,6 +1309,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // VERIFICAR SE TEM TOKEN ANTES DE TENTAR CARREGAR
+      const { getAccessToken } = await import('../utils/authFetch');
+      const token = await getAccessToken();
+      
+      if (!token) {
+        console.log('⚠️ Sem token de acesso - pulando carregamento de companySettings');
+        return;
+      }
+
       try {
         setIsLoadingCompanySettings(true);
         console.log('🔄 Carregando configurações da empresa do backend...');
@@ -1349,13 +1358,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.error('❌ Erro ao carregar configurações da empresa:', error);
         
         // Em caso de erro, usar dados do localStorage como fallback
-        const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile.company_id);
+        const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile?.company_id);
         const localSettings = loadFromStorage(cacheKey, initialCompanySettings);
         setCompanySettings(localSettings);
         
-        toast.error('Erro ao carregar dados da empresa', {
-          description: 'Usando dados locais temporariamente.'
-        });
+        // Não mostrar toast de erro se for erro de autenticação
+        if (!error.message?.includes('autenticad') && !error.message?.includes('autorizado')) {
+          toast.error('Erro ao carregar dados da empresa', {
+            description: 'Usando dados locais temporariamente.'
+          });
+        }
       } finally {
         setIsLoadingCompanySettings(false);
       }
