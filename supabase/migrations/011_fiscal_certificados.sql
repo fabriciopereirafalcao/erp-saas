@@ -52,14 +52,17 @@ CREATE TABLE IF NOT EXISTS fiscal_certificados (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
   -- Constraints
-  CONSTRAINT fiscal_certificados_emitente_ativo_unique 
-    UNIQUE(emitente_id, ativo) 
-    WHERE ativo = true, -- Apenas um certificado ativo por emitente
   CONSTRAINT fiscal_certificados_validade_check 
     CHECK (valid_to > valid_from)
 );
 
--- Índices
+-- Índice único parcial: apenas um certificado ativo por emitente
+-- (substitui a constraint inline que causava erro de sintaxe)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fiscal_certificados_emitente_ativo_unique
+  ON fiscal_certificados(emitente_id)
+  WHERE ativo = true;
+
+-- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_fiscal_certificados_user ON fiscal_certificados(user_id);
 CREATE INDEX IF NOT EXISTS idx_fiscal_certificados_emitente ON fiscal_certificados(emitente_id);
 CREATE INDEX IF NOT EXISTS idx_fiscal_certificados_ativo ON fiscal_certificados(ativo);

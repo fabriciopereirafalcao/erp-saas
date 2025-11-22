@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
@@ -13,9 +13,9 @@ import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Switch } from "./ui/switch";
-import { Plus, Search, FileText, Send, X, CheckCircle, XCircle, Clock, AlertCircle, Download, Printer, Copy, MoreVertical, Eye, Edit, Building2, Save, Upload, HelpCircle, Info, Calculator } from "lucide-react";
+import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle, Download, MoreVertical, Building2, Save, Info, HelpCircle } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
-import { toast } from "sonner";
+import { toast } from "sonner@2.0.3";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 // Tipos de dados fiscais
@@ -43,7 +43,7 @@ interface NFe {
   id: string;
   number: string;
   series: string;
-  type: "55" | "65"; // 55: NFe, 65: NFCe
+  type: "55" | "65";
   status: "Rascunho" | "Autorizada" | "Cancelada" | "Denegada" | "Rejeitada";
   salesOrderId?: string;
   issueDate: string;
@@ -80,14 +80,11 @@ interface NFe {
   additionalInfo?: string;
   accessKey?: string;
   protocol?: string;
-  xmlUrl?: string;
-  pdfUrl?: string;
 }
 
 // Interface para configuração do Emitente
 interface TaxEmitter {
   id: string;
-  // Identificação
   cnpj: string;
   razaoSocial: string;
   nomeFantasia: string;
@@ -98,7 +95,6 @@ interface TaxEmitter {
   cnae: string;
   tokenIBPT: string;
   
-  // Endereço
   cep: string;
   logradouro: string;
   numero: string;
@@ -108,16 +104,13 @@ interface TaxEmitter {
   estado: string;
   codigoMunicipio: string;
   
-  // Contato
   telefone: string;
   email: string;
   
-  // Certificado Digital
   certificadoArquivo: string;
   certificadoSenha: string;
   certificadoValidade: string;
   
-  // Configuração NF-e
   nfe: {
     ambiente: "Produção" | "Homologação";
     serieNFe: string;
@@ -127,8 +120,8 @@ interface TaxEmitter {
     tipoOperacaoPadrao: "Entrada" | "Saída";
     emailCopia: string;
     informacoesComplementares: string;
-    
-    // Substituição Tributária
+    csc: string;
+    idToken: string;
     substituicaoTributaria: {
       ativo: boolean;
       ufDestino: string;
@@ -136,7 +129,6 @@ interface TaxEmitter {
     };
   };
   
-  // Configuração NFC-e
   nfce: {
     ativo: boolean;
     ambiente: "Produção" | "Homologação";
@@ -148,7 +140,6 @@ interface TaxEmitter {
     informacoesComplementares: string;
   };
   
-  // Configuração SPED
   sped: {
     ativo: boolean;
     perfil: "A" | "B" | "C";
@@ -162,9 +153,7 @@ interface TaxEmitter {
     informacoesComplementares: string;
   };
   
-  // Configuração de Impostos
   impostos: {
-    // Impostos Federais
     pis: {
       aliquotaPadrao: number;
       regime: "Cumulativo" | "Não-Cumulativo";
@@ -177,21 +166,16 @@ interface TaxEmitter {
       aliquotaPadrao: number;
       aplicavel: boolean;
     };
-    
-    // ICMS
     icms: {
       aliquotaInterna: number;
       estadoOrigem: string;
-      // Tabela de alíquotas interestaduais por UF
       aliquotasInterestaduais: {
         [uf: string]: {
           aliquota: number;
-          fcp: number; // Fundo de Combate à Pobreza
+          fcp: number;
         };
       };
     };
-    
-    // Retenções
     retencoes: {
       irrf: {
         ativo: boolean;
@@ -223,37 +207,11 @@ const BRAZILIAN_STATES = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-// Tabelas fiscais
-const CFOP_TABLE = [
-  { code: "5.101", description: "Venda de produção do estabelecimento", type: "Saída" },
-  { code: "5.102", description: "Venda de mercadoria adquirida ou recebida de terceiros", type: "Saída" },
-  { code: "5.103", description: "Venda de produção do estabelecimento, efetuada fora do estabelecimento", type: "Saída" },
-  { code: "5.104", description: "Venda de mercadoria adquirida ou recebida de terceiros, efetuada fora do estabelecimento", type: "Saída" },
-  { code: "5.401", description: "Venda de produção do estabelecimento em operação com produto sujeito ao regime de substituição tributária", type: "Saída" },
-  { code: "5.403", description: "Venda de mercadoria adquirida ou recebida de terceiros em operação com mercadoria sujeita ao regime de substituição tributária", type: "Saída" },
-  { code: "6.101", description: "Venda de produção do estabelecimento - Interestadual", type: "Saída" },
-  { code: "6.102", description: "Venda de mercadoria adquirida ou recebida de terceiros - Interestadual", type: "Saída" },
-  { code: "1.101", description: "Compra para industrialização ou produção rural", type: "Entrada" },
-  { code: "1.102", description: "Compra para comercialização", type: "Entrada" },
-  { code: "2.101", description: "Compra para industrialização ou produção rural - Interestadual", type: "Entrada" },
-  { code: "2.102", description: "Compra para comercialização - Interestadual", type: "Entrada" },
-];
-
-const TAX_REGIMES = [
-  { value: "Simples Nacional", label: "Simples Nacional" },
-  { value: "Lucro Presumido", label: "Lucro Presumido" },
-  { value: "Lucro Real", label: "Lucro Real" },
-  { value: "MEI", label: "MEI - Microempreendedor Individual" },
-];
-
 export function TaxInvoicing() {
-  const { salesOrders, customers, inventory, companySettings } = useERP();
+  const { salesOrders, customers, companySettings } = useERP();
   const [activeMainTab, setActiveMainTab] = useState<"emissao" | "emitente">("emissao");
   const [activeEmitterTab, setActiveEmitterTab] = useState<"identificacao" | "nfe" | "nfce" | "sped" | "impostos">("identificacao");
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedNFe, setSelectedNFe] = useState<NFe | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Estado do Emitente
@@ -294,6 +252,8 @@ export function TaxInvoicing() {
       tipoOperacaoPadrao: "Saída",
       emailCopia: companySettings?.generalData?.email || "",
       informacoesComplementares: "",
+      csc: "",
+      idToken: "",
       substituicaoTributaria: {
         ativo: false,
         ufDestino: "",
@@ -395,27 +355,8 @@ export function TaxInvoicing() {
     updatedAt: new Date().toISOString()
   });
 
-  // Estado do formulário de NFe
-  const [nfeForm, setNfeForm] = useState<{
-    salesOrderId: string;
-    type: "55" | "65";
-    series: string;
-    taxRegime: string;
-    naturezaOperacao: string;
-    additionalInfo: string;
-  }>({
-    salesOrderId: "",
-    type: "55",
-    series: "1",
-    taxRegime: "Simples Nacional",
-    naturezaOperacao: "Venda de mercadoria adquirida ou recebida de terceiros",
-    additionalInfo: ""
-  });
-
-  const [nfeItems, setNfeItems] = useState<NFeTaxItem[]>([]);
-
   // Mock de NFes
-  const [nfes, setNfes] = useState<NFe[]>([
+  const [nfes] = useState<NFe[]>([
     {
       id: "NFE-001",
       number: "000001",
@@ -427,7 +368,7 @@ export function TaxInvoicing() {
       emitter: {
         cnpj: companySettings?.generalData?.cnpj || "00.000.000/0000-00",
         name: companySettings?.generalData?.companyName || "Empresa Exemplo",
-        fantasyName: companySettings?.generalData?.tradeName || companySettings?.generalData?.companyName || "Empresa Exemplo",
+        fantasyName: companySettings?.generalData?.tradeName || "Empresa Exemplo",
         ie: companySettings?.taxData?.stateRegistration || "000.000.000.000",
         address: companySettings?.generalData?.address || "Endereço não cadastrado",
         city: companySettings?.generalData?.city || "São Paulo",
@@ -520,187 +461,6 @@ export function TaxInvoicing() {
     return { authorized, draft, cancelled, totalValue };
   }, [nfes]);
 
-  const handleLoadSalesOrder = () => {
-    if (!nfeForm.salesOrderId) {
-      toast.error("Selecione um pedido de venda");
-      return;
-    }
-
-    const order = salesOrders.find(o => o.id === nfeForm.salesOrderId);
-    if (!order) {
-      toast.error("Pedido não encontrado");
-      return;
-    }
-
-    const customer = customers.find(c => c.id === order.customerId);
-    if (!customer) {
-      toast.error("Cliente não encontrado");
-      return;
-    }
-
-    const companyState = companySettings?.generalData?.state || "SP";
-    const newItem: NFeTaxItem = {
-      productId: order.productName,
-      productName: order.productName,
-      ncm: "00000000",
-      cfop: customer.state === companyState ? "5.102" : "6.102",
-      cst: "00",
-      csosn: "102",
-      quantity: order.quantity,
-      unitValue: order.unitPrice,
-      totalValue: order.totalAmount,
-      icmsRate: nfeForm.taxRegime === "Simples Nacional" ? 0 : 18,
-      icmsValue: nfeForm.taxRegime === "Simples Nacional" ? 0 : order.totalAmount * 0.18,
-      ipiRate: 0,
-      ipiValue: 0,
-      pisRate: 1.65,
-      pisValue: order.totalAmount * 0.0165,
-      cofinsRate: 7.6,
-      cofinsValue: order.totalAmount * 0.076
-    };
-
-    setNfeItems([newItem]);
-    toast.success("Dados do pedido carregados com sucesso");
-  };
-
-  const calculateTotals = () => {
-    const productsValue = nfeItems.reduce((sum, item) => sum + item.totalValue, 0);
-    const icmsValue = nfeItems.reduce((sum, item) => sum + item.icmsValue, 0);
-    const ipiValue = nfeItems.reduce((sum, item) => sum + item.ipiValue, 0);
-    const pisValue = nfeItems.reduce((sum, item) => sum + item.pisValue, 0);
-    const cofinsValue = nfeItems.reduce((sum, item) => sum + item.cofinsValue, 0);
-    const nfeValue = productsValue + ipiValue;
-
-    return {
-      productsValue,
-      icmsValue,
-      ipiValue,
-      pisValue,
-      cofinsValue,
-      nfeValue
-    };
-  };
-
-  const handleEmitNFe = () => {
-    if (!nfeForm.salesOrderId) {
-      toast.error("Selecione um pedido de venda");
-      return;
-    }
-
-    if (nfeItems.length === 0) {
-      toast.error("Adicione pelo menos um item à NFe");
-      return;
-    }
-
-    const order = salesOrders.find(o => o.id === nfeForm.salesOrderId);
-    if (!order) return;
-
-    const customer = customers.find(c => c.id === order.customerId);
-    if (!customer) return;
-
-    const totals = calculateTotals();
-
-    const newNFe: NFe = {
-      id: `NFE-${String(nfes.length + 1).padStart(3, '0')}`,
-      number: String(nfes.length + 1).padStart(6, '0'),
-      series: nfeForm.series,
-      type: nfeForm.type,
-      status: "Rascunho",
-      salesOrderId: nfeForm.salesOrderId,
-      issueDate: new Date().toISOString().split('T')[0],
-      emitter: {
-        cnpj: emitter.cnpj || "00.000.000/0000-00",
-        name: emitter.razaoSocial || "Empresa Exemplo",
-        fantasyName: emitter.nomeFantasia || emitter.razaoSocial || "Empresa Exemplo",
-        ie: emitter.inscricaoEstadual || "000.000.000.000",
-        address: `${emitter.logradouro}, ${emitter.numero}`,
-        city: emitter.cidade || "São Paulo",
-        state: emitter.estado || "SP",
-        cep: emitter.cep || "00000-000"
-      },
-      recipient: {
-        document: customer.document,
-        name: customer.company || customer.name,
-        ie: customer.stateRegistration,
-        address: customer.address,
-        city: customer.city,
-        state: customer.state,
-        cep: customer.zipCode
-      },
-      items: nfeItems,
-      totals,
-      taxRegime: nfeForm.taxRegime as any,
-      naturezaOperacao: nfeForm.naturezaOperacao,
-      additionalInfo: nfeForm.additionalInfo
-    };
-
-    setNfes([...nfes, newNFe]);
-    
-    setNfeForm({
-      salesOrderId: "",
-      type: "55",
-      series: "1",
-      taxRegime: "Simples Nacional",
-      naturezaOperacao: "Venda de mercadoria adquirida ou recebida de terceiros",
-      additionalInfo: ""
-    });
-    setNfeItems([]);
-    setIsDialogOpen(false);
-
-    toast.success(`NFe ${newNFe.number} criada com sucesso!`);
-  };
-
-  const handleTransmitNFe = (nfeId: string) => {
-    const nfe = nfes.find(n => n.id === nfeId);
-    if (!nfe) return;
-
-    if (nfe.status !== "Rascunho") {
-      toast.error("Apenas NFes em rascunho podem ser transmitidas");
-      return;
-    }
-
-    const cnpj = emitter.cnpj || "00000000000000";
-    const updatedNfes = nfes.map(n => {
-      if (n.id === nfeId) {
-        return {
-          ...n,
-          status: "Autorizada" as const,
-          accessKey: `35${new Date().getFullYear()}${cnpj.replace(/\D/g, '')}55001${n.number}${Math.random().toString().substr(2, 10)}`,
-          protocol: `135${new Date().getFullYear()}${Math.random().toString().substr(2, 10)}`
-        };
-      }
-      return n;
-    });
-
-    setNfes(updatedNfes);
-    toast.success("NFe autorizada com sucesso!");
-  };
-
-  const handleCancelNFe = (nfeId: string) => {
-    const nfe = nfes.find(n => n.id === nfeId);
-    if (!nfe) return;
-
-    if (nfe.status !== "Autorizada") {
-      toast.error("Apenas NFes autorizadas podem ser canceladas");
-      return;
-    }
-
-    const updatedNfes = nfes.map(n => {
-      if (n.id === nfeId) {
-        return { ...n, status: "Cancelada" as const };
-      }
-      return n;
-    });
-
-    setNfes(updatedNfes);
-    toast.success("NFe cancelada com sucesso!");
-  };
-
-  const handleViewNFe = (nfe: NFe) => {
-    setSelectedNFe(nfe);
-    setIsViewDialogOpen(true);
-  };
-
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       "Rascunho": "bg-gray-100 text-gray-700",
@@ -739,7 +499,6 @@ export function TaxInvoicing() {
         </div>
       </div>
 
-      {/* Tabs Principais: Emissão e Emitente */}
       <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as "emissao" | "emitente")}>
         <TabsList className="mb-6">
           <TabsTrigger value="emissao" className="gap-2">
@@ -754,348 +513,145 @@ export function TaxInvoicing() {
 
         {/* ABA 1: EMISSÃO DE NOTAS */}
         <TabsContent value="emissao" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="grid grid-cols-4 gap-4 flex-1 mr-4">
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Autorizadas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.authorized}</p>
-                  </div>
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
                 </div>
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gray-100 rounded-lg">
-                    <Clock className="w-6 h-6 text-gray-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Rascunhos</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.draft}</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-gray-600">Autorizadas</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.authorized}</p>
                 </div>
-              </Card>
+              </div>
+            </Card>
 
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-red-100 rounded-lg">
-                    <XCircle className="w-6 h-6 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Canceladas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.cancelled}</p>
-                  </div>
+            <Card className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gray-100 rounded-lg">
+                  <Clock className="w-6 h-6 text-gray-600" />
                 </div>
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Valor Total</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      R$ {stats.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm text-gray-600">Rascunhos</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.draft}</p>
                 </div>
-              </Card>
-            </div>
+              </div>
+            </Card>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Emitir NFe
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Emitir Nota Fiscal Eletrônica (NFe)</DialogTitle>
-                  <DialogDescription>
-                    Preencha os dados da nota fiscal para emissão
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Pedido de Venda *</Label>
-                      <div className="flex gap-2">
-                        <Select 
-                          value={nfeForm.salesOrderId} 
-                          onValueChange={(value) => setNfeForm({...nfeForm, salesOrderId: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o pedido" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {salesOrders
-                              .filter(o => o.status === "Entregue" || o.status === "Concluído")
-                              .map((order) => (
-                                <SelectItem key={order.id} value={order.id}>
-                                  {order.id} - {order.customer} - R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <Button 
-                          onClick={handleLoadSalesOrder}
-                          variant="outline"
-                        >
-                          Carregar
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Tipo de Nota</Label>
-                      <Select 
-                        value={nfeForm.type} 
-                        onValueChange={(value: "55" | "65") => setNfeForm({...nfeForm, type: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="55">NFe (Modelo 55)</SelectItem>
-                          <SelectItem value="65">NFCe (Modelo 65)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Série</Label>
-                      <Input
-                        value={nfeForm.series}
-                        onChange={(e) => setNfeForm({...nfeForm, series: e.target.value})}
-                        placeholder="1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Regime Tributário</Label>
-                      <Select 
-                        value={nfeForm.taxRegime} 
-                        onValueChange={(value) => setNfeForm({...nfeForm, taxRegime: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TAX_REGIMES.map(regime => (
-                            <SelectItem key={regime.value} value={regime.value}>
-                              {regime.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Natureza da Operação</Label>
-                      <Input
-                        value={nfeForm.naturezaOperacao}
-                        onChange={(e) => setNfeForm({...nfeForm, naturezaOperacao: e.target.value})}
-                        placeholder="Venda de mercadoria"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Informações Complementares</Label>
-                    <Textarea
-                      value={nfeForm.additionalInfo}
-                      onChange={(e) => setNfeForm({...nfeForm, additionalInfo: e.target.value})}
-                      placeholder="Informações adicionais sobre a nota fiscal..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <Alert>
-                    <Info className="w-4 h-4" />
-                    <AlertDescription>
-                      <strong>Códigos Fiscais:</strong> CFOP define a natureza da operação, CST/CSOSN indica a situação tributária do ICMS. Utilize CSOSN para empresas no Simples Nacional e CST para demais regimes tributários.
-                    </AlertDescription>
-                  </Alert>
-
-                  {nfeItems.length > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Itens da NFe</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Produto</TableHead>
-                            <TableHead>Qtd</TableHead>
-                            <TableHead>Valor Unit.</TableHead>
-                            <TableHead>Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {nfeItems.map((item, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell>{item.productName}</TableCell>
-                              <TableCell>{item.quantity}</TableCell>
-                              <TableCell>R$ {item.unitValue.toFixed(2)}</TableCell>
-                              <TableCell>R$ {item.totalValue.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <div className="mt-4 flex justify-end">
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">Valor Total</p>
-                          <p className="text-xl font-semibold text-gray-900">
-                            R$ {calculateTotals().nfeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleEmitNFe}>
-                      Gerar NFe
-                    </Button>
-                  </div>
+            <Card className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-100 rounded-lg">
+                  <XCircle className="w-6 h-6 text-red-600" />
                 </div>
-              </DialogContent>
-            </Dialog>
+                <div>
+                  <p className="text-sm text-gray-600">Canceladas</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.cancelled}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Valor Total</p>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    R$ {stats.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
-
-          <Alert className="bg-blue-50 border-blue-200">
-            <Info className="w-4 h-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong className="font-semibold">Códigos Fiscais:</strong> CFOP define a natureza da operação, CST/CSOSN indica a situação tributária do ICMS. Utilize CSOSN para empresas no Simples Nacional e CST para demais regimes tributários.
-            </AlertDescription>
-          </Alert>
 
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Pesquisar por número, cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+              <h2 className="text-gray-900">Notas Fiscais Emitidas</h2>
+              <Button className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">
+                <Plus className="w-4 h-4 mr-2" />
+                Emitir NFe
+              </Button>
+            </div>
 
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Status</SelectItem>
-                    <SelectItem value="Rascunho">Rascunho</SelectItem>
-                    <SelectItem value="Autorizada">Autorizada</SelectItem>
-                    <SelectItem value="Cancelada">Cancelada</SelectItem>
-                    <SelectItem value="Denegada">Denegada</SelectItem>
-                    <SelectItem value="Rejeitada">Rejeitada</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="flex gap-4 mb-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar por número, cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="Autorizada">Autorizada</SelectItem>
+                  <SelectItem value="Rascunho">Rascunho</SelectItem>
+                  <SelectItem value="Cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ações</TableHead>
                   <TableHead>Número</TableHead>
-                  <TableHead>Série</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Data de Emissão</TableHead>
-                  <TableHead>Destinatário</TableHead>
-                  <TableHead>Valor Total</TableHead>
-                  <TableHead>Pedido de Venda</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Valor</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredNFes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                      Nenhuma nota fiscal encontrada
+                {filteredNFes.map((nfe) => (
+                  <TableRow key={nfe.id}>
+                    <TableCell>{nfe.number}</TableCell>
+                    <TableCell>{new Date(nfe.issueDate).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{nfe.recipient.name}</TableCell>
+                    <TableCell>R$ {nfe.totals.nfeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(nfe.status)}>
+                        <span className="flex items-center gap-1">
+                          {getStatusIcon(nfe.status)}
+                          {nfe.status}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Download className="w-4 h-4 mr-2" />
+                            Baixar XML
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Download className="w-4 h-4 mr-2" />
+                            Baixar PDF
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredNFes.map((nfe) => (
-                    <TableRow key={nfe.id}>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleViewNFe(nfe)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Visualizar
-                            </DropdownMenuItem>
-                            {nfe.status === "Rascunho" && (
-                              <DropdownMenuItem onClick={() => handleTransmitNFe(nfe.id)}>
-                                <Send className="w-4 h-4 mr-2" />
-                                Transmitir
-                              </DropdownMenuItem>
-                            )}
-                            {nfe.status === "Autorizada" && (
-                              <>
-                                <DropdownMenuItem>
-                                  <Download className="w-4 h-4 mr-2" />
-                                  Download XML
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Printer className="w-4 h-4 mr-2" />
-                                  Imprimir DANFE
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCancelNFe(nfe.id)}>
-                                  <XCircle className="w-4 h-4 mr-2" />
-                                  Cancelar NFe
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                      <TableCell className="font-mono">{nfe.number}</TableCell>
-                      <TableCell>{nfe.series}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {nfe.type === "55" ? "NFe" : "NFCe"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(nfe.issueDate).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell>{nfe.recipient.name}</TableCell>
-                      <TableCell>R$ {nfe.totals.nfeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell>{nfe.salesOrderId || "-"}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(nfe.status)}>
-                          <div className="flex items-center gap-1">
-                            {getStatusIcon(nfe.status)}
-                            {nfe.status}
-                          </div>
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
+
+            {filteredNFes.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma nota fiscal encontrada
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -1104,31 +660,28 @@ export function TaxInvoicing() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Configuração do Emitente</h2>
-                <p className="text-sm text-gray-600">Configure os dados fiscais da sua empresa para emissão de notas</p>
+                <h2 className="text-gray-900 mb-1">Configuração do Emitente</h2>
+                <p className="text-sm text-gray-600">Configure os dados fiscais da sua empresa</p>
               </div>
-              <Button onClick={handleSaveEmitter} className="gap-2">
-                <Save className="w-4 h-4" />
+              <Button onClick={handleSaveEmitter} className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">
+                <Save className="w-4 h-4 mr-2" />
                 Salvar Configurações
               </Button>
             </div>
 
             <Tabs value={activeEmitterTab} onValueChange={(v) => setActiveEmitterTab(v as any)}>
-              <TabsList className="grid w-full grid-cols-5 mb-6">
+              <TabsList className="mb-6">
                 <TabsTrigger value="identificacao">Identificação</TabsTrigger>
-                <TabsTrigger value="nfe">Configuração NF-e</TabsTrigger>
-                <TabsTrigger value="nfce">Configuração NFC-e</TabsTrigger>
-                <TabsTrigger value="sped">Configuração SPED</TabsTrigger>
-                <TabsTrigger value="impostos" className="gap-2">
-                  <Calculator className="w-4 h-4" />
-                  Impostos
-                </TabsTrigger>
+                <TabsTrigger value="nfe">NF-e</TabsTrigger>
+                <TabsTrigger value="nfce">NFC-e</TabsTrigger>
+                <TabsTrigger value="sped">SPED</TabsTrigger>
+                <TabsTrigger value="impostos">Impostos</TabsTrigger>
               </TabsList>
 
               {/* SUB-ABA 1: IDENTIFICAÇÃO */}
               <TabsContent value="identificacao" className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Dados Cadastrais</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Dados da Empresa</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>CNPJ *</Label>
@@ -1138,66 +691,27 @@ export function TaxInvoicing() {
                         placeholder="00.000.000/0000-00"
                       />
                     </div>
-
-                    <div>
-                      <Label>Razão Social *</Label>
-                      <Input
-                        value={emitter.razaoSocial}
-                        onChange={(e) => setEmitter({...emitter, razaoSocial: e.target.value})}
-                        placeholder="Nome da empresa"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Nome Fantasia</Label>
-                      <Input
-                        value={emitter.nomeFantasia}
-                        onChange={(e) => setEmitter({...emitter, nomeFantasia: e.target.value})}
-                        placeholder="Nome fantasia"
-                      />
-                    </div>
-
                     <div>
                       <Label>Inscrição Estadual *</Label>
                       <Input
                         value={emitter.inscricaoEstadual}
                         onChange={(e) => setEmitter({...emitter, inscricaoEstadual: e.target.value})}
-                        placeholder="000.000.000.000"
                       />
                     </div>
-
-                    <div>
-                      <Label>Inscrição Municipal</Label>
+                    <div className="col-span-2">
+                      <Label>Razão Social *</Label>
                       <Input
-                        value={emitter.inscricaoMunicipal}
-                        onChange={(e) => setEmitter({...emitter, inscricaoMunicipal: e.target.value})}
-                        placeholder="Inscrição municipal"
+                        value={emitter.razaoSocial}
+                        onChange={(e) => setEmitter({...emitter, razaoSocial: e.target.value})}
                       />
                     </div>
-
-                    <div>
-                      <Label>
-                        <div className="flex items-center gap-2">
-                          SUFRAMA
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="w-3 h-3 text-gray-400" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">Superintendência da Zona Franca de Manaus. Necessário apenas para empresas da Zona Franca.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </Label>
+                    <div className="col-span-2">
+                      <Label>Nome Fantasia</Label>
                       <Input
-                        value={emitter.suframa}
-                        onChange={(e) => setEmitter({...emitter, suframa: e.target.value})}
-                        placeholder="Código SUFRAMA (opcional)"
+                        value={emitter.nomeFantasia}
+                        onChange={(e) => setEmitter({...emitter, nomeFantasia: e.target.value})}
                       />
                     </div>
-
                     <div>
                       <Label>Regime Tributário *</Label>
                       <Select 
@@ -1208,59 +722,18 @@ export function TaxInvoicing() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {TAX_REGIMES.map(regime => (
-                            <SelectItem key={regime.value} value={regime.value}>
-                              {regime.label}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="Simples Nacional">Simples Nacional</SelectItem>
+                          <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
+                          <SelectItem value="Lucro Real">Lucro Real</SelectItem>
+                          <SelectItem value="MEI">MEI</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div>
-                      <Label>
-                        <div className="flex items-center gap-2">
-                          CNAE
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="w-3 h-3 text-gray-400" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">Classificação Nacional de Atividades Econômicas. Ex: 4711-3/01 - Comércio varejista</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </Label>
+                      <Label>CNAE</Label>
                       <Input
                         value={emitter.cnae}
                         onChange={(e) => setEmitter({...emitter, cnae: e.target.value})}
-                        placeholder="0000-0/00"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>
-                        <div className="flex items-center gap-2">
-                          Token IBPT
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="w-3 h-3 text-gray-400" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">Token para cálculo de tributos aproximados (Lei da Transparência). Obtenha em ibpt.com.br</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </Label>
-                      <Input
-                        value={emitter.tokenIBPT}
-                        onChange={(e) => setEmitter({...emitter, tokenIBPT: e.target.value})}
-                        placeholder="Token para cálculo de tributos"
-                        type="password"
                       />
                     </div>
                   </div>
@@ -1276,166 +749,67 @@ export function TaxInvoicing() {
                       <Input
                         value={emitter.cep}
                         onChange={(e) => setEmitter({...emitter, cep: e.target.value})}
-                        placeholder="00000-000"
                       />
                     </div>
-
                     <div className="col-span-2">
                       <Label>Logradouro *</Label>
                       <Input
                         value={emitter.logradouro}
                         onChange={(e) => setEmitter({...emitter, logradouro: e.target.value})}
-                        placeholder="Rua, Avenida, etc."
                       />
                     </div>
-
                     <div>
                       <Label>Número *</Label>
                       <Input
                         value={emitter.numero}
                         onChange={(e) => setEmitter({...emitter, numero: e.target.value})}
-                        placeholder="123"
                       />
                     </div>
-
-                    <div>
-                      <Label>Complemento</Label>
-                      <Input
-                        value={emitter.complemento}
-                        onChange={(e) => setEmitter({...emitter, complemento: e.target.value})}
-                        placeholder="Sala, Andar, etc."
-                      />
-                    </div>
-
                     <div>
                       <Label>Bairro *</Label>
                       <Input
                         value={emitter.bairro}
                         onChange={(e) => setEmitter({...emitter, bairro: e.target.value})}
-                        placeholder="Centro"
                       />
                     </div>
-
+                    <div>
+                      <Label>Complemento</Label>
+                      <Input
+                        value={emitter.complemento}
+                        onChange={(e) => setEmitter({...emitter, complemento: e.target.value})}
+                      />
+                    </div>
                     <div>
                       <Label>Cidade *</Label>
                       <Input
                         value={emitter.cidade}
                         onChange={(e) => setEmitter({...emitter, cidade: e.target.value})}
-                        placeholder="São Paulo"
                       />
                     </div>
-
                     <div>
-                      <Label>Estado (UF) *</Label>
+                      <Label>Estado *</Label>
                       <Select 
                         value={emitter.estado} 
                         onValueChange={(value) => setEmitter({...emitter, estado: value})}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {BRAZILIAN_STATES.map(state => (
-                            <SelectItem key={state} value={state}>
-                              {state}
-                            </SelectItem>
+                            <SelectItem key={state} value={state}>{state}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    <div>
-                      <Label>Código do Município (IBGE)</Label>
-                      <Input
-                        value={emitter.codigoMunicipio}
-                        onChange={(e) => setEmitter({...emitter, codigoMunicipio: e.target.value})}
-                        placeholder="3550308"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Contato</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Telefone</Label>
-                      <Input
-                        value={emitter.telefone}
-                        onChange={(e) => setEmitter({...emitter, telefone: e.target.value})}
-                        placeholder="(11) 98765-4321"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>E-mail</Label>
-                      <Input
-                        value={emitter.email}
-                        onChange={(e) => setEmitter({...emitter, email: e.target.value})}
-                        placeholder="contato@empresa.com.br"
-                        type="email"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Certificado Digital (A1)</h3>
-                  <Alert className="mb-4">
-                    <AlertCircle className="w-4 h-4" />
-                    <AlertDescription>
-                      O certificado digital é obrigatório para emissão de NF-e. Utilize certificado A1 (arquivo .pfx) válido.
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label>Arquivo do Certificado (.pfx)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={emitter.certificadoArquivo}
-                          onChange={(e) => setEmitter({...emitter, certificadoArquivo: e.target.value})}
-                          placeholder="Certificado não carregado"
-                          readOnly
-                          className="flex-1"
-                        />
-                        <Button variant="outline" className="gap-2">
-                          <Upload className="w-4 h-4" />
-                          Upload
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Senha do Certificado</Label>
-                      <Input
-                        value={emitter.certificadoSenha}
-                        onChange={(e) => setEmitter({...emitter, certificadoSenha: e.target.value})}
-                        placeholder="Senha do certificado"
-                        type="password"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Validade do Certificado</Label>
-                      <Input
-                        value={emitter.certificadoValidade}
-                        onChange={(e) => setEmitter({...emitter, certificadoValidade: e.target.value})}
-                        type="date"
-                      />
                     </div>
                   </div>
                 </div>
               </TabsContent>
 
-              {/* SUB-ABA 2: CONFIGURAÇÃO NF-E */}
+              {/* SUB-ABA 2: CONFIGURAÇÃO NF-e */}
               <TabsContent value="nfe" className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações Gerais da NF-e</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações NF-e</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Ambiente</Label>
@@ -1450,214 +824,60 @@ export function TaxInvoicing() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Homologação">Homologação (Testes)</SelectItem>
+                          <SelectItem value="Homologação">Homologação</SelectItem>
                           <SelectItem value="Produção">Produção</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Use Homologação para testes e Produção para notas reais
-                      </p>
                     </div>
-
                     <div>
-                      <Label>Série da NF-e</Label>
+                      <Label>Série NF-e</Label>
                       <Input
                         value={emitter.nfe.serieNFe}
                         onChange={(e) => setEmitter({
                           ...emitter, 
                           nfe: {...emitter.nfe, serieNFe: e.target.value}
                         })}
-                        placeholder="1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Número de série da NF-e (geralmente 1)
-                      </p>
                     </div>
-
                     <div>
-                      <Label>Número Atual da NF-e</Label>
+                      <Label>CSC (Código de Segurança do Contribuinte)</Label>
                       <Input
-                        type="number"
-                        value={emitter.nfe.numeroAtualNFe}
+                        type="password"
+                        value={emitter.nfe.csc}
                         onChange={(e) => setEmitter({
                           ...emitter, 
-                          nfe: {...emitter.nfe, numeroAtualNFe: parseInt(e.target.value) || 1}
+                          nfe: {...emitter.nfe, csc: e.target.value}
                         })}
-                        placeholder="1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Próximo número de NF-e a ser emitida
-                      </p>
                     </div>
-
                     <div>
-                      <Label>Tipo de Operação Padrão</Label>
-                      <Select 
-                        value={emitter.nfe.tipoOperacaoPadrao} 
-                        onValueChange={(value: any) => setEmitter({
-                          ...emitter, 
-                          nfe: {...emitter.nfe, tipoOperacaoPadrao: value}
-                        })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Saída">Saída (Venda)</SelectItem>
-                          <SelectItem value="Entrada">Entrada (Compra)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>Natureza da Operação Padrão</Label>
+                      <Label>ID Token CSC</Label>
                       <Input
-                        value={emitter.nfe.naturezaOperacaoPadrao}
+                        value={emitter.nfe.idToken}
                         onChange={(e) => setEmitter({
                           ...emitter, 
-                          nfe: {...emitter.nfe, naturezaOperacaoPadrao: e.target.value}
+                          nfe: {...emitter.nfe, idToken: e.target.value}
                         })}
-                        placeholder="Venda de mercadoria adquirida ou recebida de terceiros"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>CFOP Padrão</Label>
-                      <Select 
-                        value={emitter.nfe.cfopPadrao} 
-                        onValueChange={(value) => setEmitter({
-                          ...emitter, 
-                          nfe: {...emitter.nfe, cfopPadrao: value}
-                        })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CFOP_TABLE.map(cfop => (
-                            <SelectItem key={cfop.code} value={cfop.code}>
-                              {cfop.code} - {cfop.description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>E-mail para Cópia da NF-e</Label>
-                      <Input
-                        value={emitter.nfe.emailCopia}
-                        onChange={(e) => setEmitter({
-                          ...emitter, 
-                          nfe: {...emitter.nfe, emailCopia: e.target.value}
-                        })}
-                        placeholder="nfe@empresa.com.br"
-                        type="email"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>Informações Complementares Padrão</Label>
-                      <Textarea
-                        value={emitter.nfe.informacoesComplementares}
-                        onChange={(e) => setEmitter({
-                          ...emitter, 
-                          nfe: {...emitter.nfe, informacoesComplementares: e.target.value}
-                        })}
-                        placeholder="Informações que aparecerão em todas as NF-e..."
-                        rows={3}
                       />
                     </div>
                   </div>
                 </div>
 
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Substituição Tributária</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Habilitar Substituição Tributária</Label>
-                        <p className="text-xs text-gray-500">
-                          Ative se sua empresa realiza operações com ST
-                        </p>
-                      </div>
-                      <Switch
-                        checked={emitter.nfe.substituicaoTributaria.ativo}
-                        onCheckedChange={(checked) => setEmitter({
-                          ...emitter,
-                          nfe: {
-                            ...emitter.nfe,
-                            substituicaoTributaria: {
-                              ...emitter.nfe.substituicaoTributaria,
-                              ativo: checked
-                            }
-                          }
-                        })}
-                      />
-                    </div>
-
-                    {emitter.nfe.substituicaoTributaria.ativo && (
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <Label>UF de Destino</Label>
-                          <Select 
-                            value={emitter.nfe.substituicaoTributaria.ufDestino} 
-                            onValueChange={(value) => setEmitter({
-                              ...emitter,
-                              nfe: {
-                                ...emitter.nfe,
-                                substituicaoTributaria: {
-                                  ...emitter.nfe.substituicaoTributaria,
-                                  ufDestino: value
-                                }
-                              }
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {BRAZILIAN_STATES.map(state => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Inscrição Estadual do Substituto Tributário</Label>
-                          <Input
-                            value={emitter.nfe.substituicaoTributaria.inscricaoEstadualST}
-                            onChange={(e) => setEmitter({
-                              ...emitter,
-                              nfe: {
-                                ...emitter.nfe,
-                                substituicaoTributaria: {
-                                  ...emitter.nfe.substituicaoTributaria,
-                                  inscricaoEstadualST: e.target.value
-                                }
-                              }
-                            })}
-                            placeholder="000.000.000.000"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <Alert>
+                  <Info className="w-4 h-4" />
+                  <AlertDescription>
+                    <strong>Importante:</strong> O CSC é obrigatório para emissão de NF-e. Solicite na SEFAZ do seu estado.
+                  </AlertDescription>
+                </Alert>
               </TabsContent>
 
-              {/* SUB-ABA 3: CONFIGURAÇÃO NFC-E */}
+              {/* SUB-ABA 3: CONFIGURAÇÃO NFC-e */}
               <TabsContent value="nfce" className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
                   <div>
                     <Label className="text-base">Habilitar Emissão de NFC-e</Label>
                     <p className="text-xs text-gray-600 mt-1">
-                      Nota Fiscal de Consumidor Eletrônica para operações de varejo (PDV)
+                      Nota Fiscal de Consumidor Eletrônica
                     </p>
                   </div>
                   <Switch
@@ -1670,142 +890,36 @@ export function TaxInvoicing() {
                 </div>
 
                 {emitter.nfce.ativo ? (
-                  <>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações Gerais da NFC-e</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Ambiente</Label>
-                          <Select 
-                            value={emitter.nfce.ambiente} 
-                            onValueChange={(value: any) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, ambiente: value}
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Homologação">Homologação (Testes)</SelectItem>
-                              <SelectItem value="Produção">Produção</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Série da NFC-e</Label>
-                          <Input
-                            value={emitter.nfce.serieNFCe}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, serieNFCe: e.target.value}
-                            })}
-                            placeholder="1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>Número Atual da NFC-e</Label>
-                          <Input
-                            type="number"
-                            value={emitter.nfce.numeroAtualNFCe}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, numeroAtualNFCe: parseInt(e.target.value) || 1}
-                            })}
-                            placeholder="1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>E-mail para Cópia</Label>
-                          <Input
-                            value={emitter.nfce.emailCopia}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, emailCopia: e.target.value}
-                            })}
-                            placeholder="nfce@empresa.com.br"
-                            type="email"
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <Label>
-                            <div className="flex items-center gap-2">
-                              CSC (Código de Segurança do Contribuinte)
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <HelpCircle className="w-3 h-3 text-gray-400" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-xs">Código fornecido pela SEFAZ para geração do QR Code da NFC-e. Obrigatório para emissão.</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </Label>
-                          <Input
-                            value={emitter.nfce.csc}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, csc: e.target.value}
-                            })}
-                            placeholder="CSC fornecido pela SEFAZ"
-                            type="password"
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <Label>
-                            <div className="flex items-center gap-2">
-                              ID Token CSC
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <HelpCircle className="w-3 h-3 text-gray-400" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-xs">Identificador do token CSC (geralmente "1" ou "2"). Fornecido pela SEFAZ junto com o CSC.</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </Label>
-                          <Input
-                            value={emitter.nfce.idToken}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, idToken: e.target.value}
-                            })}
-                            placeholder="ID Token (1 ou 2)"
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <Label>Informações Complementares Padrão</Label>
-                          <Textarea
-                            value={emitter.nfce.informacoesComplementares}
-                            onChange={(e) => setEmitter({
-                              ...emitter, 
-                              nfce: {...emitter.nfce, informacoesComplementares: e.target.value}
-                            })}
-                            placeholder="Informações que aparecerão em todas as NFC-e..."
-                            rows={3}
-                          />
-                        </div>
-                      </div>
+                      <Label>Ambiente</Label>
+                      <Select 
+                        value={emitter.nfce.ambiente} 
+                        onValueChange={(value: any) => setEmitter({
+                          ...emitter, 
+                          nfce: {...emitter.nfce, ambiente: value}
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Homologação">Homologação</SelectItem>
+                          <SelectItem value="Produção">Produção</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    <Alert>
-                      <Info className="w-4 h-4" />
-                      <AlertDescription>
-                        <strong>Importante:</strong> Para emitir NFC-e, você precisa solicitar o CSC e ID Token na SEFAZ do seu estado. Acesse o portal da SEFAZ e procure por "Solicitar CSC NFC-e".
-                      </AlertDescription>
-                    </Alert>
-                  </>
+                    <div>
+                      <Label>Série NFC-e</Label>
+                      <Input
+                        value={emitter.nfce.serieNFCe}
+                        onChange={(e) => setEmitter({
+                          ...emitter, 
+                          nfce: {...emitter.nfce, serieNFCe: e.target.value}
+                        })}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <Alert>
                     <AlertCircle className="w-4 h-4" />
@@ -1835,173 +949,65 @@ export function TaxInvoicing() {
                 </div>
 
                 {emitter.sped.ativo ? (
-                  <>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Configurações do SPED</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>
-                            <div className="flex items-center gap-2">
-                              Perfil de Apresentação
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <HelpCircle className="w-3 h-3 text-gray-400" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-xs">
-                                      A - Completo (todas as informações)<br/>
-                                      B - Resumido (sem movimentação de estoque)<br/>
-                                      C - Simplificado (apenas totalizadores)
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </Label>
-                          <Select 
-                            value={emitter.sped.perfil} 
-                            onValueChange={(value: any) => setEmitter({
-                              ...emitter, 
-                              sped: {...emitter.sped, perfil: value}
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="A">A - Completo</SelectItem>
-                              <SelectItem value="B">B - Resumido</SelectItem>
-                              <SelectItem value="C">C - Simplificado</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      <Label>
+                        <div className="flex items-center gap-2">
+                          Perfil de Apresentação
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <HelpCircle className="w-3 h-3 text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">
+                                  A - Completo (todas as informações)<br/>
+                                  B - Resumido (sem movimentação de estoque)<br/>
+                                  C - Simplificado (apenas totalizadores)
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
-
-                        <div>
-                          <Label>Tipo de Atividade</Label>
-                          <Select 
-                            value={emitter.sped.tipoAtividade} 
-                            onValueChange={(value: any) => setEmitter({
-                              ...emitter, 
-                              sped: {...emitter.sped, tipoAtividade: value}
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Industrial">Industrial</SelectItem>
-                              <SelectItem value="Comercial">Comercial</SelectItem>
-                              <SelectItem value="Serviços">Serviços</SelectItem>
-                              <SelectItem value="Outros">Outros</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label>Gerar Inventário Mensal</Label>
-                              <p className="text-xs text-gray-500">
-                                Obrigatório para algumas atividades
-                              </p>
-                            </div>
-                            <Switch
-                              checked={emitter.sped.inventarioMensal}
-                              onCheckedChange={(checked) => setEmitter({
-                                ...emitter,
-                                sped: {...emitter.sped, inventarioMensal: checked}
-                              })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Blocos a Gerar</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <Label>Bloco K - Controle de Produção e Estoque</Label>
-                            <p className="text-xs text-gray-500">
-                              Movimentação de estoque item a item (obrigatório para indústrias)
-                            </p>
-                          </div>
-                          <Switch
-                            checked={emitter.sped.gerarBloco.blocoK}
-                            onCheckedChange={(checked) => setEmitter({
-                              ...emitter,
-                              sped: {
-                                ...emitter.sped,
-                                gerarBloco: {...emitter.sped.gerarBloco, blocoK: checked}
-                              }
-                            })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <Label>Bloco H - Inventário Físico</Label>
-                            <p className="text-xs text-gray-500">
-                              Inventário de mercadorias (obrigatório para comércio)
-                            </p>
-                          </div>
-                          <Switch
-                            checked={emitter.sped.gerarBloco.blocoH}
-                            onCheckedChange={(checked) => setEmitter({
-                              ...emitter,
-                              sped: {
-                                ...emitter.sped,
-                                gerarBloco: {...emitter.sped.gerarBloco, blocoH: checked}
-                              }
-                            })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <Label>Bloco 1 - Outras Informações</Label>
-                            <p className="text-xs text-gray-500">
-                              Informações complementares e específicas
-                            </p>
-                          </div>
-                          <Switch
-                            checked={emitter.sped.gerarBloco.bloco1}
-                            onCheckedChange={(checked) => setEmitter({
-                              ...emitter,
-                              sped: {
-                                ...emitter.sped,
-                                gerarBloco: {...emitter.sped.gerarBloco, bloco1: checked}
-                              }
-                            })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Informações Complementares</Label>
-                      <Textarea
-                        value={emitter.sped.informacoesComplementares}
-                        onChange={(e) => setEmitter({
+                      </Label>
+                      <Select 
+                        value={emitter.sped.perfil} 
+                        onValueChange={(value: any) => setEmitter({
                           ...emitter, 
-                          sped: {...emitter.sped, informacoesComplementares: e.target.value}
+                          sped: {...emitter.sped, perfil: value}
                         })}
-                        placeholder="Observações sobre o SPED..."
-                        rows={3}
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A - Completo</SelectItem>
+                          <SelectItem value="B">B - Resumido</SelectItem>
+                          <SelectItem value="C">C - Simplificado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    <Alert>
-                      <Info className="w-4 h-4" />
-                      <AlertDescription>
-                        <strong>Importante:</strong> A geração do SPED deve ser feita mensalmente e enviada via PVA (Programa Validador e Assinador) da Receita Federal. O sistema gerará o arquivo .txt conforme layout oficial.
-                      </AlertDescription>
-                    </Alert>
-                  </>
+                    <div>
+                      <Label>Tipo de Atividade</Label>
+                      <Select 
+                        value={emitter.sped.tipoAtividade} 
+                        onValueChange={(value: any) => setEmitter({
+                          ...emitter, 
+                          sped: {...emitter.sped, tipoAtividade: value}
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Industrial">Industrial</SelectItem>
+                          <SelectItem value="Comercial">Comercial</SelectItem>
+                          <SelectItem value="Serviços">Serviços</SelectItem>
+                          <SelectItem value="Outros">Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 ) : (
                   <Alert>
                     <AlertCircle className="w-4 h-4" />
@@ -2014,210 +1020,86 @@ export function TaxInvoicing() {
 
               {/* SUB-ABA 5: CONFIGURAÇÃO DE IMPOSTOS */}
               <TabsContent value="impostos" className="space-y-6">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Info className="w-4 h-4 text-blue-600" />
-                  <AlertDescription className="text-blue-900">
-                    Configure as alíquotas de impostos que serão aplicadas por padrão na emissão de notas fiscais. Essas configurações podem ser ajustadas individualmente em cada nota.
-                  </AlertDescription>
-                </Alert>
-
-                {/* IMPOSTOS FEDERAIS */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Impostos Federais</h3>
-                  <div className="grid grid-cols-3 gap-6">
-                    {/* PIS */}
-                    <Card className="p-4">
-                      <div className="space-y-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-1">PIS</h4>
-                          <p className="text-xs text-gray-500">Programa de Integração Social</p>
-                        </div>
-                        
-                        <div>
-                          <Label>Alíquota Padrão (%)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={emitter.impostos.pis.aliquotaPadrao}
-                            onChange={(e) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                pis: {
-                                  ...emitter.impostos.pis,
-                                  aliquotaPadrao: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            })}
-                            placeholder="0.65"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Cumulativo: 0,65% | Não-Cumulativo: 1,65%
-                          </p>
-                        </div>
-
-                        <div>
-                          <Label>Regime</Label>
-                          <Select
-                            value={emitter.impostos.pis.regime}
-                            onValueChange={(value: any) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                pis: {
-                                  ...emitter.impostos.pis,
-                                  regime: value
-                                }
-                              }
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Cumulativo">Cumulativo</SelectItem>
-                              <SelectItem value="Não-Cumulativo">Não-Cumulativo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </Card>
-
-                    {/* COFINS */}
-                    <Card className="p-4">
-                      <div className="space-y-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-1">COFINS</h4>
-                          <p className="text-xs text-gray-500">Contribuição para Financiamento da Seguridade Social</p>
-                        </div>
-                        
-                        <div>
-                          <Label>Alíquota Padrão (%)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={emitter.impostos.cofins.aliquotaPadrao}
-                            onChange={(e) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                cofins: {
-                                  ...emitter.impostos.cofins,
-                                  aliquotaPadrao: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            })}
-                            placeholder="3.0"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Cumulativo: 3,0% | Não-Cumulativo: 7,6%
-                          </p>
-                        </div>
-
-                        <div>
-                          <Label>Regime</Label>
-                          <Select
-                            value={emitter.impostos.cofins.regime}
-                            onValueChange={(value: any) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                cofins: {
-                                  ...emitter.impostos.cofins,
-                                  regime: value
-                                }
-                              }
-                            })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Cumulativo">Cumulativo</SelectItem>
-                              <SelectItem value="Não-Cumulativo">Não-Cumulativo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </Card>
-
-                    {/* IPI */}
-                    <Card className="p-4">
-                      <div className="space-y-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-1">IPI</h4>
-                          <p className="text-xs text-gray-500">Imposto sobre Produtos Industrializados</p>
-                        </div>
-                        
-                        <div>
-                          <Label>Alíquota Padrão (%)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={emitter.impostos.ipi.aliquotaPadrao}
-                            onChange={(e) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                ipi: {
-                                  ...emitter.impostos.ipi,
-                                  aliquotaPadrao: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            })}
-                            placeholder="0"
-                            disabled={!emitter.impostos.ipi.aplicavel}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Varia conforme NCM do produto
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2">
-                          <div>
-                            <Label>IPI Aplicável</Label>
-                            <p className="text-xs text-gray-500">
-                              Ativar se sua empresa fabrica produtos
-                            </p>
-                          </div>
-                          <Switch
-                            checked={emitter.impostos.ipi.aplicavel}
-                            onCheckedChange={(checked) => setEmitter({
-                              ...emitter,
-                              impostos: {
-                                ...emitter.impostos,
-                                ipi: {
-                                  ...emitter.impostos.ipi,
-                                  aplicavel: checked
-                                }
-                              }
-                            })}
-                          />
-                        </div>
-                      </div>
-                    </Card>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>PIS - Alíquota Padrão (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={emitter.impostos.pis.aliquotaPadrao}
+                        onChange={(e) => setEmitter({
+                          ...emitter,
+                          impostos: {
+                            ...emitter.impostos,
+                            pis: {...emitter.impostos.pis, aliquotaPadrao: parseFloat(e.target.value)}
+                          }
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label>COFINS - Alíquota Padrão (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={emitter.impostos.cofins.aliquotaPadrao}
+                        onChange={(e) => setEmitter({
+                          ...emitter,
+                          impostos: {
+                            ...emitter.impostos,
+                            cofins: {...emitter.impostos.cofins, aliquotaPadrao: parseFloat(e.target.value)}
+                          }
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label>IPI - Alíquota Padrão (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={emitter.impostos.ipi.aliquotaPadrao}
+                        onChange={(e) => setEmitter({
+                          ...emitter,
+                          impostos: {
+                            ...emitter.impostos,
+                            ipi: {...emitter.impostos.ipi, aliquotaPadrao: parseFloat(e.target.value)}
+                          }
+                        })}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <Separator />
 
-                {/* ICMS */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">ICMS (Imposto sobre Circulação de Mercadorias e Serviços)</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">ICMS</h3>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Estado de Origem da Empresa</Label>
-                      <Select
-                        value={emitter.impostos.icms.estadoOrigem}
+                      <Label>Alíquota Interna (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={emitter.impostos.icms.aliquotaInterna}
+                        onChange={(e) => setEmitter({
+                          ...emitter,
+                          impostos: {
+                            ...emitter.impostos,
+                            icms: {...emitter.impostos.icms, aliquotaInterna: parseFloat(e.target.value)}
+                          }
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Estado de Origem</Label>
+                      <Select 
+                        value={emitter.impostos.icms.estadoOrigem} 
                         onValueChange={(value) => setEmitter({
                           ...emitter,
                           impostos: {
                             ...emitter.impostos,
-                            icms: {
-                              ...emitter.impostos.icms,
-                              estadoOrigem: value
-                            }
+                            icms: {...emitter.impostos.icms, estadoOrigem: value}
                           }
                         })}
                       >
@@ -2231,502 +1113,13 @@ export function TaxInvoicing() {
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div>
-                      <Label>
-                        <div className="flex items-center gap-2">
-                          Alíquota ICMS Interno (%)
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="w-3 h-3 text-gray-400" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">Alíquota de ICMS para vendas dentro do seu estado. Varia por UF (geralmente 17%, 18% ou 19%).</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={emitter.impostos.icms.aliquotaInterna}
-                        onChange={(e) => setEmitter({
-                          ...emitter,
-                          impostos: {
-                            ...emitter.impostos,
-                            icms: {
-                              ...emitter.impostos.icms,
-                              aliquotaInterna: parseFloat(e.target.value) || 0
-                            }
-                          }
-                        })}
-                        placeholder="18"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tabela de Alíquotas Interestaduais */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <Label className="text-base">Alíquotas ICMS Interestadual por UF</Label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Configure as alíquotas de ICMS para vendas para outros estados e FCP (Fundo de Combate à Pobreza)
-                        </p>
-                      </div>
-                    </div>
-
-                    <Card>
-                      <div className="max-h-96 overflow-y-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-24">UF Destino</TableHead>
-                              <TableHead>Estado</TableHead>
-                              <TableHead className="w-32">ICMS (%)</TableHead>
-                              <TableHead className="w-32">FCP (%)</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {BRAZILIAN_STATES.map(uf => {
-                              const stateNames: {[key: string]: string} = {
-                                "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas",
-                                "BA": "Bahia", "CE": "Ceará", "DF": "Distrito Federal", "ES": "Espírito Santo",
-                                "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso", "MS": "Mato Grosso do Sul",
-                                "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
-                                "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
-                                "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
-                                "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins"
-                              };
-                              
-                              return (
-                                <TableRow key={uf}>
-                                  <TableCell className="font-medium">{uf}</TableCell>
-                                  <TableCell className="text-sm text-gray-600">{stateNames[uf]}</TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={emitter.impostos.icms.aliquotasInterestaduais[uf]?.aliquota || 7}
-                                      onChange={(e) => {
-                                        const newValue = parseFloat(e.target.value) || 7;
-                                        setEmitter({
-                                          ...emitter,
-                                          impostos: {
-                                            ...emitter.impostos,
-                                            icms: {
-                                              ...emitter.impostos.icms,
-                                              aliquotasInterestaduais: {
-                                                ...emitter.impostos.icms.aliquotasInterestaduais,
-                                                [uf]: {
-                                                  ...emitter.impostos.icms.aliquotasInterestaduais[uf],
-                                                  aliquota: newValue
-                                                }
-                                              }
-                                            }
-                                          }
-                                        });
-                                      }}
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={emitter.impostos.icms.aliquotasInterestaduais[uf]?.fcp || 0}
-                                      onChange={(e) => {
-                                        const newValue = parseFloat(e.target.value) || 0;
-                                        setEmitter({
-                                          ...emitter,
-                                          impostos: {
-                                            ...emitter.impostos,
-                                            icms: {
-                                              ...emitter.impostos.icms,
-                                              aliquotasInterestaduais: {
-                                                ...emitter.impostos.icms.aliquotasInterestaduais,
-                                                [uf]: {
-                                                  ...emitter.impostos.icms.aliquotasInterestaduais[uf],
-                                                  fcp: newValue
-                                                }
-                                              }
-                                            }
-                                          }
-                                        });
-                                      }}
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </Card>
-
-                    <Alert className="mt-4">
-                      <Info className="w-4 h-4" />
-                      <AlertDescription className="text-sm">
-                        <strong>Alíquotas Interestaduais Padrão:</strong><br />
-                        • <strong>7%</strong> para vendas do Sul/Sudeste para Norte/Nordeste/Centro-Oeste<br />
-                        • <strong>12%</strong> para vendas entre estados do Sul/Sudeste<br />
-                        • <strong>FCP</strong> varia de 0% a 2% conforme legislação de cada estado
-                      </AlertDescription>
-                    </Alert>
                   </div>
                 </div>
-
-                <Separator />
-
-                {/* RETENÇÕES */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Retenções na Fonte (Opcional)</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Configure as retenções aplicáveis ao seu tipo de atividade. Geralmente utilizado por empresas de serviços.
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* IRRF */}
-                    <Card className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900">IRRF</h4>
-                          <p className="text-xs text-gray-500">Imposto de Renda Retido na Fonte</p>
-                        </div>
-                        <Switch
-                          checked={emitter.impostos.retencoes.irrf.ativo}
-                          onCheckedChange={(checked) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                irrf: {
-                                  ...emitter.impostos.retencoes.irrf,
-                                  ativo: checked
-                                }
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Alíquota (%)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={emitter.impostos.retencoes.irrf.aliquota}
-                          onChange={(e) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                irrf: {
-                                  ...emitter.impostos.retencoes.irrf,
-                                  aliquota: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            }
-                          })}
-                          disabled={!emitter.impostos.retencoes.irrf.ativo}
-                          placeholder="1.5"
-                        />
-                      </div>
-                    </Card>
-
-                    {/* ISS */}
-                    <Card className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900">ISS</h4>
-                          <p className="text-xs text-gray-500">Imposto Sobre Serviços</p>
-                        </div>
-                        <Switch
-                          checked={emitter.impostos.retencoes.iss.ativo}
-                          onCheckedChange={(checked) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                iss: {
-                                  ...emitter.impostos.retencoes.iss,
-                                  ativo: checked
-                                }
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Alíquota (%)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={emitter.impostos.retencoes.iss.aliquota}
-                          onChange={(e) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                iss: {
-                                  ...emitter.impostos.retencoes.iss,
-                                  aliquota: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            }
-                          })}
-                          disabled={!emitter.impostos.retencoes.iss.ativo}
-                          placeholder="5.0"
-                        />
-                      </div>
-                    </Card>
-
-                    {/* INSS */}
-                    <Card className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900">INSS</h4>
-                          <p className="text-xs text-gray-500">Contribuição Previdenciária Retida</p>
-                        </div>
-                        <Switch
-                          checked={emitter.impostos.retencoes.inss.ativo}
-                          onCheckedChange={(checked) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                inss: {
-                                  ...emitter.impostos.retencoes.inss,
-                                  ativo: checked
-                                }
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Alíquota (%)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={emitter.impostos.retencoes.inss.aliquota}
-                          onChange={(e) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                inss: {
-                                  ...emitter.impostos.retencoes.inss,
-                                  aliquota: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            }
-                          })}
-                          disabled={!emitter.impostos.retencoes.inss.ativo}
-                          placeholder="11.0"
-                        />
-                      </div>
-                    </Card>
-
-                    {/* CSLL */}
-                    <Card className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900">CSLL</h4>
-                          <p className="text-xs text-gray-500">Contribuição Social sobre Lucro Líquido</p>
-                        </div>
-                        <Switch
-                          checked={emitter.impostos.retencoes.csll.ativo}
-                          onCheckedChange={(checked) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                csll: {
-                                  ...emitter.impostos.retencoes.csll,
-                                  ativo: checked
-                                }
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Alíquota (%)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={emitter.impostos.retencoes.csll.aliquota}
-                          onChange={(e) => setEmitter({
-                            ...emitter,
-                            impostos: {
-                              ...emitter.impostos,
-                              retencoes: {
-                                ...emitter.impostos.retencoes,
-                                csll: {
-                                  ...emitter.impostos.retencoes.csll,
-                                  aliquota: parseFloat(e.target.value) || 0
-                                }
-                              }
-                            }
-                          })}
-                          disabled={!emitter.impostos.retencoes.csll.ativo}
-                          placeholder="1.0"
-                        />
-                      </div>
-                    </Card>
-                  </div>
-                </div>
-
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <AlertDescription className="text-green-900">
-                    <strong>Configuração Automática:</strong> As alíquotas configuradas aqui serão aplicadas automaticamente na emissão de notas fiscais, mas podem ser ajustadas manualmente em cada NF-e se necessário.
-                  </AlertDescription>
-                </Alert>
               </TabsContent>
             </Tabs>
-
-            <div className="flex justify-end pt-6 border-t">
-              <Button onClick={handleSaveEmitter} size="lg" className="gap-2">
-                <Save className="w-4 h-4" />
-                Salvar Todas as Configurações
-              </Button>
-            </div>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Dialog de Visualização */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalhes da NF-e #{selectedNFe?.number}</DialogTitle>
-            <DialogDescription>
-              Visualização completa da nota fiscal eletrônica
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedNFe && (
-            <div className="space-y-6 mt-4">
-              <div className="grid grid-cols-2 gap-6">
-                <Card className="p-4">
-                  <h4 className="font-medium mb-3">Emitente</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">CNPJ:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.emitter.cnpj}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Razão Social:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.emitter.name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">IE:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.emitter.ie}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Endereço:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.emitter.address}</span>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <h4 className="font-medium mb-3">Destinatário</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">CPF/CNPJ:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.recipient.document}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Nome:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.recipient.name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">IE:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.recipient.ie || "Não informada"}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Endereço:</span>{" "}
-                      <span className="text-gray-900">{selectedNFe.recipient.address}</span>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              <Card className="p-4">
-                <h4 className="font-medium mb-3">Itens da Nota</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>NCM</TableHead>
-                      <TableHead>CFOP</TableHead>
-                      <TableHead>Qtd</TableHead>
-                      <TableHead>Valor Unit.</TableHead>
-                      <TableHead>Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedNFe.items.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{item.productName}</TableCell>
-                        <TableCell>{item.ncm}</TableCell>
-                        <TableCell>{item.cfop}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>R$ {item.unitValue.toFixed(2)}</TableCell>
-                        <TableCell>R$ {item.totalValue.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-
-              <Card className="p-4">
-                <h4 className="font-medium mb-3">Totais</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <span className="text-sm text-gray-600">Valor dos Produtos</span>
-                    <p className="text-lg font-semibold">R$ {selectedNFe.totals.productsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600">ICMS</span>
-                    <p className="text-lg font-semibold">R$ {selectedNFe.totals.icmsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600">Valor Total da NF-e</span>
-                    <p className="text-xl font-bold text-green-600">R$ {selectedNFe.totals.nfeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
-              </Card>
-
-              {selectedNFe.accessKey && (
-                <Card className="p-4">
-                  <h4 className="font-medium mb-2">Chave de Acesso</h4>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 p-2 bg-gray-100 rounded text-sm">
-                      {selectedNFe.accessKey}
-                    </code>
-                    <Button variant="outline" size="sm">
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
