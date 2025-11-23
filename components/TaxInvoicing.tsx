@@ -13,7 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Switch } from "./ui/switch";
-import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle, Download, MoreVertical, Building2, Save, Info, HelpCircle } from "lucide-react";
+import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle, Download, MoreVertical, Building2, Save, Info, HelpCircle, PenTool } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { toast } from "sonner@2.0.3";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
@@ -21,6 +21,7 @@ import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { supabase } from "../utils/supabase/client";
 import { useAuth } from "../contexts/AuthContext";
 import { NFeEmissionDialog } from "./NFeEmissionDialog";
+import { SignXmlDialog } from "./SignXmlDialog";
 import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
@@ -224,6 +225,10 @@ export function TaxInvoicing() {
   const [isEmissionDialogOpen, setIsEmissionDialogOpen] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isGeneratingXml, setIsGeneratingXml] = useState(false);
+
+  // Estado para Dialog de Assinatura Digital
+  const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
+  const [xmlToSign, setXmlToSign] = useState({ xml: '', chaveAcesso: '', nfeId: '' });
 
   // Estado do Formulário de Emissão
   const [nfeForm, setNfeForm] = useState({
@@ -1034,24 +1039,72 @@ export function TaxInvoicing() {
       const result = await response.json();
 
       if (result.success && result.data) {
+        // Armazenar XML gerado para possível assinatura
+        setXmlToSign({
+          xml: result.data.xml,
+          chaveAcesso: result.data.chaveAcesso,
+          nfeId: '' // Não temos ID pois é geração direta
+        });
+
+        // Download automático do XML não assinado
         const xmlBlob = new Blob([result.data.xml], { type: 'application/xml' });
         const url = window.URL.createObjectURL(xmlBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `NFe-${result.data.chaveAcesso}.xml`;
+        a.download = `NFe-${result.data.chaveAcesso}-NAO-ASSINADO.xml`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        toast.success(`XML gerado com sucesso! Chave: ${result.data.chaveAcesso}`);
+        // Fechar diálogo de emissão
         setIsEmissionDialogOpen(false);
+
+        // Oferecer opção de assinar digitalmente
+        toast.success(`XML gerado com sucesso! Chave: ${result.data.chaveAcesso}`, {
+          description: 'Deseja assinar digitalmente agora?',
+          action: {
+            label: 'Assinar',
+            onClick: () => setIsSignDialogOpen(true)
+          },
+          duration: 10000 // 10 segundos para usuário decidir
+        });
       }
     } catch (error) {
       console.error('Erro ao gerar XML:', error);
       toast.error(`Erro ao gerar XML: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsGeneratingXml(false);
+    }
+  };
+
+  // Handler para abrir diálogo de assinatura de XML existente
+  const handleSignExistingXml = async (nfe: NFe) => {
+    try {
+      // Verificar se NF-e tem XML gerado
+      if (!nfe.accessKey) {
+        toast.error('NF-e não possui XML gerado. Gere o XML primeiro.');
+        return;
+      }
+
+      // Buscar XML do banco ou gerar novamente
+      // Por enquanto, vamos simular que não temos o XML armazenado
+      toast.info('Em desenvolvimento: Buscar XML do banco de dados', {
+        description: 'Por enquanto, gere um novo XML e assine-o diretamente.'
+      });
+
+      // TODO: Implementar busca do XML no banco
+      // const xmlContent = await buscarXmlDoBanco(nfe.id);
+      // setXmlToSign({
+      //   xml: xmlContent,
+      //   chaveAcesso: nfe.accessKey,
+      //   nfeId: nfe.id
+      // });
+      // setIsSignDialogOpen(true);
+
+    } catch (error) {
+      console.error('Erro ao buscar XML:', error);
+      toast.error('Erro ao buscar XML da NF-e');
     }
   };
 
@@ -1254,6 +1307,10 @@ export function TaxInvoicing() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleSignExistingXml(nfe)}>
+                            <PenTool className="w-4 h-4 mr-2" />
+                            Assinar Digitalmente
+                          </DropdownMenuItem>
                           <DropdownMenuItem>
                             <Download className="w-4 h-4 mr-2" />
                             Baixar XML
@@ -1765,6 +1822,18 @@ export function TaxInvoicing() {
         salesOrders={salesOrders}
         emitter={emitter}
       />
+
+      {/* Dialog de Assinatura Digital */}
+      {xmlToSign.xml && (
+        <SignXmlDialog
+          open={isSignDialogOpen}
+          onOpenChange={setIsSignDialogOpen}
+          xmlContent={xmlToSign.xml}
+          chaveAcesso={xmlToSign.chaveAcesso}
+          nfeId={xmlToSign.nfeId || undefined}
+          accessToken={user?.session?.access_token || ''}
+        />
+      )}
     </div>
   );
 }
