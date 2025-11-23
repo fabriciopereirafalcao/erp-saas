@@ -7,7 +7,16 @@ import { Hono } from 'npm:hono@4.6.14';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { generateXmlNFe } from './xml/generateXml.ts';
 import type { NFe, NFeItem, Emitente } from './types.ts';
-import calculationRoutes from './calculationRoutes.ts'; // ✨ NOVO: Rotas de cálculo
+
+console.log('[FISCAL_ROUTES] 🔍 Tentando importar calculationRoutes...');
+let calculationRoutes;
+try {
+  calculationRoutes = (await import('./calculationRoutes.ts')).default;
+  console.log('[FISCAL_ROUTES] ✅ calculationRoutes importado com sucesso!');
+} catch (error) {
+  console.error('[FISCAL_ROUTES] ❌ ERRO ao importar calculationRoutes:', error);
+  throw error;
+}
 
 const fiscal = new Hono();
 
