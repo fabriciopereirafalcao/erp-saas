@@ -7,8 +7,14 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { generateXmlNFe } from './xml/generateXml.ts';
 import type { NFe, NFeItem, Emitente } from './types.ts';
+import calculationRoutes from './calculationRoutes.ts'; // ✨ NOVO: Rotas de cálculo
 
 const fiscal = new Hono();
+
+// ============================================================================
+// ROTAS DE CÁLCULO FISCAL (FASE 3)
+// ============================================================================
+fiscal.route('/calculos', calculationRoutes);
 
 // ============================================================================
 // POST /fiscal/gerar-xml
