@@ -492,4 +492,194 @@ fiscal.get('/xml/:nfeId', async (c) => {
   }
 });
 
+// ============================================================================
+// POST /fiscal/nfe/assinar-xml
+// Descrição: Assina digitalmente o XML da NF-e com certificado A1
+// Auth: Requer token de autenticação
+// Body: { xml, certificadoPem, chavePrivadaPem }
+// ============================================================================
+fiscal.post('/nfe/assinar-xml', async (c) => {
+  try {
+    console.log('[FISCAL_ROUTES] POST /nfe/assinar-xml - Início');
+    
+    // 1. Autenticação
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ success: false, error: 'Token de autenticação não fornecido' }, 401);
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ success: false, error: 'Token inválido ou expirado' }, 401);
+    }
+    
+    console.log('[FISCAL_ROUTES] Usuário autenticado:', user.id);
+    
+    // 2. Receber dados do body
+    const body = await c.req.json();
+    const { xml, certificadoPem, chavePrivadaPem, nfeId } = body;
+    
+    // Validações
+    if (!xml) {
+      return c.json({ success: false, error: 'XML não fornecido' }, 400);
+    }
+    
+    if (!certificadoPem || !chavePrivadaPem) {
+      return c.json({ 
+        success: false, 
+        error: 'Certificado digital não fornecido. Envie certificadoPem e chavePrivadaPem.' 
+      }, 400);
+    }
+    
+    console.log('[FISCAL_ROUTES] XML recebido:', xml.length, 'bytes');
+    console.log('[FISCAL_ROUTES] Certificado recebido');
+    
+    // 3. Importar módulo de assinatura
+    const { assinarXmlSimplificado, pemParaBase64 } = await import('../nfe-signature.tsx');
+    
+    // 4. Preparar certificado
+    const certificadoBase64 = pemParaBase64(certificadoPem);
+    
+    console.log('[FISCAL_ROUTES] Assinando XML...');
+    
+    // 5. Assinar XML
+    const resultado = assinarXmlSimplificado(
+      xml,
+      chavePrivadaPem,
+      certificadoBase64
+    );
+    
+    if (!resultado.sucesso) {
+      console.error('[FISCAL_ROUTES] Erro na assinatura:', resultado.erro);
+      return c.json({
+        success: false,
+        error: 'Erro ao assinar XML',
+        details: resultado.erro
+      }, 400);
+    }
+    
+    console.log('[FISCAL_ROUTES] ✅ XML assinado com sucesso!');
+    console.log('[FISCAL_ROUTES] Tamanho XML assinado:', resultado.xmlAssinado.length, 'bytes');
+    
+    // 6. Se nfeId foi fornecido, atualizar no banco
+    if (nfeId) {
+      const { error: updateError } = await supabase
+        .from('fiscal_nfes')
+        .update({
+          xml_assinado: resultado.xmlAssinado,
+          status: 'assinado',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', nfeId)
+        .eq('user_id', user.id);
+      
+      if (updateError) {
+        console.error('[FISCAL_ROUTES] Erro ao atualizar NF-e:', updateError);
+      } else {
+        console.log('[FISCAL_ROUTES] NF-e atualizada no banco com XML assinado');
+      }
+      
+      // Criar log
+      await supabase
+        .from('fiscal_logs')
+        .insert({
+          user_id: user.id,
+          tipo: 'xml_assinado',
+          operacao: 'assinar_xml',
+          detalhes: {
+            nfe_id: nfeId,
+            tamanho_xml: resultado.xmlAssinado.length
+          },
+          status: 'sucesso'
+        });
+    }
+    
+    // 7. Retornar resposta
+    return c.json({
+      success: true,
+      data: {
+        xmlAssinado: resultado.xmlAssinado,
+        tamanho: resultado.xmlAssinado.length
+      },
+      message: 'XML assinado com sucesso'
+    });
+    
+  } catch (error: any) {
+    console.error('[FISCAL_ROUTES] Erro não tratado:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao assinar XML',
+      details: error.message
+    }, 500);
+  }
+});
+
+// ============================================================================
+// POST /fiscal/nfe/validar-assinatura
+// Descrição: Valida a assinatura digital de um XML
+// Auth: Requer token de autenticação
+// Body: { xml }
+// ============================================================================
+fiscal.post('/nfe/validar-assinatura', async (c) => {
+  try {
+    console.log('[FISCAL_ROUTES] POST /nfe/validar-assinatura - Início');
+    
+    // 1. Autenticação
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ success: false, error: 'Token de autenticação não fornecido' }, 401);
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ success: false, error: 'Token inválido ou expirado' }, 401);
+    }
+    
+    // 2. Receber XML
+    const body = await c.req.json();
+    const { xml } = body;
+    
+    if (!xml) {
+      return c.json({ success: false, error: 'XML não fornecido' }, 400);
+    }
+    
+    console.log('[FISCAL_ROUTES] XML recebido para validação:', xml.length, 'bytes');
+    
+    // 3. Importar módulo de assinatura
+    const { validarAssinatura } = await import('../nfe-signature.tsx');
+    
+    // 4. Validar assinatura
+    const valido = validarAssinatura(xml);
+    
+    console.log('[FISCAL_ROUTES] Resultado da validação:', valido ? '✅ VÁLIDA' : '❌ INVÁLIDA');
+    
+    // 5. Retornar resposta
+    return c.json({
+      success: true,
+      data: {
+        assinaturaValida: valido
+      },
+      message: valido ? 'Assinatura válida' : 'Assinatura inválida'
+    });
+    
+  } catch (error: any) {
+    console.error('[FISCAL_ROUTES] Erro ao validar assinatura:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao validar assinatura',
+      details: error.message
+    }, 500);
+  }
+});
+
 export default fiscal;
