@@ -602,7 +602,7 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
     }
 
-    // N��o pode deletar outro owner
+    // No pode deletar outro owner
     if (userToDelete.role === 'owner') {
       return c.json({ error: 'Não é possível excluir outro proprietário' }, 403);
     }
@@ -988,7 +988,12 @@ app.post("/make-server-686b5e88/email/test", async (c) => {
   }
 });
 
-// Adicionar rotas fiscais
-app.use('/make-server-686b5e88/fiscal', fiscal);
+// =====================================================
+// FISCAL ROUTES - Módulo de Faturamento
+// =====================================================
+console.log('Inicializando servidor Hono...');
+console.log('Registrando rotas...');
+app.route('/make-server-686b5e88/fiscal', fiscal);
+console.log('Todas as rotas registradas!');
 
 Deno.serve(app.fetch);
