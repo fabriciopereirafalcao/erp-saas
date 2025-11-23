@@ -3,7 +3,7 @@
 // Descrição: Endpoints públicos para o módulo fiscal
 // ============================================================================
 
-import { Hono } from 'npm:hono';
+import { Hono } from 'npm:hono@4.6.14';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { generateXmlNFe } from './xml/generateXml.ts';
 import type { NFe, NFeItem, Emitente } from './types.ts';
@@ -14,7 +14,9 @@ const fiscal = new Hono();
 // ============================================================================
 // ROTAS DE CÁLCULO FISCAL (FASE 3)
 // ============================================================================
+console.log('[FISCAL_ROUTES] Registrando rotas de cálculo...');
 fiscal.route('/calculos', calculationRoutes);
+console.log('[FISCAL_ROUTES] Rotas de cálculo registradas!');
 
 // ============================================================================
 // POST /fiscal/gerar-xml
