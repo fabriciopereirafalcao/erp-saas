@@ -877,17 +877,180 @@ export function TaxInvoicing() {
       return;
     }
 
+    if (!nfeForm.destinatario.estado) {
+      toast.error("Preencha o estado do destinatário");
+      return;
+    }
+
+    if (nfeForm.totais.valorTotal <= 0) {
+      toast.error("Calcule os impostos antes de gerar o XML");
+      return;
+    }
+
     setIsGeneratingXml(true);
 
     try {
-      // Aqui integraria com a API de geração de XML
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulação
-      
-      toast.success("XML gerado com sucesso! Download iniciado.");
-      setIsEmissionDialogOpen(false);
+      // Mapear código do município (simplificado - em produção usar tabela IBGE)
+      const codigosMunicipio: Record<string, string> = {
+        'SP': '3550308', 'RJ': '3304557', 'MG': '3106200', 'RS': '4314902',
+        'PR': '4106902', 'SC': '4205407', 'BA': '2927408', 'PE': '2611606',
+        'CE': '2304400', 'GO': '5208707',
+      };
+
+      // Buscar token de acesso
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      // Preparar dados para o XML
+      const xmlData = {
+        emitente: {
+          cnpj: emitter.cnpj,
+          razaoSocial: emitter.razaoSocial,
+          nomeFantasia: emitter.nomeFantasia,
+          inscricaoEstadual: emitter.inscricaoEstadual,
+          cep: emitter.cep.replace(/\D/g, ''),
+          logradouro: emitter.logradouro,
+          numero: emitter.numero,
+          complemento: emitter.complemento,
+          bairro: emitter.bairro,
+          cidade: emitter.cidade,
+          codigoMunicipio: codigosMunicipio[emitter.estado] || '3550308',
+          estado: emitter.estado,
+          telefone: emitter.telefone,
+          email: emitter.email,
+        },
+        destinatario: {
+          tipo: nfeForm.destinatario.tipo === 'Jurídica' ? 'juridica' : 'fisica',
+          documento: nfeForm.destinatario.documento.replace(/\D/g, ''),
+          nome: nfeForm.destinatario.nome,
+          inscricaoEstadual: nfeForm.destinatario.ie,
+          email: nfeForm.destinatario.email,
+          telefone: nfeForm.destinatario.telefone,
+          cep: nfeForm.destinatario.cep.replace(/\D/g, ''),
+          logradouro: nfeForm.destinatario.logradouro,
+          numero: nfeForm.destinatario.numero,
+          complemento: nfeForm.destinatario.complemento,
+          bairro: nfeForm.destinatario.bairro,
+          cidade: nfeForm.destinatario.cidade,
+          codigoMunicipio: codigosMunicipio[nfeForm.destinatario.estado] || '3550308',
+          estado: nfeForm.destinatario.estado,
+        },
+        identificacao: {
+          serie: nfeForm.serie,
+          numero: emitter.nfe.numeroAtualNFe,
+          dataEmissao: new Date().toISOString(),
+          tipo: 1,
+          finalidade: 1,
+          naturezaOperacao: nfeForm.naturezaOperacao,
+          ambiente: emitter.nfe.ambiente === 'Produção' ? 1 : 2,
+          tipoEmissao: 1,
+          modelo: parseInt(nfeForm.tipo),
+          consumidorFinal: 1,
+          presenca: 9,
+        },
+        itens: nfeForm.itens.map((item, index) => ({
+          numeroItem: index + 1,
+          codigoProduto: item.produtoId,
+          descricao: item.descricao,
+          ncm: item.ncm,
+          cfop: item.cfop.replace(/\./g, ''),
+          unidadeComercial: item.unidade,
+          quantidadeComercial: item.quantidade,
+          valorUnitarioComercial: item.valorUnitario,
+          valorTotalBruto: item.valorTotal,
+          valorFrete: 0,
+          valorSeguro: 0,
+          valorDesconto: 0,
+          valorOutrasDespesas: 0,
+          origem: parseInt(item.icms.origem),
+          icms: {
+            cst: emitter.regimeTributario === 'Simples Nacional' ? undefined : item.icms.cst,
+            csosn: emitter.regimeTributario === 'Simples Nacional' ? item.icms.csosn : undefined,
+            modalidadeBC: 3,
+            aliquota: item.icms.aliquota,
+            baseCalculo: item.icms.baseCalculo,
+            valor: item.icms.valor,
+          },
+          ipi: item.ipi.valor > 0 ? {
+            cst: item.ipi.cst,
+            aliquota: item.ipi.aliquota,
+            baseCalculo: item.ipi.baseCalculo,
+            valor: item.ipi.valor,
+          } : undefined,
+          pis: {
+            cst: item.pis.cst,
+            aliquota: item.pis.aliquota,
+            baseCalculo: item.pis.baseCalculo,
+            valor: item.pis.valor,
+          },
+          cofins: {
+            cst: item.cofins.cst,
+            aliquota: item.cofins.aliquota,
+            baseCalculo: item.cofins.baseCalculo,
+            valor: item.cofins.valor,
+          },
+        })),
+        totais: {
+          baseCalculoICMS: nfeForm.totais.baseCalculoICMS,
+          valorICMS: nfeForm.totais.valorICMS,
+          baseCalculoICMSST: nfeForm.totais.baseCalculoICMSST,
+          valorICMSST: nfeForm.totais.valorICMSST,
+          valorProdutos: nfeForm.totais.valorProdutos,
+          valorFrete: nfeForm.totais.valorFrete,
+          valorSeguro: nfeForm.totais.valorSeguro,
+          valorDesconto: nfeForm.totais.valorDesconto,
+          valorIPI: nfeForm.totais.valorIPI,
+          valorPIS: nfeForm.totais.valorPIS,
+          valorCOFINS: nfeForm.totais.valorCOFINS,
+          valorOutrasDespesas: nfeForm.totais.valorOutrasDespesas,
+          valorTotal: nfeForm.totais.valorTotal,
+        },
+        transporte: {
+          modalidade: 9,
+        },
+        informacoesAdicionais: nfeForm.informacoesAdicionais,
+        regimeTributario: emitter.regimeTributario === 'Simples Nacional' ? 'simples_nacional' : 
+                          emitter.regimeTributario === 'Lucro Presumido' ? 'lucro_presumido' : 'lucro_real',
+        crt: emitter.regimeTributario === 'Simples Nacional' ? 1 : 3,
+      };
+
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/fiscal/nfe/gerar-xml-direto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(xmlData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta da API:', errorData);
+        throw new Error(errorData.error || errorData.details || 'Erro ao gerar XML');
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const xmlBlob = new Blob([result.data.xml], { type: 'application/xml' });
+        const url = window.URL.createObjectURL(xmlBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `NFe-${result.data.chaveAcesso}.xml`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success(`XML gerado com sucesso! Chave: ${result.data.chaveAcesso}`);
+        setIsEmissionDialogOpen(false);
+      }
     } catch (error) {
       console.error('Erro ao gerar XML:', error);
-      toast.error("Erro ao gerar XML. Tente novamente.");
+      toast.error(`Erro ao gerar XML: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsGeneratingXml(false);
     }

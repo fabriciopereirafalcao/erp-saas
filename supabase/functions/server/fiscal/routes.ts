@@ -41,8 +41,84 @@ fiscal.route('/calculos', calculationRoutes);
 console.log('[FISCAL_ROUTES] Rotas de cálculo registradas!');
 
 // ============================================================================
+// POST /fiscal/nfe/gerar-xml-direto
+// Descrição: Gera o XML da NF-e direto dos dados enviados (sem buscar no banco)
+// Auth: Requer token de autenticação
+// ============================================================================
+fiscal.post('/nfe/gerar-xml-direto', async (c) => {
+  try {
+    console.log('[FISCAL_ROUTES] POST /nfe/gerar-xml-direto - Início');
+    
+    // 1. Autenticação
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ success: false, error: 'Token de autenticação não fornecido' }, 401);
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ success: false, error: 'Token inválido ou expirado' }, 401);
+    }
+    
+    console.log('[FISCAL_ROUTES] Usuário autenticado:', user.id);
+    
+    // 2. Receber dados do body
+    const body = await c.req.json();
+    console.log('[FISCAL_ROUTES] Dados recebidos');
+    
+    // 3. Importar e usar o gerador de XML
+    const { gerarXMLNFe, validarDadosNFe } = await import('../nfe-xml.tsx');
+    
+    // 4. Validar dados
+    const validacao = validarDadosNFe(body);
+    if (!validacao.valido) {
+      return c.json({
+        success: false,
+        error: 'Dados inválidos',
+        erros: validacao.erros
+      }, 400);
+    }
+    
+    // 5. Gerar XML
+    console.log('[FISCAL_ROUTES] Gerando XML...');
+    const xml = gerarXMLNFe(body);
+    
+    console.log('[FISCAL_ROUTES] ✅ XML gerado com sucesso!');
+    console.log('[FISCAL_ROUTES] Tamanho:', xml.length, 'bytes');
+    
+    // 6. Extrair chave de acesso do XML
+    const chaveMatch = xml.match(/Id="NFe(\d{44})"/);
+    const chaveAcesso = chaveMatch ? chaveMatch[1] : '';
+    
+    // 7. Retornar resposta
+    return c.json({
+      success: true,
+      data: {
+        chaveAcesso,
+        xml,
+        tamanho: xml.length
+      },
+      message: 'XML gerado com sucesso'
+    });
+    
+  } catch (error: any) {
+    console.error('[FISCAL_ROUTES] Erro não tratado:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao gerar XML',
+      details: error.message
+    }, 500);
+  }
+});
+
+// ============================================================================
 // POST /fiscal/gerar-xml
-// Descrição: Gera o XML da NF-e (sem assinatura)
+// Descrição: Gera o XML da NF-e (sem assinatura) buscando dados do banco
 // Auth: Requer token de autenticação
 // ============================================================================
 fiscal.post('/gerar-xml', async (c) => {
