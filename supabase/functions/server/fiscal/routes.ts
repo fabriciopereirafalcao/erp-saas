@@ -3,10 +3,23 @@
 // Descrição: Endpoints públicos para o módulo fiscal
 // ============================================================================
 
+console.log('[FISCAL_ROUTES] 🚀 ARQUIVO FISCAL/ROUTES.TS CARREGANDO...');
+
 import { Hono } from 'npm:hono@4.6.14';
+
+console.log('[FISCAL_ROUTES] ✅ Import Hono OK');
+
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+console.log('[FISCAL_ROUTES] ✅ Import createClient OK');
+
 import { generateXmlNFe } from './xml/generateXml.ts';
+
+console.log('[FISCAL_ROUTES] ✅ Import generateXmlNFe OK');
+
 import type { NFe, NFeItem, Emitente } from './types.ts';
+
+console.log('[FISCAL_ROUTES] ✅ Import types OK');
 
 console.log('[FISCAL_ROUTES] 🔍 Tentando importar calculationRoutes...');
 let calculationRoutes;
