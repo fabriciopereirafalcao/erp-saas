@@ -679,9 +679,25 @@ export function TaxInvoicing() {
       return;
     }
 
+    if (!nfeForm.destinatario.estado) {
+      toast.error("Preencha o estado do destinatário");
+      return;
+    }
+
     setIsCalculating(true);
 
     try {
+      // Mapear regime tributário para o formato esperado pela API
+      const regimeMap: Record<string, string> = {
+        "Simples Nacional": "simples_nacional",
+        "Lucro Presumido": "lucro_presumido",
+        "Lucro Real": "lucro_real",
+        "MEI": "mei"
+      };
+
+      const regime = regimeMap[emitter.regimeTributario] || "simples_nacional";
+      const crt = regime === "simples_nacional" || regime === "mei" ? 1 : 3;
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/fiscal/calculos/calcular-nfe`, {
         method: 'POST',
         headers: {
@@ -689,45 +705,77 @@ export function TaxInvoicing() {
           'Authorization': `Bearer ${publicAnonKey}`
         },
         body: JSON.stringify({
-          itens: nfeForm.itens.map(item => ({
-            numeroItem: nfeForm.itens.indexOf(item) + 1,
-            valorProdutos: item.valorTotal,
+          emitente: {
+            cnpj: emitter.cnpj,
+            uf: emitter.estado,
+            regimeTributario: regime,
+            crt: crt
+          },
+          destinatario: {
+            documento: nfeForm.destinatario.documento,
+            uf: nfeForm.destinatario.estado,
+            contribuinteICMS: nfeForm.destinatario.ie ? true : false,
+            consumidorFinal: true
+          },
+          operacao: {
+            tipo: "saida",
+            natureza: nfeForm.naturezaOperacao,
+            finalidade: "normal",
+            presenca: "nao_se_aplica"
+          },
+          itens: nfeForm.itens.map((item, index) => ({
+            numeroItem: index + 1,
+            codigoProduto: item.produtoId,
+            descricao: item.descricao,
+            ncm: item.ncm,
+            cfop: item.cfop,
+            unidadeComercial: item.unidade,
+            quantidadeComercial: item.quantidade,
+            valorUnitarioComercial: item.valorUnitario,
+            valorTotalBruto: item.valorTotal,
             valorFrete: 0,
             valorSeguro: 0,
             valorDesconto: 0,
             valorOutrasDespesas: 0,
+            origem: parseInt(item.icms.origem) as any,
+            importado: false,
             icms: {
-              origem: item.icms.origem,
               cst: item.icms.cst,
-              csosn: item.icms.csosn,
+              csosn: item.icms.csosn || undefined,
               modalidadeBC: 3,
-              baseCalculo: item.icms.baseCalculo,
               aliquota: item.icms.aliquota,
+              reducaoBC: 0
             },
             ipi: {
               cst: item.ipi.cst,
-              baseCalculo: item.ipi.baseCalculo,
-              aliquota: item.ipi.aliquota,
+              aliquota: item.ipi.aliquota
             },
             pis: {
               cst: item.pis.cst,
-              baseCalculo: item.pis.baseCalculo,
-              aliquota: item.pis.aliquota,
+              aliquota: item.pis.aliquota
             },
             cofins: {
               cst: item.cofins.cst,
-              baseCalculo: item.cofins.baseCalculo,
-              aliquota: item.cofins.aliquota,
-            }
+              aliquota: item.cofins.aliquota
+            },
+            informarTributos: false
           })),
-          regimeTributario: emitter.regimeTributario,
-          ufOrigem: emitter.estado,
-          ufDestino: nfeForm.destinatario.estado
+          valorFrete: 0,
+          valorSeguro: 0,
+          valorDesconto: 0,
+          valorOutrasDespesas: 0,
+          opcoes: {
+            calcularFCP: true,
+            calcularLeiTransparencia: false,
+            ratearFreteDesconto: false
+          }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao calcular impostos');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta da API:', errorData);
+        throw new Error(errorData.error || 'Erro ao calcular impostos');
       }
 
       const result = await response.json();
@@ -745,8 +793,8 @@ export function TaxInvoicing() {
             },
             ipi: {
               ...item.ipi,
-              valor: itemCalculado.ipi.valor,
-              baseCalculo: itemCalculado.ipi.baseCalculo
+              valor: itemCalculado.ipi?.valor || 0,
+              baseCalculo: itemCalculado.ipi?.baseCalculo || 0
             },
             pis: {
               ...item.pis,
@@ -786,7 +834,7 @@ export function TaxInvoicing() {
       }
     } catch (error) {
       console.error('Erro ao calcular impostos:', error);
-      toast.error("Erro ao calcular impostos. Verifique os dados e tente novamente.");
+      toast.error(`Erro ao calcular impostos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsCalculating(false);
     }
