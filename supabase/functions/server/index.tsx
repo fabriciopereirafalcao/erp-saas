@@ -4,7 +4,17 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from "npm:@supabase/supabase-js@2.49.2";
 import * as kv from './kv_store.tsx';
 import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailService.tsx';
-import fiscal from './fiscal/routes.ts'; // ✨ NOVO: Rotas fiscais
+
+console.log('[INDEX] 🔍 Tentando importar módulo fiscal...');
+let fiscal;
+try {
+  fiscal = (await import('./fiscal/routes.ts')).default;
+  console.log('[INDEX] ✅ Módulo fiscal importado com sucesso!');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao importar módulo fiscal:', error);
+  console.error('[INDEX] ❌ Stack trace:', error.stack);
+  throw error;
+}
 
 const app = new Hono();
 
