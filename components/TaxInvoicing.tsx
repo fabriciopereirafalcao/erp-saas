@@ -752,8 +752,13 @@ export function TaxInvoicing() {
             origem: parseInt(item.icms.origem) as any,
             importado: false,
             icms: {
-              cst: item.icms.cst,
-              csosn: item.icms.csosn || undefined,
+              // Para Simples Nacional (CRT=1), usar apenas CSOSN
+              // Para Regime Normal (CRT=3), usar apenas CST
+              ...(crt === 1 ? {
+                csosn: item.icms.csosn,
+              } : {
+                cst: item.icms.cst,
+              }),
               modalidadeBC: 3,
               aliquota: item.icms.aliquota,
               reducaoBC: 0
