@@ -2,6 +2,19 @@ import { Hono } from "npm:hono@4.6.14";
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from "npm:@supabase/supabase-js@2.49.2";
+import * as kv from './kv_store.tsx';
+import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailService.tsx';
+
+console.log('[INDEX] 🔍 Tentando importar módulo fiscal...');
+let fiscal;
+try {
+  fiscal = (await import('./fiscal/routes.ts')).default;
+  console.log('[INDEX] ✅ Módulo fiscal importado com sucesso!');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao importar módulo fiscal:', error);
+  console.error('[INDEX] ❌ Stack trace:', error.stack);
+  throw error;
+}
 
 const app = new Hono();
 
@@ -21,370 +34,37 @@ app.use(
 );
 
 // =====================================================
-// KV STORE UTILITIES (inline)
-// =====================================================
-
-const kvClient = () => createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
-
-const kvSet = async (key: string, value: any): Promise<void> => {
-  const supabase = kvClient()
-  const { error } = await supabase.from("kv_store_686b5e88").upsert({
-    key,
-    value
-  });
-  if (error) {
-    throw new Error(error.message);
-  }
-};
-
-const kvGet = async (key: string): Promise<any> => {
-  const supabase = kvClient()
-  const { data, error } = await supabase.from("kv_store_686b5e88").select("value").eq("key", key).maybeSingle();
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data?.value;
-};
-
-const kvDel = async (key: string): Promise<void> => {
-  const supabase = kvClient()
-  const { error } = await supabase.from("kv_store_686b5e88").delete().eq("key", key);
-  if (error) {
-    throw new Error(error.message);
-  }
-};
-
-const kvGetByPrefix = async (prefix: string): Promise<any[]> => {
-  const supabase = kvClient()
-  const { data, error } = await supabase.from("kv_store_686b5e88").select("key, value").like("key", prefix + "%");
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data ?? [];
-};
-
-// =====================================================
-// EMAIL SERVICE (inline)
-// =====================================================
-
-interface SendEmailParams {
-  to: string;
-  subject: string;
-  html: string;
-  from?: string;
-}
-
-interface ResendResponse {
-  id: string;
-  from: string;
-  to: string[];
-  created_at: string;
-}
-
-const VERIFIED_TEST_EMAIL = 'fabriciopereirafalcao@gmail.com';
-let isTestMode = true;
-
-async function sendEmail(params: SendEmailParams): Promise<ResendResponse> {
-  const { to: originalTo, subject, html, from = 'Sistema ERP <onboarding@resend.dev>' } = params;
-  
-  const apiKey = Deno.env.get('RESEND_API_KEY');
-  
-  if (!apiKey) {
-    console.error('❌ RESEND_API_KEY não configurada');
-    throw new Error('Serviço de email não configurado. Configure a API key do Resend.');
-  }
-
-  let to = originalTo;
-  if (isTestMode && originalTo !== VERIFIED_TEST_EMAIL) {
-    console.log(`🧪 MODO DE TESTE: Redirecionando email de ${originalTo} para ${VERIFIED_TEST_EMAIL}`);
-    to = VERIFIED_TEST_EMAIL;
-  }
-
-  try {
-    console.log('📧 Enviando email para:', to);
-    if (to !== originalTo) {
-      console.log('   → Email original era para:', originalTo);
-    }
-    console.log('📝 Assunto:', subject);
-
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: isTestMode && to !== originalTo 
-          ? `[TESTE para ${originalTo}] ${subject}` 
-          : subject,
-        html: isTestMode && to !== originalTo
-          ? `<div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-              <strong>⚠️ MODO DE TESTE DO RESEND</strong><br/>
-              Este email deveria ter sido enviado para: <strong>${originalTo}</strong><br/>
-              Mas foi redirecionado para você porque o Resend está em modo de teste.<br/>
-              <em>Para enviar emails reais, verifique um domínio em: resend.com/domains</em>
-            </div>
-            ${html}`
-          : html,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ Erro do Resend:', errorData);
-      
-      if (response.status === 403 && errorData.message?.includes('testing emails')) {
-        console.log('🔍 Detectado modo de teste do Resend');
-        isTestMode = true;
-        
-        if (to === originalTo && originalTo !== VERIFIED_TEST_EMAIL) {
-          console.log('🔄 Tentando novamente com email verificado...');
-          return await sendEmail({ ...params, to: VERIFIED_TEST_EMAIL });
-        }
-      }
-      
-      if (response.status === 401) {
-        throw new Error('API key do Resend inválida. Verifique a configuração.');
-      } else if (response.status === 422) {
-        throw new Error(`Dados inválidos: ${errorData.message || 'Verifique o email de destino'}`);
-      } else if (response.status === 429) {
-        throw new Error('Limite de emails excedido. Aguarde antes de enviar novamente.');
-      }
-      
-      throw new Error(`Erro ao enviar email: ${errorData.message || response.statusText}`);
-    }
-
-    const result: ResendResponse = await response.json();
-    console.log('✅ Email enviado com sucesso! ID:', result.id);
-    
-    return result;
-
-  } catch (error: any) {
-    console.error('❌ Erro ao enviar email:', error.message);
-    throw error;
-  }
-}
-
-function inviteEmailTemplate(data: {
-  invitedEmail: string;
-  inviterName: string;
-  companyName: string;
-  roleName: string;
-  inviteLink: string;
-  expiresAt: string;
-}): { subject: string; html: string } {
-  const { invitedEmail, inviterName, companyName, roleName, inviteLink, expiresAt } = data;
-  
-  const expirationDate = new Date(expiresAt).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  });
-
-  return {
-    subject: `Você foi convidado para ${companyName}`,
-    html: `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Convite para ${companyName}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 0;">
-    <tr>
-      <td align="center">
-        
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden; max-width: 100%;">
-          
-          <tr>
-            <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2c4f7c 100%); padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                🎉 Você foi convidado!
-              </h1>
-            </td>
-          </tr>
-          
-          <tr>
-            <td style="padding: 40px 30px;">
-              
-              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
-                Olá! 👋
-              </p>
-              
-              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
-                <strong>${inviterName}</strong> convidou você para fazer parte da equipe <strong>${companyName}</strong> em nosso sistema ERP.
-              </p>
-              
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; border-left: 4px solid #1e3a5f; margin: 30px 0;">
-                <tr>
-                  <td style="padding: 20px;">
-                    <p style="margin: 0 0 10px; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
-                      Detalhes do Convite
-                    </p>
-                    
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <span style="color: #6b7280; font-size: 14px;">📧 Email:</span>
-                        </td>
-                        <td style="padding: 8px 0; text-align: right;">
-                          <span style="color: #111827; font-size: 14px; font-weight: 600;">${invitedEmail}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <span style="color: #6b7280; font-size: 14px;">👤 Nível de Acesso:</span>
-                        </td>
-                        <td style="padding: 8px 0; text-align: right;">
-                          <span style="color: #111827; font-size: 14px; font-weight: 600;">${roleName}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <span style="color: #6b7280; font-size: 14px;">🏢 Empresa:</span>
-                        </td>
-                        <td style="padding: 8px 0; text-align: right;">
-                          <span style="color: #111827; font-size: 14px; font-weight: 600;">${companyName}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;">
-                          <span style="color: #6b7280; font-size: 14px;">⏰ Validade:</span>
-                        </td>
-                        <td style="padding: 8px 0; text-align: right;">
-                          <span style="color: #111827; font-size: 14px; font-weight: 600;">${expirationDate}</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                <tr>
-                  <td align="center">
-                    <a href="${inviteLink}" style="display: inline-block; background-color: #1e3a5f; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(30, 58, 95, 0.2);">
-                      Aceitar Convite
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 8px; margin: 20px 0;">
-                <tr>
-                  <td style="padding: 16px;">
-                    <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-                      ⚠️ <strong>Importante:</strong> Este convite expira em <strong>${expirationDate}</strong>. Após esta data, será necessário solicitar um novo convite.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-              
-              <p style="margin: 30px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                Se o botão acima não funcionar, copie e cole este link no seu navegador:
-              </p>
-              <p style="margin: 10px 0 0; color: #1e3a5f; font-size: 14px; word-break: break-all; background-color: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                ${inviteLink}
-              </p>
-              
-            </td>
-          </tr>
-          
-          <tr>
-            <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0 0 10px; color: #6b7280; font-size: 13px;">
-                Você recebeu este email porque ${inviterName} convidou você para ${companyName}.
-              </p>
-              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                Se você não esperava este convite, pode ignorar este email com segurança.
-              </p>
-              
-              <div style="margin: 20px auto; width: 50px; height: 1px; background-color: #d1d5db;"></div>
-              
-              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                © ${new Date().getFullYear()} Sistema ERP. Todos os direitos reservados.
-              </p>
-            </td>
-          </tr>
-          
-        </table>
-        
-      </td>
-    </tr>
-  </table>
-  
-</body>
-</html>
-    `.trim()
-  };
-}
-
-async function sendInviteEmail(data: {
-  to: string;
-  inviterName: string;
-  companyName: string;
-  roleName: string;
-  inviteLink: string;
-  expiresAt: string;
-}) {
-  const { to, inviterName, companyName, roleName, inviteLink, expiresAt } = data;
-  
-  const { subject, html } = inviteEmailTemplate({
-    invitedEmail: to,
-    inviterName,
-    companyName,
-    roleName,
-    inviteLink,
-    expiresAt,
-  });
-
-  return await sendEmail({
-    to,
-    subject,
-    html,
-    from: `${companyName} <onboarding@resend.dev>`,
-  });
-}
-
-function isEmailServiceConfigured(): boolean {
-  return !!Deno.env.get('RESEND_API_KEY');
-}
-
-// =====================================================
 // AUTH ROUTES
 // =====================================================
 
+// Rota de signup - Criar nova conta
 app.post("/make-server-686b5e88/auth/signup", async (c) => {
   try {
     const { email, password, name, companyName, cnpj } = await c.req.json();
 
+    // Validações básicas
     if (!email || !password || !name || !companyName) {
       return c.json({ error: 'Campos obrigatórios faltando' }, 400);
     }
 
+    // Criar cliente Supabase com SERVICE_ROLE_KEY (bypass RLS)
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // 1. Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: true, // Auto-confirmar email (sem servidor de email configurado)
       user_metadata: { name },
     });
 
     if (authError) {
       console.error('Erro ao criar usuário no auth:', authError);
       
+      // Mensagem amigável para email duplicado
       if (authError.code === 'email_exists' || authError.message?.includes('already been registered')) {
         return c.json({ 
           error: 'Este email já está cadastrado. Use outro email ou faça login com sua conta existente.' 
@@ -398,8 +78,9 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
       return c.json({ error: 'Falha ao criar usuário' }, 500);
     }
 
+    // 2. Criar empresa (company)
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14); // Trial de 14 dias
 
     const { data: companyData, error: companyError } = await supabase
       .from('companies')
@@ -414,10 +95,12 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
 
     if (companyError) {
       console.error('Erro ao criar empresa:', companyError);
+      // Rollback: deletar usuário criado
       await supabase.auth.admin.deleteUser(authData.user.id);
       return c.json({ error: `Erro ao criar empresa: ${companyError.message}` }, 500);
     }
 
+    // 3. Criar perfil do usuário na tabela users
     const { error: profileError } = await supabase
       .from('users')
       .insert({
@@ -430,11 +113,13 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
 
     if (profileError) {
       console.error('Erro ao criar perfil:', profileError);
+      // Rollback: deletar empresa e usuário
       await supabase.from('companies').delete().eq('id', companyData.id);
       await supabase.auth.admin.deleteUser(authData.user.id);
       return c.json({ error: `Erro ao criar perfil: ${profileError.message}` }, 500);
     }
 
+    // Sucesso!
     return c.json({
       success: true,
       user: {
@@ -447,7 +132,7 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
       },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro geral no signup:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
@@ -457,6 +142,7 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
 // USER MANAGEMENT & INVITES ROUTES
 // =====================================================
 
+// Listar usuários da empresa (apenas owner/admin)
 app.get("/make-server-686b5e88/users", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -466,11 +152,13 @@ app.get("/make-server-686b5e88/users", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
@@ -481,10 +169,12 @@ app.get("/make-server-686b5e88/users", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Verificar se é owner ou admin
     if (profile.role !== 'owner' && profile.role !== 'admin') {
       return c.json({ error: 'Sem permissão para listar usuários' }, 403);
     }
 
+    // Buscar todos os usuários da empresa
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select('*')
@@ -498,17 +188,19 @@ app.get("/make-server-686b5e88/users", async (c) => {
 
     return c.json({ users });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao listar usuários:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Criar convite para novo usuário (apenas owner/admin)
 app.post("/make-server-686b5e88/users/invite", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const { email, role } = await c.req.json();
 
+    // Validações
     if (!email || !role) {
       return c.json({ error: 'Email e role são obrigatórios' }, 400);
     }
@@ -523,11 +215,13 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
@@ -538,10 +232,12 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Verificar se é owner ou admin
     if (profile.role !== 'owner' && profile.role !== 'admin') {
       return c.json({ error: 'Sem permissão para convidar usuários' }, 403);
     }
 
+    // Verificar se email já está cadastrado na empresa
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
@@ -553,7 +249,8 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este email já está cadastrado na empresa' }, 400);
     }
 
-    const allInvites = await kvGetByPrefix('invite:');
+    // Verificar se já existe um convite pendente para este email na empresa
+    const allInvites = await kv.getByPrefix('invite:');
     const existingInvite = allInvites.find((invite: any) => {
       try {
         const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
@@ -561,7 +258,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
           inviteData.email === email &&
           inviteData.company_id === profile.company_id &&
           inviteData.status === 'pending' &&
-          new Date(inviteData.expires_at) > new Date()
+          new Date(inviteData.expires_at) > new Date() // Ainda não expirado
         );
       } catch {
         return false;
@@ -572,15 +269,17 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este e-mail já foi convidado' }, 400);
     }
 
+    // Criar token único para o convite
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 7); // Convite válido por 7 dias
 
+    // Salvar convite no KV store
     const inviteData = {
       email,
       role,
       company_id: profile.company_id,
-      company_name: profile.company_id,
+      company_name: profile.company_id, // Você pode buscar o nome real da company se quiser
       invited_by: user.id,
       invited_by_name: profile.name,
       created_at: new Date().toISOString(),
@@ -590,14 +289,17 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
 
     console.log('💾 Salvando convite no KV store com chave:', `invite:${inviteToken}`);
     console.log('📦 Dados do convite:', inviteData);
-    await kvSet(`invite:${inviteToken}`, JSON.stringify(inviteData));
+    await kv.set(`invite:${inviteToken}`, JSON.stringify(inviteData));
     console.log('✅ Convite salvo com sucesso!');
     
+    // Construir link de convite
     const baseUrl = c.req.url.split('/make-server')[0];
     const inviteLink = `${baseUrl}?token=${inviteToken}`;
 
+    // Verificar se o serviço de email está configurado
     if (isEmailServiceConfigured()) {
       try {
+        // Mapear role para nome legível
         const roleNames: Record<string, string> = {
           admin: 'Administrador',
           manager: 'Gerente',
@@ -607,10 +309,11 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
           viewer: 'Visualizador',
         };
 
+        // Enviar email com link de convite
         await sendInviteEmail({
           to: email,
           inviterName: profile.name,
-          companyName: profile.company_id,
+          companyName: profile.company_id, // TODO: Buscar nome real da empresa
           roleName: roleNames[role] || role,
           inviteLink,
           expiresAt: expiresAt.toISOString(),
@@ -619,6 +322,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
         console.log('✅ Email de convite enviado com sucesso para:', email);
       } catch (emailError: any) {
         console.error('❌ Erro ao enviar email de convite:', emailError.message);
+        // Não falhar a requisição se email falhar, apenas logar
       }
     } else {
       console.log('⚠️ Serviço de email não configurado. Convite criado, mas email não enviado.');
@@ -636,12 +340,14 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao criar convite:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Listar convites da empresa (apenas owner/admin)
+// Endpoint que retorna todos os convites da empresa do usuário logado
 app.get("/make-server-686b5e88/invites", async (c) => {
   console.log('🔍 Endpoint /invites chamado!');
   try {
@@ -653,6 +359,7 @@ app.get("/make-server-686b5e88/invites", async (c) => {
       return c.json({ error: 'Token de autenticação não fornecido' }, 401);
     }
 
+    // Validar token e obter usuário
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -667,6 +374,7 @@ app.get("/make-server-686b5e88/invites", async (c) => {
 
     console.log('✅ Usuário autenticado:', user.id);
 
+    // Buscar dados do usuário da tabela users (não do KV store!)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('company_id, role')
@@ -682,9 +390,11 @@ app.get("/make-server-686b5e88/invites", async (c) => {
 
     const companyId = userData.company_id;
 
-    const allInvites = await kvGetByPrefix('invite:');
+    // Buscar todos os convites da empresa do KV store
+    const allInvites = await kv.getByPrefix('invite:');
     console.log('📋 Total de convites no sistema:', allInvites.length);
     
+    // Debug: Mostrar todos os convites encontrados
     if (allInvites.length > 0) {
       console.log('🔍 Convites encontrados no KV store:');
       allInvites.forEach((invite: any, index: number) => {
@@ -692,7 +402,7 @@ app.get("/make-server-686b5e88/invites", async (c) => {
         try {
           const data = JSON.parse(invite.value);
           console.log(`     Email: ${data.email}, Company ID: ${data.company_id}, Status: ${data.status}`);
-        } catch (e: any) {
+        } catch (e) {
           console.log(`     ⚠️ Erro ao parsear: ${e.message}`);
         }
       });
@@ -700,19 +410,22 @@ app.get("/make-server-686b5e88/invites", async (c) => {
       console.log('⚠️ Nenhum convite encontrado no KV store!');
     }
     
+    // Filtrar convites da empresa
     const companyInvites = allInvites
       .filter((invite: any) => {
         try {
+          // O value já vem como objeto (JSONB) do banco, não precisa parse
           const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
           const matches = inviteData.company_id === companyId;
           console.log(`🔍 Comparando: ${inviteData.company_id} === ${companyId} ? ${matches}`);
           return matches;
-        } catch (e: any) {
+        } catch (e) {
           console.log(`❌ Erro ao processar convite ${invite.key}: ${e.message}`);
           return false;
         }
       })
       .map((invite: any) => {
+        // O value já vem como objeto (JSONB) do banco, não precisa parse
         const inviteData = typeof invite.value === 'string' ? JSON.parse(invite.value) : invite.value;
         const token = invite.key.replace('invite:', '');
         
@@ -730,6 +443,7 @@ app.get("/make-server-686b5e88/invites", async (c) => {
           invite_link: `${c.req.url.split('/functions')[0]}?token=${token}`
         };
       })
+      // Ordenar por data de criação (mais recentes primeiro)
       .sort((a: any, b: any) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
@@ -742,31 +456,36 @@ app.get("/make-server-686b5e88/invites", async (c) => {
       total: companyInvites.length
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erro ao listar convites:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Aceitar convite e criar conta
 app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
   try {
     const { token, name, password } = await c.req.json();
 
+    // Validações
     if (!token || !name || !password) {
       return c.json({ error: 'Token, nome e senha são obrigatórios' }, 400);
     }
 
-    const inviteDataStr = await kvGet(`invite:${token}`);
+    // Buscar convite no KV store
+    const inviteDataStr = await kv.get(`invite:${token}`);
     if (!inviteDataStr) {
       return c.json({ error: 'Convite inválido ou expirado' }, 400);
     }
 
     const inviteData = JSON.parse(inviteDataStr);
 
+    // Verificar se já foi usado
     if (inviteData.status !== 'pending') {
       return c.json({ error: 'Este convite já foi utilizado' }, 400);
     }
 
+    // Verificar expiração
     if (new Date(inviteData.expires_at) < new Date()) {
       return c.json({ error: 'Este convite expirou' }, 400);
     }
@@ -776,6 +495,7 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: inviteData.email,
       password,
@@ -799,6 +519,7 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
       return c.json({ error: 'Falha ao criar usuário' }, 500);
     }
 
+    // Criar perfil do usuário na tabela users
     const { error: profileError } = await supabase
       .from('users')
       .insert({
@@ -811,13 +532,15 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
 
     if (profileError) {
       console.error('Erro ao criar perfil do convite:', profileError);
+      // Rollback: deletar usuário
       await supabase.auth.admin.deleteUser(authData.user.id);
       return c.json({ error: `Erro ao criar perfil: ${profileError.message}` }, 500);
     }
 
+    // Marcar convite como usado
     inviteData.status = 'accepted';
     inviteData.accepted_at = new Date().toISOString();
-    await kvSet(`invite:${token}`, JSON.stringify(inviteData));
+    await kv.set(`invite:${token}`, JSON.stringify(inviteData));
 
     return c.json({
       success: true,
@@ -829,12 +552,13 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
       },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao aceitar convite:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Deletar usuário (apenas owner)
 app.delete("/make-server-686b5e88/users/:userId", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -845,11 +569,13 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário que está fazendo a requisição
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
@@ -860,14 +586,17 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Apenas owner pode deletar usuários
     if (profile.role !== 'owner') {
       return c.json({ error: 'Apenas o proprietário pode excluir usuários' }, 403);
     }
 
+    // Não pode deletar a si mesmo
     if (userIdToDelete === user.id) {
       return c.json({ error: 'Você não pode excluir sua própria conta desta forma' }, 400);
     }
 
+    // Buscar usuário a ser deletado
     const { data: userToDelete, error: fetchError } = await supabase
       .from('users')
       .select('*')
@@ -878,14 +607,17 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       return c.json({ error: 'Usuário não encontrado' }, 404);
     }
 
+    // Verificar se pertence à mesma empresa
     if (userToDelete.company_id !== profile.company_id) {
       return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
     }
 
+    // No pode deletar outro owner
     if (userToDelete.role === 'owner') {
       return c.json({ error: 'Não é possível excluir outro proprietário' }, 403);
     }
 
+    // Deletar perfil
     const { error: deleteProfileError } = await supabase
       .from('users')
       .delete()
@@ -896,26 +628,30 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       return c.json({ error: `Erro ao deletar perfil: ${deleteProfileError.message}` }, 500);
     }
 
+    // Deletar do Auth
     const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userIdToDelete);
 
     if (deleteAuthError) {
       console.error('Erro ao deletar do auth:', deleteAuthError);
+      // Já deletou do perfil, então vamos continuar
     }
 
     return c.json({ success: true });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao deletar usuário:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Atualizar role de usuário (apenas owner)
 app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const userIdToUpdate = c.req.param('userId');
     const { role } = await c.req.json();
 
+    // Validações
     const validRoles = ['admin', 'manager', 'salesperson', 'buyer', 'financial', 'viewer'];
     if (!validRoles.includes(role)) {
       return c.json({ error: 'Role inválida. Use: admin, manager, salesperson, buyer, financial ou viewer' }, 400);
@@ -926,11 +662,13 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário que está fazendo a requisição
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
@@ -941,10 +679,12 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Apenas owner pode alterar roles
     if (profile.role !== 'owner') {
       return c.json({ error: 'Apenas o proprietário pode alterar permissões' }, 403);
     }
 
+    // Buscar usuário a ser atualizado
     const { data: userToUpdate, error: fetchError } = await supabase
       .from('users')
       .select('*')
@@ -955,14 +695,17 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
       return c.json({ error: 'Usuário não encontrado' }, 404);
     }
 
+    // Verificar se pertence à mesma empresa
     if (userToUpdate.company_id !== profile.company_id) {
       return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
     }
 
+    // Não pode alterar role de owner
     if (userToUpdate.role === 'owner') {
       return c.json({ error: 'Não é possível alterar a permissão do proprietário' }, 403);
     }
 
+    // Atualizar role
     const { error: updateError } = await supabase
       .from('users')
       .update({ role })
@@ -975,7 +718,7 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
 
     return c.json({ success: true, role });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao atualizar role:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
@@ -985,6 +728,7 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
 // COMPANY SETTINGS ROUTES
 // =====================================================
 
+// Buscar dados da empresa do usuário logado
 app.get("/make-server-686b5e88/company", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -998,11 +742,13 @@ app.get("/make-server-686b5e88/company", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário para obter company_id
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('company_id')
@@ -1013,6 +759,7 @@ app.get("/make-server-686b5e88/company", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Buscar dados da empresa
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .select('*')
@@ -1033,12 +780,13 @@ app.get("/make-server-686b5e88/company", async (c) => {
       company 
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao buscar empresa:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
+// Atualizar dados da empresa (apenas owner/admin)
 app.patch("/make-server-686b5e88/company", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -1053,11 +801,13 @@ app.patch("/make-server-686b5e88/company", async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    // Buscar perfil do usuário
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('company_id, role')
@@ -1068,10 +818,12 @@ app.patch("/make-server-686b5e88/company", async (c) => {
       return c.json({ error: 'Perfil não encontrado' }, 404);
     }
 
+    // Verificar permissão (apenas owner e admin podem editar)
     if (profile.role !== 'owner' && profile.role !== 'admin') {
       return c.json({ error: 'Sem permissão para editar dados da empresa' }, 403);
     }
 
+    // Atualizar empresa
     const { data: company, error: updateError } = await supabase
       .from('companies')
       .update(updates)
@@ -1089,56 +841,37 @@ app.patch("/make-server-686b5e88/company", async (c) => {
       company
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro ao atualizar empresa:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
 
-// =====================================================
-// HEALTH & TEST ROUTES
-// Force deploy: v2024-11-21
-// =====================================================
-
-console.log('🚀 Registrando rotas...');
-
-// Rota raiz - Health check (para teste no dashboard)
-app.get("/", (c) => {
-  console.log('✅ Rota / chamada');
-  return c.json({ 
-    status: "ok", 
-    service: "make-server-686b5e88",
-    timestamp: new Date().toISOString(),
-    message: "Edge Function is running!"
-  });
-});
-
-// Rota com prefixo - Para teste no dashboard do Supabase
-app.get("/make-server-686b5e88", (c) => {
-  console.log('✅ Rota /make-server-686b5e88 chamada');
-  return c.json({ 
-    status: "ok", 
-    service: "make-server-686b5e88",
-    timestamp: new Date().toISOString(),
-    message: "Edge Function is running!"
-  });
-});
-
+// Health check
 app.get("/make-server-686b5e88/health", (c) => {
-  console.log('✅ Rota /health chamada');
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Verificar status do serviço de email
 app.get("/make-server-686b5e88/email/status", (c) => {
-  console.log('✅ Rota /email/status chamada');
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const configured = isEmailServiceConfigured();
   
+  // Log DETALHADO para debug
   console.log('🔍 ========== DEBUG EMAIL STATUS ==========');
   console.log('📧 RESEND_API_KEY existe:', !!apiKey);
   console.log('📧 RESEND_API_KEY valor:', apiKey ? `${apiKey.substring(0, 8)}...` : 'UNDEFINED');
   console.log('📧 RESEND_API_KEY length:', apiKey ? apiKey.length : 0);
   console.log('📧 isEmailServiceConfigured():', configured);
+  
+  // Verificar outras variáveis de ambiente (sem expor valores sensíveis)
+  console.log('🔐 Variáveis de ambiente disponíveis:');
+  console.log('  - SUPABASE_URL:', !!Deno.env.get('SUPABASE_URL'));
+  console.log('  - SUPABASE_ANON_KEY:', !!Deno.env.get('SUPABASE_ANON_KEY'));
+  console.log('  - SUPABASE_SERVICE_ROLE_KEY:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+  console.log('  - SUPABASE_DB_URL:', !!Deno.env.get('SUPABASE_DB_URL'));
+  console.log('  - RESEND_API_KEY:', !!Deno.env.get('RESEND_API_KEY'));
+  console.log('🔍 ========================================');
   
   return c.json({ 
     configured,
@@ -1146,6 +879,13 @@ app.get("/make-server-686b5e88/email/status", (c) => {
     hasKey: !!apiKey,
     keyPrefix: apiKey ? `${apiKey.substring(0, 8)}...` : null,
     keyLength: apiKey ? apiKey.length : 0,
+    allEnvVars: {
+      SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
+      SUPABASE_ANON_KEY: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      SUPABASE_DB_URL: !!Deno.env.get('SUPABASE_DB_URL'),
+      RESEND_API_KEY: !!Deno.env.get('RESEND_API_KEY'),
+    },
     message: configured 
       ? 'Email service is configured and ready' 
       : 'Email service not configured. Set RESEND_API_KEY to enable.',
@@ -1157,6 +897,7 @@ app.get("/make-server-686b5e88/email/status", (c) => {
   });
 });
 
+// Testar envio de email
 app.post("/make-server-686b5e88/email/test", async (c) => {
   try {
     const { to } = await c.req.json();
@@ -1165,17 +906,20 @@ app.post("/make-server-686b5e88/email/test", async (c) => {
       return c.json({ error: 'Email de destino é obrigatório' }, 400);
     }
 
+    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(to)) {
       return c.json({ error: 'Email inválido' }, 400);
     }
 
+    // Verificar se está configurado
     if (!isEmailServiceConfigured()) {
       return c.json({ 
         error: 'Serviço de email não configurado. Configure a RESEND_API_KEY primeiro.' 
       }, 400);
     }
 
+    // Enviar email de teste
     await sendEmail({
       to,
       subject: '✅ Teste de Email - Sistema ERP',
@@ -1254,7 +998,12 @@ app.post("/make-server-686b5e88/email/test", async (c) => {
   }
 });
 
-console.log('✅ Todas as rotas registradas!');
-console.log('🚀 Iniciando servidor Hono...');
+// =====================================================
+// FISCAL ROUTES - Módulo de Faturamento
+// =====================================================
+console.log('Inicializando servidor Hono...');
+console.log('Registrando rotas...');
+app.route('/make-server-686b5e88/fiscal', fiscal);
+console.log('Todas as rotas registradas!');
 
 Deno.serve(app.fetch);

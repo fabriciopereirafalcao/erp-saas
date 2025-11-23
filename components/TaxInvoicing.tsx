@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -17,6 +17,10 @@ import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle,
 import { useERP } from "../contexts/ERPContext";
 import { toast } from "sonner@2.0.3";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
+import { supabase } from "../utils/supabase/client";
+import { useAuth } from "../contexts/AuthContext";
+import { NFeEmissionDialog } from "./NFeEmissionDialog";
 
 // Tipos de dados fiscais
 interface NFeTaxItem {
@@ -209,10 +213,115 @@ const BRAZILIAN_STATES = [
 
 export function TaxInvoicing() {
   const { salesOrders, customers, companySettings } = useERP();
+  const { user } = useAuth();
   const [activeMainTab, setActiveMainTab] = useState<"emissao" | "emitente">("emissao");
   const [activeEmitterTab, setActiveEmitterTab] = useState<"identificacao" | "nfe" | "nfce" | "sped" | "impostos">("identificacao");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Estado para Dialog de Emissão
+  const [isEmissionDialogOpen, setIsEmissionDialogOpen] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isGeneratingXml, setIsGeneratingXml] = useState(false);
+
+  // Estado do Formulário de Emissão
+  const [nfeForm, setNfeForm] = useState({
+    tipo: "55" as "55" | "65",
+    serie: "1",
+    naturezaOperacao: "Venda de mercadoria adquirida ou recebida de terceiros",
+    cfop: "5.102",
+    dataEmissao: new Date().toISOString().split('T')[0],
+    destinatario: {
+      tipo: "Jurídica" as "Física" | "Jurídica",
+      documento: "",
+      nome: "",
+      ie: "",
+      email: "",
+      telefone: "",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+    },
+    itens: [] as Array<{
+      id: string;
+      produtoId: string;
+      descricao: string;
+      ncm: string;
+      cfop: string;
+      unidade: string;
+      quantidade: number;
+      valorUnitario: number;
+      valorTotal: number;
+      // Impostos
+      icms: {
+        origem: "0",
+        cst: "00",
+        csosn: "",
+        aliquota: 0,
+        baseCalculo: 0,
+        valor: 0,
+      };
+      ipi: {
+        cst: "99",
+        aliquota: 0,
+        baseCalculo: 0,
+        valor: 0,
+      };
+      pis: {
+        cst: "01",
+        aliquota: 0,
+        baseCalculo: 0,
+        valor: 0,
+      };
+      cofins: {
+        cst: "01",
+        aliquota: 0,
+        baseCalculo: 0,
+        valor: 0,
+      };
+    }>,
+    totais: {
+      valorProdutos: 0,
+      valorFrete: 0,
+      valorSeguro: 0,
+      valorDesconto: 0,
+      valorOutrasDespesas: 0,
+      baseCalculoICMS: 0,
+      valorICMS: 0,
+      baseCalculoICMSST: 0,
+      valorICMSST: 0,
+      valorIPI: 0,
+      valorPIS: 0,
+      valorCOFINS: 0,
+      valorTotal: 0,
+    },
+    informacoesAdicionais: "",
+  });
+
+  // Estado para adicionar item
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
+  const [newItem, setNewItem] = useState({
+    produtoId: "",
+    descricao: "",
+    ncm: "",
+    cfop: "5.102",
+    unidade: "UN",
+    quantidade: 1,
+    valorUnitario: 0,
+    icmsOrigem: "0",
+    icmsCst: "00",
+    icmsAliquota: 18,
+    ipiCst: "99",
+    ipiAliquota: 0,
+    pisCst: "01",
+    pisAliquota: 1.65,
+    cofinsCst: "01",
+    cofinsAliquota: 7.6,
+  });
 
   // Estado do Emitente
   const [emitter, setEmitter] = useState<TaxEmitter>({
@@ -435,6 +544,296 @@ export function TaxInvoicing() {
     toast.success("Configurações do emitente salvas com sucesso!");
   };
 
+  // Handlers de Emissão de NF-e
+  const handleOpenEmissionDialog = () => {
+    // Resetar formulário
+    setNfeForm({
+      tipo: "55",
+      serie: emitter.nfe.serieNFe,
+      naturezaOperacao: emitter.nfe.naturezaOperacaoPadrao,
+      cfop: emitter.nfe.cfopPadrao,
+      dataEmissao: new Date().toISOString().split('T')[0],
+      destinatario: {
+        tipo: "Jurídica",
+        documento: "",
+        nome: "",
+        ie: "",
+        email: "",
+        telefone: "",
+        cep: "",
+        logradouro: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+      },
+      itens: [],
+      totais: {
+        valorProdutos: 0,
+        valorFrete: 0,
+        valorSeguro: 0,
+        valorDesconto: 0,
+        valorOutrasDespesas: 0,
+        baseCalculoICMS: 0,
+        valorICMS: 0,
+        baseCalculoICMSST: 0,
+        valorICMSST: 0,
+        valorIPI: 0,
+        valorPIS: 0,
+        valorCOFINS: 0,
+        valorTotal: 0,
+      },
+      informacoesAdicionais: "",
+    });
+    setIsEmissionDialogOpen(true);
+  };
+
+  const handleAddItem = () => {
+    if (!newItem.descricao || !newItem.ncm || newItem.quantidade <= 0 || newItem.valorUnitario <= 0) {
+      toast.error("Preencha todos os campos obrigatórios do item");
+      return;
+    }
+
+    const itemId = `ITEM-${Date.now()}`;
+    const valorTotal = newItem.quantidade * newItem.valorUnitario;
+
+    const novoItem = {
+      id: itemId,
+      produtoId: newItem.produtoId || itemId,
+      descricao: newItem.descricao,
+      ncm: newItem.ncm,
+      cfop: newItem.cfop,
+      unidade: newItem.unidade,
+      quantidade: newItem.quantidade,
+      valorUnitario: newItem.valorUnitario,
+      valorTotal,
+      icms: {
+        origem: newItem.icmsOrigem,
+        cst: newItem.icmsCst,
+        csosn: emitter.regimeTributario === "Simples Nacional" ? "102" : "",
+        aliquota: newItem.icmsAliquota,
+        baseCalculo: valorTotal,
+        valor: (valorTotal * newItem.icmsAliquota) / 100,
+      },
+      ipi: {
+        cst: newItem.ipiCst,
+        aliquota: newItem.ipiAliquota,
+        baseCalculo: valorTotal,
+        valor: (valorTotal * newItem.ipiAliquota) / 100,
+      },
+      pis: {
+        cst: newItem.pisCst,
+        aliquota: newItem.pisAliquota,
+        baseCalculo: valorTotal,
+        valor: (valorTotal * newItem.pisAliquota) / 100,
+      },
+      cofins: {
+        cst: newItem.cofinsCst,
+        aliquota: newItem.cofinsAliquota,
+        baseCalculo: valorTotal,
+        valor: (valorTotal * newItem.cofinsAliquota) / 100,
+      },
+    };
+
+    setNfeForm(prev => ({
+      ...prev,
+      itens: [...prev.itens, novoItem]
+    }));
+
+    // Resetar formulário de item
+    setNewItem({
+      produtoId: "",
+      descricao: "",
+      ncm: "",
+      cfop: "5.102",
+      unidade: "UN",
+      quantidade: 1,
+      valorUnitario: 0,
+      icmsOrigem: "0",
+      icmsCst: "00",
+      icmsAliquota: 18,
+      ipiCst: "99",
+      ipiAliquota: 0,
+      pisCst: "01",
+      pisAliquota: 1.65,
+      cofinsCst: "01",
+      cofinsAliquota: 7.6,
+    });
+
+    setShowAddItemDialog(false);
+    toast.success("Item adicionado com sucesso!");
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setNfeForm(prev => ({
+      ...prev,
+      itens: prev.itens.filter(item => item.id !== itemId)
+    }));
+    toast.success("Item removido com sucesso!");
+  };
+
+  const handleCalculateTotals = async () => {
+    if (nfeForm.itens.length === 0) {
+      toast.error("Adicione pelo menos um item antes de calcular");
+      return;
+    }
+
+    setIsCalculating(true);
+
+    try {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/fiscal/calculos/calcular-nfe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          itens: nfeForm.itens.map(item => ({
+            numeroItem: nfeForm.itens.indexOf(item) + 1,
+            valorProdutos: item.valorTotal,
+            valorFrete: 0,
+            valorSeguro: 0,
+            valorDesconto: 0,
+            valorOutrasDespesas: 0,
+            icms: {
+              origem: item.icms.origem,
+              cst: item.icms.cst,
+              csosn: item.icms.csosn,
+              modalidadeBC: 3,
+              baseCalculo: item.icms.baseCalculo,
+              aliquota: item.icms.aliquota,
+            },
+            ipi: {
+              cst: item.ipi.cst,
+              baseCalculo: item.ipi.baseCalculo,
+              aliquota: item.ipi.aliquota,
+            },
+            pis: {
+              cst: item.pis.cst,
+              baseCalculo: item.pis.baseCalculo,
+              aliquota: item.pis.aliquota,
+            },
+            cofins: {
+              cst: item.cofins.cst,
+              baseCalculo: item.cofins.baseCalculo,
+              aliquota: item.cofins.aliquota,
+            }
+          })),
+          regimeTributario: emitter.regimeTributario,
+          ufOrigem: emitter.estado,
+          ufDestino: nfeForm.destinatario.estado
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao calcular impostos');
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        // Atualizar itens com valores calculados
+        const itensAtualizados = nfeForm.itens.map((item, index) => {
+          const itemCalculado = result.data.itens[index];
+          return {
+            ...item,
+            icms: {
+              ...item.icms,
+              valor: itemCalculado.icms.valor,
+              baseCalculo: itemCalculado.icms.baseCalculo
+            },
+            ipi: {
+              ...item.ipi,
+              valor: itemCalculado.ipi.valor,
+              baseCalculo: itemCalculado.ipi.baseCalculo
+            },
+            pis: {
+              ...item.pis,
+              valor: itemCalculado.pis.valor,
+              baseCalculo: itemCalculado.pis.baseCalculo
+            },
+            cofins: {
+              ...item.cofins,
+              valor: itemCalculado.cofins.valor,
+              baseCalculo: itemCalculado.cofins.baseCalculo
+            },
+            valorTotal: itemCalculado.valorTotal
+          };
+        });
+
+        setNfeForm(prev => ({
+          ...prev,
+          itens: itensAtualizados,
+          totais: {
+            valorProdutos: result.data.totais.valorProdutos,
+            valorFrete: result.data.totais.valorFrete,
+            valorSeguro: result.data.totais.valorSeguro,
+            valorDesconto: result.data.totais.valorDesconto,
+            valorOutrasDespesas: result.data.totais.valorOutrasDespesas,
+            baseCalculoICMS: result.data.totais.baseCalculoICMS,
+            valorICMS: result.data.totais.valorICMS,
+            baseCalculoICMSST: result.data.totais.baseCalculoICMSST,
+            valorICMSST: result.data.totais.valorICMSST,
+            valorIPI: result.data.totais.valorIPI,
+            valorPIS: result.data.totais.valorPIS,
+            valorCOFINS: result.data.totais.valorCOFINS,
+            valorTotal: result.data.totais.valorTotal,
+          }
+        }));
+
+        toast.success("Impostos calculados com sucesso!");
+      }
+    } catch (error) {
+      console.error('Erro ao calcular impostos:', error);
+      toast.error("Erro ao calcular impostos. Verifique os dados e tente novamente.");
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!nfeForm.destinatario.documento || !nfeForm.destinatario.nome) {
+      toast.error("Preencha os dados do destinatário");
+      return;
+    }
+
+    if (nfeForm.itens.length === 0) {
+      toast.error("Adicione pelo menos um item");
+      return;
+    }
+
+    toast.success("Rascunho salvo com sucesso!");
+    setIsEmissionDialogOpen(false);
+  };
+
+  const handleGenerateXml = async () => {
+    if (!nfeForm.destinatario.documento || !nfeForm.destinatario.nome) {
+      toast.error("Preencha os dados do destinatário");
+      return;
+    }
+
+    if (nfeForm.itens.length === 0) {
+      toast.error("Adicione pelo menos um item");
+      return;
+    }
+
+    setIsGeneratingXml(true);
+
+    try {
+      // Aqui integraria com a API de geração de XML
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulação
+      
+      toast.success("XML gerado com sucesso! Download iniciado.");
+      setIsEmissionDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao gerar XML:', error);
+      toast.error("Erro ao gerar XML. Tente novamente.");
+    } finally {
+      setIsGeneratingXml(false);
+    }
+  };
+
   // Filtrar NFes
   const filteredNFes = useMemo(() => {
     return nfes.filter(nfe => {
@@ -568,7 +967,10 @@ export function TaxInvoicing() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-gray-900">Notas Fiscais Emitidas</h2>
-              <Button className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">
+              <Button 
+                onClick={handleOpenEmissionDialog}
+                className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Emitir NFe
               </Button>
@@ -1120,6 +1522,28 @@ export function TaxInvoicing() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Emissão de NF-e */}
+      <NFeEmissionDialog
+        isOpen={isEmissionDialogOpen}
+        onOpenChange={setIsEmissionDialogOpen}
+        nfeForm={nfeForm}
+        setNfeForm={setNfeForm}
+        newItem={newItem}
+        setNewItem={setNewItem}
+        showAddItemDialog={showAddItemDialog}
+        setShowAddItemDialog={setShowAddItemDialog}
+        handleAddItem={handleAddItem}
+        handleRemoveItem={handleRemoveItem}
+        handleCalculateTotals={handleCalculateTotals}
+        handleSaveDraft={handleSaveDraft}
+        handleGenerateXml={handleGenerateXml}
+        isCalculating={isCalculating}
+        isGeneratingXml={isGeneratingXml}
+        brazilianStates={BRAZILIAN_STATES}
+        salesOrders={salesOrders}
+        emitter={emitter}
+      />
     </div>
   );
 }
