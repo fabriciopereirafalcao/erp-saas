@@ -21,6 +21,7 @@ import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { supabase } from "../utils/supabase/client";
 import { useAuth } from "../contexts/AuthContext";
 import { NFeEmissionDialog } from "./NFeEmissionDialog";
+import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
 interface NFeTaxItem {
@@ -890,13 +891,6 @@ export function TaxInvoicing() {
     setIsGeneratingXml(true);
 
     try {
-      // Mapear código do município (simplificado - em produção usar tabela IBGE)
-      const codigosMunicipio: Record<string, string> = {
-        'SP': '3550308', 'RJ': '3304557', 'MG': '3106200', 'RS': '4314902',
-        'PR': '4106902', 'SC': '4205407', 'BA': '2927408', 'PE': '2611606',
-        'CE': '2304400', 'GO': '5208707',
-      };
-
       // Buscar token de acesso
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -917,7 +911,7 @@ export function TaxInvoicing() {
           complemento: emitter.complemento,
           bairro: emitter.bairro,
           cidade: emitter.cidade,
-          codigoMunicipio: codigosMunicipio[emitter.estado] || '3550308',
+          codigoMunicipio: buscarCodigoMunicipio(emitter.estado, emitter.cidade),
           estado: emitter.estado,
           telefone: emitter.telefone,
           email: emitter.email,
@@ -935,7 +929,7 @@ export function TaxInvoicing() {
           complemento: nfeForm.destinatario.complemento,
           bairro: nfeForm.destinatario.bairro,
           cidade: nfeForm.destinatario.cidade,
-          codigoMunicipio: codigosMunicipio[nfeForm.destinatario.estado] || '3550308',
+          codigoMunicipio: buscarCodigoMunicipio(nfeForm.destinatario.estado, nfeForm.destinatario.cidade),
           estado: nfeForm.destinatario.estado,
         },
         identificacao: {

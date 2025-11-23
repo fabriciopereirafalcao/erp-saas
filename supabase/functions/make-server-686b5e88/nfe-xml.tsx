@@ -383,7 +383,8 @@ export function gerarXMLNFe(data: NFeXMLData): string {
       xml += `          <ICMSSN${item.icms.csosn}>\n`;
       xml += `            <orig>${item.origem}</orig>\n`;
       xml += `            <CSOSN>${item.icms.csosn}</CSOSN>\n`;
-      if (item.icms.baseCalculo > 0) {
+      // CSOSN 102, 103, 300 e 400 não possuem campos de base de cálculo e valor
+      if (item.icms.baseCalculo > 0 && !['102', '103', '300', '400'].includes(item.icms.csosn || '')) {
         xml += `            <vBC>${formatarValor(item.icms.baseCalculo)}</vBC>\n`;
         xml += `            <pICMS>${formatarValor(item.icms.aliquota)}</pICMS>\n`;
         xml += `            <vICMS>${formatarValor(item.icms.valor)}</vICMS>\n`;
@@ -471,16 +472,14 @@ export function gerarXMLNFe(data: NFeXMLData): string {
   xml += `      <modFrete>${data.transporte?.modalidade || 9}</modFrete>\n`;
   xml += '    </transp>\n';
   
-  // PAGA - Pagamento (NFC-e obrigatório, NF-e opcional)
-  if (data.identificacao.modelo === 65) {
-    xml += '    <pag>\n';
-    xml += '      <detPag>\n';
-    xml += '        <indPag>0</indPag>\n'; // 0=Pagamento à Vista
-    xml += '        <tPag>01</tPag>\n'; // 01=Dinheiro
-    xml += `        <vPag>${formatarValor(data.totais.valorTotal)}</vPag>\n`;
-    xml += '      </detPag>\n';
-    xml += '    </pag>\n';
-  }
+  // PAG - Pagamento (obrigatório para NF-e modelo 55 e NFC-e)
+  xml += '    <pag>\n';
+  xml += '      <detPag>\n';
+  xml += '        <indPag>0</indPag>\n'; // 0=Pagamento à Vista, 1=A prazo
+  xml += '        <tPag>01</tPag>\n'; // 01=Dinheiro
+  xml += `        <vPag>${formatarValor(data.totais.valorTotal)}</vPag>\n`;
+  xml += '      </detPag>\n';
+  xml += '    </pag>\n';
   
   // INFADIC - Informações Adicionais
   if (data.informacoesAdicionais) {
