@@ -183,15 +183,19 @@ export function assinarXmlNFe(
     // 4. Configurar chave privada
     signature.signingKey = certificado.chavePrivadaPem;
 
+    // 4.1. Configurar algoritmos conforme SEFAZ 4.0
+    signature.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+    signature.canonicalizationAlgorithm = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
+
     // 5. Adicionar referência ao elemento a ser assinado
-    signature.addReference(
-      `#${infNFeId}`,
-      [
+    signature.addReference({
+      xpath: `//*[@Id='${infNFeId}']`,
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+      transforms: [
         'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
         'http://www.w3.org/TR/2001/REC-xml-c14n-20010315'
-      ],
-      'http://www.w3.org/2001/04/xmlenc#sha256'
-    );
+      ]
+    });
 
     // 6. Configurar KeyInfo com certificado X.509
     signature.keyInfoProvider = {
