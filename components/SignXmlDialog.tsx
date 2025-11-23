@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner@2.0.3';
 import { CertificateUploadPEM, type CertificadoPEM } from './CertificateUploadPEM';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { supabase } from '../utils/supabase/client';
 
 // ============================================================================
 // TIPOS
@@ -101,6 +102,22 @@ export function SignXmlDialog({
       setProgress(20);
       console.log('📝 Preparando assinatura...');
 
+      // Buscar token de acesso (fallback se não foi passado via prop)
+      let token = accessToken;
+      if (!token) {
+        console.log('⚠️ Token não fornecido via prop, buscando da sessão...');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          toast.error('Sessão expirada. Faça login novamente.');
+          setStage(SigningStage.ERROR);
+          setError('Sessão expirada. Faça login novamente.');
+          return;
+        }
+        token = session.access_token;
+      }
+
+      console.log('🔑 Token obtido:', token ? 'SIM' : 'NÃO');
+
       // Preparar payload
       const payload = {
         xml: xmlContent,
@@ -120,7 +137,7 @@ export function SignXmlDialog({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(payload)
         }

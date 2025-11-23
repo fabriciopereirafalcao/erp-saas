@@ -215,7 +215,7 @@ const BRAZILIAN_STATES = [
 
 export function TaxInvoicing() {
   const { salesOrders, customers, companySettings } = useERP();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [activeMainTab, setActiveMainTab] = useState<"emissao" | "emitente">("emissao");
   const [activeEmitterTab, setActiveEmitterTab] = useState<"identificacao" | "nfe" | "nfce" | "sped" | "impostos">("identificacao");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1065,7 +1065,10 @@ export function TaxInvoicing() {
           description: 'Deseja assinar digitalmente agora?',
           action: {
             label: 'Assinar',
-            onClick: () => setIsSignDialogOpen(true)
+            onClick: () => {
+              console.log('🔐 Abrindo diálogo de assinatura. Token disponível:', session?.access_token ? 'SIM' : 'NÃO');
+              setIsSignDialogOpen(true);
+            }
           },
           duration: 10000 // 10 segundos para usuário decidir
         });
@@ -1831,7 +1834,7 @@ export function TaxInvoicing() {
           xmlContent={xmlToSign.xml}
           chaveAcesso={xmlToSign.chaveAcesso}
           nfeId={xmlToSign.nfeId || undefined}
-          accessToken={user?.session?.access_token || ''}
+          accessToken={session?.access_token || ''}
         />
       )}
     </div>
