@@ -684,6 +684,17 @@ export function TaxInvoicing() {
       return;
     }
 
+    // Validar dados do emitente
+    if (!emitter.cnpj) {
+      toast.error("Configure o CNPJ do emitente na aba 'Cadastro de Emitente' antes de calcular impostos");
+      return;
+    }
+
+    if (!emitter.estado) {
+      toast.error("Configure o Estado do emitente na aba 'Cadastro de Emitente' antes de calcular impostos");
+      return;
+    }
+
     setIsCalculating(true);
 
     try {
@@ -728,7 +739,7 @@ export function TaxInvoicing() {
             codigoProduto: item.produtoId,
             descricao: item.descricao,
             ncm: item.ncm,
-            cfop: item.cfop,
+            cfop: item.cfop.replace(/\./g, ''), // Remover pontos do CFOP (5.102 -> 5102)
             unidadeComercial: item.unidade,
             quantidadeComercial: item.quantidade,
             valorUnitarioComercial: item.valorUnitario,
