@@ -1027,3 +1027,9 @@ try {
 }
 
 console.log('Todas as rotas registradas!');
+
+// =====================================================
+// START SERVER
+// =====================================================
+console.log('[INDEX] 🚀 Iniciando servidor...');
+Deno.serve(app.fetch);
