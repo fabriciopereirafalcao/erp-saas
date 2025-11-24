@@ -126,6 +126,13 @@ export function SignXmlDialog({
         nfeId: nfeId || undefined
       };
 
+      // DEBUG: Verificar se a chave privada existe
+      console.log('🔍 DEBUG Payload:');
+      console.log('  - xml:', xmlContent ? `${xmlContent.length} bytes` : 'VAZIO');
+      console.log('  - certificadoPem:', certificado.certificadoPem ? `${certificado.certificadoPem.length} bytes` : 'VAZIO');
+      console.log('  - chavePrivadaPem:', certificado.chavePrivadaPem ? `${certificado.chavePrivadaPem.length} bytes` : 'VAZIO');
+      console.log('  - chavePrivadaPem (primeiros 50):', certificado.chavePrivadaPem?.substring(0, 50) || 'VAZIO');
+
       // Progresso: Enviando para backend
       setProgress(40);
       console.log('🔐 Enviando para assinatura...');
