@@ -5,7 +5,7 @@
  */
 
 import { Hono } from 'npm:hono@4.6.14';
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
 import { autorizarNFe, consultarRecibo, consultarStatusServico, anexarProtocoloAoXml } from './nfe-services.tsx';
 import type { Ambiente } from './webservices.tsx';
 

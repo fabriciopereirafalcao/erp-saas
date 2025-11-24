@@ -1016,10 +1016,14 @@ app.route('/make-server-686b5e88/fiscal', fiscal.default);
 console.log('[INDEX] 🔍 Importando módulo SEFAZ...');
 try {
   const sefaz = await import('./sefaz/routes.ts');
+  console.log('[INDEX] ✅ SEFAZ importado:', typeof sefaz.default);
   app.route('/make-server-686b5e88/sefaz', sefaz.default);
   console.log('[INDEX] ✅ Rotas SEFAZ registradas!');
 } catch (error) {
   console.error('[INDEX] ❌ Erro ao importar SEFAZ:', error);
+  console.error('[INDEX] ❌ Mensagem:', error.message);
+  console.error('[INDEX] ❌ Stack:', error.stack);
+  throw error; // Tornar erro fatal
 }
 
 console.log('Todas as rotas registradas!');
