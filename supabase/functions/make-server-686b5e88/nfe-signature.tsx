@@ -5,12 +5,13 @@
  * 
  * Este módulo implementa a assinatura digital XML-DSig conforme padrão SEFAZ
  * 
- * FORCE REDEPLOY: 2025-11-24 00:03:00 GMT
+ * FORCE REDEPLOY: 2025-11-24 00:04:30 GMT
  * 
  * ============================================================================
  */
 
 import { SignedXml } from 'npm:xml-crypto@6.0.0';
+import { DOMParser, XMLSerializer } from 'npm:xmldom@0.6.0';
 
 // ============================================================================
 // TIPOS
