@@ -1,32 +1,16 @@
 /**
  * ============================================================================
- * MÓDULO DE ASSINATURA DIGITAL XML NF-e
+ * ASSINATURA DIGITAL XML NF-e - MÓDULO COMPLETO
  * ============================================================================
  * 
- * Implementa assinatura digital XML-DSig conforme padrão SEFAZ 4.0
+ * Este módulo implementa a assinatura digital XML-DSig conforme padrão SEFAZ
  * 
- * PADRÃO: XML Digital Signature (W3C)
- * ALGORITMO: RSA-SHA256
- * CERTIFICADO: A1 (.pfx/.p12)
- * CANONIZAÇÃO: C14N (Canonical XML 1.0)
- * DIGEST: SHA-256
- * 
- * ESTRUTURA DA ASSINATURA:
- * <NFe>
- *   <infNFe Id="NFe...">...</infNFe>
- *   <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
- *     <SignedInfo>...</SignedInfo>
- *     <SignatureValue>...</SignatureValue>
- *     <KeyInfo>...</KeyInfo>
- *   </Signature>
- * </NFe>
+ * FORCE REDEPLOY: 2025-11-24 00:03:00 GMT
  * 
  * ============================================================================
  */
 
-import { DOMParser, XMLSerializer } from 'npm:xmldom@0.6.0';
 import { SignedXml } from 'npm:xml-crypto@6.0.0';
-import { createHash } from 'node:crypto';
 
 // ============================================================================
 // TIPOS

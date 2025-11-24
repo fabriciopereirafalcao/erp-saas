@@ -10,7 +10,7 @@
  */
 
 import { DOMParser, XMLSerializer } from 'npm:xmldom@0.6.0';
-import { createSign } from 'node:crypto';
+import { createSign, createHash } from 'node:crypto';
 
 export interface CertificadoDigital {
   certificadoBase64: string;
@@ -40,8 +40,7 @@ function canonicalizarXml(xmlString: string): string {
  * Cria hash SHA-256 de um XML canonizado
  */
 function criarDigest(xml: string): string {
-  const crypto = await import('node:crypto');
-  const hash = crypto.createHash('sha256');
+  const hash = createHash('sha256');
   hash.update(xml, 'utf8');
   return hash.digest('base64');
 }
@@ -86,7 +85,7 @@ export async function assinarXmlManual(
     console.log(`📏 [V2] XML canonizado: ${infNFeCanonizado.length} bytes`);
 
     // 4. Criar digest (hash SHA-256)
-    const digestValue = await criarDigest(infNFeCanonizado);
+    const digestValue = criarDigest(infNFeCanonizado);
     console.log(`🔢 [V2] Digest criado: ${digestValue.substring(0, 20)}...`);
 
     // 5. Criar SignedInfo

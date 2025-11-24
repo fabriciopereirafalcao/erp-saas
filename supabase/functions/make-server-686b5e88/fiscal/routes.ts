@@ -539,16 +539,16 @@ fiscal.post('/nfe/assinar-xml', async (c) => {
     console.log('[FISCAL_ROUTES] XML recebido:', xml.length, 'bytes');
     console.log('[FISCAL_ROUTES] Certificado recebido');
     
-    // 3. Importar módulo de assinatura V2 (implementação manual com node:crypto)
-    const { assinarXmlV2, pemParaBase64 } = await import('../nfe-signature-v2.tsx');
+    // 3. Importar módulo de assinatura (V1 com correções)
+    const { assinarXmlSimplificado, pemParaBase64 } = await import('../nfe-signature.tsx');
     
     // 4. Preparar certificado
     const certificadoBase64 = pemParaBase64(certificadoPem);
     
-    console.log('[FISCAL_ROUTES] Assinando XML com implementação V2...');
+    console.log('[FISCAL_ROUTES] Assinando XML com xml-crypto (V1 corrigido)...');
     
     // 5. Assinar XML
-    const resultado = await assinarXmlV2(
+    const resultado = assinarXmlSimplificado(
       xml,
       chavePrivadaPem,
       certificadoBase64
