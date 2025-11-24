@@ -5,16 +5,21 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.2";
 import * as kv from './kv_store.tsx';
 import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailService.tsx';
 
-console.log('[INDEX] 🔍 Tentando importar módulo fiscal...');
-let fiscal;
+console.log('[INDEX] 🔍 INÍCIO - Antes de importar módulo fiscal...');
+
+// Force deploy v1.1
 try {
-  fiscal = (await import('./fiscal/routes.ts')).default;
-  console.log('[INDEX] ✅ Módulo fiscal importado com sucesso!');
+  console.log('[INDEX] 🔍 Tentando import estático do fiscal...');
+  var fiscal = await import('./fiscal/routes.ts');
+  console.log('[INDEX] ✅ Import fiscal bem-sucedido!', typeof fiscal.default);
 } catch (error) {
-  console.error('[INDEX] ❌ ERRO ao importar módulo fiscal:', error);
-  console.error('[INDEX] ❌ Stack trace:', error.stack);
+  console.error('[INDEX] ❌ ERRO FATAL no import fiscal:', error);
+  console.error('[INDEX] ❌ Mensagem:', error.message);
+  console.error('[INDEX] ❌ Stack:', error.stack);
   throw error;
 }
+
+console.log('[INDEX] 🔍 DEPOIS do import fiscal - continuando...');
 
 const app = new Hono();
 
@@ -1003,7 +1008,18 @@ app.post("/make-server-686b5e88/email/test", async (c) => {
 // =====================================================
 console.log('Inicializando servidor Hono...');
 console.log('Registrando rotas...');
-app.route('/make-server-686b5e88/fiscal', fiscal);
-console.log('Todas as rotas registradas!');
+app.route('/make-server-686b5e88/fiscal', fiscal.default);
 
-Deno.serve(app.fetch);
+// =====================================================
+// SEFAZ ROUTES - Transmissão NF-e
+// =====================================================
+console.log('[INDEX] 🔍 Importando módulo SEFAZ...');
+try {
+  const sefaz = await import('./sefaz/routes.ts');
+  app.route('/make-server-686b5e88/sefaz', sefaz.default);
+  console.log('[INDEX] ✅ Rotas SEFAZ registradas!');
+} catch (error) {
+  console.error('[INDEX] ❌ Erro ao importar SEFAZ:', error);
+}
+
+console.log('Todas as rotas registradas!');

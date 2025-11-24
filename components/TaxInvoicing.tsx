@@ -22,6 +22,7 @@ import { supabase } from "../utils/supabase/client";
 import { useAuth } from "../contexts/AuthContext";
 import { NFeEmissionDialog } from "./NFeEmissionDialog";
 import { SignXmlDialog } from "./SignXmlDialog";
+import { TransmitirNFeDialog } from "./TransmitirNFeDialog";
 import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
@@ -229,6 +230,10 @@ export function TaxInvoicing() {
   // Estado para Dialog de Assinatura Digital
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [xmlToSign, setXmlToSign] = useState({ xml: '', chaveAcesso: '', nfeId: '' });
+
+  // Estado para Dialog de Transmissão SEFAZ
+  const [isTransmitDialogOpen, setIsTransmitDialogOpen] = useState(false);
+  const [nfeToTransmit, setNfeToTransmit] = useState({ nfeId: '', xml: '', uf: '' });
 
   // Estado do Formulário de Emissão
   const [nfeForm, setNfeForm] = useState({
@@ -1060,9 +1065,9 @@ export function TaxInvoicing() {
         // Fechar diálogo de emissão
         setIsEmissionDialogOpen(false);
 
-        // Oferecer opção de assinar digitalmente
+        // Oferecer opção de assinar digitalmente e transmitir
         toast.success(`XML gerado com sucesso! Chave: ${result.data.chaveAcesso}`, {
-          description: 'Deseja assinar digitalmente agora?',
+          description: 'Próximos passos: Assinar e Transmitir para SEFAZ',
           action: {
             label: 'Assinar',
             onClick: () => {
@@ -1109,6 +1114,26 @@ export function TaxInvoicing() {
       console.error('Erro ao buscar XML:', error);
       toast.error('Erro ao buscar XML da NF-e');
     }
+  };
+
+  // Handler para abrir diálogo de transmissão SEFAZ
+  const handleTransmitToSefaz = () => {
+    // Verificar se há XML assinado disponível
+    if (!xmlToSign.xml) {
+      toast.error('Nenhum XML assinado disponível. Gere e assine o XML primeiro.');
+      return;
+    }
+
+    // Pegar UF do emitente
+    const uf = emitter?.estado || 'CE';
+
+    setNfeToTransmit({
+      nfeId: xmlToSign.nfeId || '',
+      xml: xmlToSign.xml,
+      uf
+    });
+
+    setIsTransmitDialogOpen(true);
   };
 
   // Filtrar NFes
@@ -1835,6 +1860,39 @@ export function TaxInvoicing() {
           chaveAcesso={xmlToSign.chaveAcesso}
           nfeId={xmlToSign.nfeId || undefined}
           accessToken={session?.access_token || ''}
+          onSuccess={(xmlAssinado) => {
+            // Atualizar xmlToSign com XML assinado
+            setXmlToSign(prev => ({ ...prev, xml: xmlAssinado }));
+            
+            // Oferecer transmissão para SEFAZ
+            toast.success('XML assinado com sucesso!', {
+              description: 'Deseja transmitir para SEFAZ agora?',
+              action: {
+                label: 'Transmitir',
+                onClick: () => {
+                  setIsSignDialogOpen(false);
+                  setTimeout(() => handleTransmitToSefaz(), 300);
+                }
+              },
+              duration: 10000
+            });
+          }}
+        />
+      )}
+
+      {/* Dialog de Transmissão SEFAZ */}
+      {nfeToTransmit.xml && (
+        <TransmitirNFeDialog
+          open={isTransmitDialogOpen}
+          onOpenChange={setIsTransmitDialogOpen}
+          nfeId={nfeToTransmit.nfeId}
+          xml={nfeToTransmit.xml}
+          uf={nfeToTransmit.uf}
+          onSuccess={() => {
+            // Recarregar lista de NF-es
+            toast.success("NF-e autorizada com sucesso!");
+            setIsTransmitDialogOpen(false);
+          }}
         />
       )}
     </div>

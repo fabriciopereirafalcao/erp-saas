@@ -43,6 +43,7 @@ interface SignXmlDialogProps {
   chaveAcesso: string;
   nfeId?: string; // Opcional: ID da NF-e para atualizar no banco após assinatura
   accessToken: string;
+  onSuccess?: (xmlAssinado: string) => void; // Callback após assinar com sucesso
 }
 
 enum SigningStage {
@@ -62,7 +63,8 @@ export function SignXmlDialog({
   xmlContent,
   chaveAcesso,
   nfeId,
-  accessToken
+  accessToken,
+  onSuccess
 }: SignXmlDialogProps) {
   
   const [stage, setStage] = useState<SigningStage>(SigningStage.CERTIFICATE_UPLOAD);
@@ -173,6 +175,11 @@ export function SignXmlDialog({
 
       toast.success('XML assinado com sucesso!');
       console.log('✅ XML assinado com sucesso!');
+
+      // Chamar callback de sucesso se fornecido
+      if (onSuccess) {
+        onSuccess(result.data.xmlAssinado);
+      }
 
     } catch (err: any) {
       console.error('❌ Erro ao assinar XML:', err);
