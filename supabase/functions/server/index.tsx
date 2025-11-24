@@ -7,7 +7,7 @@ import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailSer
 
 console.log('[INDEX] 🔍 INÍCIO - Antes de importar módulo fiscal...');
 
-// Force deploy v1.1
+// Force deploy v1.2
 try {
   console.log('[INDEX] 🔍 Tentando import estático do fiscal...');
   var fiscal = await import('./fiscal/routes.ts');
@@ -19,7 +19,19 @@ try {
   throw error;
 }
 
-console.log('[INDEX] 🔍 DEPOIS do import fiscal - continuando...');
+console.log('[INDEX] 🔍 Tentando import estático do SEFAZ...');
+let sefaz;
+try {
+  sefaz = await import('./sefaz/routes.ts');
+  console.log('[INDEX] ✅ Import SEFAZ bem-sucedido!', typeof sefaz.default);
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO FATAL no import SEFAZ:', error);
+  console.error('[INDEX] ❌ Mensagem:', error.message);
+  console.error('[INDEX] ❌ Stack:', error.stack);
+  throw error;
+}
+
+console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
 
 const app = new Hono();
 
@@ -1013,17 +1025,11 @@ app.route('/make-server-686b5e88/fiscal', fiscal.default);
 // =====================================================
 // SEFAZ ROUTES - Transmissão NF-e
 // =====================================================
-console.log('[INDEX] 🔍 Importando módulo SEFAZ...');
-try {
-  const sefaz = await import('./sefaz/routes.ts');
+if (sefaz) {
+  console.log('[INDEX] 🔍 Importando módulo SEFAZ...');
   console.log('[INDEX] ✅ SEFAZ importado:', typeof sefaz.default);
   app.route('/make-server-686b5e88/sefaz', sefaz.default);
   console.log('[INDEX] ✅ Rotas SEFAZ registradas!');
-} catch (error) {
-  console.error('[INDEX] ❌ Erro ao importar SEFAZ:', error);
-  console.error('[INDEX] ❌ Mensagem:', error.message);
-  console.error('[INDEX] ❌ Stack:', error.stack);
-  throw error; // Tornar erro fatal
 }
 
 console.log('Todas as rotas registradas!');
