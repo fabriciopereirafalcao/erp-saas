@@ -5,7 +5,7 @@
  * 
  * Este módulo implementa a assinatura digital XML-DSig conforme padrão SEFAZ
  * 
- * FORCE REDEPLOY: 2025-11-24 00:04:30 GMT
+ * FORCE REDEPLOY: 2025-11-24 00:06:00 GMT
  * 
  * ============================================================================
  */
@@ -165,12 +165,15 @@ export function assinarXmlNFe(
     // 3. Criar objeto de assinatura
     const signature = new SignedXml();
     
-    // 4. Configurar chave privada
+    // 4. Configurar chave privada PRIMEIRO (antes de addReference)
     signature.signingKey = certificado.chavePrivadaPem;
 
     // 4.1. Configurar algoritmos conforme SEFAZ 4.0
     signature.signatureAlgorithm = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
     signature.canonicalizationAlgorithm = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
+
+    console.log('🔑 Chave privada configurada');
+    console.log('📏 Tamanho da chave:', certificado.chavePrivadaPem.length, 'bytes');
 
     // 5. Adicionar referência ao elemento a ser assinado
     signature.addReference({
