@@ -869,6 +869,27 @@ app.get("/make-server-686b5e88/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Rota de teste SEFAZ (debug)
+app.get("/make-server-686b5e88/sefaz-test", (c) => {
+  return c.json({ 
+    status: "ok", 
+    message: "SEFAZ module is loaded",
+    sefazLoaded: !!sefaz,
+    sefazDefaultType: typeof sefaz?.default,
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// Rota de teste POST direto (bypass sub-router) - TEMPORÁRIO PARA DEBUG
+app.post("/make-server-686b5e88/sefaz/nfe/transmitir-test", async (c) => {
+  console.log('[INDEX] 🧪 Rota de teste direta chamada!');
+  return c.json({ 
+    success: true,
+    message: "Rota de teste direta funcionando!",
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // Verificar status do serviço de email
 app.get("/make-server-686b5e88/email/status", (c) => {
   const apiKey = Deno.env.get('RESEND_API_KEY');
