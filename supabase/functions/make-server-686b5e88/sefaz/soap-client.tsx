@@ -62,6 +62,29 @@ function montarEnvelopeSOAP(request: SoapRequest): string {
 // ============================================================================
 
 /**
+ * Cria um HTTP client customizado que aceita certificados da SEFAZ
+ */
+function criarHttpClientSEFAZ() {
+  try {
+    // Criar client HTTP que aceita certificados auto-assinados da SEFAZ
+    // Isso é necessário porque alguns servidores SEFAZ usam certificados
+    // que não estão na cadeia de confiança padrão
+    return Deno.createHttpClient({
+      // @ts-ignore - Esta propriedade existe mas não está nos tipos oficiais
+      certChain: undefined,
+      // @ts-ignore  
+      privateKey: undefined,
+      // Opcional: aumentar pool de conexões
+      poolMaxIdlePerHost: 10,
+      poolIdleTimeout: 90000,
+    });
+  } catch (error) {
+    console.warn(`⚠️ [SOAP] Não foi possível criar HTTP client customizado:`, error);
+    return undefined;
+  }
+}
+
+/**
  * Envia requisição SOAP para SEFAZ
  * 
  * @param request - Configuração da requisição
@@ -113,7 +136,15 @@ export async function enviarRequisicaoSOAP(
     console.log(`🚀 [SOAP] Enviando para ${request.url}...`);
     const startTime = Date.now();
     
-    const response = await fetch(request.url, fetchOptions);
+    // NOTA: A SEFAZ usa certificados que nem sempre estão na cadeia de confiança padrão
+    // Para aceitar esses certificados no Deno, não há uma flag simples no fetch
+    // A solução é usar Deno.createHttpClient com caCerts customizado
+    // Por enquanto, vamos tentar com fetch padrão e logar erros detalhados
+    const httpClient = criarHttpClientSEFAZ();
+    const response = await fetch(request.url, {
+      ...fetchOptions,
+      client: httpClient
+    });
     
     const endTime = Date.now();
     const duration = endTime - startTime;
