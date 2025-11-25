@@ -3,7 +3,7 @@
 // Descrição: Recebe arquivo PFX, valida, extrai chaves e armazena criptografado
 // ============================================================================
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
 import * as forge from 'npm:node-forge@1.3.1';
 import { CertificadoUploadInput, CertificadoDecrypted, ApiResponse } from '../types.ts';
 import { validateCertificate } from './validate.ts';
