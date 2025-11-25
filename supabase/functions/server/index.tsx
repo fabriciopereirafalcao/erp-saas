@@ -7,7 +7,7 @@ import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailSer
 
 console.log('[INDEX] 🔍 INÍCIO - Antes de importar módulo fiscal...');
 
-// Force deploy v1.2
+// Force deploy v1.3 - Diagnóstico robusto
 try {
   console.log('[INDEX] 🔍 Tentando import estático do fiscal...');
   var fiscal = await import('./fiscal/routes.ts');
@@ -28,7 +28,12 @@ try {
   console.error('[INDEX] ❌ ERRO FATAL no import SEFAZ:', error);
   console.error('[INDEX] ❌ Mensagem:', error.message);
   console.error('[INDEX] ❌ Stack:', error.stack);
-  throw error;
+  console.error('[INDEX] ❌ Tipo do erro:', Object.prototype.toString.call(error));
+  console.error('[INDEX] ❌ Nome do erro:', error.name);
+  
+  // Continuar mesmo com erro no SEFAZ para não derrubar todo o servidor
+  console.log('[INDEX] ⚠️ Continuando sem módulo SEFAZ...');
+  sefaz = null;
 }
 
 console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
