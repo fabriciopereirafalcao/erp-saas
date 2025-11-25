@@ -3,7 +3,7 @@
 // Descrição: Recupera e descriptografa certificado do banco de dados
 // ============================================================================
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
 import { CertificadoDecrypted, ApiResponse } from '../types.ts';
 import { decryptData } from './crypto.ts';
 import { isExpired } from './validate.ts';

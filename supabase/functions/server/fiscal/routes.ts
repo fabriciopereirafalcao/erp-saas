@@ -9,7 +9,7 @@ import { Hono } from 'npm:hono@4.6.14';
 
 console.log('[FISCAL_ROUTES] ✅ Import Hono OK');
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
 
 console.log('[FISCAL_ROUTES] ✅ Import createClient OK');
 
