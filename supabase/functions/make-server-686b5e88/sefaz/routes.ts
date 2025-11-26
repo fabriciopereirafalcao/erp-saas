@@ -6,8 +6,9 @@
 
 import { Hono } from 'npm:hono@4.6.14';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
-import { autorizarNFe, consultarRecibo, consultarStatusServico, anexarProtocoloAoXml, cancelarNFe, gerarXMLEventoCancelamento } from './nfe-services.tsx';
+import { autorizarNFe, consultarRecibo, consultarStatusServico, anexarProtocoloAoXml, cancelarNFe, gerarXMLEventoCancelamento, enviarCartaCorrecao, gerarXMLEventoCCe } from './nfe-services.tsx';
 import type { Ambiente } from './webservices.tsx';
+import * as kv from '../kv_store.tsx';
 
 const sefaz = new Hono();
 
@@ -499,10 +500,45 @@ sefaz.post('/nfe/cancelar', async (c) => {
     // 6. Cancelamento autorizado!
     console.log(`[SEFAZ_ROUTES] ✅ Cancelamento autorizado! Protocolo: ${resultado.protocolo}`);
     
-    // 7. Atualizar NF-e no banco (se nfeId fornecido)
+    // 7. Atualizar NF-e no KV Store (se nfeId fornecido)
     if (nfeId) {
-      // Implementar atualização no KV Store via endpoint de persistência
-      console.log(`[SEFAZ_ROUTES] TODO: Atualizar NF-e ${nfeId} para status 'cancelada'`);
+      try {
+        const nfeKey = `nfe:${user.id}:${nfeId}`;
+        const nfeAtual = await kv.get(nfeKey);
+        
+        if (nfeAtual) {
+          // Adicionar evento de cancelamento
+          const eventoCancelamento = {
+            tipo: 'cancelamento',
+            timestamp: new Date().toISOString(),
+            descricao: `NF-e cancelada: ${justificativa}`,
+            codigo: resultado.codigoStatus,
+            dados: {
+              protocolo: resultado.protocolo,
+              justificativa,
+              dataCancelamento: resultado.dataCancelamento
+            }
+          };
+          
+          // Atualizar NF-e
+          const nfeAtualizada = {
+            ...nfeAtual,
+            status: 'cancelada',
+            codigoStatus: resultado.codigoStatus,
+            mensagemStatus: resultado.mensagem,
+            eventos: [...(nfeAtual.eventos || []), eventoCancelamento],
+            updatedAt: new Date().toISOString()
+          };
+          
+          await kv.set(nfeKey, nfeAtualizada);
+          console.log(`[SEFAZ_ROUTES] ✅ NF-e ${nfeId} atualizada para status 'cancelada'`);
+        } else {
+          console.warn(`[SEFAZ_ROUTES] ⚠️ NF-e ${nfeId} não encontrada no KV Store`);
+        }
+      } catch (error: any) {
+        console.error(`[SEFAZ_ROUTES] Erro ao atualizar NF-e no KV Store:`, error);
+        // Não retornar erro, pois o cancelamento foi bem-sucedido
+      }
     }
     
     return c.json({
@@ -521,6 +557,183 @@ sefaz.post('/nfe/cancelar', async (c) => {
     return c.json({
       success: false,
       error: 'Erro ao cancelar NF-e',
+      details: error.message
+    }, 500);
+  }
+});
+
+// ============================================================================
+// POST /sefaz/nfe/carta-correcao
+// Descrição: Envia Carta de Correção Eletrônica (CC-e)
+// Body: { nfeId, chaveNFe, sequencia, correcao, cnpj, uf, ambiente }
+// ============================================================================
+sefaz.post('/nfe/carta-correcao', async (c) => {
+  try {
+    console.log('[SEFAZ_ROUTES] POST /nfe/carta-correcao - Início');
+    
+    // 1. Autenticação
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ success: false, error: 'Token não fornecido' }, 401);
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ success: false, error: 'Token inválido' }, 401);
+    }
+    
+    // 2. Receber dados
+    const body = await c.req.json();
+    const { 
+      nfeId, 
+      chaveNFe, 
+      sequencia,
+      correcao,
+      cnpj,
+      uf, 
+      ambiente 
+    } = body;
+    
+    // Validações
+    if (!chaveNFe || !sequencia || !correcao || !cnpj || !uf || !ambiente) {
+      return c.json({
+        success: false,
+        error: 'Parâmetros obrigatórios: chaveNFe, sequencia, correcao, cnpj, uf, ambiente'
+      }, 400);
+    }
+    
+    if (sequencia < 1 || sequencia > 20) {
+      return c.json({
+        success: false,
+        error: 'Sequência deve estar entre 1 e 20 (limite SEFAZ)'
+      }, 400);
+    }
+    
+    if (correcao.length < 15) {
+      return c.json({
+        success: false,
+        error: 'Correção deve ter no mínimo 15 caracteres (requisito SEFAZ)'
+      }, 400);
+    }
+    
+    if (correcao.length > 1000) {
+      return c.json({
+        success: false,
+        error: 'Correção deve ter no máximo 1000 caracteres'
+      }, 400);
+    }
+    
+    console.log(`[SEFAZ_ROUTES] Enviando CC-e para NF-e: ${chaveNFe}`);
+    console.log(`[SEFAZ_ROUTES] Sequência: ${sequencia}`);
+    console.log(`[SEFAZ_ROUTES] Correção: ${correcao.substring(0, 50)}...`);
+    
+    // 3. Gerar XML do evento de CC-e
+    const condicaoUso = 'A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido na emissao de documento fiscal, desde que o erro nao esteja relacionado com: I - as variaveis que determinam o valor do imposto tais como: base de calculo, aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; III - a data de emissao ou de saida.';
+    
+    const xmlEvento = gerarXMLEventoCCe(
+      chaveNFe,
+      sequencia,
+      correcao,
+      condicaoUso,
+      cnpj,
+      ambiente as Ambiente
+    );
+    
+    console.log('[SEFAZ_ROUTES] XML do evento gerado');
+    
+    // 4. Assinar XML
+    // TODO: Implementar assinatura digital do evento
+    // Por enquanto, usar o XML sem assinatura (vai falhar no SEFAZ real mas funciona no fallback)
+    const xmlAssinado = xmlEvento;
+    
+    console.log('[SEFAZ_ROUTES] ⚠️ XML não assinado (assinatura será implementada)');
+    
+    // 5. Transmitir CC-e para SEFAZ
+    const resultado = await enviarCartaCorrecao(
+      chaveNFe,
+      sequencia,
+      correcao,
+      cnpj,
+      xmlAssinado,
+      uf,
+      ambiente as Ambiente
+    );
+    
+    if (!resultado.success) {
+      console.error('[SEFAZ_ROUTES] Erro ao enviar CC-e:', resultado.erro);
+      
+      return c.json({
+        success: false,
+        error: resultado.erro,
+        codigo: resultado.codigoStatus,
+        mensagem: resultado.mensagem
+      }, 400);
+    }
+    
+    // 6. CC-e registrada!
+    console.log(`[SEFAZ_ROUTES] ✅ CC-e registrada! Protocolo: ${resultado.protocolo}`);
+    
+    // 7. Atualizar NF-e no KV Store (se nfeId fornecido)
+    if (nfeId) {
+      try {
+        const nfeKey = `nfe:${user.id}:${nfeId}`;
+        const nfeAtual = await kv.get(nfeKey);
+        
+        if (nfeAtual) {
+          // Adicionar evento de CC-e
+          const eventoCCe = {
+            tipo: 'carta_correcao',
+            timestamp: new Date().toISOString(),
+            descricao: `Carta de Correção ${sequencia}: ${correcao.substring(0, 100)}...`,
+            codigo: resultado.codigoStatus,
+            dados: {
+              protocolo: resultado.protocolo,
+              sequencia,
+              correcao,
+              dataRegistro: resultado.dataRegistro
+            }
+          };
+          
+          // Atualizar NF-e
+          const nfeAtualizada = {
+            ...nfeAtual,
+            eventos: [...(nfeAtual.eventos || []), eventoCCe],
+            updatedAt: new Date().toISOString()
+          };
+          
+          await kv.set(nfeKey, nfeAtualizada);
+          console.log(`[SEFAZ_ROUTES] ✅ CC-e registrada na NF-e ${nfeId}`);
+        } else {
+          console.warn(`[SEFAZ_ROUTES] ⚠️ NF-e ${nfeId} não encontrada no KV Store`);
+        }
+      } catch (error: any) {
+        console.error(`[SEFAZ_ROUTES] Erro ao atualizar NF-e no KV Store:`, error);
+        // Não retornar erro, pois a CC-e foi bem-sucedida
+      }
+    }
+    
+    return c.json({
+      success: true,
+      data: {
+        registrado: true,
+        protocolo: resultado.protocolo,
+        dataRegistro: resultado.dataRegistro,
+        mensagem: resultado.mensagem,
+        xmlEvento: resultado.xmlEventoCompleto,
+        sequencia
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('[SEFAZ_ROUTES] Erro não tratado:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao enviar Carta de Correção',
       details: error.message
     }, 500);
   }

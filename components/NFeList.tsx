@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { CancelarNFeDialog } from './CancelarNFeDialog';
+import { CartaCorrecaoDialog } from './CartaCorrecaoDialog';
 
 interface NFeSummary {
   id: string;
@@ -110,6 +112,14 @@ export function NFeList({ onRefresh }: NFeListProps) {
   const [filtroDestinatario, setFiltroDestinatario] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
+  
+  // Estado do dialog de cancelamento
+  const [cancelarDialogOpen, setCancelarDialogOpen] = useState(false);
+  const [nfeSelecionada, setNfeSelecionada] = useState<NFeSummary | null>(null);
+
+  // Estado do dialog de carta de correção
+  const [cartaCorrecaoDialogOpen, setCartaCorrecaoDialogOpen] = useState(false);
+  const [nfeSelecionadaCartaCorrecao, setNfeSelecionadaCartaCorrecao] = useState<NFeSummary | null>(null);
 
   useEffect(() => {
     carregarNFes();
@@ -410,12 +420,82 @@ export function NFeList({ onRefresh }: NFeListProps) {
                         XML
                       </Button>
                     )}
+                    
+                    {/* Botão de Cancelamento - Somente para NF-es autorizadas */}
+                    {nfe.status === 'autorizada' && nfe.protocolo && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setNfeSelecionada(nfe);
+                          setCancelarDialogOpen(true);
+                        }}
+                        className="whitespace-nowrap"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Cancelar
+                      </Button>
+                    )}
+
+                    {/* Botão de Carta de Correção - Somente para NF-es autorizadas */}
+                    {nfe.status === 'autorizada' && nfe.protocolo && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setNfeSelecionadaCartaCorrecao(nfe);
+                          setCartaCorrecaoDialogOpen(true);
+                        }}
+                        className="whitespace-nowrap"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Carta de Correção
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
             );
           })}
         </div>
+      )}
+      
+      {/* Dialog de Cancelamento */}
+      {nfeSelecionada && (
+        <CancelarNFeDialog
+          open={cancelarDialogOpen}
+          onOpenChange={setCancelarDialogOpen}
+          nfeId={nfeSelecionada.id}
+          chaveNFe={nfeSelecionada.chave}
+          protocolo={nfeSelecionada.protocolo || ''}
+          numeroNFe={`${nfeSelecionada.serie}-${nfeSelecionada.numero}`}
+          dataAutorizacao={nfeSelecionada.dataAutorizacao}
+          emitenteCNPJ="00000000000000" // TODO: Adicionar CNPJ do emitente na estrutura
+          uf="SP" // TODO: Extrair UF da chave ou adicionar na estrutura
+          onSuccess={() => {
+            setCancelarDialogOpen(false);
+            setNfeSelecionada(null);
+            carregarNFes(); // Recarregar lista
+          }}
+        />
+      )}
+
+      {/* Dialog de Carta de Correção */}
+      {nfeSelecionadaCartaCorrecao && (
+        <CartaCorrecaoDialog
+          open={cartaCorrecaoDialogOpen}
+          onOpenChange={setCartaCorrecaoDialogOpen}
+          nfeId={nfeSelecionadaCartaCorrecao.id}
+          chaveNFe={nfeSelecionadaCartaCorrecao.chave}
+          numeroNFe={`${nfeSelecionadaCartaCorrecao.serie}-${nfeSelecionadaCartaCorrecao.numero}`}
+          emitenteCNPJ="00000000000000" // TODO: Adicionar CNPJ do emitente na estrutura
+          uf="SP" // TODO: Extrair UF da chave ou adicionar na estrutura
+          onSuccess={() => {
+            setCartaCorrecaoDialogOpen(false);
+            setNfeSelecionadaCartaCorrecao(null);
+            carregarNFes(); // Recarregar lista
+          }}
+        />
       )}
     </div>
   );
