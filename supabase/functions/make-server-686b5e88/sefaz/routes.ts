@@ -6,7 +6,7 @@
 
 import { Hono } from 'npm:hono@4.6.14';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
-import { autorizarNFe, consultarRecibo, consultarStatusServico, anexarProtocoloAoXml } from './nfe-services.tsx';
+import { autorizarNFe, consultarRecibo, consultarStatusServico, anexarProtocoloAoXml, cancelarNFe, gerarXMLEventoCancelamento } from './nfe-services.tsx';
 import type { Ambiente } from './webservices.tsx';
 
 const sefaz = new Hono();
@@ -387,6 +387,141 @@ sefaz.get('/consultar/:chave/:uf/:ambiente', async (c) => {
     return c.json({
       success: false,
       error: error.message
+    }, 500);
+  }
+});
+
+// ============================================================================
+// POST /sefaz/nfe/cancelar
+// Descrição: Cancela NF-e autorizada
+// Body: { nfeId, chaveNFe, protocolo, justificativa, cnpj, certificado, senha, uf, ambiente }
+// ============================================================================
+sefaz.post('/nfe/cancelar', async (c) => {
+  try {
+    console.log('[SEFAZ_ROUTES] POST /nfe/cancelar - Início');
+    
+    // 1. Autenticação
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ success: false, error: 'Token não fornecido' }, 401);
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ success: false, error: 'Token inválido' }, 401);
+    }
+    
+    // 2. Receber dados
+    const body = await c.req.json();
+    const { 
+      nfeId, 
+      chaveNFe, 
+      protocolo, 
+      justificativa, 
+      cnpj,
+      certificado,
+      senha,
+      uf, 
+      ambiente 
+    } = body;
+    
+    // Validações
+    if (!chaveNFe || !protocolo || !justificativa || !cnpj || !uf || !ambiente) {
+      return c.json({
+        success: false,
+        error: 'Parâmetros obrigatórios: chaveNFe, protocolo, justificativa, cnpj, uf, ambiente'
+      }, 400);
+    }
+    
+    if (justificativa.length < 15) {
+      return c.json({
+        success: false,
+        error: 'Justificativa deve ter no mínimo 15 caracteres (requisito SEFAZ)'
+      }, 400);
+    }
+    
+    if (justificativa.length > 255) {
+      return c.json({
+        success: false,
+        error: 'Justificativa deve ter no máximo 255 caracteres'
+      }, 400);
+    }
+    
+    console.log(`[SEFAZ_ROUTES] Cancelando NF-e: ${chaveNFe}`);
+    console.log(`[SEFAZ_ROUTES] Protocolo: ${protocolo}`);
+    console.log(`[SEFAZ_ROUTES] Justificativa: ${justificativa.substring(0, 50)}...`);
+    
+    // 3. Gerar XML do evento de cancelamento
+    const xmlEvento = gerarXMLEventoCancelamento(
+      chaveNFe,
+      protocolo,
+      justificativa,
+      cnpj,
+      ambiente as Ambiente
+    );
+    
+    console.log('[SEFAZ_ROUTES] XML do evento gerado');
+    
+    // 4. Assinar XML
+    // TODO: Implementar assinatura digital do evento
+    // Por enquanto, usar o XML sem assinatura (vai falhar no SEFAZ real mas funciona no fallback)
+    const xmlAssinado = xmlEvento;
+    
+    console.log('[SEFAZ_ROUTES] ⚠️ XML não assinado (assinatura será implementada)');
+    
+    // 5. Transmitir cancelamento para SEFAZ
+    const resultado = await cancelarNFe(
+      chaveNFe,
+      protocolo,
+      justificativa,
+      cnpj,
+      xmlAssinado,
+      uf,
+      ambiente as Ambiente
+    );
+    
+    if (!resultado.success) {
+      console.error('[SEFAZ_ROUTES] Erro no cancelamento:', resultado.erro);
+      
+      return c.json({
+        success: false,
+        error: resultado.erro,
+        codigo: resultado.codigoStatus,
+        mensagem: resultado.mensagem
+      }, 400);
+    }
+    
+    // 6. Cancelamento autorizado!
+    console.log(`[SEFAZ_ROUTES] ✅ Cancelamento autorizado! Protocolo: ${resultado.protocolo}`);
+    
+    // 7. Atualizar NF-e no banco (se nfeId fornecido)
+    if (nfeId) {
+      // Implementar atualização no KV Store via endpoint de persistência
+      console.log(`[SEFAZ_ROUTES] TODO: Atualizar NF-e ${nfeId} para status 'cancelada'`);
+    }
+    
+    return c.json({
+      success: true,
+      data: {
+        cancelado: true,
+        protocolo: resultado.protocolo,
+        dataCancelamento: resultado.dataCancelamento,
+        mensagem: resultado.mensagem,
+        xmlEvento: resultado.xmlEventoCompleto
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('[SEFAZ_ROUTES] Erro não tratado:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao cancelar NF-e',
+      details: error.message
     }, 500);
   }
 });
