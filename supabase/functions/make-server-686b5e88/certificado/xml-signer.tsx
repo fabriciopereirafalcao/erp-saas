@@ -14,7 +14,8 @@
  */
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
-import { pki, md } from 'npm:node-forge@1.3.1';
+import forge from 'npm:node-forge@1.3.1';
+const { pki, md } = forge;
 import { extrairChaveECertificado } from './validator.tsx';
 
 /**

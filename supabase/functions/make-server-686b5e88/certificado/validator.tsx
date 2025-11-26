@@ -15,7 +15,8 @@
  * ============================================================================
  */
 
-import { pki } from 'npm:node-forge@1.3.1';
+import forge from 'npm:node-forge@1.3.1';
+const { pki } = forge;
 
 export interface CertificadoInfo {
   cnpj: string;
