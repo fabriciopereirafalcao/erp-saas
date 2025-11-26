@@ -76,6 +76,7 @@ try {
   console.log('[INDEX] ✅ Import Certificado bem-sucedido!', typeof certificado.default);
 } catch (error) {
   console.error('[INDEX] ❌ ERRO no import Certificado:', error);
+  console.error('[INDEX] ❌ Detalhes:', error.message);
   console.log('[INDEX] ⚠️ Continuando sem módulo Certificado...');
   certificado = null;
 }
@@ -1134,8 +1135,12 @@ if (danfe) {
 // =====================================================
 if (certificado) {
   console.log('[INDEX] 🔍 Registrando módulo Certificado...');
+  console.log('[INDEX] 🔐 Certificado módulo tipo:', typeof certificado);
+  console.log('[INDEX] 🔐 Certificado default tipo:', typeof certificado.default);
   app.route('/make-server-686b5e88/certificado', certificado.default);
-  console.log('[INDEX] ✅ Rotas Certificado registradas!');
+  console.log('[INDEX] ✅ Rotas Certificado registradas em /make-server-686b5e88/certificado');
+} else {
+  console.error('[INDEX] ❌ MÓDULO CERTIFICADO NÃO CARREGADO! As rotas não serão registradas.');
 }
 
 console.log('Todas as rotas registradas!');
