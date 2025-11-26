@@ -16,7 +16,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -201,7 +202,7 @@ export function NFeList({ onRefresh }: NFeListProps) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `nfe_${nfeId}.xml`;
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/\"/g, '') || `nfe_${nfeId}.xml`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -212,6 +213,53 @@ export function NFeList({ onRefresh }: NFeListProps) {
     } catch (error: any) {
       console.error('[NFE_LIST] Erro ao baixar XML:', error);
       toast.error(`Erro ao baixar XML: ${error.message}`);
+    }
+  };
+
+  const handleVisualizarDANFE = async (nfeId: string) => {
+    try {
+      // Buscar access token
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/danfe/nfe/${nfeId}`;
+      
+      // Abrir em nova aba
+      const newWindow = window.open('', '_blank');
+      if (!newWindow) {
+        toast.error('Permita pop-ups para visualizar o DANFE');
+        return;
+      }
+
+      // Buscar HTML do DANFE
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao gerar DANFE');
+      }
+
+      const html = await response.text();
+      
+      // Escrever HTML na nova janela
+      newWindow.document.open();
+      newWindow.document.write(html);
+      newWindow.document.close();
+
+      toast.success('DANFE aberto em nova aba');
+
+    } catch (error: any) {
+      console.error('[NFE_LIST] Erro ao visualizar DANFE:', error);
+      toast.error(`Erro ao visualizar DANFE: ${error.message}`);
     }
   };
 
@@ -418,6 +466,19 @@ export function NFeList({ onRefresh }: NFeListProps) {
                       >
                         <Download className="w-4 h-4 mr-2" />
                         XML
+                      </Button>
+                    )}
+                    
+                    {/* Botão de DANFE - Somente para NF-es emitidas, assinadas ou autorizadas */}
+                    {(nfe.status === 'emitida' || nfe.status === 'assinada' || nfe.status === 'autorizada') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleVisualizarDANFE(nfe.id)}
+                        className="whitespace-nowrap bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        DANFE
                       </Button>
                     )}
                     

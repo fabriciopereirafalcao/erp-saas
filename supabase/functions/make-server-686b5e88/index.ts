@@ -58,6 +58,17 @@ try {
   nfeStatistics = null;
 }
 
+console.log('[INDEX] 🔍 Tentando import estático de DANFE...');
+let danfe;
+try {
+  danfe = await import('./danfe/routes.ts');
+  console.log('[INDEX] ✅ Import DANFE bem-sucedido!', typeof danfe.default);
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO no import DANFE:', error);
+  console.log('[INDEX] ⚠️ Continuando sem módulo DANFE...');
+  danfe = null;
+}
+
 console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
 
 const app = new Hono();
@@ -1096,6 +1107,15 @@ if (nfeStatistics) {
   console.log('[INDEX] 🔍 Registrando módulo NFE Statistics...');
   app.route('/make-server-686b5e88', nfeStatistics.default);
   console.log('[INDEX] ✅ Rotas NFE Statistics registradas!');
+}
+
+// =====================================================
+// DANFE ROUTES - Geração de DANFE
+// =====================================================
+if (danfe) {
+  console.log('[INDEX] 🔍 Registrando módulo DANFE...');
+  app.route('/make-server-686b5e88/danfe', danfe.default);
+  console.log('[INDEX] ✅ Rotas DANFE registradas!');
 }
 
 console.log('Todas as rotas registradas!');
