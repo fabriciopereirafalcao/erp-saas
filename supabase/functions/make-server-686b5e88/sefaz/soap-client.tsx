@@ -255,6 +255,8 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
       
     case 'NFeRetAutorizacao4':
     case 'nfeRetAutorizacao':
+      const nroProtocolo = Math.floor(Math.random() * 1000000000000000);
+      const chaveNFe = '35241112345678000190550010000000011234567890';
       xmlResposta = `<?xml version="1.0" encoding="utf-8"?>
 <retConsReciNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
   <tpAmb>${ambiente}</tpAmb>
@@ -264,6 +266,18 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
   <xMotivo>Lote processado (SIMULADO)</xMotivo>
   <cUF>${uf}</cUF>
   <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+  <protNFe versao="4.00">
+    <infProt>
+      <tpAmb>${ambiente}</tpAmb>
+      <verAplic>MOCK_1.0</verAplic>
+      <chNFe>${chaveNFe}</chNFe>
+      <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+      <nProt>${nroProtocolo}</nProt>
+      <digVal>ABCD1234EFGH5678IJKL9012MNOP3456QRST7890UVWX=</digVal>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso da NF-e (SIMULADO)</xMotivo>
+    </infProt>
+  </protNFe>
 </retConsReciNFe>`;
       break;
       
