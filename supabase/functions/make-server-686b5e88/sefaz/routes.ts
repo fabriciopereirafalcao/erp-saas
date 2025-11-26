@@ -320,4 +320,75 @@ sefaz.get('/status/:uf/:ambiente', async (c) => {
   }
 });
 
+// ============================================================================
+// GET /sefaz/consultar-recibo/:recibo/:uf/:ambiente
+// Descrição: Consulta resultado de um lote (endpoint público para testes)
+// ============================================================================
+sefaz.get('/consultar-recibo/:recibo/:uf/:ambiente', async (c) => {
+  try {
+    const recibo = c.req.param('recibo');
+    const uf = c.req.param('uf');
+    const ambiente = parseInt(c.req.param('ambiente')) as Ambiente;
+    
+    console.log(`[SEFAZ_ROUTES] Consultando recibo: ${recibo} (${uf} - ${ambiente})`);
+    
+    const resultado = await consultarRecibo(recibo, uf, ambiente);
+    
+    return c.json({
+      success: resultado.success,
+      data: resultado.autorizado ? {
+        autorizado: resultado.autorizado,
+        protocolo: resultado.protocolo,
+        dataAutorizacao: resultado.dataAutorizacao,
+        codigoStatus: resultado.codigoStatus,
+        mensagem: resultado.mensagem
+      } : {
+        autorizado: false,
+        codigoStatus: resultado.codigoStatus,
+        mensagem: resultado.mensagem
+      },
+      error: resultado.erro
+    });
+    
+  } catch (error: any) {
+    console.error('[SEFAZ_ROUTES] Erro:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+// ============================================================================
+// GET /sefaz/consultar/:chave/:uf/:ambiente
+// Descrição: Consulta NF-e pela chave de acesso (endpoint público para testes)
+// ============================================================================
+sefaz.get('/consultar/:chave/:uf/:ambiente', async (c) => {
+  try {
+    const chave = c.req.param('chave');
+    const uf = c.req.param('uf');
+    const ambiente = parseInt(c.req.param('ambiente')) as Ambiente;
+    
+    console.log(`[SEFAZ_ROUTES] Consultando NF-e: ${chave} (${uf} - ${ambiente})`);
+    
+    // TODO: Implementar consultarNFePorChave
+    // Por enquanto, retornar resposta simulada
+    return c.json({
+      success: true,
+      data: {
+        situacao: 'nao_encontrada',
+        mensagem: 'NF-e não consta na base de dados da SEFAZ (SIMULADO)',
+        chave: chave
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('[SEFAZ_ROUTES] Erro:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
 export default sefaz;
