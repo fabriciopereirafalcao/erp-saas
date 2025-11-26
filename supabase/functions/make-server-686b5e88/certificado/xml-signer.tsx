@@ -14,12 +14,19 @@
  */
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
-import * as forge from 'npm:node-forge@1.3.1';
-import { extrairChaveECertificado } from './validator.tsx';
 
-// Acessar módulos do forge
-const pki = forge.pki;
-const md = forge.md;
+// @deno-types="npm:@types/node-forge@1.3.1"
+import forgeModule from 'npm:node-forge@1.3.1';
+
+// No Deno, node-forge vem em .default
+const forge = (forgeModule as any).default || forgeModule;
+
+// IMPORTANTE: asn1, pki e md são módulos SEPARADOS!
+const asn1 = forge.asn1;  // ✅ Módulo asn1 separado
+const pki = forge.pki;    // ✅ Módulo pki separado
+const md = forge.md;      // ✅ Módulo md separado
+
+import { extrairChaveECertificado } from './validator.tsx';
 
 /**
  * Assina XML com certificado A1 real
@@ -102,7 +109,8 @@ export async function assinarXMLComCertificado(
     console.log('[XML_SIGNER] SignatureValue (primeiros 50 chars):', signatureValue.substring(0, 50));
     
     // 10. Extrair certificado em base64
-    const certDer = pki.asn1.toDer(pki.certificateToAsn1(certificate)).getBytes();
+    // ✅ CORRETO: usar asn1.toDer(), não pki.asn1.toDer()
+    const certDer = asn1.toDer(pki.certificateToAsn1(certificate)).getBytes();
     const x509Certificate = btoa(certDer);
     
     console.log('[XML_SIGNER] X509Certificate (primeiros 50 chars):', x509Certificate.substring(0, 50));

@@ -15,8 +15,15 @@
  * ============================================================================
  */
 
-import * as forge from 'npm:node-forge@1.3.1';
-const { pki } = forge;
+// @deno-types="npm:@types/node-forge@1.3.1"
+import forgeModule from 'npm:node-forge@1.3.1';
+
+// No Deno, node-forge vem em .default
+const forge = (forgeModule as any).default || forgeModule;
+
+// IMPORTANTE: asn1 e pki são módulos SEPARADOS!
+const asn1 = forge.asn1;  // ✅ Módulo asn1 separado
+const pki = forge.pki;    // ✅ Módulo pki separado
 
 export interface CertificadoInfo {
   cnpj: string;
@@ -47,9 +54,10 @@ export function validarCertificado(pfxBuffer: Uint8Array, senha: string): Certif
     console.log('[CERT_VALIDATOR] Binary string criada:', binaryString.length, 'chars');
     
     // 2. Decodificar ASN.1 diretamente da string binária
-    let asn1;
+    let decodedAsn1;
     try {
-      asn1 = pki.asn1.fromDer(binaryString);
+      // ✅ CORRETO: usar asn1.fromDer(), não pki.asn1.fromDer()
+      decodedAsn1 = asn1.fromDer(binaryString);
       console.log('[CERT_VALIDATOR] ASN.1 decodificado com sucesso');
     } catch (error: any) {
       console.error('[CERT_VALIDATOR] Erro ao decodificar ASN.1:', error.message);
@@ -59,7 +67,8 @@ export function validarCertificado(pfxBuffer: Uint8Array, senha: string): Certif
     // 3. Tentar abrir o PKCS#12 com a senha
     let p12;
     try {
-      p12 = pki.pkcs12.pkcs12FromAsn1(asn1, senha);
+      // ✅ IMPORTANTE: usar { strict: false } para certificados brasileiros no Deno Edge
+      p12 = pki.pkcs12.pkcs12FromAsn1(decodedAsn1, senha, { strict: false });
       console.log('[CERT_VALIDATOR] PKCS#12 aberto com sucesso');
     } catch (error: any) {
       console.error('[CERT_VALIDATOR] Erro ao abrir PKCS#12:', error.message);
@@ -187,10 +196,11 @@ export function extrairChaveECertificado(pfxBuffer: Uint8Array, senha: string) {
     }
     
     // 2. Decodificar ASN.1 diretamente
-    const asn1 = pki.asn1.fromDer(binaryString);
+    // ✅ CORRETO: usar asn1.fromDer(), não pki.asn1.fromDer()
+    const decodedAsn1 = asn1.fromDer(binaryString);
     
-    // 3. Abrir PKCS#12
-    const p12 = pki.pkcs12.pkcs12FromAsn1(asn1, senha);
+    // 3. Abrir PKCS#12 com { strict: false } para certificados brasileiros
+    const p12 = pki.pkcs12.pkcs12FromAsn1(decodedAsn1, senha, { strict: false });
     
     // 4. Extrair chave privada
     const keyBags = p12.getBags({ bagType: pki.oids.pkcs8ShroudedKeyBag });
