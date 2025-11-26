@@ -87,7 +87,11 @@ export function TransmitirNFeDialog({
       // 2. TRANSMITIR PARA SEFAZ
       setEtapaAtual("transmitindo");
 
-      const accessToken = (await import("../utils/supabase/client")).supabase.auth.getSession().then(s => s.data.session?.access_token);
+      const accessToken = await (await import("../utils/supabase/client")).supabase.auth.getSession().then(s => s.data.session?.access_token);
+
+      if (!accessToken) {
+        throw new Error("Você precisa estar logado para transmitir NF-e");
+      }
 
       const transmitirResponse = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/sefaz/nfe/transmitir`,
@@ -95,7 +99,7 @@ export function TransmitirNFeDialog({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${publicAnonKey}`
+            "Authorization": `Bearer ${accessToken}`
           },
           body: JSON.stringify({
             nfeId,
@@ -162,7 +166,7 @@ export function TransmitirNFeDialog({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${publicAnonKey}`
+              "Authorization": `Bearer ${accessToken}`
             },
             body: JSON.stringify({
               nfeId,
