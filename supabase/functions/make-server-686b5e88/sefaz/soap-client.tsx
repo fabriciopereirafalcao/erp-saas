@@ -62,29 +62,6 @@ function montarEnvelopeSOAP(request: SoapRequest): string {
 // ============================================================================
 
 /**
- * Cria um HTTP client customizado que aceita certificados da SEFAZ
- */
-function criarHttpClientSEFAZ() {
-  try {
-    // Criar client HTTP que aceita certificados auto-assinados da SEFAZ
-    // Isso é necessário porque alguns servidores SEFAZ usam certificados
-    // que não estão na cadeia de confiança padrão
-    return Deno.createHttpClient({
-      // @ts-ignore - Esta propriedade existe mas não está nos tipos oficiais
-      certChain: undefined,
-      // @ts-ignore  
-      privateKey: undefined,
-      // Opcional: aumentar pool de conexões
-      poolMaxIdlePerHost: 10,
-      poolIdleTimeout: 90000,
-    });
-  } catch (error) {
-    console.warn(`⚠️ [SOAP] Não foi possível criar HTTP client customizado:`, error);
-    return undefined;
-  }
-}
-
-/**
  * Envia requisição SOAP para SEFAZ
  * 
  * @param request - Configuração da requisição
@@ -136,15 +113,10 @@ export async function enviarRequisicaoSOAP(
     console.log(`🚀 [SOAP] Enviando para ${request.url}...`);
     const startTime = Date.now();
     
-    // NOTA: A SEFAZ usa certificados que nem sempre estão na cadeia de confiança padrão
-    // Para aceitar esses certificados no Deno, não há uma flag simples no fetch
-    // A solução é usar Deno.createHttpClient com caCerts customizado
-    // Por enquanto, vamos tentar com fetch padrão e logar erros detalhados
-    const httpClient = criarHttpClientSEFAZ();
-    const response = await fetch(request.url, {
-      ...fetchOptions,
-      client: httpClient
-    });
+    // Tentar primeiro com fetch nativo direto (sem HTTP client customizado)
+    // Isso usa os certificados raiz do sistema, que podem ter melhor compatibilidade
+    console.log(`🔧 [SOAP] Usando fetch nativo direto (sem HTTP client customizado)`);
+    const response = await fetch(request.url, fetchOptions);
     
     const endTime = Date.now();
     const duration = endTime - startTime;
@@ -191,6 +163,18 @@ export async function enviarRequisicaoSOAP(
     
   } catch (error: any) {
     console.error(`❌ [SOAP] Erro ao enviar requisição:`, error);
+    console.error(`❌ [SOAP] Tipo do erro:`, error.name);
+    console.error(`❌ [SOAP] Stack:`, error.stack);
+    
+    // Log mais detalhado para erros de SSL/TLS
+    if (error.message?.includes('certificate') || error.message?.includes('TLS') || error.message?.includes('SSL')) {
+      console.error(`🔐 [SOAP] ERRO DE CERTIFICADO SSL/TLS DETECTADO!`);
+      console.error(`🔐 [SOAP] Isso é esperado em homologação da SEFAZ`);
+      console.error(`🔐 [SOAP] Soluções possíveis:`);
+      console.error(`🔐 [SOAP] 1. Em produção, usar certificado A1 válido`);
+      console.error(`🔐 [SOAP] 2. Configurar proxy reverso com certificados aceitos`);
+      console.error(`🔐 [SOAP] 3. Usar ambiente de QA com certificados de teste`);
+    }
     
     return {
       success: false,
