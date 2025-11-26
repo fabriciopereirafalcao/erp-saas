@@ -20,6 +20,7 @@ import {
   CheckSquare,
   LogOut,
   Mail,
+  FileKey,
   X
 } from "lucide-react";
 import { FEATURES } from "../utils/environment";
@@ -85,6 +86,7 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
     { id: "balanceReconciliation" as NavigationView, label: "Conciliações", icon: CheckSquare },
     { id: "cashFlow" as NavigationView, label: "Fluxo de Caixa", icon: ArrowUpDown },
     { id: "reports" as NavigationView, label: "Relatórios", icon: BarChart3 },
+    { id: "digitalCertificate" as NavigationView, label: "Certificado Digital", icon: FileKey },
     { id: "emailSettings" as NavigationView, label: "Configurações de Email", icon: Mail },
     { id: "systemAudit" as NavigationView, label: "Auditoria do Sistema", icon: AlertCircle },
     { id: "company" as NavigationView, label: "Minha Empresa", icon: Building2 },
