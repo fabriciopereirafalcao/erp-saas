@@ -23,6 +23,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { NFeEmissionDialog } from "./NFeEmissionDialog";
 import { SignXmlDialog } from "./SignXmlDialog";
 import { TransmitirNFeDialog } from "./TransmitirNFeDialog";
+import { TesteSefazDialog } from "./TesteSefazDialog";
 import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
@@ -234,6 +235,9 @@ export function TaxInvoicing() {
   // Estado para Dialog de Transmissão SEFAZ
   const [isTransmitDialogOpen, setIsTransmitDialogOpen] = useState(false);
   const [nfeToTransmit, setNfeToTransmit] = useState({ nfeId: '', xml: '', uf: '' });
+
+  // Estado para Dialog de Teste SEFAZ
+  const [isTestSefazDialogOpen, setIsTestSefazDialogOpen] = useState(false);
 
   // Estado do Formulário de Emissão
   const [nfeForm, setNfeForm] = useState({
@@ -1269,14 +1273,45 @@ export function TaxInvoicing() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-gray-900">Notas Fiscais Emitidas</h2>
-              <Button 
-                onClick={handleOpenEmissionDialog}
-                className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Emitir NFe
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setIsTestSefazDialogOpen(true)}
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  🧪 Testar Endpoints
+                </Button>
+                <Button 
+                  onClick={handleOpenEmissionDialog}
+                  className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Emitir NFe
+                </Button>
+              </div>
             </div>
+
+            {/* Alert: Fluxo Completo de Emissão */}
+            <Alert className="mb-4 border-blue-500 bg-blue-50">
+              <Info className="w-4 h-4 text-blue-600" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-medium text-blue-900">🎯 Fluxo Completo de Emissão NF-e:</p>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <p><strong>1.</strong> Clique em <strong>"Emitir NFe"</strong> → Preencha os dados → Gere o XML</p>
+                    <p><strong>2.</strong> Clique em <strong>"Assinar"</strong> no toast → Faça upload do certificado .pfx</p>
+                    <p><strong>3.</strong> Clique em <strong>"Transmitir"</strong> no toast → Selecione ambiente (Homologação)</p>
+                    <p><strong>4.</strong> Aguarde processamento → Receba protocolo de autorização ✅</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-blue-200">
+                    <Badge variant="outline" className="bg-white text-blue-700 border-blue-300">
+                      Sistema SEFAZ integrado com fallback simulado
+                    </Badge>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
 
             <div className="flex gap-4 mb-4">
               <div className="flex-1 relative">
@@ -1895,6 +1930,12 @@ export function TaxInvoicing() {
           }}
         />
       )}
+
+      {/* Dialog de Teste de Endpoints SEFAZ */}
+      <TesteSefazDialog
+        open={isTestSefazDialogOpen}
+        onOpenChange={setIsTestSefazDialogOpen}
+      />
     </div>
   );
 }
