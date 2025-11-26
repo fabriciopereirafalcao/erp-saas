@@ -24,6 +24,7 @@ import { NFeEmissionDialog } from "./NFeEmissionDialog";
 import { SignXmlDialog } from "./SignXmlDialog";
 import { TransmitirNFeDialog } from "./TransmitirNFeDialog";
 import { TesteSefazDialog } from "./TesteSefazDialog";
+import { NFeList } from "./NFeList";
 import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
@@ -1313,88 +1314,8 @@ export function TaxInvoicing() {
               </AlertDescription>
             </Alert>
 
-            <div className="flex gap-4 mb-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar por número, cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="Autorizada">Autorizada</SelectItem>
-                  <SelectItem value="Rascunho">Rascunho</SelectItem>
-                  <SelectItem value="Cancelada">Cancelada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredNFes.map((nfe) => (
-                  <TableRow key={nfe.id}>
-                    <TableCell>{nfe.number}</TableCell>
-                    <TableCell>{new Date(nfe.issueDate).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{nfe.recipient.name}</TableCell>
-                    <TableCell>R$ {nfe.totals.nfeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(nfe.status)}>
-                        <span className="flex items-center gap-1">
-                          {getStatusIcon(nfe.status)}
-                          {nfe.status}
-                        </span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleSignExistingXml(nfe)}>
-                            <PenTool className="w-4 h-4 mr-2" />
-                            Assinar Digitalmente
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Download className="w-4 h-4 mr-2" />
-                            Baixar XML
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Download className="w-4 h-4 mr-2" />
-                            Baixar PDF
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {filteredNFes.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                Nenhuma nota fiscal encontrada
-              </div>
-            )}
+            {/* Lista de NF-es Persistidas */}
+            <NFeList />
           </Card>
         </TabsContent>
 

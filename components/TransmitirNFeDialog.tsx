@@ -217,6 +217,39 @@ export function TransmitirNFeDialog({
             xmlAutorizado: consultarData.data.xmlAutorizado,
             mensagem: consultarData.data.mensagem
           });
+          
+          // 8. SALVAR NF-e NO BANCO
+          try {
+            console.log("[SALVAR] Persistindo NF-e autorizada...");
+            
+            await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/salvar`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({
+                  nfe: {
+                    id: nfeId,
+                    chave: nfeId, // TODO: extrair do XML
+                    status: "autorizada",
+                    protocolo: consultarData.data.protocolo,
+                    dataAutorizacao: consultarData.data.dataAutorizacao,
+                    xmlAutorizado: consultarData.data.xmlAutorizado,
+                    ambiente: parseInt(ambiente)
+                  }
+                })
+              }
+            );
+            
+            console.log("[SALVAR] NF-e salva com sucesso!");
+          } catch (saveError) {
+            console.error("[SALVAR] Erro ao salvar NF-e:", saveError);
+            // Não bloqueia o fluxo se falhar
+          }
+          
           toast.success("NF-e Autorizada!", {
             description: `Protocolo: ${consultarData.data.protocolo}`
           });

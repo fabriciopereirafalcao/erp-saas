@@ -36,6 +36,17 @@ try {
   sefaz = null;
 }
 
+console.log('[INDEX] 🔍 Tentando import estático de NFE Persistence...');
+let nfePersistence;
+try {
+  nfePersistence = await import('./nfe-persistence.tsx');
+  console.log('[INDEX] ✅ Import NFE Persistence bem-sucedido!', typeof nfePersistence.default);
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO no import NFE Persistence:', error);
+  console.log('[INDEX] ⚠️ Continuando sem módulo NFE Persistence...');
+  nfePersistence = null;
+}
+
 console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
 
 const app = new Hono();
@@ -1056,6 +1067,15 @@ if (sefaz) {
   console.log('[INDEX] ✅ SEFAZ importado:', typeof sefaz.default);
   app.route('/make-server-686b5e88/sefaz', sefaz.default);
   console.log('[INDEX] ✅ Rotas SEFAZ registradas!');
+}
+
+// =====================================================
+// NFE PERSISTENCE ROUTES - Persistência de NF-es
+// =====================================================
+if (nfePersistence) {
+  console.log('[INDEX] 🔍 Registrando módulo NFE Persistence...');
+  app.route('/make-server-686b5e88', nfePersistence.default);
+  console.log('[INDEX] ✅ Rotas NFE Persistence registradas!');
 }
 
 console.log('Todas as rotas registradas!');

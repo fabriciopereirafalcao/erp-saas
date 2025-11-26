@@ -1,0 +1,422 @@
+/**
+ * Componente de Listagem de NF-es Emitidas
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { 
+  Download, 
+  Eye, 
+  FileText, 
+  Search, 
+  Filter,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle
+} from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+interface NFeSummary {
+  id: string;
+  chave: string;
+  numero: string;
+  serie: string;
+  modelo: string;
+  natureza: string;
+  destinatario: {
+    nome: string;
+    cpfCnpj: string;
+  };
+  valores: {
+    totalProdutos: number;
+    totalNFe: number;
+  };
+  status: 'rascunho' | 'emitida' | 'assinada' | 'transmitida' | 'autorizada' | 'rejeitada' | 'cancelada';
+  codigoStatus?: string;
+  mensagemStatus?: string;
+  protocolo?: string;
+  dataAutorizacao?: string;
+  ambiente: number;
+  createdAt: string;
+  updatedAt: string;
+  totalEventos: number;
+}
+
+interface NFeListProps {
+  onRefresh?: () => void;
+}
+
+const STATUS_CONFIG = {
+  rascunho: {
+    label: 'Rascunho',
+    icon: FileText,
+    color: 'text-gray-500',
+    bg: 'bg-gray-100',
+    border: 'border-gray-300'
+  },
+  emitida: {
+    label: 'Emitida',
+    icon: FileText,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-300'
+  },
+  assinada: {
+    label: 'Assinada',
+    icon: CheckCircle,
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-300'
+  },
+  transmitida: {
+    label: 'Transmitida',
+    icon: Clock,
+    color: 'text-yellow-600',
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-300'
+  },
+  autorizada: {
+    label: 'Autorizada',
+    icon: CheckCircle,
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    border: 'border-green-300'
+  },
+  rejeitada: {
+    label: 'Rejeitada',
+    icon: XCircle,
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+    border: 'border-red-300'
+  },
+  cancelada: {
+    label: 'Cancelada',
+    icon: AlertCircle,
+    color: 'text-orange-600',
+    bg: 'bg-orange-50',
+    border: 'border-orange-300'
+  }
+};
+
+export function NFeList({ onRefresh }: NFeListProps) {
+  const [nfes, setNfes] = useState<NFeSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filtroStatus, setFiltroStatus] = useState<string>('');
+  const [filtroDestinatario, setFiltroDestinatario] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
+
+  useEffect(() => {
+    carregarNFes();
+  }, [filtroStatus, filtroDestinatario, filtroDataInicio, filtroDataFim]);
+
+  const carregarNFes = async () => {
+    try {
+      setLoading(true);
+
+      // Buscar access token
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      // Construir query params
+      const params = new URLSearchParams();
+      if (filtroStatus) params.append('status', filtroStatus);
+      if (filtroDestinatario) params.append('destinatario', filtroDestinatario);
+      if (filtroDataInicio) params.append('dataInicio', filtroDataInicio);
+      if (filtroDataFim) params.append('dataFim', filtroDataFim);
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/listar?${params.toString()}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao carregar NF-es');
+      }
+
+      setNfes(data.data.nfes);
+      console.log(`[NFE_LIST] ${data.data.total} NF-es carregadas`);
+
+    } catch (error: any) {
+      console.error('[NFE_LIST] Erro ao carregar:', error);
+      toast.error(`Erro ao carregar NF-es: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadXML = async (nfeId: string, tipo: 'original' | 'assinado' | 'autorizado') => {
+    try {
+      // Buscar access token
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/xml/${nfeId}/${tipo}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao baixar XML');
+      }
+
+      // Download do arquivo
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `nfe_${nfeId}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('XML baixado com sucesso!');
+
+    } catch (error: any) {
+      console.error('[NFE_LIST] Erro ao baixar XML:', error);
+      toast.error(`Erro ao baixar XML: ${error.message}`);
+    }
+  };
+
+  const formatarValor = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
+  const formatarData = (dataISO: string) => {
+    return new Date(dataISO).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const nfesFiltradas = nfes;
+
+  return (
+    <div className="space-y-4">
+      {/* Filtros */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="w-5 h-5 text-gray-600" />
+          <h3 className="text-gray-900">Filtros</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Status</label>
+            <select
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[rgb(32,251,225)]"
+            >
+              <option value="">Todos</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="emitida">Emitida</option>
+              <option value="assinada">Assinada</option>
+              <option value="transmitida">Transmitida</option>
+              <option value="autorizada">Autorizada</option>
+              <option value="rejeitada">Rejeitada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Destinatário</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                value={filtroDestinatario}
+                onChange={(e) => setFiltroDestinatario(e.target.value)}
+                placeholder="Nome ou CPF/CNPJ"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Data Início</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="date"
+                value={filtroDataInicio}
+                onChange={(e) => setFiltroDataInicio(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Data Fim</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="date"
+                value={filtroDataFim}
+                onChange={(e) => setFiltroDataFim(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            {loading ? 'Carregando...' : `${nfesFiltradas.length} nota(s) fiscal(is) encontrada(s)`}
+          </p>
+          <Button
+            onClick={carregarNFes}
+            variant="outline"
+            size="sm"
+          >
+            Atualizar
+          </Button>
+        </div>
+      </Card>
+
+      {/* Lista de NF-es */}
+      {loading ? (
+        <Card className="p-8">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgb(32,251,225)]"></div>
+            <p className="ml-3 text-gray-600">Carregando notas fiscais...</p>
+          </div>
+        </Card>
+      ) : nfesFiltradas.length === 0 ? (
+        <Card className="p-8">
+          <div className="text-center text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p>Nenhuma nota fiscal encontrada</p>
+            <p className="text-sm mt-1">Emita sua primeira NF-e para começar</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {nfesFiltradas.map((nfe) => {
+            const statusConfig = STATUS_CONFIG[nfe.status];
+            const StatusIcon = statusConfig.icon;
+
+            return (
+              <Card key={nfe.id} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${statusConfig.bg} border ${statusConfig.border}`}>
+                        <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
+                        <span className={`text-sm ${statusConfig.color}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+                      
+                      <span className="text-sm text-gray-500">
+                        NFe {nfe.serie}-{nfe.numero}
+                      </span>
+
+                      {nfe.ambiente === 2 && (
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">
+                          Homologação
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                      <div>
+                        <p className="text-sm text-gray-500">Destinatário</p>
+                        <p className="text-gray-900">{nfe.destinatario.nome}</p>
+                        <p className="text-xs text-gray-500">{nfe.destinatario.cpfCnpj}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-gray-500">Valor Total</p>
+                        <p className="text-lg text-gray-900">{formatarValor(nfe.valores.totalNFe)}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-gray-500">Data Emissão</p>
+                        <p className="text-gray-900">{formatarData(nfe.createdAt)}</p>
+                      </div>
+                    </div>
+
+                    {nfe.protocolo && (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Protocolo: {nfe.protocolo}</span>
+                        {nfe.dataAutorizacao && (
+                          <span className="ml-2">• Autorizada em {formatarData(nfe.dataAutorizacao)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {nfe.codigoStatus && nfe.mensagemStatus && (
+                      <div className={`text-xs px-3 py-2 rounded mt-2 ${
+                        nfe.status === 'rejeitada' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'
+                      }`}>
+                        <span>{nfe.codigoStatus} - {nfe.mensagemStatus}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {/* TODO: Abrir detalhes */}}
+                      className="whitespace-nowrap"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Detalhes
+                    </Button>
+
+                    {nfe.status !== 'rascunho' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadXML(nfe.id, nfe.status === 'autorizada' ? 'autorizado' : 'assinado')}
+                        className="whitespace-nowrap"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        XML
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
