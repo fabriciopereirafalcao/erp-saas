@@ -21,6 +21,10 @@ import type { NFe, NFeItem, Emitente } from './types.ts';
 
 console.log('[FISCAL_ROUTES] ✅ Import types OK');
 
+import * as kv from '../kv_store.tsx';
+
+console.log('[FISCAL_ROUTES] ✅ Import kv OK');
+
 console.log('[FISCAL_ROUTES] 🔍 Tentando importar calculationRoutes...');
 let calculationRoutes;
 try {
@@ -493,54 +497,133 @@ fiscal.get('/xml/:nfeId', async (c) => {
 });
 
 // ============================================================================
-// POST /fiscal/nfe/assinar-xml
-// Descrição: Assina digitalmente o XML da NF-e com certificado A1
+// POST /fiscal/nfe/assinar
+// Descrição: Assina XML da NF-e com certificado digital
 // Auth: Requer token de autenticação
-// Body: { xml, certificadoPem, chavePrivadaPem }
+// Body: { xml, certificadoPem?, chavePrivadaPem?, nfeId? }
 // ============================================================================
-fiscal.post('/nfe/assinar-xml', async (c) => {
+fiscal.post('/nfe/assinar', async (c) => {
   try {
-    console.log('[FISCAL_ROUTES] POST /nfe/assinar-xml - Início');
+    console.log('[FISCAL_ROUTES] POST /nfe/assinar - Início');
     
     // 1. Autenticação
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) {
-      return c.json({ success: false, error: 'Token de autenticação não fornecido' }, 401);
+      return c.json({ success: false, error: 'Token não fornecido' }, 401);
     }
     
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) {
-      return c.json({ success: false, error: 'Token inválido ou expirado' }, 401);
+      return c.json({ success: false, error: 'Token inválido' }, 401);
     }
     
-    console.log('[FISCAL_ROUTES] Usuário autenticado:', user.id);
+    // 2. Parse do body
+    const { xml, certificadoPem, chavePrivadaPem, nfeId, usarCertificadoA1 = true } = await c.req.json();
     
-    // 2. Receber dados do body
-    const body = await c.req.json();
-    const { xml, certificadoPem, chavePrivadaPem, nfeId } = body;
-    
-    // Validações
     if (!xml) {
-      return c.json({ success: false, error: 'XML não fornecido' }, 400);
-    }
-    
-    if (!certificadoPem || !chavePrivadaPem) {
-      return c.json({ 
-        success: false, 
-        error: 'Certificado digital não fornecido. Envie certificadoPem e chavePrivadaPem.' 
+      return c.json({
+        success: false,
+        error: 'XML não fornecido'
       }, 400);
     }
     
-    console.log('[FISCAL_ROUTES] XML recebido:', xml.length, 'bytes');
-    console.log('[FISCAL_ROUTES] Certificado recebido');
-    console.log('[FISCAL_ROUTES] Chave privada recebida:', chavePrivadaPem ? 'SIM' : 'NÃO');
-    console.log('[FISCAL_ROUTES] Tamanho chave privada:', chavePrivadaPem?.length || 0, 'bytes');
-    console.log('[FISCAL_ROUTES] Primeiros 50 chars da chave:', chavePrivadaPem?.substring(0, 50) || 'VAZIO');
+    console.log('[FISCAL_ROUTES] XML recebido, tamanho:', xml.length, 'bytes');
+    console.log('[FISCAL_ROUTES] Modo assinatura:', usarCertificadoA1 ? 'Certificado A1 Real' : 'Mock (chave PEM)');
+    
+    let xmlAssinado;
+    
+    // ====================================================================
+    // MODO 1: ASSINATURA REAL COM CERTIFICADO A1
+    // ====================================================================
+    if (usarCertificadoA1) {
+      console.log('[FISCAL_ROUTES] 🔐 Usando ASSINATURA REAL com Certificado A1');
+      
+      // Buscar certificado do usuário
+      const certKey = `certificado:${user.id}`;
+      const senhaKey = `certificado:senha:${user.id}`;
+      
+      const certInfo = await kv.get(certKey);
+      const senhaInfo = await kv.get(senhaKey);
+      
+      if (!certInfo || !senhaInfo) {
+        return c.json({
+          success: false,
+          error: 'Certificado A1 não cadastrado. Faça upload do certificado nas Configurações.'
+        }, 400);
+      }
+      
+      // Validar se certificado está válido
+      const validoAte = new Date(certInfo.validoAte);
+      const agora = new Date();
+      
+      if (agora > validoAte) {
+        return c.json({
+          success: false,
+          error: `Certificado EXPIRADO em ${validoAte.toLocaleDateString('pt-BR')}. Renove o certificado.`
+        }, 400);
+      }
+      
+      console.log('[FISCAL_ROUTES] Certificado encontrado:', certInfo.cnpj, '-', certInfo.razaoSocial);
+      
+      // Baixar .pfx do Storage
+      const bucketName = 'make-686b5e88-certificados';
+      const fileName = certInfo.storageFileName;
+      
+      const { data: pfxData, error: downloadError } = await supabase.storage
+        .from(bucketName)
+        .download(fileName);
+      
+      if (downloadError || !pfxData) {
+        console.error('[FISCAL_ROUTES] Erro ao baixar certificado:', downloadError);
+        return c.json({
+          success: false,
+          error: 'Erro ao acessar certificado. Faça upload novamente.'
+        }, 500);
+      }
+      
+      // Converter Blob para Uint8Array
+      const pfxBuffer = new Uint8Array(await pfxData.arrayBuffer());
+      console.log('[FISCAL_ROUTES] Certificado baixado:', pfxBuffer.length, 'bytes');
+      
+      // Importar módulo de assinatura real
+      const { assinarXMLComCertificado } = await import('../certificado/xml-signer.tsx');
+      
+      // Assinar com certificado A1
+      try {
+        xmlAssinado = await assinarXMLComCertificado(xml, pfxBuffer, senhaInfo.senha);
+        console.log('[FISCAL_ROUTES] ✅ XML assinado com CERTIFICADO A1 REAL!');
+      } catch (error: any) {
+        console.error('[FISCAL_ROUTES] Erro na assinatura A1:', error);
+        return c.json({
+          success: false,
+          error: 'Erro ao assinar XML com certificado A1',
+          details: error.message
+        }, 400);
+      }
+      
+    // ====================================================================
+    // MODO 2: ASSINATURA MOCK (BACKWARD COMPATIBILITY)
+    // ====================================================================
+    } else {
+      console.log('[FISCAL_ROUTES] ⚠️ Usando assinatura MOCK (desenvolvimento)');
+      
+      if (!certificadoPem || !chavePrivadaPem) {
+        return c.json({
+          success: false,
+          error: 'Certificado PEM ou chave privada não fornecidos'
+        }, 400);
+      }
+      
+      console.log('[FISCAL_ROUTES] Certificado recebido:', certificadoPem ? 'SIM' : 'NÃO');
+      console.log('[FISCAL_ROUTES] Tamanho certificado:', certificadoPem?.length || 0, 'bytes');
+      console.log('[FISCAL_ROUTES] Chave privada recebida:', chavePrivadaPem ? 'SIM' : 'NÃO');
+      console.log('[FISCAL_ROUTES] Tamanho chave privada:', chavePrivadaPem?.length || 0, 'bytes');
+      console.log('[FISCAL_ROUTES] Primeiros 50 chars da chave:', chavePrivadaPem?.substring(0, 50) || 'VAZIO');
     
     // Validar que a chave não está vazia
     if (!chavePrivadaPem || chavePrivadaPem.trim().length === 0) {
@@ -574,15 +657,18 @@ fiscal.post('/nfe/assinar-xml', async (c) => {
       }, 400);
     }
     
-    console.log('[FISCAL_ROUTES] ✅ XML assinado com sucesso!');
-    console.log('[FISCAL_ROUTES] Tamanho XML assinado:', resultado.xmlAssinado.length, 'bytes');
+    xmlAssinado = resultado.xmlAssinado;
+    console.log('[FISCAL_ROUTES] ✅ XML assinado com MOCK!');
+    }
+    
+    console.log('[FISCAL_ROUTES] Tamanho XML assinado:', xmlAssinado.length, 'bytes');
     
     // 6. Se nfeId foi fornecido, atualizar no banco
     if (nfeId) {
       const { error: updateError } = await supabase
         .from('fiscal_nfes')
         .update({
-          xml_assinado: resultado.xmlAssinado,
+          xml_assinado: xmlAssinado,
           status: 'assinado',
           updated_at: new Date().toISOString()
         })
@@ -604,7 +690,7 @@ fiscal.post('/nfe/assinar-xml', async (c) => {
           operacao: 'assinar_xml',
           detalhes: {
             nfe_id: nfeId,
-            tamanho_xml: resultado.xmlAssinado.length
+            tamanho_xml: xmlAssinado.length
           },
           status: 'sucesso'
         });
@@ -614,8 +700,8 @@ fiscal.post('/nfe/assinar-xml', async (c) => {
     return c.json({
       success: true,
       data: {
-        xmlAssinado: resultado.xmlAssinado,
-        tamanho: resultado.xmlAssinado.length
+        xmlAssinado: xmlAssinado,
+        tamanho: xmlAssinado.length
       },
       message: 'XML assinado com sucesso'
     });

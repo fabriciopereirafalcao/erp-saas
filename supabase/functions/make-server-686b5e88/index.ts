@@ -69,6 +69,17 @@ try {
   danfe = null;
 }
 
+console.log('[INDEX] 🔍 Tentando import estático de Certificado...');
+let certificado;
+try {
+  certificado = await import('./certificado/routes.ts');
+  console.log('[INDEX] ✅ Import Certificado bem-sucedido!', typeof certificado.default);
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO no import Certificado:', error);
+  console.log('[INDEX] ⚠️ Continuando sem módulo Certificado...');
+  certificado = null;
+}
+
 console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
 
 const app = new Hono();
@@ -1116,6 +1127,15 @@ if (danfe) {
   console.log('[INDEX] 🔍 Registrando módulo DANFE...');
   app.route('/make-server-686b5e88/danfe', danfe.default);
   console.log('[INDEX] ✅ Rotas DANFE registradas!');
+}
+
+// =====================================================
+// CERTIFICADO ROUTES - Gerenciamento de Certificados
+// =====================================================
+if (certificado) {
+  console.log('[INDEX] 🔍 Registrando módulo Certificado...');
+  app.route('/make-server-686b5e88/certificado', certificado.default);
+  console.log('[INDEX] ✅ Rotas Certificado registradas!');
 }
 
 console.log('Todas as rotas registradas!');
