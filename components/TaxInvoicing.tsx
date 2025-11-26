@@ -13,7 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Switch } from "./ui/switch";
-import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle, Download, MoreVertical, Building2, Save, Info, HelpCircle, PenTool } from "lucide-react";
+import { Plus, Search, FileText, Send, CheckCircle, XCircle, Clock, AlertCircle, Download, MoreVertical, Building2, Save, Info, HelpCircle, PenTool, BarChart3 } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { toast } from "sonner@2.0.3";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
@@ -25,6 +25,7 @@ import { SignXmlDialog } from "./SignXmlDialog";
 import { TransmitirNFeDialog } from "./TransmitirNFeDialog";
 import { TesteSefazDialog } from "./TesteSefazDialog";
 import { NFeList } from "./NFeList";
+import { FiscalDashboard } from "./FiscalDashboard";
 import { buscarCodigoMunicipio } from "../utils/codigosMunicipios";
 
 // Tipos de dados fiscais
@@ -219,7 +220,7 @@ const BRAZILIAN_STATES = [
 export function TaxInvoicing() {
   const { salesOrders, customers, companySettings } = useERP();
   const { user, session } = useAuth();
-  const [activeMainTab, setActiveMainTab] = useState<"emissao" | "emitente">("emissao");
+  const [activeMainTab, setActiveMainTab] = useState<"emissao" | "dashboard" | "emitente">("emissao");
   const [activeEmitterTab, setActiveEmitterTab] = useState<"identificacao" | "nfe" | "nfce" | "sped" | "impostos">("identificacao");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1205,11 +1206,15 @@ export function TaxInvoicing() {
         </div>
       </div>
 
-      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as "emissao" | "emitente")}>
+      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as "emissao" | "dashboard" | "emitente")}>
         <TabsList className="mb-6">
           <TabsTrigger value="emissao" className="gap-2">
             <FileText className="w-4 h-4" />
             Emissão de Notas
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Dashboard Fiscal
           </TabsTrigger>
           <TabsTrigger value="emitente" className="gap-2">
             <Building2 className="w-4 h-4" />
@@ -1319,7 +1324,12 @@ export function TaxInvoicing() {
           </Card>
         </TabsContent>
 
-        {/* ABA 2: CADASTRO DE EMITENTE */}
+        {/* ABA 2: DASHBOARD FISCAL */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <FiscalDashboard />
+        </TabsContent>
+
+        {/* ABA 3: CADASTRO DE EMITENTE */}
         <TabsContent value="emitente" className="space-y-6">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">

@@ -47,6 +47,17 @@ try {
   nfePersistence = null;
 }
 
+console.log('[INDEX] 🔍 Tentando import estático de NFE Statistics...');
+let nfeStatistics;
+try {
+  nfeStatistics = await import('./nfe-statistics.tsx');
+  console.log('[INDEX] ✅ Import NFE Statistics bem-sucedido!', typeof nfeStatistics.default);
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO no import NFE Statistics:', error);
+  console.log('[INDEX] ⚠️ Continuando sem módulo NFE Statistics...');
+  nfeStatistics = null;
+}
+
 console.log('[INDEX] 🔍 DEPOIS dos imports - continuando...');
 
 const app = new Hono();
@@ -1076,6 +1087,15 @@ if (nfePersistence) {
   console.log('[INDEX] 🔍 Registrando módulo NFE Persistence...');
   app.route('/make-server-686b5e88', nfePersistence.default);
   console.log('[INDEX] ✅ Rotas NFE Persistence registradas!');
+}
+
+// =====================================================
+// NFE STATISTICS ROUTES - Estatísticas de NF-es
+// =====================================================
+if (nfeStatistics) {
+  console.log('[INDEX] 🔍 Registrando módulo NFE Statistics...');
+  app.route('/make-server-686b5e88', nfeStatistics.default);
+  console.log('[INDEX] ✅ Rotas NFE Statistics registradas!');
 }
 
 console.log('Todas as rotas registradas!');
