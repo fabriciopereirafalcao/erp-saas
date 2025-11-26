@@ -14,9 +14,12 @@
  */
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
-import forge from 'npm:node-forge@1.3.1';
-const { pki, md } = forge;
+import * as forge from 'npm:node-forge@1.3.1';
 import { extrairChaveECertificado } from './validator.tsx';
+
+// Acessar módulos do forge
+const pki = forge.pki;
+const md = forge.md;
 
 /**
  * Assina XML com certificado A1 real
