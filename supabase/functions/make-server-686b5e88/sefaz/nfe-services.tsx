@@ -268,19 +268,91 @@ function montarXmlConsultaRecibo(recibo: string, ambiente: Ambiente): string {
  */
 function processarRespostaConsultaRecibo(xmlResposta: string): ResultadoConsultaRecibo {
   try {
-    const status = extrairCodigoStatusSEFAZ(xmlResposta);
+    const statusLote = extrairCodigoStatusSEFAZ(xmlResposta);
     
-    if (!status) {
+    if (!statusLote) {
       return {
         success: false,
         erro: 'Não foi possível extrair status da resposta'
       };
     }
     
-    console.log(`📊 [SEFAZ] Status Consulta: ${status.codigo} - ${status.motivo}`);
+    console.log(`📊 [SEFAZ] Status do Lote: ${statusLote.codigo} - ${statusLote.motivo}`);
     
-    // Verificar se foi autorizado
-    if (status.codigo === '100') {
+    // Se código 105, ainda está processando
+    if (statusLote.codigo === '105') {
+      return {
+        success: true,
+        autorizado: false,
+        codigoStatus: statusLote.codigo,
+        mensagem: 'Lote ainda em processamento. Tente novamente em alguns segundos.'
+      };
+    }
+    
+    // Se código 104 (lote processado), verificar status da NF-e dentro do protNFe
+    if (statusLote.codigo === '104') {
+      // Extrair conteúdo do protNFe
+      const protNFeMatch = xmlResposta.match(/<protNFe[^>]*>([\s\S]*?)<\/protNFe>/);
+      
+      if (!protNFeMatch) {
+        return {
+          success: false,
+          erro: 'Lote processado mas protNFe não encontrado na resposta'
+        };
+      }
+      
+      const xmlProtNFe = protNFeMatch[0];
+      const conteudoProtNFe = protNFeMatch[1];
+      
+      // Extrair status DA NFe (dentro do protNFe)
+      const statusNFeMatch = conteudoProtNFe.match(/<cStat>(\d+)<\/cStat>/);
+      const motivoNFeMatch = conteudoProtNFe.match(/<xMotivo>([^<]+)<\/xMotivo>/);
+      
+      if (!statusNFeMatch || !motivoNFeMatch) {
+        return {
+          success: false,
+          erro: 'Não foi possível extrair status da NF-e do protocolo'
+        };
+      }
+      
+      const codigoNFe = statusNFeMatch[1];
+      const motivoNFe = motivoNFeMatch[1];
+      
+      console.log(`📊 [SEFAZ] Status da NF-e: ${codigoNFe} - ${motivoNFe}`);
+      
+      // Verificar se foi autorizada (código 100)
+      if (codigoNFe === '100') {
+        // Extrair protocolo de autorização
+        const protocoloMatch = conteudoProtNFe.match(/<nProt>(\d+)<\/nProt>/);
+        const protocolo = protocoloMatch ? protocoloMatch[1] : undefined;
+        
+        // Extrair data de autorização
+        const dataMatch = conteudoProtNFe.match(/<dhRecbto>([^<]+)<\/dhRecbto>/);
+        const dataAutorizacao = dataMatch ? dataMatch[1] : undefined;
+        
+        return {
+          success: true,
+          autorizado: true,
+          protocolo,
+          dataAutorizacao,
+          xmlProtocoloCompleto: xmlProtNFe,
+          codigoStatus: codigoNFe,
+          mensagem: motivoNFe
+        };
+      }
+      
+      // NF-e foi rejeitada
+      return {
+        success: false,
+        autorizado: false,
+        codigoStatus: codigoNFe,
+        mensagem: motivoNFe,
+        erro: `Rejeição ${codigoNFe}: ${motivoNFe}`
+      };
+    }
+    
+    // Se chegou aqui, verificar se o status do lote já indica autorização direta (código 100)
+    if (statusLote.codigo === '100') {
       // Extrair protocolo de autorização
       const protocoloMatch = xmlResposta.match(/<nProt>(\d+)<\/nProt>/);
       const protocolo = protocoloMatch ? protocoloMatch[1] : undefined;
@@ -299,28 +371,18 @@ function processarRespostaConsultaRecibo(xmlResposta: string): ResultadoConsulta
         protocolo,
         dataAutorizacao,
         xmlProtocoloCompleto: xmlProtocolo,
-        codigoStatus: status.codigo,
-        mensagem: status.motivo
+        codigoStatus: statusLote.codigo,
+        mensagem: statusLote.motivo
       };
     }
     
-    // Se código 105, ainda está processando
-    if (status.codigo === '105') {
-      return {
-        success: true,
-        autorizado: false,
-        codigoStatus: status.codigo,
-        mensagem: 'Lote ainda em processamento. Tente novamente em alguns segundos.'
-      };
-    }
-    
-    // Rejeição
+    // Rejeição do lote
     return {
       success: false,
       autorizado: false,
-      codigoStatus: status.codigo,
-      mensagem: status.motivo,
-      erro: `Rejeição ${status.codigo}: ${status.motivo}`
+      codigoStatus: statusLote.codigo,
+      mensagem: statusLote.motivo,
+      erro: `Rejeição ${statusLote.codigo}: ${statusLote.motivo}`
     };
     
   } catch (error: any) {
