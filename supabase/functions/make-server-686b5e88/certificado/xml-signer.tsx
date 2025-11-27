@@ -6,12 +6,12 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ SOLUÇÃO DEFINITIVA: forge.all.js (bundle UMD completo + conversão ESM)
+// ✅ SOLUÇÃO DEFINITIVA: unpkg + forge.all.min.js (bundle UMD completo)
 // @ts-ignore
-import forgeModule from "https://esm.sh/node-forge@1.3.1/dist/forge.all.js";
+import "https://unpkg.com/node-forge@1.3.1/dist/forge.all.min.js";
 
-// Normalizar
-const forge = forgeModule?.default || forgeModule;
+// forge exposto como global
+const forge = (globalThis as any).forge;
 
 // Verificação rápida
 if (!forge || !forge.pki || !forge.md || !forge.asn1) {

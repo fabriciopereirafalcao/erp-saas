@@ -8,14 +8,15 @@
  * ============================================================================
  */
 
-// ✅ SOLUÇÃO DEFINITIVA: forge.all.js (bundle UMD completo + conversão ESM)
-// Este arquivo inclui TODOS os submódulos (pkcs12, asn1, md, pki, util, etc)
-// Usamos esm.sh para converter UMD → ESM
+// ✅ SOLUÇÃO DEFINITIVA: unpkg + forge.all.min.js (bundle UMD completo)
+// unpkg.com expõe diretamente os arquivos /dist/ do npm
+// forge.all.min.js contém TODOS os submódulos (pkcs12, asn1, md, pki, util)
+// UMD funciona em Deno via globalThis
 // @ts-ignore
-import forgeModule from "https://esm.sh/node-forge@1.3.1/dist/forge.all.js";
+import "https://unpkg.com/node-forge@1.3.1/dist/forge.all.min.js";
 
-// Normalizar: forge.all.js exporta como default ou namespace
-const forge = forgeModule?.default || forgeModule;
+// forge.all.js expõe como global 'forge'
+const forge = (globalThis as any).forge;
 
 console.log('[CERT_VALIDATOR] 🔍 Forge carregado via esm.sh?bundle');
 console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
