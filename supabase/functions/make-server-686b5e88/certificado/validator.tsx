@@ -1,55 +1,22 @@
 /**
  * ============================================================================
- * VALIDADOR DE CERTIFICADO DIGITAL A1
+ * VALIDADOR DE CERTIFICADO DIGITAL A1 – SUPABASE EDGE (DENO)
  * ============================================================================
- * 
- * Valida e extrai informações de certificados digitais .pfx (A1)
- * 
- * Funcionalidades:
- * - Validação de formato .pfx
- * - Validação de senha
- * - Extração de CNPJ
- * - Validação de validade (não expirado)
- * - Extração de informações (nome, emissor, validade)
- * 
+ * Compatível com:
+ * - Supabase Edge Runtime (Deno 2.x)
+ * - Certificados A1 em .pfx
  * ============================================================================
  */
 
-// ✅ SOLUÇÃO DEFINITIVA: esm.sh com ?bundle força empacotamento COMPLETO
-// O ?bundle garante que TODOS os submódulos sejam incluídos (pkcs12, asn1, etc)
-// @ts-ignore
-import forge from "https://esm.sh/node-forge@1.3.1?bundle";
+// IMPORTAÇÃO CORRETA PARA DENO / SUPABASE EDGE
+// Build UMD completo — inclui pkcs12, rsa, asn1, md, pki, etc.
+// NÃO use esm.sh — ele remove submódulos internos!
+import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js";
 
-// LOGS DE DEBUG DETALHADOS
-console.log('[CERT_VALIDATOR] 🔍 Forge loaded via esm.sh?bundle');
-console.log('[CERT_VALIDATOR] 🔍 Forge type:', typeof forge);
-console.log('[CERT_VALIDATOR] 🔍 Forge is null?', forge === null);
-console.log('[CERT_VALIDATOR] 🔍 Forge is undefined?', forge === undefined);
+const pki = forge.pki;
+const asn1 = forge.asn1;
 
-if (forge) {
-  console.log('[CERT_VALIDATOR] 🔍 Forge keys (first 15):', Object.keys(forge).slice(0, 15));
-  console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
-  
-  if (forge.pki) {
-    console.log('[CERT_VALIDATOR] 🔍 forge.pki keys (first 15):', Object.keys(forge.pki).slice(0, 15));
-    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
-    
-    if (forge.pki.pkcs12) {
-      console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12));
-      console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 exists:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
-    } else {
-      console.error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 is undefined!');
-    }
-  } else {
-    console.error('[CERT_VALIDATOR] ❌ forge.pki is undefined!');
-  }
-} else {
-  console.error('[CERT_VALIDATOR] ❌ forge is null or undefined!');
-}
-
-// Agora todos os módulos estão disponíveis via forge:
-const asn1 = forge.asn1;  // ✅ Módulo asn1
-const pki = forge.pki;    // ✅ Módulo pki (com pkcs12 incluído!)
+/* ------------------------------------------------------------------------- */
 
 export interface CertificadoInfo {
   cnpj: string;
@@ -64,199 +31,125 @@ export interface CertificadoInfo {
 }
 
 /**
- * Valida e extrai informações de um certificado A1
+ * Converte Uint8Array → binary string (formato esperado pelo forge)
+ */
+function bufferToBinaryString(buf: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < buf.length; i++) {
+    binary += String.fromCharCode(buf[i]);
+  }
+  return binary;
+}
+
+/**
+ * ============================================================================
+ * VALIDAR CERTIFICADO PFX
+ * ============================================================================
  */
 export function validarCertificado(pfxBuffer: Uint8Array, senha: string): CertificadoInfo {
   try {
-    console.log('[CERT_VALIDATOR] Iniciando validação do certificado...');
-    console.log('[CERT_VALIDATOR] Tamanho do buffer:', pfxBuffer.length, 'bytes');
-    
-    // 1. Converter Uint8Array para string binária (forge espera string de bytes)
-    let binaryString = '';
-    for (let i = 0; i < pfxBuffer.length; i++) {
-      binaryString += String.fromCharCode(pfxBuffer[i]);
-    }
-    
-    console.log('[CERT_VALIDATOR] Binary string criada:', binaryString.length, 'chars');
-    
-    // 2. Decodificar ASN.1 diretamente da string binária
-    let decodedAsn1;
+    console.log("[CERT] Iniciando validação do certificado…");
+
+    const binary = bufferToBinaryString(pfxBuffer);
+
+    let asn;
     try {
-      // ✅ CORRETO: usar asn1.fromDer(), não pki.asn1.fromDer()
-      decodedAsn1 = asn1.fromDer(binaryString);
-      console.log('[CERT_VALIDATOR] ASN.1 decodificado com sucesso');
-    } catch (error: any) {
-      console.error('[CERT_VALIDATOR] Erro ao decodificar ASN.1:', error.message);
-      throw new Error('Formato de certificado inválido. Certifique-se de que é um arquivo .pfx válido.');
+      asn = asn1.fromDer(binary);
+      console.log("[CERT] ASN.1 decodificado.");
+    } catch (err) {
+      console.error("[CERT] Erro ASN.1:", err);
+      throw new Error("Arquivo .pfx inválido ou corrompido.");
     }
-    
-    // 3. Tentar abrir o PKCS#12 com a senha
+
     let p12;
     try {
-      // ✅ IMPORTANTE: usar { strict: false } para certificados brasileiros no Deno Edge
-      p12 = pki.pkcs12.pkcs12FromAsn1(decodedAsn1, senha, { strict: false });
-      console.log('[CERT_VALIDATOR] PKCS#12 aberto com sucesso');
-    } catch (error: any) {
-      console.error('[CERT_VALIDATOR] Erro ao abrir PKCS#12:', error.message);
-      throw new Error('Senha incorreta ou certificado corrompido.');
+      p12 = pki.pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
+      console.log("[CERT] PKCS#12 aberto.");
+    } catch (err) {
+      console.error("[CERT] Erro PKCS#12:", err);
+      throw new Error("Senha incorreta ou certificado corrompido.");
     }
-    
-    console.log('[CERT_VALIDATOR] Certificado decodificado com sucesso');
-    
-    // 4. Extrair bags de certificados
-    const certBags = p12.getBags({ bagType: pki.oids.certBag });
-    const certBag = certBags[pki.oids.certBag];
-    
-    if (!certBag || certBag.length === 0) {
-      throw new Error('Nenhum certificado encontrado no arquivo .pfx');
+
+    const certBag = p12.getBags({ bagType: pki.oids.certBag })[pki.oids.certBag]?.[0];
+
+    if (!certBag) {
+      throw new Error("Nenhum certificado encontrado no PFX.");
     }
-    
-    // Pegar o primeiro certificado (certificado do usuário)
-    const cert = certBag[0].cert;
-    
-    if (!cert) {
-      throw new Error('Certificado inválido no arquivo .pfx');
-    }
-    
-    console.log('[CERT_VALIDATOR] Certificado extraído:', cert.subject.attributes.map((a: any) => `${a.name}=${a.value}`).join(', '));
-    
-    // 5. Extrair informações do subject
-    const subjectAttrs = cert.subject.attributes;
-    
-    // Buscar CNPJ no campo serialNumber ou CN
-    let cnpj = '';
-    let razaoSocial = '';
-    
-    for (const attr of subjectAttrs) {
-      if (attr.name === 'serialNumber' || attr.shortName === 'serialNumber') {
-        // CNPJ geralmente vem no formato "CNPJ:00000000000000" ou direto "00000000000000"
-        const value = attr.value || '';
-        const match = value.match(/(\d{14})/);
-        if (match) {
-          cnpj = match[1];
-        }
+
+    const cert = certBag.cert;
+    const subject = cert.subject.attributes;
+
+    // Extrair CNPJ e Razão Social
+    let cnpj = "";
+    let razao = "";
+
+    for (const attr of subject) {
+      if (attr.name === "serialNumber") {
+        const match = attr.value.match(/\d{14}/);
+        if (match) cnpj = match[0];
       }
-      
-      if (attr.name === 'commonName' || attr.shortName === 'CN') {
-        razaoSocial = attr.value || '';
-        
-        // Algumas vezes o CNPJ vem junto com o CN
-        if (!cnpj) {
-          const match = (attr.value || '').match(/(\d{14})/);
-          if (match) {
-            cnpj = match[1];
-          }
-        }
+
+      if (attr.name === "commonName") {
+        razao = attr.value;
+        const match = attr.value.match(/\d{14}/);
+        if (match && !cnpj) cnpj = match[0];
       }
     }
-    
-    if (!cnpj) {
-      throw new Error('Não foi possível extrair o CNPJ do certificado. Certificado pode ser inválido para uso fiscal.');
-    }
-    
-    console.log('[CERT_VALIDATOR] CNPJ extraído:', cnpj);
-    
-    // 6. Validar validade
+
+    if (!cnpj) throw new Error("Não foi possível extrair o CNPJ do certificado.");
+
     const validoDe = new Date(cert.validity.notBefore);
     const validoAte = new Date(cert.validity.notAfter);
-    const agora = new Date();
-    
-    const isValido = agora >= validoDe && agora <= validoAte;
-    const diasRestantes = Math.ceil((validoAte.getTime() - agora.getTime()) / (1000 * 60 * 60 * 24));
-    
-    console.log('[CERT_VALIDATOR] Validade:', {
-      validoDe: validoDe.toISOString(),
-      validoAte: validoAte.toISOString(),
-      isValido,
-      diasRestantes
-    });
-    
+    const hoje = new Date();
+
+    const diasRestantes = Math.ceil((validoAte.getTime() - hoje.getTime()) / 86400000);
+    const isValido = hoje >= validoDe && hoje <= validoAte;
+
     if (!isValido) {
-      throw new Error(`Certificado expirado. Válido até: ${validoAte.toLocaleDateString('pt-BR')}`);
+      throw new Error(`Certificado expirado em ${validoAte.toLocaleDateString("pt-BR")}.`);
     }
-    
-    // 7. Extrair emissor
-    const issuerAttrs = cert.issuer.attributes;
-    let emissor = '';
-    for (const attr of issuerAttrs) {
-      if (attr.name === 'commonName' || attr.shortName === 'CN') {
-        emissor = attr.value || '';
-        break;
-      }
-    }
-    
-    // 8. Extrair serial number
-    const serialNumber = cert.serialNumber || '';
-    
-    console.log('[CERT_VALIDATOR] ✅ Validação concluída com sucesso!');
-    
+
+    const emissor = cert.issuer.attributes.find(a => a.name === "commonName")?.value ?? "";
+
     return {
       cnpj,
-      razaoSocial,
+      razaoSocial: razao,
       validoDe,
       validoAte,
       emissor,
-      serialNumber,
+      serialNumber: cert.serialNumber || "",
       tipoA1: true,
       isValido,
       diasRestantes
     };
-    
-  } catch (error: any) {
-    console.error('[CERT_VALIDATOR] Erro ao validar certificado:', error);
-    throw error;
+
+  } catch (err) {
+    console.error("[CERT] Erro final:", err);
+    throw err;
   }
 }
 
 /**
- * Extrai chave privada e certificado do .pfx para uso na assinatura
+ * ============================================================================
+ * EXTRAIR CHAVE PRIVADA + CERTIFICADO X.509
+ * ============================================================================
  */
 export function extrairChaveECertificado(pfxBuffer: Uint8Array, senha: string) {
-  try {
-    console.log('[CERT_VALIDATOR] Extraindo chave e certificado...');
-    
-    // 1. Converter Uint8Array para string binária (mesmo método do validarCertificado)
-    let binaryString = '';
-    for (let i = 0; i < pfxBuffer.length; i++) {
-      binaryString += String.fromCharCode(pfxBuffer[i]);
-    }
-    
-    // 2. Decodificar ASN.1 diretamente
-    // ✅ CORRETO: usar asn1.fromDer(), não pki.asn1.fromDer()
-    const decodedAsn1 = asn1.fromDer(binaryString);
-    
-    // 3. Abrir PKCS#12 com { strict: false } para certificados brasileiros
-    const p12 = pki.pkcs12.pkcs12FromAsn1(decodedAsn1, senha, { strict: false });
-    
-    // 4. Extrair chave privada
-    const keyBags = p12.getBags({ bagType: pki.oids.pkcs8ShroudedKeyBag });
-    const keyBag = keyBags[pki.oids.pkcs8ShroudedKeyBag];
-    
-    if (!keyBag || keyBag.length === 0) {
-      throw new Error('Chave privada não encontrada no certificado');
-    }
-    
-    const privateKey = keyBag[0].key;
-    
-    // 5. Extrair certificado
-    const certBags = p12.getBags({ bagType: pki.oids.certBag });
-    const certBag = certBags[pki.oids.certBag];
-    
-    if (!certBag || certBag.length === 0) {
-      throw new Error('Certificado não encontrado no arquivo .pfx');
-    }
-    
-    const certificate = certBag[0].cert;
-    
-    console.log('[CERT_VALIDATOR] ✅ Chave e certificado extraídos com sucesso');
-    
-    return {
-      privateKey,
-      certificate
-    };
-    
-  } catch (error: any) {
-    console.error('[CERT_VALIDATOR] Erro ao extrair chave e certificado:', error);
-    throw error;
-  }
+  console.log("[CERT] Extraindo chave privada…");
+
+  const binary = bufferToBinaryString(pfxBuffer);
+  const asn = asn1.fromDer(binary);
+
+  const p12 = pki.pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
+
+  const keyBag = p12.getBags({ bagType: pki.oids.pkcs8ShroudedKeyBag })[pki.oids.pkcs8ShroudedKeyBag]?.[0];
+  const certBag = p12.getBags({ bagType: pki.oids.certBag })[pki.oids.certBag]?.[0];
+
+  if (!keyBag) throw new Error("Chave privada não encontrada.");
+  if (!certBag) throw new Error("Certificado não encontrado.");
+
+  return {
+    privateKey: keyBag.key,
+    certificate: certBag.cert,
+  };
 }
