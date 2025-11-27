@@ -6,9 +6,17 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ SOLUÇÃO CORRETA: esm.sh com ?bundle
+// ✅ IMPORTAÇÃO ROBUSTA: namespace completo
 // @ts-ignore
-import forge from "https://esm.sh/node-forge@1.3.1?bundle";
+import * as forgeAll from "https://esm.sh/node-forge@1.3.1?bundle";
+
+// Normalizar: alguns CDNs exportam como default, outros como namespace
+const forge = (forgeAll as any).default || forgeAll;
+
+// Verificação rápida
+if (!forge || !forge.pki || !forge.md || !forge.asn1) {
+  throw new Error('[XML_SIGNER] ❌ node-forge módulos não disponíveis!');
+}
 
 const md = forge.md;
 const pki = forge.pki;

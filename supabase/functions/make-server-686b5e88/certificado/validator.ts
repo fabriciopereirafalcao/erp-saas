@@ -8,27 +8,46 @@
  * ============================================================================
  */
 
-// ✅ SOLUÇÃO CORRETA: esm.sh com ?bundle
-// O ?bundle força a inclusão de TODOS os submódulos (pkcs12, asn1, md, etc)
-// sem tree-shaking agressivo
+// ✅ IMPORTAÇÃO ROBUSTA: namespace completo para garantir todos os módulos
 // @ts-ignore
-import forge from "https://esm.sh/node-forge@1.3.1?bundle";
+import * as forgeAll from "https://esm.sh/node-forge@1.3.1?bundle";
+
+// Normalizar: alguns CDNs exportam como default, outros como namespace
+const forge = (forgeAll as any).default || forgeAll;
 
 console.log('[CERT_VALIDATOR] 🔍 Forge carregado via esm.sh?bundle');
 console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
+console.log('[CERT_VALIDATOR] 🔍 forge is null/undefined:', !forge);
 
-if (forge) {
-  console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
-  if (forge.pki) {
-    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
-    if (forge.pki.pkcs12) {
-      console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 type:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
-    }
-  }
+// ✅ VERIFICAÇÃO OBRIGATÓRIA antes de usar
+if (!forge) {
+  throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou! forge é undefined/null');
 }
+
+console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
+console.log('[CERT_VALIDATOR] 🔍 forge.asn1 exists:', !!forge.asn1);
+console.log('[CERT_VALIDATOR] 🔍 forge.util exists:', !!forge.util);
+
+if (!forge.pki) {
+  throw new Error('[CERT_VALIDATOR] ❌ forge.pki não existe! Import incorreto.');
+}
+
+if (!forge.pki.pkcs12) {
+  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 não existe! Bundle incompleto.');
+}
+
+console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12 || {}));
+
+if (!forge.pki.pkcs12.pkcs12FromAsn1) {
+  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12.pkcs12FromAsn1 não existe! Função crítica ausente.');
+}
+
+console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 type:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
+console.log('[CERT_VALIDATOR] ✅ Todos os módulos verificados e disponíveis!');
 
 const pki = forge.pki;
 const asn1 = forge.asn1;
+const util = forge.util;
 
 /* ------------------------------------------------------------------------- */
 
