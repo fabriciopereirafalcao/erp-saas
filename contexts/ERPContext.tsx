@@ -1215,6 +1215,132 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setSuppliers(suppliersData);
         }
         
+        // Carregar pedidos de venda
+        const salesOrdersData = await loadFromSupabase<SalesOrder[]>('salesOrders');
+        if (isSubscribed && salesOrdersData && salesOrdersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${salesOrdersData.length} pedidos de venda carregados`);
+          setSalesOrders(salesOrdersData);
+        }
+        
+        // Carregar pedidos de compra
+        const purchaseOrdersData = await loadFromSupabase<PurchaseOrder[]>('purchaseOrders');
+        if (isSubscribed && purchaseOrdersData && purchaseOrdersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${purchaseOrdersData.length} pedidos de compra carregados`);
+          setPurchaseOrders(purchaseOrdersData);
+        }
+        
+        // Carregar movimentações de estoque
+        const stockMovementsData = await loadFromSupabase<StockMovement[]>('stockMovements');
+        if (isSubscribed && stockMovementsData && stockMovementsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${stockMovementsData.length} movimentações de estoque carregadas`);
+          setStockMovements(stockMovementsData);
+        }
+        
+        // Carregar tabelas de preço
+        const priceTablesData = await loadFromSupabase<PriceTable[]>('priceTables');
+        if (isSubscribed && priceTablesData && priceTablesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${priceTablesData.length} tabelas de preço carregadas`);
+          setPriceTables(priceTablesData);
+        }
+        
+        // Carregar categorias de produtos
+        const productCategoriesData = await loadFromSupabase<string[]>('productCategories');
+        if (isSubscribed && productCategoriesData && productCategoriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${productCategoriesData.length} categorias de produtos carregadas`);
+          setProductCategories(productCategoriesData);
+        }
+        
+        // Carregar vendedores
+        const salespeopleData = await loadFromSupabase<Salesperson[]>('salespeople');
+        if (isSubscribed && salespeopleData && salespeopleData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${salespeopleData.length} vendedores carregados`);
+          setSalespeople(salespeopleData);
+        }
+        
+        // Carregar compradores
+        const buyersData = await loadFromSupabase<Buyer[]>('buyers');
+        if (isSubscribed && buyersData && buyersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${buyersData.length} compradores carregados`);
+          setBuyers(buyersData);
+        }
+        
+        // Carregar formas de pagamento
+        const paymentMethodsData = await loadFromSupabase<PaymentMethod[]>('paymentMethods');
+        if (isSubscribed && paymentMethodsData && paymentMethodsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${paymentMethodsData.length} formas de pagamento carregadas`);
+          setPaymentMethods(paymentMethodsData);
+        }
+        
+        // Carregar categorias de contas
+        const accountCategoriesData = await loadFromSupabase<AccountCategory[]>('accountCategories');
+        if (isSubscribed && accountCategoriesData && accountCategoriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
+          setAccountCategories(accountCategoriesData);
+        }
+        
+        // Carregar transações financeiras
+        const financialTransactionsData = await loadFromSupabase<FinancialTransaction[]>('financialTransactions');
+        if (isSubscribed && financialTransactionsData && financialTransactionsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${financialTransactionsData.length} transações financeiras carregadas`);
+          setFinancialTransactions(financialTransactionsData);
+        }
+        
+        // Carregar contas a receber
+        const accountsReceivableData = await loadFromSupabase<AccountReceivable[]>('accountsReceivable');
+        if (isSubscribed && accountsReceivableData && accountsReceivableData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
+          setAccountsReceivable(accountsReceivableData);
+        }
+        
+        // Carregar contas a pagar
+        const accountsPayableData = await loadFromSupabase<AccountPayable[]>('accountsPayable');
+        if (isSubscribed && accountsPayableData && accountsPayableData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
+          setAccountsPayable(accountsPayableData);
+        }
+        
+        // Carregar movimentações bancárias
+        const bankMovementsData = await loadFromSupabase<BankMovement[]>('bankMovements');
+        if (isSubscribed && bankMovementsData && bankMovementsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${bankMovementsData.length} movimentações bancárias carregadas`);
+          setBankMovements(bankMovementsData);
+        }
+        
+        // Carregar entradas de fluxo de caixa
+        const cashFlowEntriesData = await loadFromSupabase<CashFlowEntry[]>('cashFlowEntries');
+        if (isSubscribed && cashFlowEntriesData && cashFlowEntriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${cashFlowEntriesData.length} entradas de fluxo de caixa carregadas`);
+          setCashFlowEntries(cashFlowEntriesData);
+        }
+        
+        // Carregar problemas de auditoria
+        const auditIssuesData = await loadFromSupabase<AuditIssue[]>('auditIssues');
+        if (isSubscribed && auditIssuesData && auditIssuesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${auditIssuesData.length} problemas de auditoria carregados`);
+          setAuditIssues(auditIssuesData);
+        }
+        
+        // Carregar data da última análise
+        const lastAnalysisDateData = await loadFromSupabase<string>('lastAnalysisDate');
+        if (isSubscribed && lastAnalysisDateData) {
+          console.log(`[SUPABASE] ✅ Data da última análise carregada`);
+          setLastAnalysisDate(new Date(lastAnalysisDateData));
+        }
+        
+        // Carregar histórico da empresa
+        const companyHistoryData = await loadFromSupabase<CompanyHistoryEntry[]>('companyHistory');
+        if (isSubscribed && companyHistoryData && companyHistoryData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${companyHistoryData.length} entradas de histórico carregadas`);
+          setCompanyHistory(companyHistoryData);
+        }
+        
+        // Carregar status de reconciliação
+        const reconciliationStatusData = await loadFromSupabase<Record<string, boolean>>('reconciliationStatus');
+        if (isSubscribed && reconciliationStatusData) {
+          console.log(`[SUPABASE] ✅ Status de reconciliação carregado`);
+          setReconciliationStatus(reconciliationStatusData);
+        }
+        
         console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
         
       } catch (error) {
@@ -1231,11 +1357,31 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM SUPABASE ====================
   
-  // Sincroniza dados com Supabase em background (debounced)
+  // Sincroniza dados com Supabase em background (debounced 2s)
+  // FASE 1: Entidades principais
   useSupabaseSync('customers', customers, !!profile?.company_id);
   useSupabaseSync('inventory', inventory, !!profile?.company_id);
   useSupabaseSync('suppliers', suppliers, !!profile?.company_id);
   useSupabaseSync('salesOrders', salesOrders, !!profile?.company_id);
+  
+  // FASE 2: Entidades restantes
+  useSupabaseSync('purchaseOrders', purchaseOrders, !!profile?.company_id);
+  useSupabaseSync('stockMovements', stockMovements, !!profile?.company_id);
+  useSupabaseSync('priceTables', priceTables, !!profile?.company_id);
+  useSupabaseSync('productCategories', productCategories, !!profile?.company_id);
+  useSupabaseSync('salespeople', salespeople, !!profile?.company_id);
+  useSupabaseSync('buyers', buyers, !!profile?.company_id);
+  useSupabaseSync('paymentMethods', paymentMethods, !!profile?.company_id);
+  useSupabaseSync('accountCategories', accountCategories, !!profile?.company_id);
+  useSupabaseSync('financialTransactions', financialTransactions, !!profile?.company_id);
+  useSupabaseSync('accountsReceivable', accountsReceivable, !!profile?.company_id);
+  useSupabaseSync('accountsPayable', accountsPayable, !!profile?.company_id);
+  useSupabaseSync('bankMovements', bankMovements, !!profile?.company_id);
+  useSupabaseSync('cashFlowEntries', cashFlowEntries, !!profile?.company_id);
+  useSupabaseSync('auditIssues', auditIssues, !!profile?.company_id);
+  useSupabaseSync('lastAnalysisDate', lastAnalysisDate, !!profile?.company_id);
+  useSupabaseSync('companyHistory', companyHistory, !!profile?.company_id);
+  useSupabaseSync('reconciliationStatus', reconciliationStatus, !!profile?.company_id);
 
   // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
   
