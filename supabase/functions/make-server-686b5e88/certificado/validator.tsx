@@ -8,10 +8,24 @@
  * ============================================================================
  */
 
-// IMPORTAÇÃO CORRETA PARA DENO / SUPABASE EDGE
-// Build UMD completo — inclui pkcs12, rsa, asn1, md, pki, etc.
-// NÃO use esm.sh — ele remove submódulos internos!
-import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js";
+// ✅ SOLUÇÃO CORRETA: esm.sh com ?bundle
+// O ?bundle força a inclusão de TODOS os submódulos (pkcs12, asn1, md, etc)
+// sem tree-shaking agressivo
+// @ts-ignore
+import forge from "https://esm.sh/node-forge@1.3.1?bundle";
+
+console.log('[CERT_VALIDATOR] 🔍 Forge carregado via esm.sh?bundle');
+console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
+
+if (forge) {
+  console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
+  if (forge.pki) {
+    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
+    if (forge.pki.pkcs12) {
+      console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 type:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
+    }
+  }
+}
 
 const pki = forge.pki;
 const asn1 = forge.asn1;

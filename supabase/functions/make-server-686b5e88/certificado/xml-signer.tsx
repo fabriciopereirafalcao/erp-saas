@@ -6,8 +6,9 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// Mesma importação estável usada no validator:
-import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js";
+// ✅ SOLUÇÃO CORRETA: esm.sh com ?bundle
+// @ts-ignore
+import forge from "https://esm.sh/node-forge@1.3.1?bundle";
 
 const md = forge.md;
 const pki = forge.pki;
