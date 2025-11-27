@@ -8,12 +8,14 @@
  * ============================================================================
  */
 
-// ✅ IMPORTAÇÃO ROBUSTA: namespace completo para garantir todos os módulos
+// ✅ SOLUÇÃO DEFINITIVA: forge.all.js (bundle UMD completo + conversão ESM)
+// Este arquivo inclui TODOS os submódulos (pkcs12, asn1, md, pki, util, etc)
+// Usamos esm.sh para converter UMD → ESM
 // @ts-ignore
-import * as forgeAll from "https://esm.sh/node-forge@1.3.1?bundle";
+import forgeModule from "https://esm.sh/node-forge@1.3.1/dist/forge.all.js";
 
-// Normalizar: alguns CDNs exportam como default, outros como namespace
-const forge = (forgeAll as any).default || forgeAll;
+// Normalizar: forge.all.js exporta como default ou namespace
+const forge = forgeModule?.default || forgeModule;
 
 console.log('[CERT_VALIDATOR] 🔍 Forge carregado via esm.sh?bundle');
 console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);

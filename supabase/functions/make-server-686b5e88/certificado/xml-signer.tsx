@@ -6,12 +6,12 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ IMPORTAÇÃO ROBUSTA: namespace completo
+// ✅ SOLUÇÃO DEFINITIVA: forge.all.js (bundle UMD completo + conversão ESM)
 // @ts-ignore
-import * as forgeAll from "https://esm.sh/node-forge@1.3.1?bundle";
+import forgeModule from "https://esm.sh/node-forge@1.3.1/dist/forge.all.js";
 
-// Normalizar: alguns CDNs exportam como default, outros como namespace
-const forge = (forgeAll as any).default || forgeAll;
+// Normalizar
+const forge = forgeModule?.default || forgeModule;
 
 // Verificação rápida
 if (!forge || !forge.pki || !forge.md || !forge.asn1) {
