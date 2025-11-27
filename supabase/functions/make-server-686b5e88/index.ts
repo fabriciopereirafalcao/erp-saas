@@ -1145,6 +1145,159 @@ if (certificado) {
   console.error('[INDEX] ❌ MÓDULO CERTIFICADO NÃO CARREGADO! As rotas não serão registradas.');
 }
 
+// =====================================================
+// DATA PERSISTENCE ROUTES - KV Store para ERP
+// =====================================================
+console.log('[INDEX] 🔍 Registrando rotas de persistência de dados...');
+
+// GET - Carregar dados de uma chave específica
+app.get("/make-server-686b5e88/data/:key", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const key = c.req.param('key');
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar company_id do usuário
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Montar chave com company_id para isolamento
+    const fullKey = `erp_${profile.company_id}_${key}`;
+    
+    // Buscar do KV store
+    const value = await kv.get(fullKey);
+    
+    if (!value) {
+      return c.json({ data: null });
+    }
+    
+    return c.json({ 
+      success: true, 
+      data: value,
+      key: fullKey 
+    });
+    
+  } catch (error) {
+    console.error('[DATA] Erro ao carregar dados:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Salvar dados em uma chave específica
+app.post("/make-server-686b5e88/data/:key", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const key = c.req.param('key');
+    const { data } = await c.req.json();
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar company_id do usuário
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Montar chave com company_id para isolamento
+    const fullKey = `erp_${profile.company_id}_${key}`;
+    
+    // Salvar no KV store
+    await kv.set(fullKey, data);
+    
+    console.log(`[DATA] ✅ Dados salvos: ${fullKey} (${JSON.stringify(data).length} bytes)`);
+    
+    return c.json({ 
+      success: true, 
+      key: fullKey,
+      saved: true 
+    });
+    
+  } catch (error) {
+    console.error('[DATA] Erro ao salvar dados:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Remover dados de uma chave específica
+app.delete("/make-server-686b5e88/data/:key", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const key = c.req.param('key');
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar company_id do usuário
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Montar chave com company_id para isolamento
+    const fullKey = `erp_${profile.company_id}_${key}`;
+    
+    // Remover do KV store
+    await kv.del(fullKey);
+    
+    console.log(`[DATA] 🗑️ Dados removidos: ${fullKey}`);
+    
+    return c.json({ 
+      success: true, 
+      key: fullKey,
+      deleted: true 
+    });
+    
+  } catch (error) {
+    console.error('[DATA] Erro ao remover dados:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+console.log('[INDEX] ✅ Rotas de persistência registradas!');
 console.log('Todas as rotas registradas!');
 
 // =====================================================

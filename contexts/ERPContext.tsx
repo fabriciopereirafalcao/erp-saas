@@ -27,6 +27,7 @@ import { authGet, authPatch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
+import { useSupabaseSync, loadFromSupabase } from '../hooks/useSupabaseSync';
 
 // ==================== INTERFACES ====================
 
@@ -1181,9 +1182,64 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log(`✅ Migração concluída para company_id: ${companyId}`);
   }, [profile?.company_id]); // Executar apenas quando company_id mudar
 
-  // ==================== PERSISTÊNCIA AUTOMÁTICA ====================
+  // ==================== CARREGAMENTO INICIAL DO SUPABASE ====================
   
-  // Salva dados automaticamente no localStorage sempre que mudarem
+  // Carregar dados do Supabase ao fazer login (APENAS UMA VEZ)
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    
+    let isSubscribed = true;
+    
+    const loadInitialData = async () => {
+      try {
+        console.log('[SUPABASE] 📥 Carregando dados iniciais do Supabase...');
+        
+        // Carregar clientes
+        const customersData = await loadFromSupabase<Customer[]>('customers');
+        if (isSubscribed && customersData && customersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados`);
+          setCustomers(customersData);
+        }
+        
+        // Carregar inventário  
+        const inventoryData = await loadFromSupabase<InventoryItem[]>('inventory');
+        if (isSubscribed && inventoryData && inventoryData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${inventoryData.length} itens de inventário carregados`);
+          setInventory(inventoryData);
+        }
+        
+        // Carregar fornecedores
+        const suppliersData = await loadFromSupabase<Supplier[]>('suppliers');
+        if (isSubscribed && suppliersData && suppliersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${suppliersData.length} fornecedores carregados`);
+          setSuppliers(suppliersData);
+        }
+        
+        console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
+        
+      } catch (error) {
+        console.error('[SUPABASE] ❌ Erro ao carregar dados iniciais:', error);
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isSubscribed = false;
+    };
+  }, [profile?.company_id]); // Executar apenas quando company_id mudar (login)
+
+  // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM SUPABASE ====================
+  
+  // Sincroniza dados com Supabase em background (debounced)
+  useSupabaseSync('customers', customers, !!profile?.company_id);
+  useSupabaseSync('inventory', inventory, !!profile?.company_id);
+  useSupabaseSync('suppliers', suppliers, !!profile?.company_id);
+  useSupabaseSync('salesOrders', salesOrders, !!profile?.company_id);
+
+  // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
+  
+  // Salva dados automaticamente no localStorage como cache rápido
   useEffect(() => {
     if (!profile?.company_id) return;
     saveToStorage(getStorageKey(STORAGE_KEYS.CUSTOMERS, profile.company_id), customers);
