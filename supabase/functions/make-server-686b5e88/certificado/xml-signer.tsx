@@ -15,9 +15,9 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ TENTATIVA 2: Usar UNPKG que serve arquivos diretos do npm sem tree-shaking
+// ✅ SOLUÇÃO DEFINITIVA: JSDelivr com +esm que converte para ESM mantendo TODOS os módulos
 // @ts-ignore
-import forge from "https://unpkg.com/node-forge@1.3.1/dist/forge.min.js";
+import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/+esm";
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1

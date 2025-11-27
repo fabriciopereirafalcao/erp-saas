@@ -15,15 +15,16 @@
  * ============================================================================
  */
 
-// ✅ TENTATIVA 2: Usar UNPKG que serve arquivos diretos do npm sem tree-shaking
-// Importar o módulo principal do node-forge
+// ✅ SOLUÇÃO DEFINITIVA: JSDelivr com +esm que converte para ESM mantendo TODOS os módulos
+// JSDelivr +esm não faz tree-shaking agressivo como esm.sh
 // @ts-ignore
-import forge from "https://unpkg.com/node-forge@1.3.1/dist/forge.min.js";
+import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/+esm";
 
-console.log('[CERT_VALIDATOR] 🔍 Forge loaded via UNPKG');
-console.log('[CERT_VALIDATOR] 🔍 Forge keys:', Object.keys(forge));
-console.log('[CERT_VALIDATOR] 🔍 pki exists:', !!forge.pki);
-console.log('[CERT_VALIDATOR] 🔍 pki.pkcs12 exists:', !!(forge.pki && forge.pki.pkcs12));
+console.log('[CERT_VALIDATOR] 🔍 Forge loaded via JSDelivr +esm');
+console.log('[CERT_VALIDATOR] 🔍 Forge type:', typeof forge);
+console.log('[CERT_VALIDATOR] 🔍 Forge keys:', forge ? Object.keys(forge).slice(0, 10) : 'undefined');
+console.log('[CERT_VALIDATOR] 🔍 pki exists:', !!(forge && forge.pki));
+console.log('[CERT_VALIDATOR] 🔍 pki.pkcs12 exists:', !!(forge && forge.pki && forge.pki.pkcs12));
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1
