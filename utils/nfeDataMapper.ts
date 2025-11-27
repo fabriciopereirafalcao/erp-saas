@@ -24,6 +24,7 @@ export interface NFeFormData {
   serie: string;
   numero: string;
   naturezaOperacao: string;
+  ambiente?: number; // 1=Produção, 2=Homologação
   items: NFeItem[];
   informacoesAdicionais?: string;
 }
@@ -95,7 +96,7 @@ export function mapToNFeXMLData(
       tipo: 1, // 1=Saída
       finalidade: 1, // 1=Normal
       naturezaOperacao: formData.naturezaOperacao,
-      ambiente: 2, // 2=Homologação
+      ambiente: formData.ambiente || 2, // 1=Produção, 2=Homologação (default)
       tipoEmissao: 1, // 1=Normal
       modelo: 55, // 55=NF-e
       consumidorFinal: 1, // 1=Consumidor Final

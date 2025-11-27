@@ -84,6 +84,7 @@ export function TaxInvoicingModern() {
   const [naturezaOperacao, setNaturezaOperacao] = useState("Venda de mercadoria");
   const [serie, setSerie] = useState("1");
   const [numero, setNumero] = useState("1");
+  const [ambiente, setAmbiente] = useState<1 | 2>(2); // 1=Produção, 2=Homologação
   const [items, setItems] = useState<NFeItem[]>([]);
   const [informacoesAdicionais, setInformacoesAdicionais] = useState("");
   
@@ -303,6 +304,7 @@ export function TaxInvoicingModern() {
           serie,
           numero,
           naturezaOperacao,
+          ambiente,
           items,
           informacoesAdicionais
         },
@@ -373,9 +375,8 @@ export function TaxInvoicingModern() {
       // 5. TRANSMITIR PARA SEFAZ
       toast.loading("Transmitindo para SEFAZ...", { id: "emitir" });
       
-      // Extrair UF do emitente e ambiente da NF-e
+      // Extrair UF do emitente
       const uf = nfeData.emitente.estado || companySettings.state || "SP";
-      const ambiente = nfeData.identificacao.ambiente || 2; // 1=Produção, 2=Homologação
       
       const transmissaoResponse = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/sefaz/nfe/transmitir`,
@@ -442,7 +443,7 @@ export function TaxInvoicingModern() {
         const consultaData = await consultaResponse.json();
         console.log("[EMITIR] Consulta:", consultaData);
         
-        if (consultaData.success && consultaData.cStat === 100) {
+        if (consultaData.success && consultaData.data?.autorizado) {
           // 7. SALVAR NF-e AUTORIZADA
           await fetch(
             `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/salvar`,
@@ -462,17 +463,17 @@ export function TaxInvoicingModern() {
                 destinatario: nfeData.destinatario,
                 valorTotal: items.reduce((sum, i) => sum + i.totalValue, 0),
                 valorProdutos: items.reduce((sum, i) => sum + i.totalValue, 0),
-                xml: xmlData.xml,
-                xmlAssinado: assinaturaData.xmlAssinado,
-                protocolo: consultaData.nProt,
-                dataAutorizacao: new Date().toISOString()
+                xml: xmlData.data.xml,
+                xmlAssinado: assinaturaData.data.xmlAssinado,
+                protocolo: consultaData.data.protocolo,
+                dataAutorizacao: consultaData.data.dataAutorizacao || new Date().toISOString()
               })
             }
           );
 
           toast.success("NF-e autorizada com sucesso!", { 
             id: "emitir",
-            description: `Protocolo: ${consultaData.nProt}` 
+            description: `Protocolo: ${consultaData.data.protocolo}` 
           });
           
           // Limpar formulário
@@ -482,7 +483,7 @@ export function TaxInvoicingModern() {
           sugerirProximoNumero();
           
         } else {
-          throw new Error(consultaData.xMotivo || "NF-e rejeitada");
+          throw new Error(consultaData.data?.mensagem || consultaData.error || "NF-e rejeitada");
         }
       } else {
         // Sem recibo - verificar se foi autorizado imediatamente
@@ -634,6 +635,28 @@ export function TaxInvoicingModern() {
                         <SelectItem value="Venda de produção">Venda de produção</SelectItem>
                         <SelectItem value="Remessa para demonstração">Remessa para demonstração</SelectItem>
                         <SelectItem value="Devolução de mercadoria">Devolução de mercadoria</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Ambiente</Label>
+                    <Select value={ambiente.toString()} onValueChange={(v) => setAmbiente(parseInt(v) as 1 | 2)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-yellow-600">⚠️</span>
+                            <span>Homologação (Testes)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-600">✓</span>
+                            <span>Produção (Real)</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -878,6 +901,25 @@ export function TaxInvoicingModern() {
                 />
               </div>
 
+              {/* ALERTA DE AMBIENTE */}
+              {ambiente === 1 && (
+                <Alert className="border-red-300 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    <strong>ATENÇÃO:</strong> Você está em modo <strong>PRODUÇÃO</strong>. A NF-e será enviada oficialmente à SEFAZ e terá validade fiscal.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {ambiente === 2 && (
+                <Alert className="border-yellow-300 bg-yellow-50">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    Modo <strong>Homologação</strong> ativo. Esta NF-e é apenas para testes e não tem validade fiscal.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* BOTÕES DE AÇÃO */}
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button
@@ -895,7 +937,7 @@ export function TaxInvoicingModern() {
                 <Button
                   onClick={emitirNFe}
                   disabled={isTransmitting || !certificado?.ativo || items.length === 0 || !destinatarioId}
-                  className="bg-green-600 hover:bg-green-700"
+                  className={ambiente === 1 ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
                 >
                   {isTransmitting ? (
                     <>
@@ -905,7 +947,7 @@ export function TaxInvoicingModern() {
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
-                      Emitir e Transmitir NF-e
+                      {ambiente === 1 ? "⚠️ EMITIR EM PRODUÇÃO" : "Emitir e Transmitir NF-e"}
                     </>
                   )}
                 </Button>
