@@ -185,6 +185,17 @@ export function TaxInvoicingModern() {
   /*                       FUNÇÕES - GERENCIAR ITENS                         */
   /* ======================================================================= */
 
+  const limparFormulario = () => {
+    setDestinatarioId("");
+    setNaturezaOperacao("Venda de mercadoria");
+    setSerie("1");
+    setItems([]);
+    setInformacoesAdicionais("");
+    setActiveTab("emissao");
+    sugerirProximoNumero();
+    toast.success("Formulário limpo - Nova NF-e");
+  };
+
   const adicionarProduto = () => {
     const produto = inventory.find(p => p.id === selectedProductId);
     
@@ -515,7 +526,7 @@ export function TaxInvoicingModern() {
             <h1 className="text-3xl text-gray-900">Faturamento Fiscal</h1>
             <p className="text-gray-600">Emissão e gerenciamento de notas fiscais eletrônicas</p>
           </div>
-          <Button onClick={() => setActiveTab("emissao")} variant="default">
+          <Button onClick={limparFormulario} variant="default">
             <FileText className="h-4 w-4 mr-2" />
             Nova NF-e
           </Button>
@@ -917,7 +928,7 @@ export function TaxInvoicingModern() {
                 <SelectContent>
                   {inventory.map(produto => (
                     <SelectItem key={produto.id} value={produto.id}>
-                      {produto.name} - R$ {(produto.price || 0).toFixed(2)}
+                      {produto.name || produto.sku || 'Produto sem nome'} - R$ {(produto.price || 0).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>
