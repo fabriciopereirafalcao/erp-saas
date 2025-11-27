@@ -15,10 +15,9 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ CORREÇÃO DEFINITIVA: Usar CDN esm.sh que serve ESM completo para Deno
-// Isso garante que TODOS os módulos (incluindo pkcs12) estejam disponíveis
-// @ts-ignore - esm.sh não tem types perfeitos mas funciona
-import forge from "https://esm.sh/node-forge@1.3.1";
+// ✅ TENTATIVA 2: Usar UNPKG que serve arquivos diretos do npm sem tree-shaking
+// @ts-ignore
+import forge from "https://unpkg.com/node-forge@1.3.1/dist/forge.min.js";
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1

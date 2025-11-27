@@ -15,16 +15,19 @@
  * ============================================================================
  */
 
-// ✅ CORREÇÃO DEFINITIVA: Usar CDN esm.sh que serve ESM completo para Deno
-// Isso garante que TODOS os módulos (incluindo pkcs12) estejam disponíveis
-// @ts-ignore - esm.sh não tem types perfeitos mas funciona
-import forge from "https://esm.sh/node-forge@1.3.1";
+// ✅ TENTATIVA 2: Usar UNPKG que serve arquivos diretos do npm sem tree-shaking
+// Importar o módulo principal do node-forge
+// @ts-ignore
+import forge from "https://unpkg.com/node-forge@1.3.1/dist/forge.min.js";
+
+console.log('[CERT_VALIDATOR] 🔍 Forge loaded via UNPKG');
+console.log('[CERT_VALIDATOR] 🔍 Forge keys:', Object.keys(forge));
+console.log('[CERT_VALIDATOR] 🔍 pki exists:', !!forge.pki);
+console.log('[CERT_VALIDATOR] 🔍 pki.pkcs12 exists:', !!(forge.pki && forge.pki.pkcs12));
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1
 const pki = forge.pki;    // ✅ Módulo pki (com pkcs12 incluído!)
-
-console.log('[CERT_VALIDATOR] 🔍 Forge loaded. pkcs12 available:', !!(pki && pki.pkcs12));
 
 export interface CertificadoInfo {
   cnpj: string;
