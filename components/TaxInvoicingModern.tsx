@@ -282,7 +282,7 @@ export function TaxInvoicingModern() {
         return;
       }
 
-      if (!companySettings?.name || !companySettings?.cnpj) {
+      if (!companySettings?.companyName || !companySettings?.cnpj) {
         toast.error("Configure os dados da empresa em Configurações");
         return;
       }
@@ -306,15 +306,15 @@ export function TaxInvoicingModern() {
         // Emitente (da empresa)
         emitente: {
           cnpj: companySettings.cnpj.replace(/\D/g, ''),
-          razaoSocial: companySettings.name,
-          nomeFantasia: companySettings.name,
+          razaoSocial: companySettings.companyName,
+          nomeFantasia: companySettings.tradeName || companySettings.companyName,
           ie: companySettings.stateRegistration || "",
-          cep: companySettings.address?.split(',')[0] || "",
-          logradouro: companySettings.address || "",
-          numero: "SN",
-          bairro: "Centro",
-          cidade: "São Paulo",
-          uf: "SP"
+          cep: companySettings.zipCode || "",
+          logradouro: companySettings.street || "",
+          numero: companySettings.number || "SN",
+          bairro: companySettings.neighborhood || "Centro",
+          cidade: companySettings.city || "São Paulo",
+          uf: companySettings.state || "SP"
         },
         
         // Destinatário
@@ -641,12 +641,16 @@ export function TaxInvoicingModern() {
                   <Building2 className="h-5 w-5 mr-2 text-green-600" />
                   Emitente
                 </h3>
-                {companySettings?.name ? (
+                {companySettings?.companyName ? (
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-gray-600">Razão Social</Label>
-                        <p className="text-gray-900">{companySettings.name}</p>
+                        <p className="text-gray-900">{companySettings.companyName}</p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Nome Fantasia</Label>
+                        <p className="text-gray-900">{companySettings.tradeName || companySettings.companyName}</p>
                       </div>
                       <div>
                         <Label className="text-gray-600">CNPJ</Label>
@@ -656,9 +660,13 @@ export function TaxInvoicingModern() {
                         <Label className="text-gray-600">IE</Label>
                         <p className="text-gray-900">{companySettings.stateRegistration || "Não informado"}</p>
                       </div>
-                      <div>
+                      <div className="col-span-2">
                         <Label className="text-gray-600">Endereço</Label>
-                        <p className="text-gray-900">{companySettings.address || "Não informado"}</p>
+                        <p className="text-gray-900">
+                          {companySettings.street ? 
+                            `${companySettings.street}, ${companySettings.number || 'SN'}, ${companySettings.neighborhood || ''}, ${companySettings.city || ''} - ${companySettings.state || ''} ${companySettings.zipCode || ''}` 
+                            : "Não informado"}
+                        </p>
                       </div>
                     </div>
                   </div>
