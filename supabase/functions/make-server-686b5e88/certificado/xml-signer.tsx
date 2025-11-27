@@ -1,17 +1,23 @@
 /**
  * ============================================================================
  * ASSINADOR DIGITAL XML – PADRÃO SEFAZ
- * FORCE REDEPLOY: 2024-11-27 21:00:00 GMT - Switch to xmldom for compatibility
+ * FORCE REDEPLOY: 2024-11-27 21:15:00 GMT - Fix forge.md.sha1 API
  * ============================================================================
  */
 
 import { DOMParser, XMLSerializer } from "npm:xmldom@0.6.0";
+import { createHash } from "node:crypto";
 
 // ✅ SOLUÇÃO DEFINITIVA: npm: prefix (Deno 2.x nativo)
 // @ts-ignore
 import forge from "npm:node-forge@1.3.1";
 
 console.log('[XML_SIGNER] ✅ Forge importado via npm:');
+console.log('[XML_SIGNER] Verificando módulos do forge...');
+console.log('[XML_SIGNER] forge.pki:', typeof forge.pki);
+console.log('[XML_SIGNER] forge.md:', typeof forge.md);
+console.log('[XML_SIGNER] forge.md.sha1:', typeof forge.md?.sha1);
+console.log('[XML_SIGNER] forge.asn1:', typeof forge.asn1);
 
 // Verificação
 if (!forge || !forge.pki || !forge.md || !forge.asn1) {
@@ -62,10 +68,11 @@ export async function assinarXMLComCertificado(
   const infNFeXml = serializer.serializeToString(infNFe);
   const canonical = canonicalizarXML(infNFeXml);
 
-  // Digest do conteúdo
-  const sha1 = md.sha1.create();
-  sha1.update(canonical, "utf8");
-  const digestValue = btoa(sha1.digest().bytes());
+  console.log("[XML] Calculando digest SHA-1 do conteúdo...");
+  // Digest do conteúdo usando node:crypto
+  const hashContent = createHash('sha1');
+  hashContent.update(canonical, 'utf8');
+  const digestValue = hashContent.digest('base64');
 
   // SignedInfo
   const signedInfo =
@@ -84,13 +91,14 @@ export async function assinarXMLComCertificado(
 
   const signedInfoCanonical = canonicalizarXML(signedInfo);
 
-  // Digest do SignedInfo
-  const sha1SignedInfo = md.sha1.create();
-  sha1SignedInfo.update(signedInfoCanonical, "utf8");
-  const digestSignedInfo = sha1SignedInfo.digest();
-
-  // Assinatura RSA-SHA1
-  const assinatura = privateKey.sign(digestSignedInfo);
+  console.log("[XML] Calculando digest SHA-1 do SignedInfo com forge...");
+  // Usar forge.md.sha1 para criar o digest que o privateKey.sign() espera
+  const mdForSign = forge.md.sha1.create();
+  mdForSign.update(signedInfoCanonical, 'utf8');
+  
+  console.log("[XML] Assinando com RSA-SHA1...");
+  // Assinatura RSA usando o MessageDigest do forge
+  const assinatura = privateKey.sign(mdForSign);
   const signatureValue = btoa(assinatura);
 
   // Exportar certificado
