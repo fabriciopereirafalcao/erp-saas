@@ -290,6 +290,80 @@ app.delete("/:id", async (c) => {
 /*                          ROTAS - ESTATÍSTICAS                             */
 /* ========================================================================= */
 
+app.get("/estatisticas", async (c) => {
+  console.log('[NFE_PERSISTENCE] GET /estatisticas - Início');
+  
+  try {
+    const userId = c.req.header('x-user-id') || 'system';
+    const periodo = c.req.query('periodo') || 'mes';
+    const dataInicio = c.req.query('dataInicio');
+    const dataFim = c.req.query('dataFim');
+    
+    const prefix = `nfe:${userId}:`;
+    const nfes = await kv.getByPrefix(prefix);
+    
+    const parsed = nfes
+      .map(item => {
+        try {
+          return typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    
+    // Filtrar por período
+    let filtradas = parsed;
+    
+    if (periodo === 'custom' && dataInicio && dataFim) {
+      const inicio = new Date(dataInicio);
+      const fim = new Date(dataFim);
+      filtradas = parsed.filter(n => {
+        const data = new Date(n.createdAt);
+        return data >= inicio && data <= fim;
+      });
+    } else if (periodo === 'mes') {
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      filtradas = parsed.filter(n => new Date(n.createdAt) >= inicioMes);
+    } else if (periodo === 'ano') {
+      const hoje = new Date();
+      const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+      filtradas = parsed.filter(n => new Date(n.createdAt) >= inicioAno);
+    }
+    
+    // Calcular estatísticas
+    const stats = {
+      total: filtradas.length,
+      autorizadas: filtradas.filter(n => n.status === 'autorizada').length,
+      rejeitadas: filtradas.filter(n => n.status === 'rejeitada').length,
+      rascunhos: filtradas.filter(n => n.status === 'rascunho').length,
+      processando: filtradas.filter(n => n.status === 'processando').length,
+      canceladas: filtradas.filter(n => n.status === 'cancelada').length,
+      valorTotal: filtradas
+        .filter(n => n.status === 'autorizada')
+        .reduce((sum, n) => sum + (n.valorTotal || 0), 0),
+      valorCancelado: filtradas
+        .filter(n => n.status === 'cancelada')
+        .reduce((sum, n) => sum + (n.valorTotal || 0), 0),
+    };
+    
+    console.log('[NFE_PERSISTENCE] ✅ Estatísticas calculadas:', stats);
+    
+    return c.json({
+      success: true,
+      data: stats
+    });
+    
+  } catch (error) {
+    console.error('[NFE_PERSISTENCE] ❌ Erro ao calcular estatísticas:', error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    }, 500);
+  }
+});
+
 app.get("/stats/resumo", async (c) => {
   console.log('[NFE_PERSISTENCE] GET /stats/resumo - Início');
   

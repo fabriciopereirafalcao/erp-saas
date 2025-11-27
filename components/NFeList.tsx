@@ -161,8 +161,9 @@ export function NFeList({ onRefresh }: NFeListProps) {
         throw new Error(data.error || 'Erro ao carregar NF-es');
       }
 
-      setNfes(data.data.nfes);
-      console.log(`[NFE_LIST] ${data.data.total} NF-es carregadas`);
+      // API retorna { success: true, data: [...], count: N }
+      setNfes(data.data || []);
+      console.log(`[NFE_LIST] ${data.count || 0} NF-es carregadas`);
 
     } catch (error: any) {
       console.error('[NFE_LIST] Erro ao carregar:', error);
