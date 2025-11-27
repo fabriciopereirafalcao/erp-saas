@@ -1,11 +1,11 @@
 /**
  * ============================================================================
  * ASSINADOR DIGITAL XML – PADRÃO SEFAZ
- * FORCE REDEPLOY: 2024-11-27 20:50:00 GMT - Fix DOMParser MIME type
+ * FORCE REDEPLOY: 2024-11-27 21:00:00 GMT - Switch to xmldom for compatibility
  * ============================================================================
  */
 
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+import { DOMParser, XMLSerializer } from "npm:xmldom@0.6.0";
 
 // ✅ SOLUÇÃO DEFINITIVA: npm: prefix (Deno 2.x nativo)
 // @ts-ignore
@@ -39,23 +39,28 @@ export async function assinarXMLComCertificado(
 ): Promise<string> {
   
   console.log("[XML] Iniciando assinatura…");
+  console.log("[XML] Tamanho do XML recebido:", xmlString?.length || 0);
 
   const { privateKey, certificate } = extrairChaveECertificado(pfxBuffer, senha);
 
+  console.log("[XML] Fazendo parse do XML com xmldom...");
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlString);
+  const doc = parser.parseFromString(xmlString, "application/xml");
 
   if (!doc) throw new Error("Erro ao fazer parse do XML");
 
-  const infNFe = doc.querySelector("infNFe");
+  const infNFeElements = doc.getElementsByTagName("infNFe");
   
-  if (!infNFe) throw new Error("Elemento infNFe não encontrado.");
-
+  if (infNFeElements.length === 0) throw new Error("Elemento infNFe não encontrado.");
+  
+  const infNFe = infNFeElements[0];
   const id = infNFe.getAttribute("Id");
 
   if (!id) throw new Error("infNFe sem atributo Id.");
 
-  const canonical = canonicalizarXML(infNFe.toString());
+  const serializer = new XMLSerializer();
+  const infNFeXml = serializer.serializeToString(infNFe);
+  const canonical = canonicalizarXML(infNFeXml);
 
   // Digest do conteúdo
   const sha1 = md.sha1.create();
