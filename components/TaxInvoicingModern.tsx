@@ -211,10 +211,18 @@ export function TaxInvoicingModern() {
     }
 
     // Validar preço do produto
-    const precoUnitario = produto.price || 0;
+    const precoUnitario = produto.sellPrice || 0;
     if (precoUnitario <= 0) {
       toast.error("Produto sem preço cadastrado", {
-        description: "Configure o preço do produto no inventário"
+        description: "Configure o preço de venda do produto no inventário"
+      });
+      return;
+    }
+
+    // Validar estoque disponível
+    if (qtd > produto.currentStock) {
+      toast.error("Quantidade indisponível", {
+        description: `Estoque disponível: ${produto.currentStock} ${produto.unit || ''}`
       });
       return;
     }
@@ -222,16 +230,16 @@ export function TaxInvoicingModern() {
     const novoItem: NFeItem = {
       id: `item_${Date.now()}`,
       productId: produto.id,
-      productName: produto.name,
+      productName: produto.productName,
       ncm: produto.ncm || "00000000",
       cfop: productCFOP,
       quantity: qtd,
       unitValue: precoUnitario,
       totalValue: qtd * precoUnitario,
-      icmsAliquota: 18,
-      ipiAliquota: 0,
-      pisAliquota: 1.65,
-      cofinsAliquota: 7.6
+      icmsAliquota: produto.icmsRate || 18,
+      ipiAliquota: produto.ipiRate || 0,
+      pisAliquota: produto.pisRate || 1.65,
+      cofinsAliquota: produto.cofinsRate || 7.6
     };
 
     setItems([...items, novoItem]);
@@ -242,7 +250,7 @@ export function TaxInvoicingModern() {
     setProductCFOP("5102");
     setIsAddProductDialogOpen(false);
     
-    toast.success(`${produto.name} adicionado`);
+    toast.success(`${produto.productName} adicionado`);
   };
 
   const removerItem = (itemId: string) => {
@@ -932,8 +940,8 @@ export function TaxInvoicingModern() {
                     </div>
                   ) : (
                     inventory.map(produto => {
-                      const displayName = produto.name || produto.sku || produto.ncm || `Produto #${produto.id?.slice(0, 8)}`;
-                      const hasPrice = produto.price && produto.price > 0;
+                      const displayName = produto.productName || produto.id || produto.ncm || `Produto #${produto.id?.slice(0, 8)}`;
+                      const hasPrice = produto.sellPrice && produto.sellPrice > 0;
                       
                       return (
                         <SelectItem 
@@ -944,10 +952,9 @@ export function TaxInvoicingModern() {
                           <div className="flex items-center justify-between w-full">
                             <span className={!hasPrice ? "text-gray-400" : ""}>
                               {displayName}
-                              {produto.sku && produto.name && ` (${produto.sku})`}
                             </span>
                             <span className={`ml-4 ${!hasPrice ? "text-red-500" : "text-gray-600"}`}>
-                              {hasPrice ? `R$ ${produto.price.toFixed(2)}` : "Sem preço"}
+                              {hasPrice ? `R$ ${produto.sellPrice.toFixed(2)}` : "Sem preço"}
                             </span>
                           </div>
                         </SelectItem>
@@ -962,10 +969,10 @@ export function TaxInvoicingModern() {
               const produto = inventory.find(p => p.id === selectedProductId);
               return produto ? (
                 <div className="bg-gray-50 p-3 rounded text-sm space-y-1">
-                  <p><strong>Nome:</strong> {produto.name || <span className="text-gray-400 italic">Não informado</span>}</p>
-                  <p><strong>SKU:</strong> {produto.sku || <span className="text-gray-400 italic">Não informado</span>}</p>
-                  <p><strong>Estoque:</strong> {produto.quantity !== undefined ? produto.quantity : <span className="text-gray-400 italic">Não informado</span>}</p>
-                  <p><strong>Preço:</strong> {produto.price ? `R$ ${produto.price.toFixed(2)}` : <span className="text-red-500">Sem preço cadastrado</span>}</p>
+                  <p><strong>Nome:</strong> {produto.productName || <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>ID:</strong> {produto.id || <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>Estoque:</strong> {produto.currentStock !== undefined ? `${produto.currentStock} ${produto.unit || ''}` : <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>Preço Venda:</strong> {produto.sellPrice ? `R$ ${produto.sellPrice.toFixed(2)}` : <span className="text-red-500">Sem preço cadastrado</span>}</p>
                   <p><strong>NCM:</strong> {produto.ncm || <span className="text-gray-400 italic">Não informado</span>}</p>
                 </div>
               ) : null;
