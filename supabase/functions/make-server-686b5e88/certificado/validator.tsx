@@ -17,10 +17,23 @@ import forge from "npm:node-forge@1.3.1";
 
 console.log('[CERT_VALIDATOR] ✅ Forge importado via npm: (Deno 2.x)');
 console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
+console.log('[CERT_VALIDATOR] 🔍 forge keys:', Object.keys(forge || {}));
 
 // ✅ VERIFICAÇÃO: garantir que módulos estão disponíveis
 if (!forge || typeof forge !== 'object') {
   throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou corretamente!');
+}
+
+console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
+console.log('[CERT_VALIDATOR] 🔍 forge.pki type:', typeof forge.pki);
+
+if (forge.pki) {
+  console.log('[CERT_VALIDATOR] 🔍 forge.pki keys:', Object.keys(forge.pki || {}));
+  console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
+  
+  if (forge.pki.pkcs12) {
+    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12 || {}));
+  }
 }
 
 if (!forge.pki || !forge.pki.pkcs12) {
