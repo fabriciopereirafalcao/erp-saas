@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { authGet } from '../utils/authFetch';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { authGet, authPost } from '../utils/authFetch';
+import { projectId } from '../utils/supabase/info';
 
 /**
  * Hook para sincronização automática com Supabase
@@ -50,24 +50,11 @@ export function useSupabaseSync(
       try {
         isSavingRef.current = true;
         
-        const response = await fetch(
+        // Usar authPost que já gerencia token automaticamente
+        await authPost(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/${key}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${publicAnonKey}`,
-            },
-            body: JSON.stringify({ data }),
-          }
+          { data }
         );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Erro ao sincronizar');
-        }
-
-        const result = await response.json();
         
         // Atualizar referência de último sync bem-sucedido
         lastSyncedRef.current = dataString;
@@ -127,22 +114,11 @@ export async function loadFromSupabase<T>(key: string): Promise<T | null> {
  */
 export async function saveToSupabaseNow(key: string, data: any): Promise<boolean> {
   try {
-    const response = await fetch(
+    // Usar authPost que já gerencia token automaticamente
+    await authPost(
       `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/${key}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ data }),
-      }
+      { data }
     );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro ao salvar');
-    }
 
     console.log(`[SYNC] 💾 Salvo imediatamente: ${key}`);
     return true;
@@ -160,20 +136,13 @@ export async function saveToSupabaseNow(key: string, data: any): Promise<boolean
  */
 export async function deleteFromSupabase(key: string): Promise<boolean> {
   try {
-    const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/${key}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-      }
+    // Importar authDelete
+    const { authDelete } = await import('../utils/authFetch');
+    
+    // Usar authDelete que já gerencia token automaticamente
+    await authDelete(
+      `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/${key}`
     );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro ao deletar');
-    }
 
     console.log(`[SYNC] 🗑️ Removido do Supabase: ${key}`);
     return true;
