@@ -199,6 +199,15 @@ export function TaxInvoicingModern() {
       return;
     }
 
+    // Validar preço do produto
+    const precoUnitario = produto.price || 0;
+    if (precoUnitario <= 0) {
+      toast.error("Produto sem preço cadastrado", {
+        description: "Configure o preço do produto no inventário"
+      });
+      return;
+    }
+
     const novoItem: NFeItem = {
       id: `item_${Date.now()}`,
       productId: produto.id,
@@ -206,8 +215,8 @@ export function TaxInvoicingModern() {
       ncm: produto.ncm || "00000000",
       cfop: productCFOP,
       quantity: qtd,
-      unitValue: produto.price,
-      totalValue: qtd * produto.price,
+      unitValue: precoUnitario,
+      totalValue: qtd * precoUnitario,
       icmsAliquota: 18,
       ipiAliquota: 0,
       pisAliquota: 1.65,
@@ -751,10 +760,10 @@ export function TaxInvoicingModern() {
                             <TableCell>{item.cfop}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
                             <TableCell className="text-right">
-                              R$ {item.unitValue.toFixed(2)}
+                              R$ {(item.unitValue || 0).toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
-                              R$ {item.totalValue.toFixed(2)}
+                              R$ {(item.totalValue || 0).toFixed(2)}
                             </TableCell>
                             <TableCell>
                               <Button
@@ -908,7 +917,7 @@ export function TaxInvoicingModern() {
                 <SelectContent>
                   {inventory.map(produto => (
                     <SelectItem key={produto.id} value={produto.id}>
-                      {produto.name} - R$ {produto.price.toFixed(2)}
+                      {produto.name} - R$ {(produto.price || 0).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>
