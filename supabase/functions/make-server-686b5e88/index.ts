@@ -1108,8 +1108,10 @@ if (sefaz) {
 // =====================================================
 if (nfePersistence) {
   console.log('[INDEX] 🔍 Registrando módulo NFE Persistence...');
-  app.route('/make-server-686b5e88', nfePersistence.default);
-  console.log('[INDEX] ✅ Rotas NFE Persistence registradas!');
+  app.route('/make-server-686b5e88/nfe', nfePersistence.default);
+  console.log('[INDEX] ✅ Rotas NFE Persistence registradas em /make-server-686b5e88/nfe');
+} else {
+  console.error('[INDEX] ❌ MÓDULO NFE PERSISTENCE NÃO CARREGADO!');
 }
 
 // =====================================================
