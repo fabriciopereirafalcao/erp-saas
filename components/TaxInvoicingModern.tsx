@@ -30,6 +30,7 @@ import {
 import { useERP } from "../contexts/ERPContext";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner@2.0.3";
+import { mapToNFeXMLData } from "../utils/nfeDataMapper";
 import { projectId } from "../utils/supabase/info";
 import { NFeList } from "./NFeList";
 import { FiscalDashboard } from "./FiscalDashboard";
@@ -297,69 +298,17 @@ export function TaxInvoicingModern() {
       }
 
       // 2. PREPARAR DADOS DA NF-e
-      const nfeData = {
-        serie: parseInt(serie),
-        numero: parseInt(numero),
-        naturezaOperacao,
-        ambiente: "homologacao",
-        
-        // Emitente (da empresa)
-        emitente: {
-          cnpj: companySettings.cnpj.replace(/\D/g, ''),
-          razaoSocial: companySettings.companyName,
-          nomeFantasia: companySettings.tradeName || companySettings.companyName,
-          ie: companySettings.stateRegistration || "",
-          cep: companySettings.zipCode || "",
-          logradouro: companySettings.street || "",
-          numero: companySettings.number || "SN",
-          bairro: companySettings.neighborhood || "Centro",
-          cidade: companySettings.city || "São Paulo",
-          uf: companySettings.state || "SP"
+      const nfeData = mapToNFeXMLData(
+        {
+          serie,
+          numero,
+          naturezaOperacao,
+          items,
+          informacoesAdicionais
         },
-        
-        // Destinatário
-        destinatario: {
-          cpfCnpj: destinatario.document.replace(/\D/g, ''),
-          nome: destinatario.name,
-          ie: destinatario.stateRegistration || "",
-          cep: destinatario.address?.split(',')[0] || "",
-          logradouro: destinatario.address || "",
-          numero: "SN",
-          bairro: "Centro",
-          cidade: destinatario.city || "São Paulo",
-          uf: destinatario.state || "SP"
-        },
-        
-        // Itens
-        items: items.map((item, index) => ({
-          numero: index + 1,
-          codigo: item.productId,
-          descricao: item.productName,
-          ncm: item.ncm,
-          cfop: item.cfop,
-          quantidade: item.quantity,
-          valorUnitario: item.unitValue,
-          valorTotal: item.totalValue,
-          icms: {
-            aliquota: item.icmsAliquota,
-            valor: item.totalValue * (item.icmsAliquota / 100)
-          },
-          ipi: {
-            aliquota: item.ipiAliquota,
-            valor: item.totalValue * (item.ipiAliquota / 100)
-          },
-          pis: {
-            aliquota: item.pisAliquota,
-            valor: item.totalValue * (item.pisAliquota / 100)
-          },
-          cofins: {
-            aliquota: item.cofinsAliquota,
-            valor: item.totalValue * (item.cofinsAliquota / 100)
-          }
-        })),
-        
-        informacoesAdicionais
-      };
+        companySettings,
+        destinatario
+      );
 
       console.log("[EMITIR] Dados da NF-e:", nfeData);
 
