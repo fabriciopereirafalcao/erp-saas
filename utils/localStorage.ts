@@ -15,6 +15,8 @@ export const STORAGE_KEYS = {
   STOCK_MOVEMENTS: `${STORAGE_PREFIX}stock_movements`,
   PRICE_TABLES: `${STORAGE_PREFIX}price_tables`,
   PRODUCT_CATEGORIES: `${STORAGE_PREFIX}product_categories`,
+  SALESPEOPLE: `${STORAGE_PREFIX}salespeople`,
+  BUYERS: `${STORAGE_PREFIX}buyers`,
   PAYMENT_METHODS: `${STORAGE_PREFIX}payment_methods`,
   ACCOUNT_CATEGORIES: `${STORAGE_PREFIX}account_categories`,
   FINANCIAL_TRANSACTIONS: `${STORAGE_PREFIX}financial_transactions`,
@@ -23,6 +25,8 @@ export const STORAGE_KEYS = {
   BANK_MOVEMENTS: `${STORAGE_PREFIX}bank_movements`,
   CASH_FLOW_ENTRIES: `${STORAGE_PREFIX}cash_flow_entries`,
   COMPANY_SETTINGS: `${STORAGE_PREFIX}company_settings`,
+  COMPANY_HISTORY: `${STORAGE_PREFIX}company_history`,
+  RECONCILIATION_STATUS: `${STORAGE_PREFIX}reconciliation_status`,
   AUDIT_ISSUES: `${STORAGE_PREFIX}audit_issues`,
   LAST_ANALYSIS_DATE: `${STORAGE_PREFIX}last_analysis_date`,
 };

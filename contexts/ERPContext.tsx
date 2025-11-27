@@ -733,7 +733,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
   });
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => 
-    loadFromStorage('purchaseOrders', [])
+    loadFromStorage(STORAGE_KEYS.PURCHASE_ORDERS, [])
   );
   const [inventory, setInventory] = useState<InventoryItem[]>(() => 
     loadFromStorage(STORAGE_KEYS.INVENTORY, initialInventory)
@@ -773,7 +773,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     loadFromStorage(STORAGE_KEYS.PRODUCT_CATEGORIES, [])
   );
   const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
-    const loaded = loadFromStorage<Salesperson[]>('salespeople', []);
+    const loaded = loadFromStorage<Salesperson[]>(STORAGE_KEYS.SALESPEOPLE, []);
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -800,7 +800,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
-    const loaded = loadFromStorage<Buyer[]>('buyers', []);
+    const loaded = loadFromStorage<Buyer[]>(STORAGE_KEYS.BUYERS, []);
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -1125,12 +1125,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
 
   const [companyHistory, setCompanyHistory] = useState<CompanyHistoryEntry[]>(() =>
-    loadFromStorage('companyHistory', [])
+    loadFromStorage(STORAGE_KEYS.COMPANY_HISTORY, [])
   );
 
   // Estado de conciliação de saldos
   const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>(() =>
-    loadFromStorage('reconciliationStatus', {})
+    loadFromStorage(STORAGE_KEYS.RECONCILIATION_STATUS, {})
   );
 
   // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
@@ -1165,12 +1165,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.SUPPLIERS, suppliers, setSuppliers);
     migrateIfNeeded(STORAGE_KEYS.INVENTORY, inventory, setInventory);
     migrateIfNeeded(STORAGE_KEYS.SALES_ORDERS, salesOrders, setSalesOrders);
-    migrateIfNeeded('purchaseOrders', purchaseOrders, setPurchaseOrders);
+    migrateIfNeeded(STORAGE_KEYS.PURCHASE_ORDERS, purchaseOrders, setPurchaseOrders);
     migrateIfNeeded(STORAGE_KEYS.STOCK_MOVEMENTS, stockMovements, setStockMovements);
     migrateIfNeeded(STORAGE_KEYS.PRICE_TABLES, priceTables, setPriceTables);
     migrateIfNeeded(STORAGE_KEYS.PRODUCT_CATEGORIES, productCategories, setProductCategories);
-    migrateIfNeeded('salespeople', salespeople, setSalespeople);
-    migrateIfNeeded('buyers', buyers, setBuyers);
+    migrateIfNeeded(STORAGE_KEYS.SALESPEOPLE, salespeople, setSalespeople);
+    migrateIfNeeded(STORAGE_KEYS.BUYERS, buyers, setBuyers);
     migrateIfNeeded(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods, setPaymentMethods);
     migrateIfNeeded(STORAGE_KEYS.ACCOUNT_CATEGORIES, accountCategories, setAccountCategories);
     migrateIfNeeded(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, financialTransactions, setFinancialTransactions);
@@ -1178,6 +1178,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_PAYABLE, accountsPayable, setAccountsPayable);
     migrateIfNeeded(STORAGE_KEYS.BANK_MOVEMENTS, bankMovements, setBankMovements);
     migrateIfNeeded(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries, setCashFlowEntries);
+    migrateIfNeeded(STORAGE_KEYS.COMPANY_HISTORY, companyHistory, setCompanyHistory);
+    migrateIfNeeded(STORAGE_KEYS.RECONCILIATION_STATUS, reconciliationStatus, setReconciliationStatus);
 
     console.log(`✅ Migração concluída para company_id: ${companyId}`);
   }, [profile?.company_id]); // Executar apenas quando company_id mudar
@@ -1403,7 +1405,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('purchaseOrders', profile.company_id), purchaseOrders);
+    saveToStorage(getStorageKey(STORAGE_KEYS.PURCHASE_ORDERS, profile.company_id), purchaseOrders);
   }, [purchaseOrders, profile?.company_id]);
 
   useEffect(() => {
@@ -1428,12 +1430,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('salespeople', profile.company_id), salespeople);
+    saveToStorage(getStorageKey(STORAGE_KEYS.SALESPEOPLE, profile.company_id), salespeople);
   }, [salespeople, profile?.company_id]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('buyers', profile.company_id), buyers);
+    saveToStorage(getStorageKey(STORAGE_KEYS.BUYERS, profile.company_id), buyers);
   }, [buyers, profile?.company_id]);
 
   useEffect(() => {
@@ -1484,20 +1486,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   }, [companySettings, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('companyHistory', companyHistory);
-  }, [companyHistory]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.COMPANY_HISTORY, profile.company_id), companyHistory);
+  }, [companyHistory, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('reconciliationStatus', reconciliationStatus);
-  }, [reconciliationStatus]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.RECONCILIATION_STATUS, profile.company_id), reconciliationStatus);
+  }, [reconciliationStatus, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.AUDIT_ISSUES, auditIssues);
-  }, [auditIssues]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.AUDIT_ISSUES, profile.company_id), auditIssues);
+  }, [auditIssues, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.LAST_ANALYSIS_DATE, lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
-  }, [lastAnalysisDate]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
+  }, [lastAnalysisDate, profile?.company_id]);
 
   // ==================== INTEGRAÇÃO COM BACKEND ====================
   
