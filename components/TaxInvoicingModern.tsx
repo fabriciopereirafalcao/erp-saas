@@ -373,6 +373,10 @@ export function TaxInvoicingModern() {
       // 5. TRANSMITIR PARA SEFAZ
       toast.loading("Transmitindo para SEFAZ...", { id: "emitir" });
       
+      // Extrair UF do emitente e ambiente da NF-e
+      const uf = nfeData.emitente.estado || companySettings.state || "SP";
+      const ambiente = nfeData.identificacao.ambiente || 2; // 1=Produção, 2=Homologação
+      
       const transmissaoResponse = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/sefaz/nfe/transmitir`,
         {
@@ -382,7 +386,9 @@ export function TaxInvoicingModern() {
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            xmlAssinado: assinaturaData.data.xmlAssinado,
+            xml: assinaturaData.data.xmlAssinado,
+            uf: uf,
+            ambiente: ambiente,
             chaveAcesso: xmlData.data.chaveAcesso
           })
         }
@@ -416,7 +422,10 @@ export function TaxInvoicingModern() {
               "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({
-              nRec: transmissaoData.nRec,
+              recibo: transmissaoData.nRec,
+              uf: uf,
+              ambiente: ambiente,
+              xmlOriginal: assinaturaData.data.xmlAssinado,
               chaveAcesso: xmlData.data.chaveAcesso
             })
           }
