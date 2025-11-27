@@ -90,7 +90,7 @@ export function assinarXmlManual(
     
     // 1. Parse do XML
     const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlString, 'text/xml');
+    const doc = parser.parseFromString(xmlString, 'application/xml');
     
     // Verificar erros de parsing
     const parseError = doc.getElementsByTagName('parsererror');
@@ -178,7 +178,7 @@ export function assinarXmlManual(
     // 9. Inserir <Signature> no XML original
     // A tag <Signature> deve ser inserida como último filho de <infNFe>
     const serializer = new XMLSerializer();
-    const signatureDoc = parser.parseFromString(signature, 'text/xml');
+    const signatureDoc = parser.parseFromString(signature, 'application/xml');
     const signatureNode = signatureDoc.documentElement;
     
     // Importar node para o documento original
