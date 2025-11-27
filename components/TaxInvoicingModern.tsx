@@ -408,7 +408,9 @@ export function TaxInvoicingModern() {
       }
 
       // 6. CONSULTAR RESULTADO
-      if (transmissaoData.nRec) {
+      const recibo = transmissaoData.data?.recibo || transmissaoData.nRec;
+      
+      if (recibo) {
         toast.loading("Consultando resultado...", { id: "emitir" });
         
         await new Promise(resolve => setTimeout(resolve, 3000)); // Aguardar 3s
@@ -422,7 +424,7 @@ export function TaxInvoicingModern() {
               "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({
-              recibo: transmissaoData.nRec,
+              recibo: recibo,
               uf: uf,
               ambiente: ambiente,
               xmlOriginal: assinaturaData.data.xmlAssinado,
@@ -481,6 +483,26 @@ export function TaxInvoicingModern() {
           
         } else {
           throw new Error(consultaData.xMotivo || "NF-e rejeitada");
+        }
+      } else {
+        // Sem recibo - verificar se foi autorizado imediatamente
+        if (transmissaoData.data?.protocolo) {
+          toast.success("NF-e autorizada com sucesso!", { 
+            id: "emitir",
+            description: `Protocolo: ${transmissaoData.data.protocolo}` 
+          });
+          
+          // Limpar formulário
+          setItems([]);
+          setDestinatarioId("");
+          setInformacoesAdicionais("");
+          sugerirProximoNumero();
+        } else {
+          // Lote recebido mas sem recibo - caso incomum
+          toast.success("NF-e enviada com sucesso!", { 
+            id: "emitir",
+            description: transmissaoData.data?.mensagem || "Aguarde processamento pela SEFAZ" 
+          });
         }
       }
 
