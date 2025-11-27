@@ -15,9 +15,9 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ SOLUÇÃO DEFINITIVA: JSDelivr com +esm que converte para ESM mantendo TODOS os módulos
+// ✅ SOLUÇÃO DEFINITIVA: esm.sh com ?bundle força empacotamento COMPLETO
 // @ts-ignore
-import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/+esm";
+import forge from "https://esm.sh/node-forge@1.3.1?bundle";
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1

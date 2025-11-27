@@ -15,16 +15,37 @@
  * ============================================================================
  */
 
-// ✅ SOLUÇÃO DEFINITIVA: JSDelivr com +esm que converte para ESM mantendo TODOS os módulos
-// JSDelivr +esm não faz tree-shaking agressivo como esm.sh
+// ✅ SOLUÇÃO DEFINITIVA: esm.sh com ?bundle força empacotamento COMPLETO
+// O ?bundle garante que TODOS os submódulos sejam incluídos (pkcs12, asn1, etc)
 // @ts-ignore
-import forge from "https://cdn.jsdelivr.net/npm/node-forge@1.3.1/+esm";
+import forge from "https://esm.sh/node-forge@1.3.1?bundle";
 
-console.log('[CERT_VALIDATOR] 🔍 Forge loaded via JSDelivr +esm');
+// LOGS DE DEBUG DETALHADOS
+console.log('[CERT_VALIDATOR] 🔍 Forge loaded via esm.sh?bundle');
 console.log('[CERT_VALIDATOR] 🔍 Forge type:', typeof forge);
-console.log('[CERT_VALIDATOR] 🔍 Forge keys:', forge ? Object.keys(forge).slice(0, 10) : 'undefined');
-console.log('[CERT_VALIDATOR] 🔍 pki exists:', !!(forge && forge.pki));
-console.log('[CERT_VALIDATOR] 🔍 pki.pkcs12 exists:', !!(forge && forge.pki && forge.pki.pkcs12));
+console.log('[CERT_VALIDATOR] 🔍 Forge is null?', forge === null);
+console.log('[CERT_VALIDATOR] 🔍 Forge is undefined?', forge === undefined);
+
+if (forge) {
+  console.log('[CERT_VALIDATOR] 🔍 Forge keys (first 15):', Object.keys(forge).slice(0, 15));
+  console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
+  
+  if (forge.pki) {
+    console.log('[CERT_VALIDATOR] 🔍 forge.pki keys (first 15):', Object.keys(forge.pki).slice(0, 15));
+    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
+    
+    if (forge.pki.pkcs12) {
+      console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12));
+      console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 exists:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
+    } else {
+      console.error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 is undefined!');
+    }
+  } else {
+    console.error('[CERT_VALIDATOR] ❌ forge.pki is undefined!');
+  }
+} else {
+  console.error('[CERT_VALIDATOR] ❌ forge is null or undefined!');
+}
 
 // Agora todos os módulos estão disponíveis via forge:
 const asn1 = forge.asn1;  // ✅ Módulo asn1
