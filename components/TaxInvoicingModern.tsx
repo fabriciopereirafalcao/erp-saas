@@ -344,7 +344,7 @@ export function TaxInvoicingModern() {
       toast.loading("Assinando digitalmente...", { id: "emitir" });
       
       const assinaturaResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/fiscal/nfe/assinar-xml`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/fiscal/nfe/assinar`,
         {
           method: "POST",
           headers: {
@@ -352,8 +352,7 @@ export function TaxInvoicingModern() {
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            xml: xmlData.xml,
-            chaveAcesso: xmlData.chaveAcesso
+            xml: xmlData.data.xml
           })
         }
       );
@@ -383,8 +382,8 @@ export function TaxInvoicingModern() {
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            xmlAssinado: assinaturaData.xmlAssinado,
-            chaveAcesso: xmlData.chaveAcesso
+            xmlAssinado: assinaturaData.data.xmlAssinado,
+            chaveAcesso: xmlData.data.chaveAcesso
           })
         }
       );
@@ -418,7 +417,7 @@ export function TaxInvoicingModern() {
             },
             body: JSON.stringify({
               nRec: transmissaoData.nRec,
-              chaveAcesso: xmlData.chaveAcesso
+              chaveAcesso: xmlData.data.chaveAcesso
             })
           }
         );
@@ -445,7 +444,7 @@ export function TaxInvoicingModern() {
               body: JSON.stringify({
                 numero: parseInt(numero),
                 serie: parseInt(serie),
-                chaveAcesso: xmlData.chaveAcesso,
+                chaveAcesso: xmlData.data.chaveAcesso,
                 status: "autorizada",
                 ambiente: "homologacao",
                 emitente: nfeData.emitente,
