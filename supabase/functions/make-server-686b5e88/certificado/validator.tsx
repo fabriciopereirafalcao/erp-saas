@@ -15,15 +15,14 @@
  * ============================================================================
  */
 
+// ✅ CORREÇÃO DEFINITIVA: Importar diretamente do arquivo ESM completo
+// Isso garante que pkcs12 esteja incluído no Deno Edge
 // @deno-types="npm:@types/node-forge@1.3.1"
-import forgeModule from 'npm:node-forge@1.3.1';
+import * as forge from "npm:node-forge@1.3.1/dist/forge.esm.js";
 
-// No Deno, node-forge vem em .default
-const forge = (forgeModule as any).default || forgeModule;
-
-// IMPORTANTE: asn1 e pki são módulos SEPARADOS!
-const asn1 = forge.asn1;  // ✅ Módulo asn1 separado
-const pki = forge.pki;    // ✅ Módulo pki separado
+// Agora todos os módulos estão disponíveis:
+const asn1 = forge.asn1;  // ✅ Módulo asn1
+const pki = forge.pki;    // ✅ Módulo pki (com pkcs12 incluído!)
 
 export interface CertificadoInfo {
   cnpj: string;

@@ -15,16 +15,15 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
+// ✅ CORREÇÃO DEFINITIVA: Importar diretamente do arquivo ESM completo
+// Isso garante que pkcs12 esteja incluído no Deno Edge
 // @deno-types="npm:@types/node-forge@1.3.1"
-import forgeModule from 'npm:node-forge@1.3.1';
+import * as forge from "npm:node-forge@1.3.1/dist/forge.esm.js";
 
-// No Deno, node-forge vem em .default
-const forge = (forgeModule as any).default || forgeModule;
-
-// IMPORTANTE: asn1, pki e md são módulos SEPARADOS!
-const asn1 = forge.asn1;  // ✅ Módulo asn1 separado
-const pki = forge.pki;    // ✅ Módulo pki separado
-const md = forge.md;      // ✅ Módulo md separado
+// Agora todos os módulos estão disponíveis:
+const asn1 = forge.asn1;  // ✅ Módulo asn1
+const pki = forge.pki;    // ✅ Módulo pki (com pkcs12 incluído!)
+const md = forge.md;      // ✅ Módulo md
 
 import { extrairChaveECertificado } from './validator.tsx';
 
