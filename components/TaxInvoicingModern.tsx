@@ -327,10 +327,17 @@ export function TaxInvoicingModern() {
         }
       );
 
+      if (!xmlResponse.ok) {
+        const errorText = await xmlResponse.text();
+        console.error("[EMITIR] Erro HTTP ao gerar XML:", xmlResponse.status, errorText);
+        throw new Error(`Erro ao gerar XML (${xmlResponse.status}): ${errorText.substring(0, 100)}`);
+      }
+
       const xmlData = await xmlResponse.json();
+      console.log("[EMITIR] XML gerado:", xmlData);
       
       if (!xmlData.success) {
-        throw new Error(xmlData.error || "Erro ao gerar XML");
+        throw new Error(xmlData.error || xmlData.details || "Erro ao gerar XML");
       }
 
       // 4. ASSINAR XML
@@ -351,10 +358,17 @@ export function TaxInvoicingModern() {
         }
       );
 
+      if (!assinaturaResponse.ok) {
+        const errorText = await assinaturaResponse.text();
+        console.error("[EMITIR] Erro HTTP ao assinar XML:", assinaturaResponse.status, errorText);
+        throw new Error(`Erro ao assinar XML (${assinaturaResponse.status}): ${errorText.substring(0, 100)}`);
+      }
+
       const assinaturaData = await assinaturaResponse.json();
+      console.log("[EMITIR] XML assinado:", assinaturaData);
       
       if (!assinaturaData.success) {
-        throw new Error(assinaturaData.error || "Erro ao assinar XML");
+        throw new Error(assinaturaData.error || assinaturaData.details || "Erro ao assinar XML");
       }
 
       // 5. TRANSMITIR PARA SEFAZ
@@ -375,10 +389,17 @@ export function TaxInvoicingModern() {
         }
       );
 
+      if (!transmissaoResponse.ok) {
+        const errorText = await transmissaoResponse.text();
+        console.error("[EMITIR] Erro HTTP ao transmitir:", transmissaoResponse.status, errorText);
+        throw new Error(`Erro ao transmitir (${transmissaoResponse.status}): ${errorText.substring(0, 100)}`);
+      }
+
       const transmissaoData = await transmissaoResponse.json();
+      console.log("[EMITIR] Transmissão:", transmissaoData);
       
       if (!transmissaoData.success) {
-        throw new Error(transmissaoData.error || "Erro ao transmitir");
+        throw new Error(transmissaoData.error || transmissaoData.details || "Erro ao transmitir");
       }
 
       // 6. CONSULTAR RESULTADO
@@ -402,7 +423,14 @@ export function TaxInvoicingModern() {
           }
         );
 
+        if (!consultaResponse.ok) {
+          const errorText = await consultaResponse.text();
+          console.error("[EMITIR] Erro HTTP ao consultar recibo:", consultaResponse.status, errorText);
+          throw new Error(`Erro ao consultar recibo (${consultaResponse.status}): ${errorText.substring(0, 100)}`);
+        }
+
         const consultaData = await consultaResponse.json();
+        console.log("[EMITIR] Consulta:", consultaData);
         
         if (consultaData.success && consultaData.cStat === 100) {
           // 7. SALVAR NF-e AUTORIZADA

@@ -79,14 +79,18 @@ fiscal.post('/nfe/gerar-xml-direto', async (c) => {
     const { gerarXMLNFe, validarDadosNFe } = await import('../nfe-xml.tsx');
     
     // 4. Validar dados
+    console.log('[FISCAL_ROUTES] Validando dados recebidos...');
+    console.log('[FISCAL_ROUTES] Estrutura do body:', JSON.stringify(body, null, 2));
     const validacao = validarDadosNFe(body);
     if (!validacao.valido) {
+      console.error('[FISCAL_ROUTES] Dados inválidos:', validacao.erros);
       return c.json({
         success: false,
         error: 'Dados inválidos',
         erros: validacao.erros
       }, 400);
     }
+    console.log('[FISCAL_ROUTES] Dados validados com sucesso!');
     
     // 5. Gerar XML
     console.log('[FISCAL_ROUTES] Gerando XML...');
