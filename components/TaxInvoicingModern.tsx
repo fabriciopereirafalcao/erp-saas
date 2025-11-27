@@ -926,11 +926,34 @@ export function TaxInvoicingModern() {
                   <SelectValue placeholder="Selecione um produto..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {inventory.map(produto => (
-                    <SelectItem key={produto.id} value={produto.id}>
-                      {produto.name || produto.sku || 'Produto sem nome'} - R$ {(produto.price || 0).toFixed(2)}
-                    </SelectItem>
-                  ))}
+                  {inventory.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                      Nenhum produto cadastrado no inventário
+                    </div>
+                  ) : (
+                    inventory.map(produto => {
+                      const displayName = produto.name || produto.sku || produto.ncm || `Produto #${produto.id?.slice(0, 8)}`;
+                      const hasPrice = produto.price && produto.price > 0;
+                      
+                      return (
+                        <SelectItem 
+                          key={produto.id} 
+                          value={produto.id}
+                          disabled={!hasPrice}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={!hasPrice ? "text-gray-400" : ""}>
+                              {displayName}
+                              {produto.sku && produto.name && ` (${produto.sku})`}
+                            </span>
+                            <span className={`ml-4 ${!hasPrice ? "text-red-500" : "text-gray-600"}`}>
+                              {hasPrice ? `R$ ${produto.price.toFixed(2)}` : "Sem preço"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -938,10 +961,12 @@ export function TaxInvoicingModern() {
             {selectedProductId && (() => {
               const produto = inventory.find(p => p.id === selectedProductId);
               return produto ? (
-                <div className="bg-gray-50 p-3 rounded text-sm">
-                  <p><strong>SKU:</strong> {produto.sku}</p>
-                  <p><strong>Estoque:</strong> {produto.quantity}</p>
-                  <p><strong>NCM:</strong> {produto.ncm || "Não informado"}</p>
+                <div className="bg-gray-50 p-3 rounded text-sm space-y-1">
+                  <p><strong>Nome:</strong> {produto.name || <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>SKU:</strong> {produto.sku || <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>Estoque:</strong> {produto.quantity !== undefined ? produto.quantity : <span className="text-gray-400 italic">Não informado</span>}</p>
+                  <p><strong>Preço:</strong> {produto.price ? `R$ ${produto.price.toFixed(2)}` : <span className="text-red-500">Sem preço cadastrado</span>}</p>
+                  <p><strong>NCM:</strong> {produto.ncm || <span className="text-gray-400 italic">Não informado</span>}</p>
                 </div>
               ) : null;
             })()}
