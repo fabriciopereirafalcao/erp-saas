@@ -125,7 +125,7 @@ interface DadosDANFE {
  */
 export function extrairDadosDoXML(xmlString: string): DadosDANFE {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlString, 'text/xml');
+  const doc = parser.parseFromString(xmlString);
   
   if (!doc) {
     throw new Error('Erro ao fazer parse do XML');

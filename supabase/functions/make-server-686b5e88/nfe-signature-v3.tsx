@@ -6,7 +6,7 @@
  * Implementação manual de XML-DSig usando node:crypto diretamente.
  * Esta versão NÃO usa xml-crypto devido a problemas com formato de chave.
  * 
- * FORCE REDEPLOY: 2025-11-24 00:08:00 GMT
+ * FORCE REDEPLOY: 2024-11-27 20:45:00 GMT - Fix DOMParser MIME type
  * 
  * ============================================================================
  */

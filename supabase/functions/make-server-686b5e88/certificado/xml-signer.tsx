@@ -1,6 +1,7 @@
 /**
  * ============================================================================
  * ASSINADOR DIGITAL XML – PADRÃO SEFAZ
+ * FORCE REDEPLOY: 2024-11-27 20:50:00 GMT - Fix DOMParser MIME type
  * ============================================================================
  */
 
@@ -42,7 +43,7 @@ export async function assinarXMLComCertificado(
   const { privateKey, certificate } = extrairChaveECertificado(pfxBuffer, senha);
 
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlString, "text/xml");
+  const doc = parser.parseFromString(xmlString);
 
   if (!doc) throw new Error("Erro ao fazer parse do XML");
 
