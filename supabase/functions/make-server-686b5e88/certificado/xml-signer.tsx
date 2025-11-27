@@ -6,21 +6,18 @@
 
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
-// ✅ SOLUÇÃO DEFINITIVA: unpkg + forge.all.min.js (bundle UMD completo)
+// ✅ SOLUÇÃO DEFINITIVA: npm: prefix (Deno 2.x nativo)
 // @ts-ignore
-import "https://unpkg.com/node-forge@1.3.1/dist/forge.all.min.js";
+import forge from "npm:node-forge@1.3.1";
 
-// forge exposto como global
-const forge = (globalThis as any).forge;
+console.log('[XML_SIGNER] ✅ Forge importado via npm:');
 
-// Verificação rápida
+// Verificação
 if (!forge || !forge.pki || !forge.md || !forge.asn1) {
   throw new Error('[XML_SIGNER] ❌ node-forge módulos não disponíveis!');
 }
 
-const md = forge.md;
-const pki = forge.pki;
-const asn1 = forge.asn1;
+const { md, pki, asn1 } = forge;
 
 import { extrairChaveECertificado } from "./validator.tsx";
 

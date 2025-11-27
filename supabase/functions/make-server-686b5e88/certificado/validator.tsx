@@ -8,49 +8,29 @@
  * ============================================================================
  */
 
-// ✅ SOLUÇÃO DEFINITIVA: unpkg + forge.all.min.js (bundle UMD completo)
-// unpkg.com expõe diretamente os arquivos /dist/ do npm
-// forge.all.min.js contém TODOS os submódulos (pkcs12, asn1, md, pki, util)
-// UMD funciona em Deno via globalThis
+// ✅ SOLUÇÃO DEFINITIVA: npm: prefix (Deno 2.x nativo)
+// Suporta Deno 2.x (Supabase Edge Runtime v2.1.4+)
+// Importa node-forge diretamente do npm como módulo ESM
+// Sem dependências de jQuery, window ou globalThis
 // @ts-ignore
-import "https://unpkg.com/node-forge@1.3.1/dist/forge.all.min.js";
+import forge from "npm:node-forge@1.3.1";
 
-// forge.all.js expõe como global 'forge'
-const forge = (globalThis as any).forge;
-
-console.log('[CERT_VALIDATOR] 🔍 Forge carregado via esm.sh?bundle');
+console.log('[CERT_VALIDATOR] ✅ Forge importado via npm: (Deno 2.x)');
 console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
-console.log('[CERT_VALIDATOR] 🔍 forge is null/undefined:', !forge);
 
-// ✅ VERIFICAÇÃO OBRIGATÓRIA antes de usar
-if (!forge) {
-  throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou! forge é undefined/null');
+// ✅ VERIFICAÇÃO: garantir que módulos estão disponíveis
+if (!forge || typeof forge !== 'object') {
+  throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou corretamente!');
 }
 
-console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
-console.log('[CERT_VALIDATOR] 🔍 forge.asn1 exists:', !!forge.asn1);
-console.log('[CERT_VALIDATOR] 🔍 forge.util exists:', !!forge.util);
-
-if (!forge.pki) {
-  throw new Error('[CERT_VALIDATOR] ❌ forge.pki não existe! Import incorreto.');
+if (!forge.pki || !forge.pki.pkcs12) {
+  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 não disponível!');
 }
 
-if (!forge.pki.pkcs12) {
-  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 não existe! Bundle incompleto.');
-}
+console.log('[CERT_VALIDATOR] ✅ forge.pki.pkcs12 disponível');
+console.log('[CERT_VALIDATOR] ✅ Módulos verificados!');
 
-console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12 || {}));
-
-if (!forge.pki.pkcs12.pkcs12FromAsn1) {
-  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12.pkcs12FromAsn1 não existe! Função crítica ausente.');
-}
-
-console.log('[CERT_VALIDATOR] ✅ pkcs12FromAsn1 type:', typeof forge.pki.pkcs12.pkcs12FromAsn1);
-console.log('[CERT_VALIDATOR] ✅ Todos os módulos verificados e disponíveis!');
-
-const pki = forge.pki;
-const asn1 = forge.asn1;
-const util = forge.util;
+const { pki, asn1, util } = forge;
 
 /* ------------------------------------------------------------------------- */
 
