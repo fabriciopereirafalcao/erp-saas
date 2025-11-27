@@ -16,34 +16,23 @@
 import forge from "npm:node-forge@1.3.1";
 
 console.log('[CERT_VALIDATOR] ✅ Forge importado via npm: (Deno 2.x)');
-console.log('[CERT_VALIDATOR] 🔍 forge type:', typeof forge);
-console.log('[CERT_VALIDATOR] 🔍 forge keys:', Object.keys(forge || {}));
 
-// ✅ VERIFICAÇÃO: garantir que módulos estão disponíveis
+// ✅ ESTRUTURA CORRETA NO DENO:
+// - forge.pki (módulo pki)
+// - forge.pkcs12 (módulo pkcs12 SEPARADO, não dentro de pki!)
+// - forge.asn1, forge.md, forge.util, etc
+
 if (!forge || typeof forge !== 'object') {
-  throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou corretamente!');
+  throw new Error('[CERT_VALIDATOR] ❌ node-forge não carregou!');
 }
 
-console.log('[CERT_VALIDATOR] 🔍 forge.pki exists:', !!forge.pki);
-console.log('[CERT_VALIDATOR] 🔍 forge.pki type:', typeof forge.pki);
-
-if (forge.pki) {
-  console.log('[CERT_VALIDATOR] 🔍 forge.pki keys:', Object.keys(forge.pki || {}));
-  console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 exists:', !!forge.pki.pkcs12);
-  
-  if (forge.pki.pkcs12) {
-    console.log('[CERT_VALIDATOR] 🔍 forge.pki.pkcs12 keys:', Object.keys(forge.pki.pkcs12 || {}));
-  }
+if (!forge.pki || !forge.pkcs12 || !forge.asn1 || !forge.util) {
+  throw new Error('[CERT_VALIDATOR] ❌ Módulos necessários não disponíveis!');
 }
 
-if (!forge.pki || !forge.pki.pkcs12) {
-  throw new Error('[CERT_VALIDATOR] ❌ forge.pki.pkcs12 não disponível!');
-}
+console.log('[CERT_VALIDATOR] ✅ Todos os módulos disponíveis!');
 
-console.log('[CERT_VALIDATOR] ✅ forge.pki.pkcs12 disponível');
-console.log('[CERT_VALIDATOR] ✅ Módulos verificados!');
-
-const { pki, asn1, util } = forge;
+const { pki, pkcs12, asn1, util } = forge;
 
 /* ------------------------------------------------------------------------- */
 
@@ -92,7 +81,8 @@ export function validarCertificado(pfxBuffer: Uint8Array, senha: string): Certif
 
     let p12;
     try {
-      p12 = pki.pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
+      // ✅ CORREÇÃO: pkcs12 é módulo separado, não pki.pkcs12
+      p12 = pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
       console.log("[CERT] PKCS#12 aberto.");
     } catch (err) {
       console.error("[CERT] Erro PKCS#12:", err);
@@ -169,7 +159,8 @@ export function extrairChaveECertificado(pfxBuffer: Uint8Array, senha: string) {
   const binary = bufferToBinaryString(pfxBuffer);
   const asn = asn1.fromDer(binary);
 
-  const p12 = pki.pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
+  // ✅ CORREÇÃO: pkcs12 é módulo separado
+  const p12 = pkcs12.pkcs12FromAsn1(asn, senha, { strict: false });
 
   const keyBag = p12.getBags({ bagType: pki.oids.pkcs8ShroudedKeyBag })[pki.oids.pkcs8ShroudedKeyBag]?.[0];
   const certBag = p12.getBags({ bagType: pki.oids.certBag })[pki.oids.certBag]?.[0];
