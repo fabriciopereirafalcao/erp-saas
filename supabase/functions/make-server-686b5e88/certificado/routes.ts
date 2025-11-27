@@ -130,14 +130,18 @@ certificado.post('/upload', async (c) => {
     // 9. Salvar informações no KV Store (SEM a senha)
     const certKey = `certificado:${user.id}`;
     await kv.set(certKey, {
+      ativo: true, // Certificado ativo
+      titular: certInfo.razaoSocial,
       cnpj: certInfo.cnpj,
       razaoSocial: certInfo.razaoSocial,
+      validade: certInfo.validoAte.toISOString(), // Alias para compatibilidade
       validoDe: certInfo.validoDe.toISOString(),
       validoAte: certInfo.validoAte.toISOString(),
+      vencido: certInfo.diasRestantes <= 0,
+      diasRestantes: certInfo.diasRestantes,
       emissor: certInfo.emissor,
       serialNumber: certInfo.serialNumber,
       tipoA1: certInfo.tipoA1,
-      diasRestantes: certInfo.diasRestantes,
       storageFileName: fileName,
       uploadedAt: new Date().toISOString()
     });
@@ -209,23 +213,29 @@ certificado.get('/info', async (c) => {
     }
     
     // 3. Recalcular dias restantes
-    const validoAte = new Date(certInfo.validoAte);
+    const validoAte = new Date(certInfo.validoAte || certInfo.validade);
     const agora = new Date();
     const diasRestantes = Math.ceil((validoAte.getTime() - agora.getTime()) / (1000 * 60 * 60 * 24));
     const isValido = diasRestantes > 0;
+    const vencido = diasRestantes <= 0;
     
     // 4. Aviso de vencimento
     const avisoVencimento = diasRestantes < 30 && diasRestantes > 0 ? 
       `⚠️ ATENÇÃO: Certificado expira em ${diasRestantes} dias!` : 
-      diasRestantes <= 0 ? '❌ CERTIFICADO EXPIRADO!' : null;
+      vencido ? '❌ CERTIFICADO EXPIRADO!' : null;
     
     return c.json({
       success: true,
       data: {
-        ...certInfo,
+        ativo: certInfo.ativo !== false && isValido, // Ativo se não expirado
+        titular: certInfo.titular || certInfo.razaoSocial,
+        cnpj: certInfo.cnpj,
+        validade: certInfo.validade || certInfo.validoAte,
+        vencido,
         diasRestantes,
         isValido,
-        avisoVencimento
+        avisoVencimento,
+        ...certInfo
       }
     });
     

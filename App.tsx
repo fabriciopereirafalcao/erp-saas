@@ -83,8 +83,8 @@ const CompanySettings = lazy(() =>
   })),
 );
 const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicing.tsx").then((m) => ({
-    default: m.TaxInvoicing,
+  import("./components/TaxInvoicingModern.tsx").then((m) => ({
+    default: m.TaxInvoicingModern,
   })),
 );
 const UsersPermissions = lazy(() =>
