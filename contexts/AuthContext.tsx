@@ -133,6 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (!silent) {
             console.log(`[AuthContext] ✅ Query completou em ${elapsed}ms`);
+            console.log(`[AuthContext] 📊 Resposta:`, data);
+            console.log(`[AuthContext] 📊 Tipo:`, Array.isArray(data) ? 'array' : typeof data);
+            console.log(`[AuthContext] 📊 Length:`, data?.length);
           }
           
           // Retornar no mesmo formato do Supabase client
