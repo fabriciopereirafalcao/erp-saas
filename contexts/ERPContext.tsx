@@ -1189,6 +1189,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
     
     // Carregar todos os dados do cache (se existirem)
+    // IMPORTANTE: Usar valores default apenas para dados que não devem começar vazios
     setCustomers(loadCached(STORAGE_KEYS.CUSTOMERS, []));
     setSuppliers(loadCached(STORAGE_KEYS.SUPPLIERS, []));
     setInventory(loadCached(STORAGE_KEYS.INVENTORY, []));
@@ -1199,8 +1200,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     setProductCategories(loadCached(STORAGE_KEYS.PRODUCT_CATEGORIES, []));
     setSalespeople(loadCached(STORAGE_KEYS.SALESPEOPLE, []));
     setBuyers(loadCached(STORAGE_KEYS.BUYERS, []));
-    setPaymentMethods(loadCached(STORAGE_KEYS.PAYMENT_METHODS, []));
-    setAccountCategories(loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, []));
+    
+    // Dados com valores default (sempre carregar do cache ou usar default)
+    const cachedPaymentMethods = loadCached(STORAGE_KEYS.PAYMENT_METHODS, initialPaymentMethods);
+    setPaymentMethods(cachedPaymentMethods);
+    console.log(`[CACHE] 📋 Payment Methods: ${cachedPaymentMethods.length} items`);
+    
+    const cachedAccountCategories = loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, initialAccountCategories);
+    setAccountCategories(cachedAccountCategories);
+    console.log(`[CACHE] 📋 Account Categories: ${cachedAccountCategories.length} items`);
+    
     setFinancialTransactions(loadCached(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []));
     setAccountsReceivable(loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []));
     setAccountsPayable(loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []));
