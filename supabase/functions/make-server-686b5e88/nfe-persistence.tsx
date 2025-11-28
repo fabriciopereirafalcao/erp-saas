@@ -23,6 +23,7 @@ interface NFe {
   chaveAcesso: string;
   status: 'rascunho' | 'processando' | 'autorizada' | 'rejeitada' | 'cancelada';
   ambiente: 'homologacao' | 'producao';
+  naturezaOperacao?: string; // Natureza da operação (ex: "Venda de mercadoria")
   
   // Dados da NF-e
   emitente: {
@@ -30,14 +31,20 @@ interface NFe {
     razaoSocial: string;
   };
   destinatario: {
-    cpfCnpj: string;
-    nome: string;
+    cpfCnpj?: string;
+    cnpj?: string;
+    nome?: string;
+    razaoSocial?: string;
   };
   
-  // Valores
-  valorTotal: number;
-  valorProdutos: number;
+  // Valores (aceita múltiplos formatos)
+  valorTotal?: number;
+  valorProdutos?: number;
   valorTributos?: number;
+  valores?: {
+    totalNFe?: number;
+    totalProdutos?: number;
+  };
   
   // XML e assinatura
   xml?: string;
@@ -47,7 +54,9 @@ interface NFe {
   protocolo?: string;
   dataAutorizacao?: string;
   motivoRejeicao?: string;
+  mensagemStatus?: string;
   codigoStatus?: number; // cStat SEFAZ
+  totalEventos?: number;
   
   // Metadata
   createdAt: string;
@@ -77,10 +86,38 @@ app.get("/listar", async (c) => {
     const parsed = nfes
       .map(item => {
         try {
-          return typeof item.value === 'string' 
+          const nfe = typeof item.value === 'string' 
             ? JSON.parse(item.value) 
             : item.value;
-        } catch {
+          
+          // Mapear para formato esperado pelo frontend (NFeSummary)
+          return {
+            id: nfe.id,
+            chave: nfe.chaveAcesso || '',
+            numero: String(nfe.numero || ''),
+            serie: String(nfe.serie || ''),
+            modelo: '55', // NF-e padrão
+            natureza: nfe.naturezaOperacao || 'Venda',
+            destinatario: {
+              nome: nfe.destinatario?.nome || nfe.destinatario?.razaoSocial || 'N/A',
+              cpfCnpj: nfe.destinatario?.cpfCnpj || nfe.destinatario?.cnpj || 'N/A'
+            },
+            valores: {
+              totalProdutos: nfe.valorProdutos || nfe.valores?.totalProdutos || 0,
+              totalNFe: nfe.valorTotal || nfe.valores?.totalNFe || 0
+            },
+            status: nfe.status || 'rascunho',
+            codigoStatus: nfe.codigoStatus ? String(nfe.codigoStatus) : undefined,
+            mensagemStatus: nfe.motivoRejeicao || nfe.mensagemStatus,
+            protocolo: nfe.protocolo,
+            dataAutorizacao: nfe.dataAutorizacao,
+            ambiente: nfe.ambiente === 'producao' ? 1 : 2,
+            createdAt: nfe.createdAt,
+            updatedAt: nfe.updatedAt,
+            totalEventos: nfe.totalEventos || 0
+          };
+        } catch (e) {
+          console.error('[NFE_PERSISTENCE] Erro ao parsear item:', e);
           return null;
         }
       })

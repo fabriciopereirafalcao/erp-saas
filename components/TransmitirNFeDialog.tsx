@@ -231,15 +231,25 @@ export function TransmitirNFeDialog({
                   "Authorization": `Bearer ${accessToken}`
                 },
                 body: JSON.stringify({
-                  nfe: {
-                    id: nfeId,
-                    chave: nfeId, // TODO: extrair do XML
-                    status: "autorizada",
-                    protocolo: consultarData.data.protocolo,
-                    dataAutorizacao: consultarData.data.dataAutorizacao,
-                    xmlAutorizado: consultarData.data.xmlAutorizado,
-                    ambiente: parseInt(ambiente)
-                  }
+                  id: nfeId,
+                  numero: parseInt(numeroNfe),
+                  serie: parseInt(serieNfe),
+                  chaveAcesso: nfeId, // TODO: extrair do XML
+                  status: "autorizada",
+                  protocolo: consultarData.data.protocolo,
+                  dataAutorizacao: consultarData.data.dataAutorizacao,
+                  xmlAssinado: consultarData.data.xmlAutorizado,
+                  ambiente: ambiente === "1" ? "producao" : "homologacao",
+                  emitente: {
+                    cnpj: companySettings?.cnpj || "",
+                    razaoSocial: companySettings?.razaoSocial || ""
+                  },
+                  destinatario: {
+                    cpfCnpj: "00000000000", // TODO: buscar do contexto
+                    nome: "Cliente" // TODO: buscar do contexto
+                  },
+                  valorTotal: 0, // TODO: calcular
+                  valorProdutos: 0 // TODO: calcular
                 })
               }
             );

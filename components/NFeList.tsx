@@ -413,13 +413,13 @@ export function NFeList({ onRefresh }: NFeListProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                       <div>
                         <p className="text-sm text-gray-500">Destinatário</p>
-                        <p className="text-gray-900">{nfe.destinatario.nome}</p>
-                        <p className="text-xs text-gray-500">{nfe.destinatario.cpfCnpj}</p>
+                        <p className="text-gray-900">{nfe.destinatario?.nome || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">{nfe.destinatario?.cpfCnpj || 'N/A'}</p>
                       </div>
 
                       <div>
                         <p className="text-sm text-gray-500">Valor Total</p>
-                        <p className="text-lg text-gray-900">{formatarValor(nfe.valores.totalNFe)}</p>
+                        <p className="text-lg text-gray-900">{formatarValor(nfe.valores?.totalNFe || 0)}</p>
                       </div>
 
                       <div>
