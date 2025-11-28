@@ -93,29 +93,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // ⚡ DEPOIS: Validar com Supabase em background (timeout 5s)
+      // ⚡ DEPOIS: Validar com Supabase em background (timeout 10s)
       const queryStartTime = performance.now();
-      if (!silent) {
-        console.log(`[AuthContext] 🔍 Iniciando validação rápida (userId: ${userId})`);
-      }
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => {
           const elapsed = Math.round(performance.now() - queryStartTime);
           reject(new Error(`Timeout ao carregar perfil (${elapsed}ms)`));
-        }, 5000) // 5s ao invés de 15s
+        }, 10000)
       );
       
-      // 🚀 SOLUÇÃO: Usar fetch() direto para evitar auto-refresh de 15s do Supabase
-      // Isso bypassa o _recoverAndRefresh automático que está causando lentidão
+      // 🚀 Usar fetch() direto para evitar auto-refresh lento do Supabase Auth
+      // O supabase.from() triggava _recoverAndRefresh que demorava 15s+
       
-      // 🔑 Pegar token de sessão do usuário (não usar publicAnonKey)
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token || publicAnonKey;
-      
+      // 🔑 Pegar token de sessão do usuário
       if (!silent) {
-        console.log(`[AuthContext] 🔑 Usando token:`, accessToken ? 'SESSION TOKEN ✅' : 'ANON KEY ❌');
+        console.log(`[AuthContext] 🔑 Buscando session token...`);
       }
+      const sessionStartTime = performance.now();
+      const { data: { session } } = await supabase.auth.getSession();
+      const sessionElapsed = Math.round(performance.now() - sessionStartTime);
+      if (!silent) {
+        console.log(`[AuthContext] 🔑 Session obtida em ${sessionElapsed}ms`);
+      }
+      const accessToken = session?.access_token || publicAnonKey;
       
       const profilePromise = fetch(
         `https://${projectId}.supabase.co/rest/v1/users?id=eq.${userId}&select=*`,
@@ -141,10 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const data = await response.json();
           
           if (!silent) {
-            console.log(`[AuthContext] ✅ Query completou em ${elapsed}ms`);
-            console.log(`[AuthContext] 📊 Resposta:`, data);
-            console.log(`[AuthContext] 📊 Tipo:`, Array.isArray(data) ? 'array' : typeof data);
-            console.log(`[AuthContext] 📊 Length:`, data?.length);
+            console.log(`[AuthContext] ✅ Perfil validado em ${elapsed}ms`);
           }
           
           // Retornar no mesmo formato do Supabase client
