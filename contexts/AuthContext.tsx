@@ -103,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setProfile(profileData);
       
+      // 💾 Salvar perfil no localStorage para persistência
+      localStorage.setItem('erp_system_auth_profile', JSON.stringify(profileData));
+      
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
         try {
@@ -152,6 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ✅ Autenticação real com Supabase
     const initializeAuth = async () => {
       try {
+        // 📂 Tentar carregar do localStorage primeiro (otimização)
+        const cachedProfile = localStorage.getItem('erp_system_auth_profile');
+        if (cachedProfile) {
+          try {
+            const parsedProfile = JSON.parse(cachedProfile);
+            setProfile(parsedProfile);
+            console.log('[AuthContext] ✅ Perfil carregado do cache:', parsedProfile.email);
+          } catch (e) {
+            console.warn('[AuthContext] Erro ao parsear perfil do cache');
+          }
+        }
+        
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -169,6 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (session?.user) {
           await loadUserProfile(session.user.id);
+          
+          // 💾 Salvar token
+          if (session.access_token) {
+            localStorage.setItem('erp_system_auth_token', session.access_token);
+          }
         }
       } catch (error) {
         console.error('[AuthContext] Erro crítico ao inicializar autenticação:', error);
@@ -193,9 +213,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (session?.user) {
             await loadUserProfile(session.user.id);
+            
+            // 💾 Salvar token
+            if (session.access_token) {
+              localStorage.setItem('erp_system_auth_token', session.access_token);
+            }
           } else {
             setProfile(null);
             setCompany(null);
+            
+            // 🗑️ Limpar cache ao fazer logout
+            localStorage.removeItem('erp_system_auth_token');
+            localStorage.removeItem('erp_system_auth_profile');
           }
         } catch (error) {
           console.error('[AuthContext] Erro ao processar mudança de autenticação:', error);
@@ -244,6 +273,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
+
+      // 💾 Salvar token no localStorage
+      if (data?.session?.access_token) {
+        localStorage.setItem('erp_system_auth_token', data.session.access_token);
+      }
 
       return { error: undefined };
     } catch (error) {
@@ -310,6 +344,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setCompany(null);
     setSession(null);
+    
+    // 🗑️ Limpar localStorage
+    localStorage.removeItem('erp_system_auth_token');
+    localStorage.removeItem('erp_system_auth_profile');
   };
 
   // Recuperar senha
