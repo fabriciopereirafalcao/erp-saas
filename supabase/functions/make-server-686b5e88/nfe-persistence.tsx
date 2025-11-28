@@ -183,6 +183,83 @@ app.get("/:id", async (c) => {
 });
 
 /* ========================================================================= */
+/*                          ROTAS - DOWNLOAD XML                             */
+/* ========================================================================= */
+
+app.get("/xml/:id/:tipo", async (c) => {
+  const id = c.req.param('id');
+  const tipo = c.req.param('tipo'); // 'original' | 'assinado' | 'autorizado'
+  console.log(`[NFE_PERSISTENCE] GET /xml/${id}/${tipo} - Início`);
+  
+  try {
+    const userId = c.req.header('x-user-id') || 'system';
+    const key = `nfe:${userId}:${id}`;
+    
+    const result = await kv.get(key);
+    
+    if (!result) {
+      console.log(`[NFE_PERSISTENCE] ❌ NF-e não encontrada: ${id}`);
+      return c.json({
+        success: false,
+        error: 'NF-e não encontrada'
+      }, 404);
+    }
+    
+    const nfe = typeof result === 'string' ? JSON.parse(result) : result;
+    
+    // Selecionar XML baseado no tipo
+    let xml: string | undefined;
+    let nomeArquivo: string;
+    
+    switch (tipo) {
+      case 'original':
+        xml = nfe.xml;
+        nomeArquivo = `${nfe.chaveAcesso || nfe.id}_original.xml`;
+        break;
+      case 'assinado':
+        xml = nfe.xmlAssinado || nfe.xml;
+        nomeArquivo = `${nfe.chaveAcesso || nfe.id}_assinado.xml`;
+        break;
+      case 'autorizado':
+        xml = nfe.xmlAutorizado || nfe.xmlAssinado || nfe.xml;
+        nomeArquivo = `${nfe.chaveAcesso || nfe.id}.xml`;
+        break;
+      default:
+        return c.json({
+          success: false,
+          error: 'Tipo de XML inválido. Use: original, assinado ou autorizado'
+        }, 400);
+    }
+    
+    if (!xml) {
+      console.log(`[NFE_PERSISTENCE] ❌ XML ${tipo} não disponível para NF-e ${id}`);
+      return c.json({
+        success: false,
+        error: `XML ${tipo} não disponível para esta NF-e`
+      }, 404);
+    }
+    
+    console.log(`[NFE_PERSISTENCE] ✅ Retornando XML ${tipo} para download`);
+    
+    // Retornar XML como arquivo
+    return new Response(xml, {
+      headers: {
+        'Content-Type': 'application/xml',
+        'Content-Disposition': `attachment; filename="${nomeArquivo}"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[NFE_PERSISTENCE] ❌ Erro ao baixar XML ${tipo} de ${id}:`, error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    }, 500);
+  }
+});
+
+/* ========================================================================= */
 /*                              ROTAS - SALVAR                               */
 /* ========================================================================= */
 

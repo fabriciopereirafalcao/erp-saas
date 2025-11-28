@@ -217,6 +217,12 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
   const uf = ufMatch ? ufMatch[1] : '35'; // Default SP
   const ambiente = ambienteMatch ? ambienteMatch[1] : '2'; // Default homologação
   
+  // Gerar timestamp atual no formato SEFAZ (ISO 8601 com timezone -03:00)
+  const agora = new Date();
+  const dhRecbto = agora.toISOString().replace('Z', '-03:00');
+  
+  console.log(`📅 [MOCK_SEFAZ] dhRecbto gerado: ${dhRecbto}`);
+  
   let xmlResposta = '';
   
   // Gerar resposta baseada no método
@@ -230,7 +236,7 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
   <cStat>107</cStat>
   <xMotivo>Servico em Operacao (SIMULADO - Certificado SSL invalido)</xMotivo>
   <cUF>${uf}</cUF>
-  <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+  <dhRecbto>${dhRecbto}</dhRecbto>
   <tMed>1</tMed>
 </retConsStatServ>`;
       break;
@@ -245,7 +251,7 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
   <cStat>103</cStat>
   <xMotivo>Lote recebido com sucesso (SIMULADO)</xMotivo>
   <cUF>${uf}</cUF>
-  <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+  <dhRecbto>${dhRecbto}</dhRecbto>
   <infRec>
     <nRec>${nroRecibo}</nRec>
     <tMed>1</tMed>
@@ -265,13 +271,13 @@ function gerarRespostaSimulada(request: SoapRequest): SoapResponse {
   <cStat>104</cStat>
   <xMotivo>Lote processado (SIMULADO)</xMotivo>
   <cUF>${uf}</cUF>
-  <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+  <dhRecbto>${dhRecbto}</dhRecbto>
   <protNFe versao="4.00">
     <infProt>
       <tpAmb>${ambiente}</tpAmb>
       <verAplic>MOCK_1.0</verAplic>
       <chNFe>${chaveNFe}</chNFe>
-      <dhRecbto>2024-11-26T10:00:00-03:00</dhRecbto>
+      <dhRecbto>${dhRecbto}</dhRecbto>
       <nProt>${nroProtocolo}</nProt>
       <digVal>ABCD1234EFGH5678IJKL9012MNOP3456QRST7890UVWX=</digVal>
       <cStat>100</cStat>
