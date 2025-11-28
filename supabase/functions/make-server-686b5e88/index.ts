@@ -1148,8 +1148,7 @@ if (nfePersistence) {
 if (nfeStatistics) {
   console.log('[INDEX] 🔍 Registrando módulo NFE Statistics...');
   app.route('/make-server-686b5e88', nfeStatistics.default);
-  console.log('[INDEX] ✅ Rotas NFE Statistics registradas!');
-}
+  console.log('[INDEX] ✅ Rotas NFE Statistics registradas em /make-server-686b5e88/nfe/estatisticas!');
 
 // =====================================================
 // DANFE ROUTES - Geração de DANFE
