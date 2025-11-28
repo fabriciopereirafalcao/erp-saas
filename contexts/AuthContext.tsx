@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '../utils/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { FEATURES } from '../utils/environment';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface UserProfile {
   id: string;
@@ -92,31 +93,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // ⚡ DEPOIS: Validar com Supabase em background (timeout 15s)
+      // ⚡ DEPOIS: Validar com Supabase em background (timeout 5s)
       const queryStartTime = performance.now();
       if (!silent) {
-        console.log(`[AuthContext] 🔍 Iniciando query Supabase (userId: ${userId})`);
+        console.log(`[AuthContext] 🔍 Iniciando validação rápida (userId: ${userId})`);
       }
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => {
           const elapsed = Math.round(performance.now() - queryStartTime);
           reject(new Error(`Timeout ao carregar perfil (${elapsed}ms)`));
-        }, 15000)
+        }, 5000) // 5s ao invés de 15s
       );
       
-      // Query do perfil do usuário
-      const profilePromise = supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
-        .then(result => {
+      // 🚀 SOLUÇÃO: Usar fetch() direto para evitar auto-refresh de 15s do Supabase
+      // Isso bypassa o _recoverAndRefresh automático que está causando lentidão
+      const profilePromise = fetch(
+        `https://${projectId}.supabase.co/rest/v1/users?id=eq.${userId}&select=*`,
+        {
+          headers: {
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          }
+        }
+      )
+        .then(async (response) => {
           const elapsed = Math.round(performance.now() - queryStartTime);
+          
+          if (!response.ok) {
+            if (!silent) {
+              console.log(`[AuthContext] ❌ Erro HTTP ${response.status} em ${elapsed}ms`);
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
           if (!silent) {
             console.log(`[AuthContext] ✅ Query completou em ${elapsed}ms`);
           }
-          return result;
+          
+          // Retornar no mesmo formato do Supabase client
+          return {
+            data: data[0] || null,
+            error: data.length === 0 ? { message: 'Perfil não encontrado' } : null
+          };
         });
       
       const { data: profileData, error: profileError } = await Promise.race([
@@ -139,7 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!profileData) {
         if (hasCache) {
-          console.warn('[AuthContext] ⚠️ Perfil não encontrado no banco (usando cache)');
+          if (!silent) {
+            console.warn('[AuthContext] ⚠️ Perfil não encontrado no banco (usando cache)');
+          }
           return;
         }
         console.error('[AuthContext] ❌ ERRO CRÍTICO - Perfil não encontrado');
