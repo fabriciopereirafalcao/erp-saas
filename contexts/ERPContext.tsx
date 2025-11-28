@@ -1178,12 +1178,25 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     if (!profile?.company_id) return;
     
     console.log('[CACHE] 📂 Carregando cache do localStorage...');
+    console.log(`[CACHE] 🔑 Company ID: ${profile.company_id}`);
+    
+    // DEBUG: Listar TODAS as chaves do localStorage relacionadas ao ERP
+    const allKeys = Object.keys(localStorage).filter(k => k.startsWith('erp_system_'));
+    console.log(`[CACHE] 🔍 Total de chaves no localStorage: ${allKeys.length}`);
+    if (allKeys.length > 0) {
+      console.log(`[CACHE] 📋 Chaves encontradas:`, allKeys.slice(0, 10)); // Primeiras 10
+    }
     
     // Função helper para carregar com company_id
     const loadCached = <T,>(key: string, defaultValue: T): T => {
-      const data = loadFromStorage(getStorageKey(key, profile.company_id), defaultValue);
-      if (Array.isArray(data) && data.length > 0) {
-        console.log(`[CACHE] ✅ ${key}: ${data.length} items`);
+      const storageKey = getStorageKey(key, profile.company_id);
+      const data = loadFromStorage(storageKey, defaultValue);
+      if (Array.isArray(data)) {
+        if (data.length > 0) {
+          console.log(`[CACHE] ✅ ${key}: ${data.length} items (chave: ${storageKey})`);
+        } else {
+          console.log(`[CACHE] ⚠️  ${key}: VAZIO (chave: ${storageKey})`);
+        }
       }
       return data;
     };
@@ -1246,29 +1259,36 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Carregar clientes
         const customersData = await loadFromSupabase<Customer[]>('customers');
         if (isSubscribed && customersData && customersData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados`);
+          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados do Supabase`);
           setCustomers(customersData);
-        }
+        } else {
+          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
         
         // Carregar inventário  
         const inventoryData = await loadFromSupabase<InventoryItem[]>('inventory');
         if (isSubscribed && inventoryData && inventoryData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${inventoryData.length} itens de inventário carregados`);
+          console.log(`[SUPABASE] ✅ ${inventoryData.length} itens de inventário carregados do Supabase`);
           setInventory(inventoryData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Inventário: Dados vazios ou não encontrados no Supabase`);
         }
         
         // Carregar fornecedores
         const suppliersData = await loadFromSupabase<Supplier[]>('suppliers');
         if (isSubscribed && suppliersData && suppliersData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${suppliersData.length} fornecedores carregados`);
+          console.log(`[SUPABASE] ✅ ${suppliersData.length} fornecedores carregados do Supabase`);
           setSuppliers(suppliersData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Fornecedores: Dados vazios ou não encontrados no Supabase`);
         }
         
         // Carregar pedidos de venda
         const salesOrdersData = await loadFromSupabase<SalesOrder[]>('salesOrders');
         if (isSubscribed && salesOrdersData && salesOrdersData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${salesOrdersData.length} pedidos de venda carregados`);
+          console.log(`[SUPABASE] ✅ ${salesOrdersData.length} pedidos de venda carregados do Supabase`);
           setSalesOrders(salesOrdersData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Pedidos de Venda: Dados vazios ou não encontrados no Supabase`);
         }
         
         // Carregar pedidos de compra
