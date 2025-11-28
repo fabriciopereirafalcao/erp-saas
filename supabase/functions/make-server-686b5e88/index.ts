@@ -1132,6 +1132,16 @@ if (sefaz) {
 }
 
 // =====================================================
+// NFE STATISTICS ROUTES - Estatísticas de NF-es
+// =====================================================
+// IMPORTANTE: DEVE VIR ANTES DO NFE PERSISTENCE para evitar que /:id capture /estatisticas
+if (nfeStatistics) {
+  console.log('[INDEX] 🔍 Registrando módulo NFE Statistics...');
+  app.route('/make-server-686b5e88', nfeStatistics.default);
+  console.log('[INDEX] ✅ Rotas NFE Statistics registradas em /make-server-686b5e88/nfe/estatisticas!');
+}
+
+// =====================================================
 // NFE PERSISTENCE ROUTES - Persistência de NF-es
 // =====================================================
 if (nfePersistence) {
@@ -1140,15 +1150,6 @@ if (nfePersistence) {
   console.log('[INDEX] ✅ Rotas NFE Persistence registradas em /make-server-686b5e88/nfe');
 } else {
   console.error('[INDEX] ❌ MÓDULO NFE PERSISTENCE NÃO CARREGADO!');
-}
-
-// =====================================================
-// NFE STATISTICS ROUTES - Estatísticas de NF-es
-// =====================================================
-if (nfeStatistics) {
-  console.log('[INDEX] 🔍 Registrando módulo NFE Statistics...');
-  app.route('/make-server-686b5e88', nfeStatistics.default);
-  console.log('[INDEX] ✅ Rotas NFE Statistics registradas em /make-server-686b5e88/nfe/estatisticas!');
 }
 
 // =====================================================
