@@ -72,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // Carregar perfil do usuário
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, silent = false) => {
+    let hasCache = false;
+    
     try {
       // 📦 PRIMEIRO: Tentar carregar do cache (instantâneo)
       const cachedProfile = localStorage.getItem('erp_system_auth_profile');
@@ -80,18 +82,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(cachedProfile);
           if (parsed.id === userId) {
-            console.log('[AuthContext] ✅ Perfil carregado do cache:', parsed);
+            console.log('[AuthContext] ⚡ Perfil carregado do cache (instantâneo)');
             setProfile(parsed);
-            // Continuar para atualizar em background
+            hasCache = true;
+            // Continuar para validar em background
           }
         } catch (e) {
           console.warn('[AuthContext] Cache inválido, ignorando...');
         }
       }
       
-      // ⚡ DEPOIS: Atualizar do Supabase em background (com timeout de 10s)
+      // ⚡ DEPOIS: Validar com Supabase em background (timeout 15s)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 10000)
+        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 15000)
       );
       
       // Query do perfil do usuário
@@ -107,27 +110,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]) as any;
 
       if (profileError) {
-        console.error('[AuthContext] Erro ao buscar perfil:', profileError);
-        // Se temos cache, não é crítico
-        if (!cachedProfile) {
-          throw profileError;
+        // ✅ Se temos cache, erro não é crítico (validação em background)
+        if (hasCache) {
+          if (!silent) {
+            console.warn('[AuthContext] ⚠️ Validação do perfil falhou (usando cache):', profileError.message);
+          }
+          return; // Usar cache
         }
-        return; // Usar cache
+        // ❌ Sem cache, é crítico
+        console.error('[AuthContext] ❌ ERRO CRÍTICO - Sem cache disponível:', profileError);
+        throw profileError;
       }
 
       if (!profileData) {
-        console.error('[AuthContext] Perfil não encontrado');
-        if (!cachedProfile) {
-          throw new Error('Perfil não encontrado');
+        if (hasCache) {
+          console.warn('[AuthContext] ⚠️ Perfil não encontrado no banco (usando cache)');
+          return;
         }
-        return; // Usar cache
+        console.error('[AuthContext] ❌ ERRO CRÍTICO - Perfil não encontrado');
+        throw new Error('Perfil não encontrado');
       }
 
-      setProfile(profileData);
+      // 🔄 Verificar se dados mudaram
+      if (hasCache) {
+        const cached = JSON.parse(cachedProfile!);
+        const changed = JSON.stringify(cached) !== JSON.stringify(profileData);
+        if (changed) {
+          console.log('[AuthContext] 🔄 Perfil atualizado (dados mudaram no servidor)');
+          setProfile(profileData);
+        } else if (!silent) {
+          console.log('[AuthContext] ✅ Perfil validado (sem mudanças)');
+        }
+      } else {
+        console.log('[AuthContext] ✅ Perfil carregado do Supabase');
+        setProfile(profileData);
+      }
       
-      // 💾 Salvar perfil no localStorage para persistência
+      // 💾 Atualizar cache
       localStorage.setItem('erp_system_auth_profile', JSON.stringify(profileData));
-      console.log('[AuthContext] ✅ Perfil atualizado do Supabase');
       
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
@@ -260,32 +280,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Verificação periódica de sessão (a cada 5 minutos)
+  // 🔄 Verificação e revalidação periódica (a cada 5 minutos)
   useEffect(() => {
     // Não executar em modo BYPASS_AUTH
     if (FEATURES.BYPASS_AUTH) {
       return;
     }
 
-    const checkSessionValidity = async () => {
+    const checkAndRevalidate = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         // Se não houver sessão e o usuário estava logado, fazer logout
         if (!session && user) {
-          console.warn('🚨 Sessão inválida detectada - fazendo logout');
+          console.warn('[AuthContext] 🚨 Sessão inválida detectada - fazendo logout');
           await signOut();
+          return;
+        }
+        
+        // Se temos sessão, revalidar perfil em background
+        if (session?.user && profile) {
+          console.log('[AuthContext] 🔄 Revalidação periódica do perfil...');
+          await loadUserProfile(session.user.id, true); // silent=true
         }
       } catch (error) {
-        console.error('[AuthContext] Erro ao verificar validade da sessão:', error);
+        console.error('[AuthContext] Erro ao verificar/revalidar sessão:', error);
       }
     };
 
-    // Verificar a cada 5 minutos
-    const interval = setInterval(checkSessionValidity, 5 * 60 * 1000);
+    // Verificar a cada 5 minutos (300.000ms)
+    const interval = setInterval(checkAndRevalidate, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, profile]);
 
   // Login
   const signIn = async (email: string, password: string) => {

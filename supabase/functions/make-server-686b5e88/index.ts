@@ -5,6 +5,34 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.2";
 import * as kv from './kv_store.tsx';
 import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailService.tsx';
 
+/**
+ * 🛡️ MIDDLEWARE DE AUTENTICAÇÃO DISPONÍVEL
+ * 
+ * Para adicionar autenticação e autorização em novas rotas, importe:
+ * 
+ * import { requireAuth, requireRole, requireCompanyAccess } from './auth-middleware.ts';
+ * 
+ * Exemplos de uso:
+ * 
+ * // Qualquer usuário autenticado
+ * app.get('/make-server-686b5e88/protected', requireAuth, async (c) => {
+ *   const user = c.get('user');
+ *   return c.json({ message: 'OK', user });
+ * });
+ * 
+ * // Apenas owner e admin
+ * app.delete('/make-server-686b5e88/admin/data', requireAuth, requireRole(['owner', 'admin']), async (c) => {
+ *   return c.json({ message: 'Deletado' });
+ * });
+ * 
+ * // Isolamento multi-tenant
+ * app.get('/make-server-686b5e88/companies/:companyId/data', requireAuth, requireCompanyAccess, async (c) => {
+ *   return c.json({ data: [] });
+ * });
+ * 
+ * ⚠️ IMPORTANTE: A segurança REAL está no backend. Nunca confie apenas no frontend!
+ */
+
 console.log('[INDEX] 🔍 INÍCIO - Antes de importar módulo fiscal...');
 
 // Force deploy v1.3 - Diagnóstico robusto
