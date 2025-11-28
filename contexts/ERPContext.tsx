@@ -666,9 +666,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const [isLoadingCompanySettings, setIsLoadingCompanySettings] = useState(false);
   const [companySettingsLoaded, setCompanySettingsLoaded] = useState(false);
   
-  // Carrega dados do localStorage ou usa valores iniciais
+  // Estados inicializados vazios - serão carregados do localStorage/Supabase após login
   const [customers, setCustomers] = useState<Customer[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.CUSTOMERS, initialCustomers);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Customer[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -695,7 +696,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.SUPPLIERS, initialSuppliers);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Supplier[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -721,7 +723,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     return loaded;
   });
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.SALES_ORDERS, initialSalesOrders);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: SalesOrder[] = [];
     
     // MIGRAÇÃO: Converter status "Recebido" para "Entregue" em pedidos de venda
     return loaded.map(order => {
@@ -732,14 +735,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return order;
     });
   });
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => 
-    loadFromStorage(STORAGE_KEYS.PURCHASE_ORDERS, [])
-  );
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => 
-    loadFromStorage(STORAGE_KEYS.INVENTORY, initialInventory)
-  );
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
-    const movements = loadFromStorage(STORAGE_KEYS.STOCK_MOVEMENTS, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const movements: StockMovement[] = [];
     
     // Deduplicar e regenerar IDs se necessário
     const seen = new Set<string>();
@@ -766,14 +767,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     return deduplicated;
   });
-  const [priceTables, setPriceTables] = useState<PriceTable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.PRICE_TABLES, initialPriceTables)
-  );
-  const [productCategories, setProductCategories] = useState<string[]>(() => 
-    loadFromStorage(STORAGE_KEYS.PRODUCT_CATEGORIES, [])
-  );
+  const [priceTables, setPriceTables] = useState<PriceTable[]>([]);
+  
+  const [productCategories, setProductCategories] = useState<string[]>([]);
   const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
-    const loaded = loadFromStorage<Salesperson[]>(STORAGE_KEYS.SALESPEOPLE, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Salesperson[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -800,7 +799,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
-    const loaded = loadFromStorage<Buyer[]>(STORAGE_KEYS.BUYERS, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Buyer[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -828,7 +828,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   
   // Financial states
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(() => {
-    const loaded = loadFromStorage<PaymentMethod[]>(STORAGE_KEYS.PAYMENT_METHODS, initialPaymentMethods);
+    // Inicialização com dados default - será sobrescrito se houver cache/Supabase
+    const loaded = initialPaymentMethods;
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -855,7 +856,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [accountCategories, setAccountCategories] = useState<AccountCategory[]>(() => {
-    const loaded = loadFromStorage<AccountCategory[]>(STORAGE_KEYS.ACCOUNT_CATEGORIES, initialAccountCategories);
+    // Inicialização com dados default - será sobrescrito se houver cache/Supabase
+    const loaded = initialAccountCategories;
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -890,7 +892,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   // State com limpeza automática de duplicados
   const [internalFinancialTransactions, setInternalFinancialTransactions] = useState<FinancialTransaction[]>(() => {
-    const loaded = loadFromStorage<FinancialTransaction[]>(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: FinancialTransaction[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -962,27 +965,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Alias para usar no código
   const financialTransactions = internalFinancialTransactions;
-  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, initialAccountsReceivable)
-  );
-  const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.ACCOUNTS_PAYABLE, initialAccountsPayable)
-  );
-  const [bankMovements, setBankMovements] = useState<BankMovement[]>(() => 
-    loadFromStorage(STORAGE_KEYS.BANK_MOVEMENTS, [])
-  );
-  const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>(() => 
-    loadFromStorage(STORAGE_KEYS.CASH_FLOW_ENTRIES, [])
-  );
+  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>([]);
+  const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>([]);
+  const [bankMovements, setBankMovements] = useState<BankMovement[]>([]);
+  const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>([]);
   
   // Audit states
-  const [auditIssues, setAuditIssues] = useState<AuditIssue[]>(() => 
-    loadFromStorage(STORAGE_KEYS.AUDIT_ISSUES, [])
-  );
-  const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | null>(() => {
-    const stored = loadFromStorage<string | null>(STORAGE_KEYS.LAST_ANALYSIS_DATE, null);
-    return stored ? new Date(stored) : null;
-  });
+  const [auditIssues, setAuditIssues] = useState<AuditIssue[]>([]);
+  const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | null>(null);
   
   const initialCompanySettings: CompanySettings = {
     cnpj: "",
@@ -1027,7 +1017,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const [companySettings, setCompanySettings] = useState<CompanySettings>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+    // Inicialização com dados default - será carregado do backend
+    const loaded = initialCompanySettings;
     
     let hasChanges = false;
     let result = { ...loaded };
@@ -1124,14 +1115,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     return result;
   });
 
-  const [companyHistory, setCompanyHistory] = useState<CompanyHistoryEntry[]>(() =>
-    loadFromStorage(STORAGE_KEYS.COMPANY_HISTORY, [])
-  );
+  const [companyHistory, setCompanyHistory] = useState<CompanyHistoryEntry[]>([]);
 
   // Estado de conciliação de saldos
-  const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>(() =>
-    loadFromStorage(STORAGE_KEYS.RECONCILIATION_STATUS, {})
-  );
+  const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>({});
 
   // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
   
@@ -1184,9 +1171,60 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log(`✅ Migração concluída para company_id: ${companyId}`);
   }, [profile?.company_id]); // Executar apenas quando company_id mudar
 
+  // ==================== CARREGAMENTO INICIAL DO LOCALSTORAGE (CACHE) ====================
+  
+  // Carregar cache do localStorage com company_id ao fazer login
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    
+    console.log('[CACHE] 📂 Carregando cache do localStorage...');
+    
+    // Função helper para carregar com company_id
+    const loadCached = <T,>(key: string, defaultValue: T): T => {
+      const data = loadFromStorage(getStorageKey(key, profile.company_id), defaultValue);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log(`[CACHE] ✅ ${key}: ${data.length} items`);
+      }
+      return data;
+    };
+    
+    // Carregar todos os dados do cache (se existirem)
+    setCustomers(loadCached(STORAGE_KEYS.CUSTOMERS, []));
+    setSuppliers(loadCached(STORAGE_KEYS.SUPPLIERS, []));
+    setInventory(loadCached(STORAGE_KEYS.INVENTORY, []));
+    setSalesOrders(loadCached(STORAGE_KEYS.SALES_ORDERS, []));
+    setPurchaseOrders(loadCached(STORAGE_KEYS.PURCHASE_ORDERS, []));
+    setStockMovements(loadCached(STORAGE_KEYS.STOCK_MOVEMENTS, []));
+    setPriceTables(loadCached(STORAGE_KEYS.PRICE_TABLES, []));
+    setProductCategories(loadCached(STORAGE_KEYS.PRODUCT_CATEGORIES, []));
+    setSalespeople(loadCached(STORAGE_KEYS.SALESPEOPLE, []));
+    setBuyers(loadCached(STORAGE_KEYS.BUYERS, []));
+    setPaymentMethods(loadCached(STORAGE_KEYS.PAYMENT_METHODS, []));
+    setAccountCategories(loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, []));
+    setFinancialTransactions(loadCached(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []));
+    setAccountsReceivable(loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []));
+    setAccountsPayable(loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []));
+    setBankMovements(loadCached(STORAGE_KEYS.BANK_MOVEMENTS, []));
+    setCashFlowEntries(loadCached(STORAGE_KEYS.CASH_FLOW_ENTRIES, []));
+    setAuditIssues(loadCached(STORAGE_KEYS.AUDIT_ISSUES, []));
+    setCompanyHistory(loadCached(STORAGE_KEYS.COMPANY_HISTORY, []));
+    setReconciliationStatus(loadCached(STORAGE_KEYS.RECONCILIATION_STATUS, {}));
+    
+    const lastAnalysisStr = loadFromStorage<string | null>(
+      getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), 
+      null
+    );
+    if (lastAnalysisStr) {
+      setLastAnalysisDate(new Date(lastAnalysisStr));
+    }
+    
+    console.log('[CACHE] ✅ Cache carregado com sucesso!');
+  }, [profile?.company_id]);
+  
   // ==================== CARREGAMENTO INICIAL DO SUPABASE ====================
   
   // Carregar dados do Supabase ao fazer login (APENAS UMA VEZ)
+  // Sobrescreve o cache se houver dados mais recentes no Supabase
   useEffect(() => {
     if (!profile?.company_id) return;
     
