@@ -93,8 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // ⚡ DEPOIS: Validar com Supabase em background (timeout 15s)
+      const queryStartTime = performance.now();
+      if (!silent) {
+        console.log(`[AuthContext] 🔍 Iniciando query Supabase (userId: ${userId})`);
+      }
+      
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 15000)
+        setTimeout(() => {
+          const elapsed = Math.round(performance.now() - queryStartTime);
+          reject(new Error(`Timeout ao carregar perfil (${elapsed}ms)`));
+        }, 15000)
       );
       
       // Query do perfil do usuário
@@ -102,7 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .single()
+        .then(result => {
+          const elapsed = Math.round(performance.now() - queryStartTime);
+          if (!silent) {
+            console.log(`[AuthContext] ✅ Query completou em ${elapsed}ms`);
+          }
+          return result;
+        });
       
       const { data: profileData, error: profileError } = await Promise.race([
         profilePromise,
@@ -177,16 +192,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       // ✅ Se temos cache, erro não é crítico (validação em background falhou)
       if (hasCache) {
         if (!silent) {
-          console.warn('[AuthContext] ⚠️ Validação em background falhou (usando cache):', error instanceof Error ? error.message : error);
+          console.warn('[AuthContext] ⚠️ Validação em background falhou (usando cache):', errorMessage);
         }
         return; // Continuar usando cache
       }
       
       // ❌ Sem cache, é crítico
-      console.error('[AuthContext] ❌ ERRO CRÍTICO ao carregar perfil:', error);
+      console.error('[AuthContext] ❌ ERRO CRÍTICO ao carregar perfil:', errorMessage);
+      console.error('[AuthContext] Stack trace:', error);
       // Não propagar o erro - permitir que o app continue
     }
   };
