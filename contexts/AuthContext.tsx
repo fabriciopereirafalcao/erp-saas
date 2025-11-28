@@ -108,12 +108,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // 🚀 SOLUÇÃO: Usar fetch() direto para evitar auto-refresh de 15s do Supabase
       // Isso bypassa o _recoverAndRefresh automático que está causando lentidão
+      
+      // 🔑 Pegar token de sessão do usuário (não usar publicAnonKey)
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token || publicAnonKey;
+      
+      if (!silent) {
+        console.log(`[AuthContext] 🔑 Usando token:`, accessToken ? 'SESSION TOKEN ✅' : 'ANON KEY ❌');
+      }
+      
       const profilePromise = fetch(
         `https://${projectId}.supabase.co/rest/v1/users?id=eq.${userId}&select=*`,
         {
           headers: {
             'apikey': publicAnonKey,
-            'Authorization': `Bearer ${publicAnonKey}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=representation'
           }
