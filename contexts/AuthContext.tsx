@@ -208,26 +208,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
         try {
-          const companyPromise = supabase
-            .from('companies')
-            .select('*')
-            .eq('id', profileData.company_id)
-            .single();
-          
-          const { data: companyData, error: companyError } = await Promise.race([
-            companyPromise,
+          // 🚀 Usar fetch() direto também para company
+          const companyResponse = await Promise.race([
+            fetch(
+              `https://${projectId}.supabase.co/rest/v1/companies?id=eq.${profileData.company_id}&select=*`,
+              {
+                headers: {
+                  'apikey': publicAnonKey,
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            ).then(async (res) => {
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              return { data: data[0] || null, error: null };
+            }),
             new Promise((_, reject) => 
               setTimeout(() => reject(new Error('Timeout ao carregar company')), 5000)
             )
           ]) as any;
           
-          if (companyError) {
-            console.warn('[AuthContext] Erro ao buscar company:', companyError);
-          } else if (companyData) {
-            setCompany(companyData);
+          if (companyResponse.error) {
+            console.warn('[AuthContext] Erro ao buscar company:', companyResponse.error);
+          } else if (companyResponse.data) {
+            setCompany(companyResponse.data);
           }
         } catch (error) {
-          console.warn('[AuthContext] Erro ao carregar company:', error);
+          console.warn('[AuthContext] ⚠️ Company não carregada (não crítico):', error);
           // Continuar mesmo sem company
         }
       }
