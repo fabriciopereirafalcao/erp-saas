@@ -1425,6 +1425,52 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
   }, [profile?.company_id]); // Executar apenas quando company_id mudar (login)
 
+  // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM LOCALSTORAGE ====================
+  
+  // Salva automaticamente no localStorage quando os dados mudarem
+  // Usa getStorageKey para isolar por company_id
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.CUSTOMERS, profile.company_id);
+      saveToStorage(key, customers);
+    }
+  }, [customers, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.SUPPLIERS, profile.company_id);
+      saveToStorage(key, suppliers);
+    }
+  }, [suppliers, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.INVENTORY, profile.company_id);
+      saveToStorage(key, inventory);
+    }
+  }, [inventory, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.SALES_ORDERS, profile.company_id);
+      saveToStorage(key, salesOrders);
+    }
+  }, [salesOrders, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.PURCHASE_ORDERS, profile.company_id);
+      saveToStorage(key, purchaseOrders);
+    }
+  }, [purchaseOrders, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.STOCK_MOVEMENTS, profile.company_id);
+      saveToStorage(key, stockMovements);
+    }
+  }, [stockMovements, profile?.company_id]);
+
   // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM SUPABASE ====================
   
   // Sincroniza dados com Supabase em background (debounced 2s)

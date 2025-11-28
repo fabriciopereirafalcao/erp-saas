@@ -74,9 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Carregar perfil do usuário
   const loadUserProfile = async (userId: string) => {
     try {
-      // ⚡ TIMEOUT: Se a query demorar mais de 5 segundos, abortar
+      // 📦 PRIMEIRO: Tentar carregar do cache (instantâneo)
+      const cachedProfile = localStorage.getItem('erp_system_auth_profile');
+      if (cachedProfile) {
+        try {
+          const parsed = JSON.parse(cachedProfile);
+          if (parsed.id === userId) {
+            console.log('[AuthContext] ✅ Perfil carregado do cache:', parsed);
+            setProfile(parsed);
+            // Continuar para atualizar em background
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Cache inválido, ignorando...');
+        }
+      }
+      
+      // ⚡ DEPOIS: Atualizar do Supabase em background (com timeout de 10s)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 5000)
+        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 10000)
       );
       
       // Query do perfil do usuário
@@ -93,18 +108,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileError) {
         console.error('[AuthContext] Erro ao buscar perfil:', profileError);
-        throw profileError;
+        // Se temos cache, não é crítico
+        if (!cachedProfile) {
+          throw profileError;
+        }
+        return; // Usar cache
       }
 
       if (!profileData) {
         console.error('[AuthContext] Perfil não encontrado');
-        throw new Error('Perfil não encontrado');
+        if (!cachedProfile) {
+          throw new Error('Perfil não encontrado');
+        }
+        return; // Usar cache
       }
 
       setProfile(profileData);
       
       // 💾 Salvar perfil no localStorage para persistência
       localStorage.setItem('erp_system_auth_profile', JSON.stringify(profileData));
+      console.log('[AuthContext] ✅ Perfil atualizado do Supabase');
       
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
