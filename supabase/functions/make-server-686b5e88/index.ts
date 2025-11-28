@@ -1142,6 +1142,16 @@ if (nfeStatistics) {
 }
 
 // =====================================================
+// DANFE ROUTES - Geração de DANFE
+// =====================================================
+// IMPORTANTE: DEVE VIR ANTES DO NFE PERSISTENCE para evitar que /nfe/:id capture /danfe/nfe/:id
+if (danfe) {
+  console.log('[INDEX] 🔍 Registrando módulo DANFE...');
+  app.route('/make-server-686b5e88/danfe', danfe.default);
+  console.log('[INDEX] ✅ Rotas DANFE registradas!');
+}
+
+// =====================================================
 // NFE PERSISTENCE ROUTES - Persistência de NF-es
 // =====================================================
 if (nfePersistence) {
@@ -1150,15 +1160,6 @@ if (nfePersistence) {
   console.log('[INDEX] ✅ Rotas NFE Persistence registradas em /make-server-686b5e88/nfe');
 } else {
   console.error('[INDEX] ❌ MÓDULO NFE PERSISTENCE NÃO CARREGADO!');
-}
-
-// =====================================================
-// DANFE ROUTES - Geração de DANFE
-// =====================================================
-if (danfe) {
-  console.log('[INDEX] 🔍 Registrando módulo DANFE...');
-  app.route('/make-server-686b5e88/danfe', danfe.default);
-  console.log('[INDEX] ✅ Rotas DANFE registradas!');
 }
 
 // =====================================================

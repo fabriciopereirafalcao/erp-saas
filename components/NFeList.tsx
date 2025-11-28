@@ -23,6 +23,7 @@ import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { CancelarNFeDialog } from './CancelarNFeDialog';
 import { CartaCorrecaoDialog } from './CartaCorrecaoDialog';
+import { NFeDetalhes } from './NFeDetalhes';
 
 interface NFeSummary {
   id: string;
@@ -31,6 +32,11 @@ interface NFeSummary {
   serie: string;
   modelo: string;
   natureza: string;
+  emitente?: {
+    cnpj: string;
+    razaoSocial: string;
+    uf: string;
+  };
   destinatario: {
     nome: string;
     cpfCnpj: string;
@@ -113,6 +119,9 @@ export function NFeList({ onRefresh }: NFeListProps) {
   const [filtroDestinatario, setFiltroDestinatario] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
+  
+  // Estado para visualização de detalhes
+  const [nfeIdDetalhes, setNfeIdDetalhes] = useState<string | null>(null);
   
   // Estado do dialog de cancelamento
   const [cancelarDialogOpen, setCancelarDialogOpen] = useState(false);
@@ -283,6 +292,19 @@ export function NFeList({ onRefresh }: NFeListProps) {
 
   const nfesFiltradas = nfes;
 
+  // Se houver uma NF-e selecionada para detalhes, mostrar página de detalhes
+  if (nfeIdDetalhes) {
+    return (
+      <NFeDetalhes 
+        nfeId={nfeIdDetalhes} 
+        onVoltar={() => {
+          setNfeIdDetalhes(null);
+          carregarNFes(); // Recarregar lista ao voltar
+        }} 
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Filtros */}
@@ -451,7 +473,7 @@ export function NFeList({ onRefresh }: NFeListProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {/* TODO: Abrir detalhes */}}
+                      onClick={() => setNfeIdDetalhes(nfe.id)}
                       className="whitespace-nowrap"
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -532,8 +554,8 @@ export function NFeList({ onRefresh }: NFeListProps) {
           protocolo={nfeSelecionada.protocolo || ''}
           numeroNFe={`${nfeSelecionada.serie}-${nfeSelecionada.numero}`}
           dataAutorizacao={nfeSelecionada.dataAutorizacao}
-          emitenteCNPJ="00000000000000" // TODO: Adicionar CNPJ do emitente na estrutura
-          uf="SP" // TODO: Extrair UF da chave ou adicionar na estrutura
+          emitenteCNPJ={nfeSelecionada.emitente?.cnpj || ''}
+          uf={nfeSelecionada.emitente?.uf || nfeSelecionada.chave?.substring(0, 2) || 'SP'}
           onSuccess={() => {
             setCancelarDialogOpen(false);
             setNfeSelecionada(null);
@@ -550,8 +572,8 @@ export function NFeList({ onRefresh }: NFeListProps) {
           nfeId={nfeSelecionadaCartaCorrecao.id}
           chaveNFe={nfeSelecionadaCartaCorrecao.chave}
           numeroNFe={`${nfeSelecionadaCartaCorrecao.serie}-${nfeSelecionadaCartaCorrecao.numero}`}
-          emitenteCNPJ="00000000000000" // TODO: Adicionar CNPJ do emitente na estrutura
-          uf="SP" // TODO: Extrair UF da chave ou adicionar na estrutura
+          emitenteCNPJ={nfeSelecionadaCartaCorrecao.emitente?.cnpj || ''}
+          uf={nfeSelecionadaCartaCorrecao.emitente?.uf || nfeSelecionadaCartaCorrecao.chave?.substring(0, 2) || 'SP'}
           onSuccess={() => {
             setCartaCorrecaoDialogOpen(false);
             setNfeSelecionadaCartaCorrecao(null);

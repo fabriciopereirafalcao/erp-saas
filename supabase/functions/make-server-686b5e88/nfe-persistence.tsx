@@ -98,6 +98,11 @@ app.get("/listar", async (c) => {
             serie: String(nfe.serie || ''),
             modelo: '55', // NF-e padrão
             natureza: nfe.naturezaOperacao || 'Venda',
+            emitente: {
+              cnpj: nfe.emitente?.cnpj || '',
+              razaoSocial: nfe.emitente?.razaoSocial || '',
+              uf: nfe.emitente?.uf || ''
+            },
             destinatario: {
               nome: nfe.destinatario?.nome || nfe.destinatario?.razaoSocial || 'N/A',
               cpfCnpj: nfe.destinatario?.cpfCnpj || nfe.destinatario?.cnpj || 'N/A'
