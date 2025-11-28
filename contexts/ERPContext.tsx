@@ -1263,6 +1263,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setCustomers(customersData);
         } else {
           console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
+        }
         
         // Carregar inventário  
         const inventoryData = await loadFromSupabase<InventoryItem[]>('inventory');
