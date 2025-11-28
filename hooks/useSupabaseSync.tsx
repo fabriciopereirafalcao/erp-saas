@@ -92,7 +92,7 @@ export async function loadFromSupabase<T>(key: string): Promise<T | null> {
     );
 
     if (!response.success) {
-      console.warn(`[SYNC] ⚠️ Dados não encontrados no Supabase: ${key}`);
+      console.log(`[SYNC] 📭 Dados não encontrados no Supabase: ${key} (normal para dados opcionais)`);
       return null;
     }
 
