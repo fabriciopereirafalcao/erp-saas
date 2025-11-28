@@ -177,9 +177,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
     } catch (error) {
-      console.error('[AuthContext] Erro crítico ao carregar perfil:', error);
+      // ✅ Se temos cache, erro não é crítico (validação em background falhou)
+      if (hasCache) {
+        if (!silent) {
+          console.warn('[AuthContext] ⚠️ Validação em background falhou (usando cache):', error instanceof Error ? error.message : error);
+        }
+        return; // Continuar usando cache
+      }
+      
+      // ❌ Sem cache, é crítico
+      console.error('[AuthContext] ❌ ERRO CRÍTICO ao carregar perfil:', error);
       // Não propagar o erro - permitir que o app continue
-      // O usuário ainda pode usar o app mesmo sem perfil completo
     }
   };
 
