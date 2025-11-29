@@ -55,6 +55,7 @@ interface NFe {
     tipo: 'pf' | 'pj';
     cpfCnpj: string;
     nome: string;
+    nomeFantasia?: string;
     email?: string;
     ie?: string;
     telefone?: string;
@@ -611,17 +612,15 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
             <div className="space-y-2">
               <div>
                 <p className="text-xs text-gray-500">Razão Social</p>
-                <p className="text-sm text-gray-900">{nfe.destinatario.nome}</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.nome || 'Não informado'}</p>
               </div>
-              {nfe.destinatario.nomeFantasia && (
-                <div>
-                  <p className="text-xs text-gray-500">Nome Fantasia</p>
-                  <p className="text-sm text-gray-900">{nfe.destinatario.nomeFantasia}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-xs text-gray-500">Nome Fantasia</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.nomeFantasia || 'Não informado'}</p>
+              </div>
               <div>
                 <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'CNPJ' : 'CPF'}</p>
-                <p className="text-sm text-gray-900">{nfe.destinatario.cpfCnpj}</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.cpfCnpj || 'Não informado'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Inscrição Estadual</p>

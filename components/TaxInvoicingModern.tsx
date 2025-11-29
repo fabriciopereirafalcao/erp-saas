@@ -489,10 +489,10 @@ export function TaxInvoicingModern() {
                 
                 // Destinatário completo
                 destinatario: {
-                  tipo: destinatario.cpf ? 'pf' : 'pj',
-                  cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
+                  tipo: destinatario.documentType?.toLowerCase() || 'pj',
+                  cpfCnpj: destinatario.document || '',
                   nome: destinatario.name,
-                  nomeFantasia: destinatario.fantasyName || '',
+                  nomeFantasia: destinatario.tradeName || '',
                   email: destinatario.email || '',
                   telefone: destinatario.phone || '',
                   ie: destinatario.stateRegistration || '',
@@ -513,14 +513,14 @@ export function TaxInvoicingModern() {
                   console.log('[EMITIR] 📦 Primeiro item completo:', items[0]);
                   return items.map((item, idx) => {
                     console.log(`[EMITIR] Produto ${idx}:`, {
-                      codigo: item.code,
-                      nome: item.name,
+                      codigo: item.productId,
+                      nome: item.productName,
                       unitPrice: item.unitPrice,
                       totalValue: item.totalValue
                     });
                     return {
-                      codigo: item.code || '',
-                      descricao: item.name || '',
+                      codigo: item.productId || '',
+                      descricao: item.productName || '',
                       ncm: item.ncm || '',
                       cfop: item.cfop || '',
                       unidade: item.unit || 'UN',
@@ -651,10 +651,10 @@ export function TaxInvoicingModern() {
                 },
                 
                 destinatario: {
-                  tipo: destinatario.cpf ? 'pf' : 'pj',
-                  cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
+                  tipo: destinatario.documentType?.toLowerCase() || 'pj',
+                  cpfCnpj: destinatario.document || '',
                   nome: destinatario.name,
-                  nomeFantasia: destinatario.fantasyName || '',
+                  nomeFantasia: destinatario.tradeName || '',
                   email: destinatario.email || '',
                   telefone: destinatario.phone || '',
                   ie: destinatario.stateRegistration || '',
@@ -674,14 +674,14 @@ export function TaxInvoicingModern() {
                   console.log('[EMITIR_IMEDIATO] 📦 Primeiro item completo:', items[0]);
                   return items.map((item, idx) => {
                     console.log(`[EMITIR_IMEDIATO] Produto ${idx}:`, {
-                      codigo: item.code,
-                      nome: item.name,
+                      codigo: item.productId,
+                      nome: item.productName,
                       unitPrice: item.unitPrice,
                       totalValue: item.totalValue
                     });
                     return {
-                      codigo: item.code || '',
-                      descricao: item.name || '',
+                      codigo: item.productId || '',
+                      descricao: item.productName || '',
                       ncm: item.ncm || '',
                       cfop: item.cfop || '',
                       unidade: item.unit || 'UN',
