@@ -69,6 +69,16 @@ export function useEntityPersistence({
       return;
     }
 
+    // NÃO salvar arrays vazios ou objetos vazios
+    if (Array.isArray(data) && data.length === 0) {
+      console.log(`[PERSIST] ⏭️  Ignorando ${entityName}: array vazio`);
+      return;
+    }
+    if (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0) {
+      console.log(`[PERSIST] ⏭️  Ignorando ${entityName}: objeto vazio`);
+      return;
+    }
+
     // Serializar para comparação
     const dataString = JSON.stringify(data);
     
@@ -94,6 +104,7 @@ export function useEntityPersistence({
         lastSaveTimeRef.current = Date.now();
 
         console.log(`[PERSIST] 💾 Salvando ${entityName}...`);
+        console.log(`[PERSIST] 📊 Dados:`, Array.isArray(data) ? `array com ${data.length} itens` : typeof data);
         
         // Tentar salvar com retry
         let attempt = 0;
