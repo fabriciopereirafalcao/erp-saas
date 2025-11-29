@@ -35,7 +35,7 @@ interface NFeDetalhesProps {
 
 interface NFe {
   id: string;
-  chave: string;
+  chave?: string;
   numero: string;
   serie: string;
   modelo: string;
@@ -921,7 +921,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
             open={cancelarDialogOpen}
             onOpenChange={setCancelarDialogOpen}
             nfeId={nfe.id}
-            chaveNFe={nfe.chave}
+            chaveNFe={nfe.chave || ''}
             protocolo={nfe.protocolo}
             numeroNFe={`${nfe.serie}-${nfe.numero}`}
             dataAutorizacao={nfe.dataAutorizacao}
@@ -937,7 +937,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
             open={cartaCorrecaoDialogOpen}
             onOpenChange={setCartaCorrecaoDialogOpen}
             nfeId={nfe.id}
-            chaveNFe={nfe.chave}
+            chaveNFe={nfe.chave || ''}
             numeroNFe={`${nfe.serie}-${nfe.numero}`}
             emitenteCNPJ={nfe.emitente.cnpj}
             uf={nfe.emitente.uf}

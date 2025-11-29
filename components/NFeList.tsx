@@ -27,7 +27,7 @@ import { NFeDetalhes } from './NFeDetalhes';
 
 interface NFeSummary {
   id: string;
-  chave: string;
+  chave?: string;
   numero: string;
   serie: string;
   modelo: string;

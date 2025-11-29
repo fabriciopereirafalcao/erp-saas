@@ -85,7 +85,7 @@ export function CartaCorrecaoDialog({
     console.log('[CC-E_DIALOG] Enviando CC-e...');
     console.log('[CC-E_DIALOG] Chave:', chaveNFe);
     console.log('[CC-E_DIALOG] Sequência:', sequencia);
-    console.log('[CC-E_DIALOG] Correção:', correcao.substring(0, 50) + '...');
+    console.log('[CC-E_DIALOG] Correção:', correcao ? correcao.substring(0, Math.min(50, correcao.length)) + '...' : 'N/A');
 
     try {
       // Buscar access token
@@ -158,7 +158,7 @@ export function CartaCorrecaoDialog({
             Carta de Correção Eletrônica (CC-e)
           </DialogTitle>
           <DialogDescription>
-            NF-e: {numeroNFe} • Chave: {chaveNFe.substring(0, 10)}...{chaveNFe.substring(34)}
+            NF-e: {numeroNFe} • Chave: {chaveNFe ? `${chaveNFe.substring(0, 10)}...${chaveNFe.substring(34)}` : 'N/A'}
           </DialogDescription>
         </DialogHeader>
 
