@@ -3,21 +3,12 @@
  * GERADOR DE DANFE (Documento Auxiliar da NF-e)
  * ============================================================================
  * 
- * Gera PDF do DANFE conforme layout padrão SEFAZ.
- * 
- * Inclui:
- * - Dados do emitente e destinatário
- * - Chave de acesso com código de barras
- * - Lista de produtos/serviços
- * - Cálculo de impostos
- * - Dados do transportador
- * - Informações adicionais
+ * Layout conforme padrão oficial SEFAZ 2024/2025
+ * Referência: Portal NF-e SEFAZ / NT 2025.002 e NT 2024.003
+ * Preparado para Reforma Tributária de Consumo
  * 
  * ============================================================================
  */
-
-// NOTA: DOMParser removido - agora usamos dados estruturados da NF-e
-// import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 // Tipos
 interface DadosDANFE {
@@ -122,189 +113,7 @@ interface DadosDANFE {
 }
 
 /**
- * Extrai dados da NF-e do XML para gerar o DANFE
- */
-export function extrairDadosDoXML(xmlString: string): DadosDANFE {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlString);
-  
-  if (!doc) {
-    throw new Error('Erro ao fazer parse do XML');
-  }
-  
-  // Helper para extrair texto de um elemento
-  const getText = (selector: string): string => {
-    const el = doc.querySelector(selector);
-    return el?.textContent?.trim() || '';
-  };
-  
-  const getNumber = (selector: string): number => {
-    const text = getText(selector);
-    return text ? parseFloat(text) : 0;
-  };
-  
-  // Extrair chave de acesso
-  const infNFe = doc.querySelector('infNFe');
-  const chaveAcesso = infNFe?.getAttribute('Id')?.replace('NFe', '') || '';
-  
-  // Identificação
-  const numero = getText('ide > nNF');
-  const serie = getText('ide > serie');
-  const dataEmissao = getText('ide > dhEmi');
-  const dataSaida = getText('ide > dhSaiEnt') || dataEmissao;
-  const tipoOperacao = getText('ide > tpNF') === '0' ? 'ENTRADA' : 'SAIDA';
-  const naturezaOperacao = getText('ide > natOp');
-  const ambiente = parseInt(getText('ide > tpAmb')) || 2;
-  
-  // Protocolo (se disponível)
-  const protocolo = getText('protNFe > infProt > nProt');
-  const dataAutorizacao = getText('protNFe > infProt > dhRecbto');
-  
-  // Emitente
-  const emitente = {
-    razaoSocial: getText('emit > xNome'),
-    nomeFantasia: getText('emit > xFant'),
-    cnpj: getText('emit > CNPJ'),
-    ie: getText('emit > IE'),
-    iest: getText('emit > IEST'),
-    endereco: `${getText('emit > enderEmit > xLgr')}, ${getText('emit > enderEmit > nro')}`,
-    bairro: getText('emit > enderEmit > xBairro'),
-    cep: getText('emit > enderEmit > CEP'),
-    municipio: getText('emit > enderEmit > xMun'),
-    uf: getText('emit > enderEmit > UF'),
-    telefone: getText('emit > enderEmit > fone')
-  };
-  
-  // Destinatário
-  const destinatario = {
-    nome: getText('dest > xNome'),
-    cpfCnpj: getText('dest > CNPJ') || getText('dest > CPF'),
-    ie: getText('dest > IE'),
-    endereco: `${getText('dest > enderDest > xLgr')}, ${getText('dest > enderDest > nro')}`,
-    bairro: getText('dest > enderDest > xBairro'),
-    cep: getText('dest > enderDest > CEP'),
-    municipio: getText('dest > enderDest > xMun'),
-    uf: getText('dest > enderDest > UF'),
-    telefone: getText('dest > enderDest > fone')
-  };
-  
-  // Produtos
-  const produtos: any[] = [];
-  const dets = doc.querySelectorAll('det');
-  
-  dets.forEach((det) => {
-    const codigo = det.querySelector('prod > cProd')?.textContent?.trim() || '';
-    const descricao = det.querySelector('prod > xProd')?.textContent?.trim() || '';
-    const ncm = det.querySelector('prod > NCM')?.textContent?.trim() || '';
-    const cfop = det.querySelector('prod > CFOP')?.textContent?.trim() || '';
-    const unidade = det.querySelector('prod > uCom')?.textContent?.trim() || '';
-    const quantidade = parseFloat(det.querySelector('prod > qCom')?.textContent?.trim() || '0');
-    const valorUnitario = parseFloat(det.querySelector('prod > vUnCom')?.textContent?.trim() || '0');
-    const valorTotal = parseFloat(det.querySelector('prod > vProd')?.textContent?.trim() || '0');
-    
-    const cst = det.querySelector('imposto > ICMS > ICMS00 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS10 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS20 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS30 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS40 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS51 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS60 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS70 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMS90 > CST')?.textContent?.trim() ||
-                det.querySelector('imposto > ICMS > ICMSSN102 > CSOSN')?.textContent?.trim() || '';
-    
-    const bcIcms = parseFloat(det.querySelector('imposto > ICMS > ICMS00 > vBC')?.textContent?.trim() || '0');
-    const valorIcms = parseFloat(det.querySelector('imposto > ICMS > ICMS00 > vICMS')?.textContent?.trim() || '0');
-    const aliqIcms = parseFloat(det.querySelector('imposto > ICMS > ICMS00 > pICMS')?.textContent?.trim() || '0');
-    const ipi = parseFloat(det.querySelector('imposto > IPI > IPITrib > vIPI')?.textContent?.trim() || '0');
-    
-    produtos.push({
-      codigo,
-      descricao,
-      ncm,
-      cst,
-      cfop,
-      unidade,
-      quantidade,
-      valorUnitario,
-      valorTotal,
-      bcIcms,
-      valorIcms,
-      aliqIcms,
-      ipi
-    });
-  });
-  
-  // Totais
-  const totais = {
-    baseCalculoIcms: getNumber('total > ICMSTot > vBC'),
-    valorIcms: getNumber('total > ICMSTot > vICMS'),
-    baseCalculoIcmsST: getNumber('total > ICMSTot > vBCST'),
-    valorIcmsST: getNumber('total > ICMSTot > vST'),
-    valorTotalProdutos: getNumber('total > ICMSTot > vProd'),
-    valorFrete: getNumber('total > ICMSTot > vFrete'),
-    valorSeguro: getNumber('total > ICMSTot > vSeg'),
-    desconto: getNumber('total > ICMSTot > vDesc'),
-    outrasDespesas: getNumber('total > ICMSTot > vOutro'),
-    valorIPI: getNumber('total > ICMSTot > vIPI'),
-    valorTotal: getNumber('total > ICMSTot > vNF')
-  };
-  
-  // Transporte
-  const modalidadeMap: any = {
-    '0': 'Por conta do Emitente',
-    '1': 'Por conta do Destinatário',
-    '2': 'Por conta de Terceiros',
-    '9': 'Sem Transporte'
-  };
-  
-  const transporte = {
-    modalidade: modalidadeMap[getText('transp > modFrete')] || 'Sem Transporte',
-    transportador: getText('transp > transporta > xNome') ? {
-      nome: getText('transp > transporta > xNome'),
-      cnpjCpf: getText('transp > transporta > CNPJ') || getText('transp > transporta > CPF'),
-      ie: getText('transp > transporta > IE'),
-      endereco: getText('transp > transporta > xEnder'),
-      municipio: getText('transp > transporta > xMun'),
-      uf: getText('transp > transporta > UF')
-    } : undefined,
-    volumes: getText('transp > vol > qVol') ? {
-      quantidade: getNumber('transp > vol > qVol'),
-      especie: getText('transp > vol > esp'),
-      marca: getText('transp > vol > marca'),
-      numeracao: getText('transp > vol > nVol'),
-      pesoLiquido: getNumber('transp > vol > pesoL'),
-      pesoBruto: getNumber('transp > vol > pesoB')
-    } : undefined
-  };
-  
-  // Informações Adicionais
-  const informacoesComplementares = getText('infAdic > infCpl');
-  const informacoesFisco = getText('infAdic > infAdFisco');
-  
-  return {
-    chaveAcesso,
-    numero,
-    serie,
-    dataEmissao,
-    dataSaida,
-    protocolo,
-    dataAutorizacao,
-    emitente,
-    destinatario,
-    produtos,
-    totais,
-    transporte,
-    informacoesComplementares,
-    informacoesFisco,
-    tipoOperacao,
-    naturezaOperacao,
-    ambiente
-  };
-}
-
-/**
- * Gera HTML do DANFE (depois será convertido para PDF)
+ * Gera HTML do DANFE conforme padrão oficial SEFAZ 2024/2025
  */
 export function gerarHTMLDanfe(dados: DadosDANFE): string {
   const formatarCNPJ = (cnpj: string) => {
@@ -330,10 +139,17 @@ export function gerarHTMLDanfe(dados: DadosDANFE): string {
   };
   
   const formatarChave = (chave: string) => {
+    // Formata: 2913 8410 4027 7900 0037 5500 1000 0044 3338 0000 4459
     return chave.replace(/(\d{4})/g, '$1 ').trim();
   };
   
   const formatarData = (dataISO: string) => {
+    if (!dataISO) return '';
+    const date = new Date(dataISO);
+    return date.toLocaleDateString('pt-BR');
+  };
+  
+  const formatarDataHora = (dataISO: string) => {
     if (!dataISO) return '';
     const date = new Date(dataISO);
     return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -343,19 +159,31 @@ export function gerarHTMLDanfe(dados: DadosDANFE): string {
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
   
-  // Linhas de produtos
+  // Mapeamento de modalidade de frete
+  const modalidadeFreteMap: { [key: string]: string } = {
+    '0': '0-Emitente',
+    '1': '1-Destinatário',
+    '2': '2-Terceiros',
+    '9': '9-Sem Frete'
+  };
+  
+  // Linhas de produtos (conforme layout oficial)
   const linhasProdutos = dados.produtos.map((p, i) => `
     <tr>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px;">${i + 1}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px;">${p.codigo}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px;">${p.descricao}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: center;">${p.ncm}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: center;">${p.cst}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: center;">${p.cfop}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: center;">${p.unidade}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: right;">${formatarValor(p.quantidade)}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: right;">${formatarValor(p.valorUnitario)}</td>
-      <td style="border: 1px solid #000; padding: 4px; font-size: 8px; text-align: right;">${formatarValor(p.valorTotal)}</td>
+      <td class="td-center" style="width: 3%;">${i + 1}</td>
+      <td class="td-left" style="width: 10%;">${p.codigo}</td>
+      <td class="td-left" style="width: 20%;">${p.descricao}</td>
+      <td class="td-center" style="width: 6%;">${p.ncm}</td>
+      <td class="td-center" style="width: 4%;">${p.cst}</td>
+      <td class="td-center" style="width: 4%;">${p.cfop}</td>
+      <td class="td-center" style="width: 4%;">${p.unidade}</td>
+      <td class="td-right" style="width: 7%;">${formatarValor(p.quantidade)}</td>
+      <td class="td-right" style="width: 8%;">${formatarValor(p.valorUnitario)}</td>
+      <td class="td-right" style="width: 9%;">${formatarValor(p.valorTotal)}</td>
+      <td class="td-right" style="width: 7%;">${p.bcIcms ? formatarValor(p.bcIcms) : ''}</td>
+      <td class="td-right" style="width: 7%;">${p.valorIcms ? formatarValor(p.valorIcms) : ''}</td>
+      <td class="td-right" style="width: 5%;">${p.ipi ? formatarValor(p.ipi) : ''}</td>
+      <td class="td-right" style="width: 6%;">${p.aliqIcms ? formatarValor(p.aliqIcms) : ''}</td>
     </tr>
   `).join('');
   
@@ -367,160 +195,543 @@ export function gerarHTMLDanfe(dados: DadosDANFE): string {
   <title>DANFE - NF-e ${dados.numero}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 10px; padding: 10mm; }
-    .container { width: 100%; max-width: 210mm; }
-    .box { border: 2px solid #000; padding: 4px; margin-bottom: 2px; }
-    .box-title { font-size: 7px; font-weight: bold; margin-bottom: 2px; }
-    .box-content { font-size: 9px; }
-    .header { display: flex; border: 2px solid #000; margin-bottom: 2px; }
-    .header-left { flex: 0 0 120px; border-right: 2px solid #000; padding: 4px; text-align: center; }
-    .header-center { flex: 1; border-right: 2px solid #000; padding: 4px; }
-    .header-right { flex: 0 0 150px; padding: 4px; text-align: center; }
-    .danfe-title { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 2px; }
-    .danfe-subtitle { font-size: 10px; text-align: center; }
-    table { width: 100%; border-collapse: collapse; }
-    th { background-color: #f0f0f0; font-size: 7px; padding: 4px; border: 1px solid #000; text-align: left; }
-    td { font-size: 8px; padding: 4px; border: 1px solid #000; }
-    .section-title { font-size: 9px; font-weight: bold; background-color: #e0e0e0; padding: 4px; border: 1px solid #000; margin-top: 4px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
-    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; }
-    .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .barcode { text-align: center; font-family: 'Courier New', monospace; font-size: 24px; letter-spacing: 2px; margin: 8px 0; }
-    .ambiente-homologacao { color: red; font-weight: bold; font-size: 16px; text-align: center; margin: 10px 0; }
+    body { 
+      font-family: Arial, sans-serif; 
+      font-size: 7px;
+      padding: 5mm;
+      background: white;
+    }
+    
+    .page { 
+      width: 210mm; 
+      min-height: 297mm;
+      margin: 0 auto;
+      background: white;
+    }
+    
+    /* Bordas e boxes padrão SEFAZ */
+    .border { border: 1px solid #000; }
+    .border-top { border-top: 1px solid #000; }
+    .border-bottom { border-bottom: 1px solid #000; }
+    .border-left { border-left: 1px solid #000; }
+    .border-right { border-right: 1px solid #000; }
+    
+    .field {
+      border: 1px solid #000;
+      padding: 2px 3px;
+      min-height: 14px;
+    }
+    
+    .field-label {
+      font-size: 5px;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 1px;
+      text-transform: uppercase;
+    }
+    
+    .field-value {
+      font-size: 7px;
+      display: block;
+    }
+    
+    /* Layout de grid */
+    .row {
+      display: flex;
+      width: 100%;
+    }
+    
+    .col { flex: 1; }
+    .col-2 { flex: 2; }
+    .col-3 { flex: 3; }
+    .col-4 { flex: 4; }
+    
+    /* Cabeçalho superior (Recebimento) */
+    .header-top {
+      display: flex;
+      border: 1px solid #000;
+      margin-bottom: 1px;
+    }
+    
+    .header-recebimento {
+      flex: 3;
+      padding: 3px;
+      border-right: 1px solid #000;
+    }
+    
+    .header-numero {
+      flex: 1;
+      text-align: center;
+      padding: 3px;
+    }
+    
+    /* Cabeçalho principal */
+    .header-main {
+      display: flex;
+      border: 1px solid #000;
+      border-top: none;
+      margin-bottom: 1px;
+      min-height: 60px;
+    }
+    
+    .header-logo {
+      width: 80px;
+      border-right: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px;
+    }
+    
+    .header-emitente {
+      flex: 1;
+      padding: 4px 6px;
+      border-right: 1px solid #000;
+    }
+    
+    .header-danfe {
+      width: 120px;
+      text-align: center;
+      padding: 4px;
+    }
+    
+    .emitente-nome {
+      font-size: 9px;
+      font-weight: bold;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+    
+    .emitente-endereco {
+      font-size: 6px;
+      line-height: 8px;
+    }
+    
+    .danfe-title {
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+    
+    .danfe-subtitle {
+      font-size: 7px;
+      line-height: 8px;
+      margin-bottom: 4px;
+    }
+    
+    .danfe-tipo {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 4px 0;
+    }
+    
+    .danfe-numero {
+      font-size: 8px;
+      font-weight: bold;
+    }
+    
+    /* Chave de acesso com código de barras */
+    .chave-acesso {
+      border: 1px solid #000;
+      border-top: none;
+      padding: 4px;
+      text-align: center;
+      margin-bottom: 1px;
+    }
+    
+    .chave-barcode {
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      margin: 3px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .barcode-bars {
+      font-size: 24px;
+      letter-spacing: 0;
+      line-height: 20px;
+    }
+    
+    .chave-consulta {
+      font-size: 6px;
+      margin-top: 2px;
+    }
+    
+    /* Seções */
+    .section-title {
+      background-color: #000;
+      color: #fff;
+      padding: 2px 4px;
+      font-size: 6px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    /* Tabelas */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #000;
+    }
+    
+    th {
+      background-color: #f0f0f0;
+      border: 1px solid #000;
+      padding: 2px;
+      font-size: 5px;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    
+    td {
+      border: 1px solid #000;
+      padding: 2px 3px;
+      font-size: 6px;
+    }
+    
+    .td-left { text-align: left; }
+    .td-center { text-align: center; }
+    .td-right { text-align: right; }
+    
+    /* Ambiente de homologação */
+    .ambiente-homologacao {
+      background-color: #000;
+      color: #fff;
+      text-align: center;
+      padding: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-bottom: 1px;
+    }
+    
+    /* Impressão */
+    @media print {
+      body { padding: 0; }
+      .page { margin: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    
-    <!-- CABEÇALHO -->
-    <div class="header">
-      <div class="header-left">
-        <div style="font-size: 8px; margin-bottom: 4px;">LOGO</div>
-        <div style="font-size: 6px; color: #666;">Área reservada para logo</div>
+  <div class="page">
+  
+    <!-- CABEÇALHO SUPERIOR: RECEBIMENTO + NÚMERO -->
+    <div class="header-top">
+      <div class="header-recebimento">
+        <span class="field-label">RECEBEMOS DE ${dados.emitente.razaoSocial} OS PRODUTOS/SERVIÇOS CONSTANTES NA NOTA FISCAL INDICADA AO LADO</span>
       </div>
-      <div class="header-center">
-        <div style="font-size: 11px; font-weight: bold;">${dados.emitente.razaoSocial}</div>
-        ${dados.emitente.nomeFantasia ? `<div style="font-size: 9px;">${dados.emitente.nomeFantasia}</div>` : ''}
-        <div style="font-size: 8px; margin-top: 4px;">
+      <div class="header-numero">
+        <div class="field-label">Nº</div>
+        <div style="font-size: 14px; font-weight: bold;">${dados.numero.padStart(9, '0')}</div>
+        <div class="field-label">SÉRIE: ${dados.serie}</div>
+      </div>
+    </div>
+    
+    <div class="row" style="border: 1px solid #000; border-top: none; margin-bottom: 1px;">
+      <div style="flex: 2; padding: 3px; border-right: 1px solid #000;">
+        <span class="field-label">DATA DE RECEBIMENTO</span>
+      </div>
+      <div style="flex: 1; padding: 3px;">
+        <span class="field-label">IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR</span>
+      </div>
+    </div>
+    
+    <!-- CABEÇALHO PRINCIPAL: LOGO + EMITENTE + DANFE -->
+    <div class="header-main">
+      <!-- Logo -->
+      <div class="header-logo">
+        <div style="text-align: center;">
+          <div style="font-size: 24px; color: #666;">📄</div>
+          <div style="font-size: 5px; color: #999; margin-top: 2px;">LOGOTIPO</div>
+        </div>
+      </div>
+      
+      <!-- Dados do Emitente -->
+      <div class="header-emitente">
+        <div class="emitente-nome">${dados.emitente.razaoSocial}</div>
+        ${dados.emitente.nomeFantasia ? `<div style="font-size: 7px; margin-bottom: 2px;">${dados.emitente.nomeFantasia}</div>` : ''}
+        <div class="emitente-endereco">
           ${dados.emitente.endereco}, ${dados.emitente.bairro}<br>
-          ${formatarCEP(dados.emitente.cep)} - ${dados.emitente.municipio} - ${dados.emitente.uf}<br>
-          ${dados.emitente.telefone ? `Tel: ${dados.emitente.telefone}<br>` : ''}
+          CEP: ${formatarCEP(dados.emitente.cep)} - ${dados.emitente.municipio} - ${dados.emitente.uf}<br>
+          ${dados.emitente.telefone ? `TEL/FAX: ${dados.emitente.telefone}<br>` : ''}
         </div>
       </div>
-      <div class="header-right">
+      
+      <!-- DANFE -->
+      <div class="header-danfe">
         <div class="danfe-title">DANFE</div>
-        <div class="danfe-subtitle">Documento Auxiliar da<br>Nota Fiscal Eletrônica</div>
-        <div style="font-size: 8px; margin-top: 4px;">
-          <strong>0 - ENTRADA</strong><br>
-          <strong>1 - SAÍDA</strong>
+        <div class="danfe-subtitle">DOCUMENTO AUXILIAR<br>DA NOTA FISCAL<br>ELETRÔNICA</div>
+        <div style="font-size: 6px; margin: 4px 0;">
+          <strong>0 - Entrada</strong><br>
+          <div class="danfe-tipo">${dados.tipoOperacao === 'ENTRADA' ? '0' : '1'}</div>
+          <strong>1 - Saída</strong>
         </div>
-        <div style="font-size: 20px; font-weight: bold; margin-top: 4px;">${dados.tipoOperacao === 'ENTRADA' ? '0' : '1'}</div>
-        <div style="font-size: 8px; margin-top: 4px;">
-          Nº ${dados.numero}<br>
-          Série ${dados.serie}
+        <div class="danfe-numero">
+          Nº ${dados.numero.padStart(9, '0')}<br>
+          SÉRIE: ${dados.serie}<br>
+          FOLHA: 1 de 1
         </div>
       </div>
     </div>
     
-    ${dados.ambiente === 2 ? '<div class="ambiente-homologacao">⚠️ AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL ⚠️</div>' : ''}
+    ${dados.ambiente === 2 ? '<div class="ambiente-homologacao">⚠️ SEM VALOR FISCAL - HOMOLOGAÇÃO ⚠️</div>' : ''}
     
-    <!-- CHAVE DE ACESSO -->
-    <div class="box">
-      <div class="box-title">CHAVE DE ACESSO</div>
-      <div class="barcode">${formatarChave(dados.chaveAcesso)}</div>
-      <div class="text-center" style="font-size: 8px;">Consulte pela chave de acesso em: https://www.nfe.fazenda.gov.br/portal</div>
+    <!-- CHAVE DE ACESSO COM CÓDIGO DE BARRAS -->
+    <div class="chave-acesso">
+      <div class="field-label">CHAVE DE ACESSO</div>
+      <div class="chave-barcode">
+        <div class="barcode-bars">|||&nbsp;||&nbsp;|&nbsp;||&nbsp;|||&nbsp;|&nbsp;|||&nbsp;||&nbsp;|&nbsp;||&nbsp;|||&nbsp;|&nbsp;||&nbsp;|||&nbsp;||&nbsp;|&nbsp;|||&nbsp;|&nbsp;||&nbsp;|||&nbsp;|&nbsp;||&nbsp;|||&nbsp;||&nbsp;|&nbsp;||&nbsp;|||</div>
+      </div>
+      <div style="font-size: 8px; font-weight: bold; letter-spacing: 2px;">${formatarChave(dados.chaveAcesso)}</div>
+      <div class="chave-consulta">
+        Consulta de autenticidade no portal nacional da NF-e<br>
+        www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora
+      </div>
     </div>
     
-    <!-- NATUREZA DA OPERAÇÃO -->
-    <div class="grid-2">
-      <div class="box">
-        <div class="box-title">NATUREZA DA OPERAÇÃO</div>
-        <div class="box-content">${dados.naturezaOperacao}</div>
+    <!-- NATUREZA DA OPERAÇÃO + PROTOCOLO -->
+    <div class="row">
+      <div class="field col-2">
+        <span class="field-label">NATUREZA DA OPERAÇÃO</span>
+        <span class="field-value">${dados.naturezaOperacao}</span>
       </div>
-      <div class="box">
-        <div class="box-title">PROTOCOLO DE AUTORIZAÇÃO</div>
-        <div class="box-content">${dados.protocolo ? `${dados.protocolo} - ${formatarData(dados.dataAutorizacao || '')}` : 'Aguardando autorização'}</div>
+      <div class="field col-2">
+        <span class="field-label">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
+        <span class="field-value">${dados.protocolo ? `${dados.protocolo} - ${formatarDataHora(dados.dataAutorizacao || '')}` : ''}</span>
       </div>
     </div>
     
     <!-- INSCRIÇÃO ESTADUAL -->
-    <div class="grid-3">
-      <div class="box">
-        <div class="box-title">INSCRIÇÃO ESTADUAL</div>
-        <div class="box-content">${dados.emitente.ie}</div>
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">INSCRIÇÃO ESTADUAL</span>
+        <span class="field-value">${dados.emitente.ie}</span>
       </div>
-      <div class="box">
-        <div class="box-title">INSCRIÇÃO ESTADUAL DO SUBST. TRIBUTÁRIO</div>
-        <div class="box-content">${dados.emitente.iest || ''}</div>
+      <div class="field col">
+        <span class="field-label">INSCRIÇÃO ESTADUAL DO SUBST. TRIBUTÁRIO</span>
+        <span class="field-value">${dados.emitente.iest || ''}</span>
       </div>
-      <div class="box">
-        <div class="box-title">CNPJ</div>
-        <div class="box-content">${formatarCNPJ(dados.emitente.cnpj)}</div>
-      </div>
-    </div>
-    
-    <!-- DESTINATÁRIO / REMETENTE -->
-    <div class="section-title">DESTINATÁRIO / REMETENTE</div>
-    <div class="grid-2">
-      <div class="box">
-        <div class="box-title">NOME / RAZÃO SOCIAL</div>
-        <div class="box-content">${dados.destinatario.nome}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">CNPJ / CPF</div>
-        <div class="box-content">${formatarCPFCNPJ(dados.destinatario.cpfCnpj)}</div>
-      </div>
-    </div>
-    <div class="grid-4">
-      <div class="box" style="grid-column: 1 / 3;">
-        <div class="box-title">ENDEREÇO</div>
-        <div class="box-content">${dados.destinatario.endereco}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">BAIRRO / DISTRITO</div>
-        <div class="box-content">${dados.destinatario.bairro}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">CEP</div>
-        <div class="box-content">${formatarCEP(dados.destinatario.cep)}</div>
-      </div>
-    </div>
-    <div class="grid-4">
-      <div class="box">
-        <div class="box-title">MUNICÍPIO</div>
-        <div class="box-content">${dados.destinatario.municipio}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">UF</div>
-        <div class="box-content">${dados.destinatario.uf}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">TELEFONE</div>
-        <div class="box-content">${dados.destinatario.telefone || ''}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">INSCRIÇÃO ESTADUAL</div>
-        <div class="box-content">${dados.destinatario.ie || ''}</div>
+      <div class="field col">
+        <span class="field-label">CNPJ</span>
+        <span class="field-value">${formatarCNPJ(dados.emitente.cnpj)}</span>
       </div>
     </div>
     
-    <!-- PRODUTOS / SERVIÇOS -->
-    <div class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</div>
+    <!-- DESTINATÁRIO/REMETENTE -->
+    <div class="section-title">DESTINATÁRIO/REMETENTE</div>
+    <div class="row">
+      <div class="field col-2">
+        <span class="field-label">NOME/RAZÃO SOCIAL</span>
+        <span class="field-value">${dados.destinatario.nome}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">CNPJ/CPF</span>
+        <span class="field-value">${formatarCPFCNPJ(dados.destinatario.cpfCnpj)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">DATA DA EMISSÃO</span>
+        <span class="field-value">${formatarData(dados.dataEmissao)}</span>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="field col-2">
+        <span class="field-label">ENDEREÇO</span>
+        <span class="field-value">${dados.destinatario.endereco}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">BAIRRO/DISTRITO</span>
+        <span class="field-value">${dados.destinatario.bairro}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">CEP</span>
+        <span class="field-value">${formatarCEP(dados.destinatario.cep)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">DATA DA SAÍDA/ENTRADA</span>
+        <span class="field-value">${dados.dataSaida ? formatarData(dados.dataSaida) : ''}</span>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">MUNICÍPIO</span>
+        <span class="field-value">${dados.destinatario.municipio}</span>
+      </div>
+      <div class="field" style="width: 50px;">
+        <span class="field-label">UF</span>
+        <span class="field-value">${dados.destinatario.uf}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">FONE/FAX</span>
+        <span class="field-value">${dados.destinatario.telefone || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">INSCRIÇÃO ESTADUAL</span>
+        <span class="field-value">${dados.destinatario.ie || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">HORA DA SAÍDA/ENTRADA</span>
+        <span class="field-value"></span>
+      </div>
+    </div>
+    
+    <!-- FATURA/DUPLICATA -->
+    <div class="section-title">FATURA/DUPLICATA</div>
+    <div class="field">
+      <span class="field-value">PAGAMENTO À VISTA</span>
+    </div>
+    
+    <!-- CÁLCULO DO IMPOSTO -->
+    <div class="section-title">CÁLCULO DO IMPOSTO</div>
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">BASE DE CÁLCULO DO ICMS</span>
+        <span class="field-value">${formatarValor(dados.totais.baseCalculoIcms)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">VALOR DO ICMS</span>
+        <span class="field-value">${formatarValor(dados.totais.valorIcms)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">BASE DE CÁLCULO ICMS ST</span>
+        <span class="field-value">${formatarValor(dados.totais.baseCalculoIcmsST)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">VALOR DO ICMS SUBSTITUIÇÃO</span>
+        <span class="field-value">${formatarValor(dados.totais.valorIcmsST)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">VALOR TOTAL DOS PRODUTOS</span>
+        <span class="field-value">${formatarValor(dados.totais.valorTotalProdutos)}</span>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">VALOR DO FRETE</span>
+        <span class="field-value">${formatarValor(dados.totais.valorFrete)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">VALOR DO SEGURO</span>
+        <span class="field-value">${formatarValor(dados.totais.valorSeguro)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">DESCONTO</span>
+        <span class="field-value">${formatarValor(dados.totais.desconto)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">OUTRAS DESPESAS ACESSÓRIAS</span>
+        <span class="field-value">${formatarValor(dados.totais.outrasDespesas)}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">VALOR DO IPI</span>
+        <span class="field-value">${formatarValor(dados.totais.valorIPI)}</span>
+      </div>
+      <div class="field col" style="background-color: #f0f0f0;">
+        <span class="field-label">VALOR TOTAL DA NOTA</span>
+        <span class="field-value" style="font-weight: bold; font-size: 8px;">${formatarValor(dados.totais.valorTotal)}</span>
+      </div>
+    </div>
+    
+    <!-- TRANSPORTADOR/VOLUMES -->
+    <div class="section-title">TRANSPORTADOR/VOLUMES TRANSPORTADOS</div>
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">RAZÃO SOCIAL</span>
+        <span class="field-value">${dados.transporte?.transportador?.nome || 'Remetente'}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">FRETE POR CONTA</span>
+        <span class="field-value">${modalidadeFreteMap[dados.transporte?.modalidade || '9'] || '9-Sem Frete'}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">CÓDIGO ANTT</span>
+        <span class="field-value"></span>
+      </div>
+      <div class="field col">
+        <span class="field-label">PLACA DO VEÍCULO</span>
+        <span class="field-value"></span>
+      </div>
+      <div class="field" style="width: 40px;">
+        <span class="field-label">UF</span>
+        <span class="field-value"></span>
+      </div>
+      <div class="field col">
+        <span class="field-label">CNPJ/CPF</span>
+        <span class="field-value">${dados.transporte?.transportador?.cnpjCpf ? formatarCPFCNPJ(dados.transporte.transportador.cnpjCpf) : ''}</span>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">ENDEREÇO</span>
+        <span class="field-value">${dados.transporte?.transportador?.endereco || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">MUNICÍPIO</span>
+        <span class="field-value">${dados.transporte?.transportador?.municipio || ''}</span>
+      </div>
+      <div class="field" style="width: 40px;">
+        <span class="field-label">UF</span>
+        <span class="field-value">${dados.transporte?.transportador?.uf || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">INSCRIÇÃO ESTADUAL</span>
+        <span class="field-value">${dados.transporte?.transportador?.ie || ''}</span>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">QUANTIDADE</span>
+        <span class="field-value">${dados.transporte?.volumes?.quantidade || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">ESPÉCIE</span>
+        <span class="field-value">${dados.transporte?.volumes?.especie || 'Volume(s)'}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">MARCA</span>
+        <span class="field-value">${dados.transporte?.volumes?.marca || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">NUMERAÇÃO</span>
+        <span class="field-value">${dados.transporte?.volumes?.numeracao || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">PESO BRUTO</span>
+        <span class="field-value">${dados.transporte?.volumes?.pesoBruto ? formatarValor(dados.transporte.volumes.pesoBruto) : ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">PESO LÍQUIDO</span>
+        <span class="field-value">${dados.transporte?.volumes?.pesoLiquido ? formatarValor(dados.transporte.volumes.pesoLiquido) : ''}</span>
+      </div>
+    </div>
+    
+    <!-- DADOS DO PRODUTO/SERVIÇO -->
+    <div class="section-title">DADOS DO PRODUTO/SERVIÇO</div>
     <table>
       <thead>
         <tr>
-          <th style="width: 3%;">#</th>
-          <th style="width: 10%;">CÓDIGO</th>
-          <th style="width: 27%;">DESCRIÇÃO</th>
-          <th style="width: 8%;">NCM</th>
-          <th style="width: 5%;">CST</th>
-          <th style="width: 7%;">CFOP</th>
-          <th style="width: 5%;">UN</th>
-          <th style="width: 8%;">QUANT</th>
-          <th style="width: 10%;">V. UNIT</th>
-          <th style="width: 12%;">V. TOTAL</th>
+          <th style="width: 3%;">Item</th>
+          <th style="width: 10%;">Código<br>Produto</th>
+          <th style="width: 20%;">Descrição do Produto/Serviço</th>
+          <th style="width: 6%;">NCM/<br>SH</th>
+          <th style="width: 4%;">CST</th>
+          <th style="width: 4%;">CFOP</th>
+          <th style="width: 4%;">Unid</th>
+          <th style="width: 7%;">Quant</th>
+          <th style="width: 8%;">Valor<br>Unitário</th>
+          <th style="width: 9%;">Valor<br>Total</th>
+          <th style="width: 7%;">BC ICMS</th>
+          <th style="width: 7%;">Valor<br>ICMS</th>
+          <th style="width: 5%;">Valor<br>IPI</th>
+          <th style="width: 6%;">Alíq.<br>ICMS</th>
         </tr>
       </thead>
       <tbody>
@@ -528,134 +739,38 @@ export function gerarHTMLDanfe(dados: DadosDANFE): string {
       </tbody>
     </table>
     
-    <!-- CÁLCULO DO IMPOSTO -->
-    <div class="section-title" style="margin-top: 8px;">CÁLCULO DO IMPOSTO</div>
-    <div class="grid-4">
-      <div class="box">
-        <div class="box-title">BASE DE CÁLCULO DO ICMS</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.baseCalculoIcms)}</div>
+    <!-- CÁLCULO DO ISSQN -->
+    <div class="section-title" style="margin-top: 1px;">CÁLCULO DO ISSQN</div>
+    <div class="row">
+      <div class="field col">
+        <span class="field-label">INSCRIÇÃO MUNICIPAL</span>
+        <span class="field-value"></span>
       </div>
-      <div class="box">
-        <div class="box-title">VALOR DO ICMS</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorIcms)}</div>
+      <div class="field col">
+        <span class="field-label">VALOR TOTAL DOS SERVIÇOS</span>
+        <span class="field-value"></span>
       </div>
-      <div class="box">
-        <div class="box-title">BASE DE CÁLCULO DO ICMS ST</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.baseCalculoIcmsST)}</div>
+      <div class="field col">
+        <span class="field-label">BASE DE CÁLCULO DO ISSQN</span>
+        <span class="field-value"></span>
       </div>
-      <div class="box">
-        <div class="box-title">VALOR DO ICMS ST</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorIcmsST)}</div>
-      </div>
-    </div>
-    <div class="grid-4">
-      <div class="box">
-        <div class="box-title">VALOR TOTAL DOS PRODUTOS</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorTotalProdutos)}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">VALOR DO FRETE</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorFrete)}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">VALOR DO SEGURO</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorSeguro)}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">DESCONTO</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.desconto)}</div>
+      <div class="field col">
+        <span class="field-label">VALOR DO ISSQN</span>
+        <span class="field-value"></span>
       </div>
     </div>
-    <div class="grid-3">
-      <div class="box">
-        <div class="box-title">OUTRAS DESPESAS</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.outrasDespesas)}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">VALOR DO IPI</div>
-        <div class="box-content text-right">${formatarValor(dados.totais.valorIPI)}</div>
-      </div>
-      <div class="box" style="background-color: #f0f0f0;">
-        <div class="box-title">VALOR TOTAL DA NOTA</div>
-        <div class="box-content text-right" style="font-weight: bold; font-size: 11px;">${formatarValor(dados.totais.valorTotal)}</div>
-      </div>
-    </div>
-    
-    <!-- TRANSPORTADOR / VOLUMES -->
-    ${dados.transporte ? `
-    <div class="section-title" style="margin-top: 8px;">TRANSPORTADOR / VOLUMES TRANSPORTADOS</div>
-    <div class="box">
-      <div class="box-title">MODALIDADE DO FRETE</div>
-      <div class="box-content">${dados.transporte.modalidade}</div>
-    </div>
-    ${dados.transporte.transportador ? `
-    <div class="grid-3">
-      <div class="box" style="grid-column: 1 / 3;">
-        <div class="box-title">TRANSPORTADOR / RAZÃO SOCIAL</div>
-        <div class="box-content">${dados.transporte.transportador.nome}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">CNPJ / CPF</div>
-        <div class="box-content">${dados.transporte.transportador.cnpjCpf ? formatarCPFCNPJ(dados.transporte.transportador.cnpjCpf) : ''}</div>
-      </div>
-    </div>
-    <div class="grid-3">
-      <div class="box">
-        <div class="box-title">ENDEREÇO</div>
-        <div class="box-content">${dados.transporte.transportador.endereco || ''}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">MUNICÍPIO</div>
-        <div class="box-content">${dados.transporte.transportador.municipio || ''}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">UF</div>
-        <div class="box-content">${dados.transporte.transportador.uf || ''}</div>
-      </div>
-    </div>
-    ` : ''}
-    ${dados.transporte.volumes ? `
-    <div class="grid-4">
-      <div class="box">
-        <div class="box-title">QUANTIDADE</div>
-        <div class="box-content">${dados.transporte.volumes.quantidade}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">ESPÉCIE</div>
-        <div class="box-content">${dados.transporte.volumes.especie || ''}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">PESO LÍQUIDO</div>
-        <div class="box-content">${dados.transporte.volumes.pesoLiquido ? formatarValor(dados.transporte.volumes.pesoLiquido) + ' kg' : ''}</div>
-      </div>
-      <div class="box">
-        <div class="box-title">PESO BRUTO</div>
-        <div class="box-content">${dados.transporte.volumes.pesoBruto ? formatarValor(dados.transporte.volumes.pesoBruto) + ' kg' : ''}</div>
-      </div>
-    </div>
-    ` : ''}
-    ` : ''}
     
     <!-- DADOS ADICIONAIS -->
-    ${dados.informacoesComplementares || dados.informacoesFisco ? `
-    <div class="section-title" style="margin-top: 8px;">DADOS ADICIONAIS</div>
-    ${dados.informacoesComplementares ? `
-    <div class="box">
-      <div class="box-title">INFORMAÇÕES COMPLEMENTARES</div>
-      <div class="box-content" style="min-height: 30px;">${dados.informacoesComplementares}</div>
-    </div>
-    ` : ''}
-    ${dados.informacoesFisco ? `
-    <div class="box">
-      <div class="box-title">RESERVADO AO FISCO</div>
-      <div class="box-content" style="min-height: 30px;">${dados.informacoesFisco}</div>
-    </div>
-    ` : ''}
-    ` : ''}
-    
-    <!-- RODAPÉ -->
-    <div style="text-align: center; font-size: 7px; margin-top: 8px; color: #666;">
-      Emitido em ${formatarData(dados.dataEmissao)} | Este documento é uma representação gráfica simplificada da NF-e
+    <div class="section-title" style="margin-top: 1px;">DADOS ADICIONAIS</div>
+    <div class="row">
+      <div class="field col-2">
+        <span class="field-label">INFORMAÇÕES COMPLEMENTARES</span>
+        <span class="field-value" style="min-height: 30px; display: block;">${dados.informacoesComplementares || ''}</span>
+      </div>
+      <div class="field col">
+        <span class="field-label">RESERVADO AO FISCO</span>
+        <span class="field-value" style="min-height: 30px; display: block;">${dados.informacoesFisco || ''}</span>
+      </div>
     </div>
     
   </div>
