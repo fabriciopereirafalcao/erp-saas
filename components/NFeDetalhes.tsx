@@ -192,6 +192,10 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         return;
       }
 
+      console.log('[NFE_DETALHES] 🔑 User ID:', session.user.id);
+      console.log('[NFE_DETALHES] 🔑 User email:', session.user.email);
+      console.log('[NFE_DETALHES] 🔍 Buscando NF-e ID:', nfeId);
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/${nfeId}`,
         {

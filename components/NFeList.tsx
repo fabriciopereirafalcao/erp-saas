@@ -173,6 +173,10 @@ export function NFeList({ onRefresh }: NFeListProps) {
       // API retorna { success: true, data: [...], count: N }
       setNfes(data.data || []);
       console.log(`[NFE_LIST] ${data.count || 0} NF-es carregadas`);
+      if (data.data && data.data.length > 0) {
+        console.log('[NFE_LIST] 📋 IDs das NF-es:', data.data.map((n: any) => n.id).join(', '));
+        console.log('[NFE_LIST] 📋 Primeira NF-e completa:', data.data[0]);
+      }
 
     } catch (error: any) {
       console.error('[NFE_LIST] Erro ao carregar:', error);
