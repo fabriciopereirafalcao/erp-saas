@@ -213,6 +213,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
 
       setNfe(data.data);
       console.log('[NFE_DETALHES] NF-e carregada:', data.data);
+      console.log('[NFE_DETALHES] 📦 Produtos:', data.data.produtos);
 
     } catch (error: any) {
       console.error('[NFE_DETALHES] Erro ao carregar:', error);
@@ -339,12 +340,16 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
   };
 
   const formatarData = (dataISO: string) => {
-    return new Date(dataISO).toLocaleString('pt-BR', {
+    // Garantir que a data seja interpretada como timezone local (BRT)
+    // Se a string terminar com 'Z', é UTC e precisamos ajustar
+    const data = new Date(dataISO);
+    return data.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo' // Forçar timezone de Brasília
     });
   };
 
@@ -504,10 +509,10 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         )}
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Timeline de Eventos */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Coluna 1: Timeline de Eventos */}
         <div className="lg:col-span-1">
-          <Card className="p-6">
+          <Card className="p-6 h-full">
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-5 h-5 text-gray-600" />
               <h2 className="text-gray-900">Timeline de Eventos</h2>
@@ -559,10 +564,10 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
           </Card>
         </div>
 
-        {/* Detalhes principais */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Coluna 2: Emitente e Destinatário */}
+        <div className="lg:col-span-1 space-y-6">
           {/* Emitente e Destinatário */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 className="w-5 h-5 text-gray-600" />
@@ -601,7 +606,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               </div>
               <div className="space-y-2">
                 <div>
-                  <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'Razão Social' : 'Nome'}</p>
+                  <p className="text-xs text-gray-500">Razão Social</p>
                   <p className="text-sm text-gray-900">{nfe.destinatario.nome}</p>
                 </div>
                 <div>
@@ -612,35 +617,19 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
                   <p className="text-xs text-gray-500">Inscrição Estadual</p>
                   <p className="text-sm text-gray-900">{nfe.destinatario.ie || 'Não informado'}</p>
                 </div>
-                {nfe.destinatario.endereco && (
-                  <div>
-                    <p className="text-xs text-gray-500">Endereço</p>
-                    <p className="text-sm text-gray-900">
-                      {nfe.destinatario.endereco.logradouro}, {nfe.destinatario.endereco.numero}
-                      {nfe.destinatario.endereco.complemento && `, ${nfe.destinatario.endereco.complemento}`}
-                      <br />
-                      {nfe.destinatario.endereco.bairro} - {nfe.destinatario.endereco.municipio}/{nfe.destinatario.endereco.uf}
-                      <br />
-                      CEP: {nfe.destinatario.endereco.cep}
-                    </p>
-                  </div>
-                )}
-                {nfe.destinatario.email && (
-                  <div>
-                    <p className="text-xs text-gray-500">E-mail</p>
-                    <p className="text-sm text-gray-900">{nfe.destinatario.email}</p>
-                  </div>
-                )}
-                {nfe.destinatario.telefone && (
-                  <div>
-                    <p className="text-xs text-gray-500">Telefone</p>
-                    <p className="text-sm text-gray-900">{nfe.destinatario.telefone}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-xs text-gray-500">UF</p>
+                  <p className="text-sm text-gray-900">
+                    {nfe.destinatario.endereco?.uf || 'Não informado'}
+                  </p>
+                </div>
               </div>
             </Card>
           </div>
+        </div>
 
+        {/* Coluna 3: Produtos e Valores */}
+        <div className="lg:col-span-2 space-y-6">
           {/* Produtos */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -663,23 +652,26 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {nfe.produtos.map((produto, index) => (
-                      <tr key={index} className="border-b border-gray-100">
-                        <td className="py-2 text-gray-900">{produto.codigo}</td>
-                        <td className="py-2 text-gray-900">{produto.descricao}</td>
-                        <td className="py-2 text-gray-900">{produto.ncm}</td>
-                        <td className="py-2 text-gray-900">{produto.cfop}</td>
-                        <td className="py-2 text-right text-gray-900">
-                          {produto.quantidade} {produto.unidade}
-                        </td>
-                        <td className="py-2 text-right text-gray-900">
-                          {formatarValor(produto.valorUnitario)}
-                        </td>
-                        <td className="py-2 text-right text-gray-900">
-                          {formatarValor(produto.valorTotal)}
-                        </td>
-                      </tr>
-                    ))}
+                    {nfe.produtos.map((produto, index) => {
+                      console.log(`[NFE_DETALHES] Renderizando produto ${index}:`, produto);
+                      return (
+                        <tr key={index} className="border-b border-gray-100">
+                          <td className="py-2 text-gray-900">{produto.codigo || '-'}</td>
+                          <td className="py-2 text-gray-900">{produto.descricao || '-'}</td>
+                          <td className="py-2 text-gray-900">{produto.ncm || '-'}</td>
+                          <td className="py-2 text-gray-900">{produto.cfop || '-'}</td>
+                          <td className="py-2 text-right text-gray-900">
+                            {produto.quantidade || 0} {produto.unidade || 'UN'}
+                          </td>
+                          <td className="py-2 text-right text-gray-900">
+                            {formatarValor(produto.valorUnitario || 0)}
+                          </td>
+                          <td className="py-2 text-right text-gray-900">
+                            {formatarValor(produto.valorTotal || 0)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -764,9 +756,13 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               </div>
             </div>
           </Card>
+        </div>
+      </div>
 
-          {/* Transporte */}
-          {nfe.transporte && (
+      {/* Cards adicionais em largura total */}
+      <div className="space-y-6">
+        {/* Transporte */}
+        {nfe.transporte && (
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Truck className="w-5 h-5 text-gray-600" />
@@ -903,7 +899,6 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               </div>
             </Card>
           )}
-        </div>
       </div>
 
       {/* Dialogs */}
