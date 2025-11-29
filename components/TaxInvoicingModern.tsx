@@ -445,6 +445,12 @@ export function TaxInvoicingModern() {
         
         if (consultaData.success && consultaData.data?.autorizado) {
           // 7. SALVAR NF-e AUTORIZADA
+          const totalProdutos = items.reduce((sum, i) => sum + i.totalValue, 0);
+          const totalImpostos = items.reduce((sum, i) => {
+            const impostos = i.taxes || {};
+            return sum + (impostos.icms || 0) + (impostos.ipi || 0) + (impostos.pis || 0) + (impostos.cofins || 0);
+          }, 0);
+          
           await fetch(
             `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/salvar`,
             {
@@ -457,16 +463,118 @@ export function TaxInvoicingModern() {
                 numero: parseInt(numero),
                 serie: parseInt(serie),
                 chaveAcesso: xmlData.data.chaveAcesso,
+                chave: xmlData.data.chaveAcesso,
+                modelo: "55",
+                tipo: "1",
+                natureza: naturezaOperacao,
                 status: "autorizada",
                 ambiente: "homologacao",
-                emitente: nfeData.emitente,
-                destinatario: nfeData.destinatario,
-                valorTotal: items.reduce((sum, i) => sum + i.totalValue, 0),
-                valorProdutos: items.reduce((sum, i) => sum + i.totalValue, 0),
+                
+                // Emitente completo
+                emitente: {
+                  cnpj: companySettings.cnpj,
+                  razaoSocial: companySettings.companyName,
+                  nomeFantasia: companySettings.tradeName || companySettings.companyName,
+                  ie: companySettings.stateRegistration || '',
+                  uf: companySettings.state || 'SP',
+                  endereco: {
+                    logradouro: companySettings.street || '',
+                    numero: companySettings.number || '',
+                    bairro: companySettings.neighborhood || '',
+                    municipio: companySettings.city || '',
+                    uf: companySettings.state || 'SP',
+                    cep: companySettings.zipCode || ''
+                  }
+                },
+                
+                // Destinatário completo
+                destinatario: {
+                  tipo: destinatario.cpf ? 'pf' : 'pj',
+                  cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
+                  nome: destinatario.name,
+                  email: destinatario.email || '',
+                  telefone: destinatario.phone || '',
+                  ie: destinatario.stateRegistration || '',
+                  endereco: {
+                    logradouro: destinatario.street || '',
+                    numero: destinatario.number || '',
+                    complemento: destinatario.complement || '',
+                    bairro: destinatario.neighborhood || '',
+                    municipio: destinatario.city || '',
+                    uf: destinatario.state || 'SP',
+                    cep: destinatario.zipCode || ''
+                  }
+                },
+                
+                // Produtos completos
+                produtos: items.map(item => ({
+                  codigo: item.code || '',
+                  descricao: item.name,
+                  ncm: item.ncm || '',
+                  cfop: item.cfop || '',
+                  unidade: item.unit || 'UN',
+                  quantidade: item.quantity,
+                  valorUnitario: item.unitPrice,
+                  valorTotal: item.totalValue,
+                  impostos: item.taxes || {}
+                })),
+                
+                // Valores completos
+                valores: {
+                  totalProdutos: totalProdutos,
+                  totalNFe: totalProdutos,
+                  valorICMS: items.reduce((sum, i) => sum + (i.taxes?.icms || 0), 0),
+                  valorIPI: items.reduce((sum, i) => sum + (i.taxes?.ipi || 0), 0),
+                  valorPIS: items.reduce((sum, i) => sum + (i.taxes?.pis || 0), 0),
+                  valorCOFINS: items.reduce((sum, i) => sum + (i.taxes?.cofins || 0), 0)
+                },
+                
+                // Informações complementares
+                informacoesComplementares: informacoesAdicionais || '',
+                
+                // XMLs
                 xml: xmlData.data.xml,
                 xmlAssinado: assinaturaData.data.xmlAssinado,
+                
+                // SEFAZ
                 protocolo: consultaData.data.protocolo,
-                dataAutorizacao: consultaData.data.dataAutorizacao || new Date().toISOString()
+                dataAutorizacao: consultaData.data.dataAutorizacao || new Date().toISOString(),
+                codigoStatus: consultaData.data.codigoStatus || '100',
+                mensagemStatus: consultaData.data.mensagem || 'Autorizado o uso da NF-e',
+                
+                // Timeline de eventos
+                eventos: [
+                  {
+                    tipo: 'emissao',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'NF-e emitida',
+                    dados: { numero: numero, serie: serie }
+                  },
+                  {
+                    tipo: 'assinatura',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'XML assinado digitalmente',
+                    dados: { certificado: 'A1' }
+                  },
+                  {
+                    tipo: 'transmissao',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'Transmitida para SEFAZ',
+                    dados: { recibo: recibo }
+                  },
+                  {
+                    tipo: 'autorizacao',
+                    timestamp: consultaData.data.dataAutorizacao || new Date().toISOString(),
+                    descricao: 'Autorizada pela SEFAZ',
+                    codigo: consultaData.data.codigoStatus || '100',
+                    dados: { protocolo: consultaData.data.protocolo }
+                  }
+                ],
+                
+                // Compatibilidade com formato antigo
+                valorTotal: totalProdutos,
+                valorProdutos: totalProdutos,
+                totalEventos: 4
               })
             }
           );
@@ -488,6 +596,125 @@ export function TaxInvoicingModern() {
       } else {
         // Sem recibo - verificar se foi autorizado imediatamente
         if (transmissaoData.data?.protocolo) {
+          // 7B. SALVAR NF-e AUTORIZADA (caso imediato)
+          const totalProdutos = items.reduce((sum, i) => sum + i.totalValue, 0);
+          
+          await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/salvar`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                numero: parseInt(numero),
+                serie: parseInt(serie),
+                chaveAcesso: xmlData.data.chaveAcesso,
+                chave: xmlData.data.chaveAcesso,
+                modelo: "55",
+                tipo: "1",
+                natureza: naturezaOperacao,
+                status: "autorizada",
+                ambiente: "homologacao",
+                
+                emitente: {
+                  cnpj: companySettings.cnpj,
+                  razaoSocial: companySettings.companyName,
+                  nomeFantasia: companySettings.tradeName || companySettings.companyName,
+                  ie: companySettings.stateRegistration || '',
+                  uf: companySettings.state || 'SP',
+                  endereco: {
+                    logradouro: companySettings.street || '',
+                    numero: companySettings.number || '',
+                    bairro: companySettings.neighborhood || '',
+                    municipio: companySettings.city || '',
+                    uf: companySettings.state || 'SP',
+                    cep: companySettings.zipCode || ''
+                  }
+                },
+                
+                destinatario: {
+                  tipo: destinatario.cpf ? 'pf' : 'pj',
+                  cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
+                  nome: destinatario.name,
+                  email: destinatario.email || '',
+                  telefone: destinatario.phone || '',
+                  ie: destinatario.stateRegistration || '',
+                  endereco: {
+                    logradouro: destinatario.street || '',
+                    numero: destinatario.number || '',
+                    complemento: destinatario.complement || '',
+                    bairro: destinatario.neighborhood || '',
+                    municipio: destinatario.city || '',
+                    uf: destinatario.state || 'SP',
+                    cep: destinatario.zipCode || ''
+                  }
+                },
+                
+                produtos: items.map(item => ({
+                  codigo: item.code || '',
+                  descricao: item.name,
+                  ncm: item.ncm || '',
+                  cfop: item.cfop || '',
+                  unidade: item.unit || 'UN',
+                  quantidade: item.quantity,
+                  valorUnitario: item.unitPrice,
+                  valorTotal: item.totalValue,
+                  impostos: item.taxes || {}
+                })),
+                
+                valores: {
+                  totalProdutos: totalProdutos,
+                  totalNFe: totalProdutos,
+                  valorICMS: items.reduce((sum, i) => sum + (i.taxes?.icms || 0), 0),
+                  valorIPI: items.reduce((sum, i) => sum + (i.taxes?.ipi || 0), 0),
+                  valorPIS: items.reduce((sum, i) => sum + (i.taxes?.pis || 0), 0),
+                  valorCOFINS: items.reduce((sum, i) => sum + (i.taxes?.cofins || 0), 0)
+                },
+                
+                informacoesComplementares: informacoesAdicionais || '',
+                xml: xmlData.data.xml,
+                xmlAssinado: assinaturaData.data.xmlAssinado,
+                protocolo: transmissaoData.data.protocolo,
+                dataAutorizacao: transmissaoData.data.dataAutorizacao || new Date().toISOString(),
+                codigoStatus: transmissaoData.data.codigoStatus || '100',
+                mensagemStatus: transmissaoData.data.mensagem || 'Autorizado o uso da NF-e',
+                
+                eventos: [
+                  {
+                    tipo: 'emissao',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'NF-e emitida',
+                    dados: { numero: numero, serie: serie }
+                  },
+                  {
+                    tipo: 'assinatura',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'XML assinado digitalmente',
+                    dados: { certificado: 'A1' }
+                  },
+                  {
+                    tipo: 'transmissao',
+                    timestamp: new Date().toISOString(),
+                    descricao: 'Transmitida para SEFAZ'
+                  },
+                  {
+                    tipo: 'autorizacao',
+                    timestamp: transmissaoData.data.dataAutorizacao || new Date().toISOString(),
+                    descricao: 'Autorizada pela SEFAZ',
+                    codigo: transmissaoData.data.codigoStatus || '100',
+                    dados: { protocolo: transmissaoData.data.protocolo }
+                  }
+                ],
+                
+                valorTotal: totalProdutos,
+                valorProdutos: totalProdutos,
+                totalEventos: 4
+              })
+            }
+          );
+          
           toast.success("NF-e autorizada com sucesso!", { 
             id: "emitir",
             description: `Protocolo: ${transmissaoData.data.protocolo}` 
