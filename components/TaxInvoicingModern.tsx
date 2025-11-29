@@ -103,13 +103,17 @@ export function TaxInvoicingModern() {
 
   // Carregar informações do certificado
   useEffect(() => {
-    carregarCertificado();
-  }, []);
+    if (session?.access_token) {
+      carregarCertificado();
+    }
+  }, [session]);
 
   // Sugerir próximo número de NF-e
   useEffect(() => {
-    sugerirProximoNumero();
-  }, []);
+    if (session?.access_token) {
+      sugerirProximoNumero();
+    }
+  }, [session, serie]);
 
   /* ======================================================================= */
   /*                           FUNÇÕES - CERTIFICADO                         */
@@ -156,7 +160,12 @@ export function TaxInvoicingModern() {
   const sugerirProximoNumero = async () => {
     try {
       const token = session?.access_token;
-      if (!token) return;
+      if (!token) {
+        console.log('[NUMERO] Token não disponível ainda');
+        return;
+      }
+
+      console.log('[NUMERO] 🔢 Buscando próximo número para série:', serie);
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/listar`,
@@ -170,16 +179,24 @@ export function TaxInvoicingModern() {
       const data = await response.json();
 
       if (data.success && data.data) {
-        // Buscar maior número da série atual
-        const nfesSerie = data.data.filter((n: any) => n.serie === parseInt(serie));
+        console.log('[NUMERO] 📋 Total de NF-es encontradas:', data.data.length);
+        
+        // Buscar maior número da série atual (comparar como string)
+        const nfesSerie = data.data.filter((n: any) => String(n.serie) === String(serie));
+        console.log('[NUMERO] 📋 NF-es da série', serie, ':', nfesSerie.length);
+        
         if (nfesSerie.length > 0) {
-          const maiorNumero = Math.max(...nfesSerie.map((n: any) => n.numero));
-          setNumero(String(maiorNumero + 1));
+          const maiorNumero = Math.max(...nfesSerie.map((n: any) => parseInt(n.numero) || 0));
+          const proximoNumero = maiorNumero + 1;
+          console.log('[NUMERO] ✅ Próximo número sugerido:', proximoNumero);
+          setNumero(String(proximoNumero));
+        } else {
+          console.log('[NUMERO] ℹ️ Nenhuma NF-e da série', serie, '- mantendo número 1');
         }
       }
 
     } catch (error) {
-      console.error("Erro ao sugerir número:", error);
+      console.error("[NUMERO] ❌ Erro ao sugerir número:", error);
     }
   };
 
@@ -515,7 +532,7 @@ export function TaxInvoicingModern() {
                     console.log(`[EMITIR] Produto ${idx}:`, {
                       codigo: item.productId,
                       nome: item.productName,
-                      unitPrice: item.unitPrice,
+                      unitValue: item.unitValue,
                       totalValue: item.totalValue
                     });
                     return {
@@ -525,7 +542,7 @@ export function TaxInvoicingModern() {
                       cfop: item.cfop || '',
                       unidade: item.unit || 'UN',
                       quantidade: item.quantity || 0,
-                      valorUnitario: item.unitPrice || 0,
+                      valorUnitario: item.unitValue || 0,
                       valorTotal: item.totalValue || 0,
                       impostos: item.taxes || {}
                     };
@@ -676,7 +693,7 @@ export function TaxInvoicingModern() {
                     console.log(`[EMITIR_IMEDIATO] Produto ${idx}:`, {
                       codigo: item.productId,
                       nome: item.productName,
-                      unitPrice: item.unitPrice,
+                      unitValue: item.unitValue,
                       totalValue: item.totalValue
                     });
                     return {
@@ -686,7 +703,7 @@ export function TaxInvoicingModern() {
                       cfop: item.cfop || '',
                       unidade: item.unit || 'UN',
                       quantidade: item.quantity || 0,
-                      valorUnitario: item.unitPrice || 0,
+                      valorUnitario: item.unitValue || 0,
                       valorTotal: item.totalValue || 0,
                       impostos: item.taxes || {}
                     };
