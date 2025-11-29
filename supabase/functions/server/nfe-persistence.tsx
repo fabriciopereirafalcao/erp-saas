@@ -272,7 +272,25 @@ app.get("/xml/:id/:tipo", async (c) => {
   console.log(`[NFE_PERSISTENCE] GET /xml/${id}/${tipo} - Início`);
   
   try {
-    const userId = c.req.header('x-user-id') || 'system';
+    // Autenticação via token
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    let userId = 'system';
+    
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (!authError && user) {
+        userId = user.id;
+        console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
+      }
+    }
+    
     const key = `nfe:${userId}:${id}`;
     
     const result = await kv.get(key);
@@ -348,7 +366,40 @@ app.post("/salvar", async (c) => {
   
   try {
     const body = await c.req.json();
-    const userId = c.req.header('x-user-id') || 'system';
+    
+    // Autenticação via token (igual na rota /listar)
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const userIdHeader = c.req.header('x-user-id');
+    
+    console.log(`[NFE_PERSISTENCE] accessToken: ${accessToken ? 'presente' : 'ausente'}`);
+    console.log(`[NFE_PERSISTENCE] userIdHeader: ${userIdHeader || 'ausente'}`);
+    
+    let userId = 'system';
+    
+    // Se tem token, usar autenticação completa
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (authError || !user) {
+        console.log('[NFE_PERSISTENCE] ❌ Token inválido:', authError?.message);
+        return c.json({ success: false, error: 'Token inválido' }, 401);
+      }
+      
+      userId = user.id;
+      console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
+    } else if (userIdHeader) {
+      // Fallback para header x-user-id (retrocompatibilidade)
+      userId = userIdHeader;
+      console.log(`[NFE_PERSISTENCE] ⚠️ Usando x-user-id: ${userId}`);
+    } else {
+      console.log(`[NFE_PERSISTENCE] ⚠️ Sem autenticação, usando 'system'`);
+    }
     
     // Gerar ID se não existir
     const id = body.id || `nfe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -393,7 +444,25 @@ app.patch("/:id", async (c) => {
   console.log(`[NFE_PERSISTENCE] PATCH /${id} - Início`);
   
   try {
-    const userId = c.req.header('x-user-id') || 'system';
+    // Autenticação via token
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    let userId = 'system';
+    
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (!authError && user) {
+        userId = user.id;
+        console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
+      }
+    }
+    
     const key = `nfe:${userId}:${id}`;
     
     // Buscar NF-e existente
@@ -448,7 +517,25 @@ app.delete("/:id", async (c) => {
   console.log(`[NFE_PERSISTENCE] DELETE /${id} - Início`);
   
   try {
-    const userId = c.req.header('x-user-id') || 'system';
+    // Autenticação via token
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    let userId = 'system';
+    
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (!authError && user) {
+        userId = user.id;
+        console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
+      }
+    }
+    
     const key = `nfe:${userId}:${id}`;
     
     // Verificar se existe antes de deletar
@@ -491,7 +578,25 @@ app.get("/stats/resumo", async (c) => {
   console.log('[NFE_PERSISTENCE] GET /stats/resumo - Início');
   
   try {
-    const userId = c.req.header('x-user-id') || 'system';
+    // Autenticação via token
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    let userId = 'system';
+    
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (!authError && user) {
+        userId = user.id;
+        console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
+      }
+    }
+    
     const prefix = `nfe:${userId}:`;
     
     const nfes = await kv.getByPrefix(prefix);
