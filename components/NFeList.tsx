@@ -41,7 +41,7 @@ interface NFeSummary {
     nome: string;
     cpfCnpj: string;
   };
-  valores: {
+  valores?: {
     totalProdutos: number;
     totalNFe: number;
   };

@@ -73,7 +73,7 @@ interface NFe {
     impostos?: any;
   }>;
   
-  valores: {
+  valores?: {
     totalProdutos: number;
     totalNFe: number;
     baseICMS?: number;
@@ -700,66 +700,66 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-xs text-gray-500">Total dos Produtos</p>
-                <p className="text-gray-900">{formatarValor(nfe.valores.totalProdutos)}</p>
+                <p className="text-gray-900">{formatarValor(nfe.valores?.totalProdutos || 0)}</p>
               </div>
 
-              {nfe.valores.valorDesconto && nfe.valores.valorDesconto > 0 && (
+              {nfe.valores?.valorDesconto && nfe.valores.valorDesconto > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">Desconto</p>
                   <p className="text-red-600">-{formatarValor(nfe.valores.valorDesconto)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorFrete && nfe.valores.valorFrete > 0 && (
+              {nfe.valores?.valorFrete && nfe.valores.valorFrete > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">Frete</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorFrete)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorSeguro && nfe.valores.valorSeguro > 0 && (
+              {nfe.valores?.valorSeguro && nfe.valores.valorSeguro > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">Seguro</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorSeguro)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorOutros && nfe.valores.valorOutros > 0 && (
+              {nfe.valores?.valorOutros && nfe.valores.valorOutros > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">Outras Despesas</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorOutros)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorICMS && nfe.valores.valorICMS > 0 && (
+              {nfe.valores?.valorICMS && nfe.valores.valorICMS > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">ICMS</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorICMS)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorICMSST && nfe.valores.valorICMSST > 0 && (
+              {nfe.valores?.valorICMSST && nfe.valores.valorICMSST > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">ICMS ST</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorICMSST)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorIPI && nfe.valores.valorIPI > 0 && (
+              {nfe.valores?.valorIPI && nfe.valores.valorIPI > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">IPI</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorIPI)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorPIS && nfe.valores.valorPIS > 0 && (
+              {nfe.valores?.valorPIS && nfe.valores.valorPIS > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">PIS</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorPIS)}</p>
                 </div>
               )}
 
-              {nfe.valores.valorCOFINS && nfe.valores.valorCOFINS > 0 && (
+              {nfe.valores?.valorCOFINS && nfe.valores.valorCOFINS > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">COFINS</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorCOFINS)}</p>
@@ -768,7 +768,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
 
               <div className="col-span-2 md:col-span-3 pt-4 border-t border-gray-200">
                 <p className="text-sm text-gray-500">Total da NF-e</p>
-                <p className="text-2xl text-gray-900">{formatarValor(nfe.valores.totalNFe)}</p>
+                <p className="text-2xl text-gray-900">{formatarValor(nfe.valores?.totalNFe || 0)}</p>
               </div>
             </div>
           </Card>
