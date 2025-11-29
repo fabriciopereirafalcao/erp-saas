@@ -766,7 +766,6 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               </div>
             </div>
           </Card>
-        </div>
       </div>
 
       {/* Cards adicionais em largura total */}
