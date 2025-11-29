@@ -601,17 +601,28 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               </div>
               <div className="space-y-2">
                 <div>
-                  <p className="text-xs text-gray-500">Nome</p>
+                  <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'Razão Social' : 'Nome'}</p>
                   <p className="text-sm text-gray-900">{nfe.destinatario.nome}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'CNPJ' : 'CPF'}</p>
                   <p className="text-sm text-gray-900">{nfe.destinatario.cpfCnpj}</p>
                 </div>
-                {nfe.destinatario.ie && (
+                <div>
+                  <p className="text-xs text-gray-500">Inscrição Estadual</p>
+                  <p className="text-sm text-gray-900">{nfe.destinatario.ie || 'Não informado'}</p>
+                </div>
+                {nfe.destinatario.endereco && (
                   <div>
-                    <p className="text-xs text-gray-500">Inscrição Estadual</p>
-                    <p className="text-sm text-gray-900">{nfe.destinatario.ie}</p>
+                    <p className="text-xs text-gray-500">Endereço</p>
+                    <p className="text-sm text-gray-900">
+                      {nfe.destinatario.endereco.logradouro}, {nfe.destinatario.endereco.numero}
+                      {nfe.destinatario.endereco.complemento && `, ${nfe.destinatario.endereco.complemento}`}
+                      <br />
+                      {nfe.destinatario.endereco.bairro} - {nfe.destinatario.endereco.municipio}/{nfe.destinatario.endereco.uf}
+                      <br />
+                      CEP: {nfe.destinatario.endereco.cep}
+                    </p>
                   </div>
                 )}
                 {nfe.destinatario.email && (
@@ -624,19 +635,6 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
                   <div>
                     <p className="text-xs text-gray-500">Telefone</p>
                     <p className="text-sm text-gray-900">{nfe.destinatario.telefone}</p>
-                  </div>
-                )}
-                {nfe.destinatario.endereco && (
-                  <div>
-                    <p className="text-xs text-gray-500">Endereço</p>
-                    <p className="text-sm text-gray-900">
-                      {nfe.destinatario.endereco.logradouro}, {nfe.destinatario.endereco.numero}
-                      {nfe.destinatario.endereco.complemento && `, ${nfe.destinatario.endereco.complemento}`}
-                      <br />
-                      {nfe.destinatario.endereco.bairro} - {nfe.destinatario.endereco.municipio}/{nfe.destinatario.endereco.uf}
-                      <br />
-                      CEP: {nfe.destinatario.endereco.cep}
-                    </p>
                   </div>
                 )}
               </div>
@@ -703,6 +701,28 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
                 <p className="text-gray-900">{formatarValor(nfe.valores?.totalProdutos || 0)}</p>
               </div>
 
+              {/* Impostos principais - sempre mostrar */}
+              <div>
+                <p className="text-xs text-gray-500">ICMS</p>
+                <p className="text-gray-900">{formatarValor(nfe.valores?.valorICMS || 0)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">IPI</p>
+                <p className="text-gray-900">{formatarValor(nfe.valores?.valorIPI || 0)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">PIS</p>
+                <p className="text-gray-900">{formatarValor(nfe.valores?.valorPIS || 0)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">COFINS</p>
+                <p className="text-gray-900">{formatarValor(nfe.valores?.valorCOFINS || 0)}</p>
+              </div>
+
+              {/* Valores opcionais - só mostrar se > 0 */}
               {nfe.valores?.valorDesconto && nfe.valores.valorDesconto > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">Desconto</p>
@@ -731,38 +751,10 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
                 </div>
               )}
 
-              {nfe.valores?.valorICMS && nfe.valores.valorICMS > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500">ICMS</p>
-                  <p className="text-gray-900">{formatarValor(nfe.valores.valorICMS)}</p>
-                </div>
-              )}
-
               {nfe.valores?.valorICMSST && nfe.valores.valorICMSST > 0 && (
                 <div>
                   <p className="text-xs text-gray-500">ICMS ST</p>
                   <p className="text-gray-900">{formatarValor(nfe.valores.valorICMSST)}</p>
-                </div>
-              )}
-
-              {nfe.valores?.valorIPI && nfe.valores.valorIPI > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500">IPI</p>
-                  <p className="text-gray-900">{formatarValor(nfe.valores.valorIPI)}</p>
-                </div>
-              )}
-
-              {nfe.valores?.valorPIS && nfe.valores.valorPIS > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500">PIS</p>
-                  <p className="text-gray-900">{formatarValor(nfe.valores.valorPIS)}</p>
-                </div>
-              )}
-
-              {nfe.valores?.valorCOFINS && nfe.valores.valorCOFINS > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500">COFINS</p>
-                  <p className="text-gray-900">{formatarValor(nfe.valores.valorCOFINS)}</p>
                 </div>
               )}
 

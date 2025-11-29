@@ -507,17 +507,25 @@ export function TaxInvoicingModern() {
                 },
                 
                 // Produtos completos
-                produtos: items.map(item => ({
-                  codigo: item.code || '',
-                  descricao: item.name,
-                  ncm: item.ncm || '',
-                  cfop: item.cfop || '',
-                  unidade: item.unit || 'UN',
-                  quantidade: item.quantity,
-                  valorUnitario: item.unitPrice,
-                  valorTotal: item.totalValue,
-                  impostos: item.taxes || {}
-                })),
+                produtos: items.map((item, idx) => {
+                  console.log(`[EMITIR] Produto ${idx}:`, {
+                    codigo: item.code,
+                    nome: item.name,
+                    unitPrice: item.unitPrice,
+                    totalValue: item.totalValue
+                  });
+                  return {
+                    codigo: item.code || '',
+                    descricao: item.name || '',
+                    ncm: item.ncm || '',
+                    cfop: item.cfop || '',
+                    unidade: item.unit || 'UN',
+                    quantidade: item.quantity || 0,
+                    valorUnitario: item.unitPrice || 0,
+                    valorTotal: item.totalValue || 0,
+                    impostos: item.taxes || {}
+                  };
+                }),
                 
                 // Valores completos
                 valores: {
@@ -542,34 +550,37 @@ export function TaxInvoicingModern() {
                 codigoStatus: consultaData.data.codigoStatus || '100',
                 mensagemStatus: consultaData.data.mensagem || 'Autorizado o uso da NF-e',
                 
-                // Timeline de eventos
-                eventos: [
-                  {
-                    tipo: 'emissao',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'NF-e emitida',
-                    dados: { numero: numero, serie: serie }
-                  },
-                  {
-                    tipo: 'assinatura',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'XML assinado digitalmente',
-                    dados: { certificado: 'A1' }
-                  },
-                  {
-                    tipo: 'transmissao',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'Transmitida para SEFAZ',
-                    dados: { recibo: recibo }
-                  },
-                  {
-                    tipo: 'autorizacao',
-                    timestamp: consultaData.data.dataAutorizacao || new Date().toISOString(),
-                    descricao: 'Autorizada pela SEFAZ',
-                    codigo: consultaData.data.codigoStatus || '100',
-                    dados: { protocolo: consultaData.data.protocolo }
-                  }
-                ],
+                // Timeline de eventos (usar mesmo timestamp para todos)
+                eventos: (() => {
+                  const agora = new Date().toISOString();
+                  return [
+                    {
+                      tipo: 'emissao',
+                      timestamp: agora,
+                      descricao: 'NF-e emitida',
+                      dados: { numero: numero, serie: serie }
+                    },
+                    {
+                      tipo: 'assinatura',
+                      timestamp: agora,
+                      descricao: 'XML assinado digitalmente',
+                      dados: { certificado: 'A1' }
+                    },
+                    {
+                      tipo: 'transmissao',
+                      timestamp: agora,
+                      descricao: 'Transmitida para SEFAZ',
+                      dados: { recibo: recibo }
+                    },
+                    {
+                      tipo: 'autorizacao',
+                      timestamp: agora,
+                      descricao: 'Autorizada pela SEFAZ',
+                      codigo: consultaData.data.codigoStatus || '100',
+                      dados: { protocolo: consultaData.data.protocolo }
+                    }
+                  ];
+                })(),
                 
                 // Compatibilidade com formato antigo
                 valorTotal: totalProdutos,
@@ -652,17 +663,25 @@ export function TaxInvoicingModern() {
                   }
                 },
                 
-                produtos: items.map(item => ({
-                  codigo: item.code || '',
-                  descricao: item.name,
-                  ncm: item.ncm || '',
-                  cfop: item.cfop || '',
-                  unidade: item.unit || 'UN',
-                  quantidade: item.quantity,
-                  valorUnitario: item.unitPrice,
-                  valorTotal: item.totalValue,
-                  impostos: item.taxes || {}
-                })),
+                produtos: items.map((item, idx) => {
+                  console.log(`[EMITIR_IMEDIATO] Produto ${idx}:`, {
+                    codigo: item.code,
+                    nome: item.name,
+                    unitPrice: item.unitPrice,
+                    totalValue: item.totalValue
+                  });
+                  return {
+                    codigo: item.code || '',
+                    descricao: item.name || '',
+                    ncm: item.ncm || '',
+                    cfop: item.cfop || '',
+                    unidade: item.unit || 'UN',
+                    quantidade: item.quantity || 0,
+                    valorUnitario: item.unitPrice || 0,
+                    valorTotal: item.totalValue || 0,
+                    impostos: item.taxes || {}
+                  };
+                }),
                 
                 valores: {
                   totalProdutos: totalProdutos,
@@ -681,32 +700,35 @@ export function TaxInvoicingModern() {
                 codigoStatus: transmissaoData.data.codigoStatus || '100',
                 mensagemStatus: transmissaoData.data.mensagem || 'Autorizado o uso da NF-e',
                 
-                eventos: [
-                  {
-                    tipo: 'emissao',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'NF-e emitida',
-                    dados: { numero: numero, serie: serie }
-                  },
-                  {
-                    tipo: 'assinatura',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'XML assinado digitalmente',
-                    dados: { certificado: 'A1' }
-                  },
-                  {
-                    tipo: 'transmissao',
-                    timestamp: new Date().toISOString(),
-                    descricao: 'Transmitida para SEFAZ'
-                  },
-                  {
-                    tipo: 'autorizacao',
-                    timestamp: transmissaoData.data.dataAutorizacao || new Date().toISOString(),
-                    descricao: 'Autorizada pela SEFAZ',
-                    codigo: transmissaoData.data.codigoStatus || '100',
-                    dados: { protocolo: transmissaoData.data.protocolo }
-                  }
-                ],
+                eventos: (() => {
+                  const agora = new Date().toISOString();
+                  return [
+                    {
+                      tipo: 'emissao',
+                      timestamp: agora,
+                      descricao: 'NF-e emitida',
+                      dados: { numero: numero, serie: serie }
+                    },
+                    {
+                      tipo: 'assinatura',
+                      timestamp: agora,
+                      descricao: 'XML assinado digitalmente',
+                      dados: { certificado: 'A1' }
+                    },
+                    {
+                      tipo: 'transmissao',
+                      timestamp: agora,
+                      descricao: 'Transmitida para SEFAZ'
+                    },
+                    {
+                      tipo: 'autorizacao',
+                      timestamp: agora,
+                      descricao: 'Autorizada pela SEFAZ',
+                      codigo: transmissaoData.data.codigoStatus || '100',
+                      dados: { protocolo: transmissaoData.data.protocolo }
+                    }
+                  ];
+                })(),
                 
                 valorTotal: totalProdutos,
                 valorProdutos: totalProdutos,
