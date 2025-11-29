@@ -1257,12 +1257,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.log('[SUPABASE] 📥 Carregando dados iniciais do Supabase...');
         
         // Carregar clientes
+        console.log(`[SUPABASE] 🔍 Tentando carregar customers (company_id: ${profile.company_id})...`);
         const customersData = await loadFromSupabase<Customer[]>('customers');
+        console.log(`[SUPABASE] 🔍 Resposta customers:`, customersData);
         if (isSubscribed && customersData && customersData.length > 0) {
           console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados do Supabase`);
           setCustomers(customersData);
         } else {
-          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
+          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase (normal se for primeira vez)`);
         }
         
         // Carregar inventário  

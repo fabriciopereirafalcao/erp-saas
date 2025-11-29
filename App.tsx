@@ -92,6 +92,11 @@ const UsersPermissions = lazy(() =>
     default: m.UsersPermissions,
   })),
 );
+const TestePersistencia = lazy(() =>
+  import("./components/TestePersistencia.tsx").then((m) => ({
+    default: m.TestePersistencia,
+  })),
+);
 
 // Novos cadastros
 const ChartOfAccounts = lazy(() =>
@@ -191,7 +196,8 @@ export type NavigationView =
   | "productCategories"
   | "stockLocations"
   | "manufacturingBatches"
-  | "profile";
+  | "profile"
+  | "testePersistencia";
 
 // ⚡ Loading fallback leve
 function ViewLoader() {
@@ -301,6 +307,8 @@ function AppContent() {
         return <ManufacturingBatches />;
       case "profile":
         return <ProfileView onNavigate={setCurrentView} />;
+      case "testePersistencia":
+        return <TestePersistencia />;
       default:
         return <Dashboard />;
     }
