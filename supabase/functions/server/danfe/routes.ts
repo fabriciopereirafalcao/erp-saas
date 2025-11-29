@@ -7,7 +7,7 @@
 import { Hono } from 'npm:hono@4.6.14';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
 import * as kv from '../kv_store.tsx';
-import { extrairDadosDoXML, gerarHTMLDanfe } from './generator.tsx';
+import { gerarHTMLDanfe } from './generator.tsx';
 
 const danfe = new Hono();
 
@@ -81,10 +81,109 @@ danfe.get('/nfe/:nfeId', async (c) => {
     console.log('[DANFE_ROUTES] 📄 Tamanho do XML:', xmlString.length, 'caracteres');
     console.log('[DANFE_ROUTES] 📄 Início do XML:', xmlString.substring(0, 100));
     
-    // 4. Extrair dados do XML
-    console.log('[DANFE_ROUTES] 🔄 Extraindo dados do XML...');
-    const dadosDANFE = extrairDadosDoXML(xmlString);
-    console.log('[DANFE_ROUTES] ✅ Dados extraídos:', {
+    // 4. Converter dados da NF-e para formato DANFE (SEM parser XML)
+    console.log('[DANFE_ROUTES] 🔄 Convertendo dados estruturados para DANFE...');
+    
+    const dadosDANFE = {
+      // Identificação
+      chaveAcesso: nfe.chave || '',
+      numero: String(nfe.numero || ''),
+      serie: String(nfe.serie || ''),
+      dataEmissao: nfe.createdAt || '',
+      protocolo: nfe.protocolo || '',
+      dataAutorizacao: nfe.dataAutorizacao || '',
+      
+      // Emitente
+      emitente: {
+        razaoSocial: nfe.emitente?.razaoSocial || '',
+        nomeFantasia: nfe.emitente?.nomeFantasia || '',
+        cnpj: nfe.emitente?.cnpj || '',
+        ie: nfe.emitente?.ie || '',
+        endereco: nfe.emitente?.endereco?.logradouro || '',
+        bairro: nfe.emitente?.endereco?.bairro || '',
+        cep: nfe.emitente?.endereco?.cep || '',
+        municipio: nfe.emitente?.endereco?.municipio || '',
+        uf: nfe.emitente?.uf || '',
+        telefone: nfe.emitente?.telefone || ''
+      },
+      
+      // Destinatário
+      destinatario: {
+        nome: nfe.destinatario?.nome || '',
+        cpfCnpj: nfe.destinatario?.cpfCnpj || '',
+        ie: nfe.destinatario?.ie || '',
+        endereco: nfe.destinatario?.endereco?.logradouro || '',
+        bairro: nfe.destinatario?.endereco?.bairro || '',
+        cep: nfe.destinatario?.endereco?.cep || '',
+        municipio: nfe.destinatario?.endereco?.municipio || '',
+        uf: nfe.destinatario?.endereco?.uf || '',
+        telefone: nfe.destinatario?.telefone || ''
+      },
+      
+      // Produtos
+      produtos: (nfe.produtos || []).map((p: any) => ({
+        codigo: p.codigo || '',
+        descricao: p.descricao || '',
+        ncm: p.ncm || '',
+        cst: p.impostos?.icms?.cst || '00',
+        cfop: p.cfop || '',
+        unidade: p.unidade || 'UN',
+        quantidade: p.quantidade || 0,
+        valorUnitario: p.valorUnitario || 0,
+        valorTotal: p.valorTotal || 0,
+        bcIcms: p.impostos?.icms?.bc || 0,
+        valorIcms: p.impostos?.icms?.valor || 0,
+        ipi: p.impostos?.ipi || 0,
+        aliqIcms: p.impostos?.icms?.aliquota || 0
+      })),
+      
+      // Totais
+      totais: {
+        baseCalculoIcms: nfe.valores?.baseICMS || 0,
+        valorIcms: nfe.valores?.valorICMS || 0,
+        baseCalculoIcmsST: nfe.valores?.baseICMSST || 0,
+        valorIcmsST: nfe.valores?.valorICMSST || 0,
+        valorTotalProdutos: nfe.valores?.totalProdutos || 0,
+        valorFrete: nfe.valores?.valorFrete || 0,
+        valorSeguro: nfe.valores?.valorSeguro || 0,
+        desconto: nfe.valores?.valorDesconto || 0,
+        outrasDespesas: nfe.valores?.valorOutros || 0,
+        valorIPI: nfe.valores?.valorIPI || 0,
+        valorTotal: nfe.valores?.totalNFe || 0
+      },
+      
+      // Transporte
+      transporte: nfe.transporte ? {
+        modalidade: nfe.transporte.modalidade || '9',
+        transportador: nfe.transporte.transportadora ? {
+          nome: nfe.transporte.transportadora.nome || '',
+          cnpjCpf: nfe.transporte.transportadora.cnpj || '',
+          ie: nfe.transporte.transportadora.ie || '',
+          endereco: nfe.transporte.transportadora.endereco || '',
+          municipio: '',
+          uf: ''
+        } : undefined,
+        volumes: nfe.transporte.volumes && nfe.transporte.volumes.length > 0 ? {
+          quantidade: nfe.transporte.volumes[0].quantidade || 0,
+          especie: nfe.transporte.volumes[0].especie || '',
+          marca: nfe.transporte.volumes[0].marca || '',
+          numeracao: nfe.transporte.volumes[0].numeracao || '',
+          pesoLiquido: nfe.transporte.volumes[0].pesoLiquido || 0,
+          pesoBruto: nfe.transporte.volumes[0].pesoBruto || 0
+        } : undefined
+      } : undefined,
+      
+      // Informações Adicionais
+      informacoesComplementares: nfe.informacoesComplementares || '',
+      informacoesFisco: nfe.informacoesFisco || '',
+      
+      // Tipo
+      tipoOperacao: (nfe.tipo || 'SAIDA') as 'ENTRADA' | 'SAIDA',
+      naturezaOperacao: nfe.natureza || '',
+      ambiente: nfe.ambiente || 2
+    };
+    
+    console.log('[DANFE_ROUTES] ✅ Dados convertidos:', {
       chave: dadosDANFE.chaveAcesso?.substring(0, 20) + '...',
       emitente: dadosDANFE.emitente?.razaoSocial,
       destinatario: dadosDANFE.destinatario?.nome,
@@ -152,26 +251,74 @@ danfe.get('/nfe/:nfeId/json', async (c) => {
     // Parse do objeto (pode vir como string)
     const nfe = typeof nfeRaw === 'string' ? JSON.parse(nfeRaw) : nfeRaw;
     
-    // 3. Pegar XML
-    let xmlString = '';
+    // 3. Converter dados estruturados (SEM parser XML)
+    const dadosDANFE = {
+      chaveAcesso: nfe.chave || '',
+      numero: String(nfe.numero || ''),
+      serie: String(nfe.serie || ''),
+      dataEmissao: nfe.createdAt || '',
+      protocolo: nfe.protocolo || '',
+      dataAutorizacao: nfe.dataAutorizacao || '',
+      emitente: {
+        razaoSocial: nfe.emitente?.razaoSocial || '',
+        nomeFantasia: nfe.emitente?.nomeFantasia || '',
+        cnpj: nfe.emitente?.cnpj || '',
+        ie: nfe.emitente?.ie || '',
+        endereco: nfe.emitente?.endereco?.logradouro || '',
+        bairro: nfe.emitente?.endereco?.bairro || '',
+        cep: nfe.emitente?.endereco?.cep || '',
+        municipio: nfe.emitente?.endereco?.municipio || '',
+        uf: nfe.emitente?.uf || '',
+        telefone: nfe.emitente?.telefone || ''
+      },
+      destinatario: {
+        nome: nfe.destinatario?.nome || '',
+        cpfCnpj: nfe.destinatario?.cpfCnpj || '',
+        ie: nfe.destinatario?.ie || '',
+        endereco: nfe.destinatario?.endereco?.logradouro || '',
+        bairro: nfe.destinatario?.endereco?.bairro || '',
+        cep: nfe.destinatario?.endereco?.cep || '',
+        municipio: nfe.destinatario?.endereco?.municipio || '',
+        uf: nfe.destinatario?.endereco?.uf || '',
+        telefone: nfe.destinatario?.telefone || ''
+      },
+      produtos: (nfe.produtos || []).map((p: any) => ({
+        codigo: p.codigo || '',
+        descricao: p.descricao || '',
+        ncm: p.ncm || '',
+        cst: p.impostos?.icms?.cst || '00',
+        cfop: p.cfop || '',
+        unidade: p.unidade || 'UN',
+        quantidade: p.quantidade || 0,
+        valorUnitario: p.valorUnitario || 0,
+        valorTotal: p.valorTotal || 0,
+        bcIcms: p.impostos?.icms?.bc || 0,
+        valorIcms: p.impostos?.icms?.valor || 0,
+        ipi: p.impostos?.ipi || 0,
+        aliqIcms: p.impostos?.icms?.aliquota || 0
+      })),
+      totais: {
+        baseCalculoIcms: nfe.valores?.baseICMS || 0,
+        valorIcms: nfe.valores?.valorICMS || 0,
+        baseCalculoIcmsST: nfe.valores?.baseICMSST || 0,
+        valorIcmsST: nfe.valores?.valorICMSST || 0,
+        valorTotalProdutos: nfe.valores?.totalProdutos || 0,
+        valorFrete: nfe.valores?.valorFrete || 0,
+        valorSeguro: nfe.valores?.valorSeguro || 0,
+        desconto: nfe.valores?.valorDesconto || 0,
+        outrasDespesas: nfe.valores?.valorOutros || 0,
+        valorIPI: nfe.valores?.valorIPI || 0,
+        valorTotal: nfe.valores?.totalNFe || 0
+      },
+      transporte: nfe.transporte,
+      informacoesComplementares: nfe.informacoesComplementares || '',
+      informacoesFisco: nfe.informacoesFisco || '',
+      tipoOperacao: (nfe.tipo || 'SAIDA') as 'ENTRADA' | 'SAIDA',
+      naturezaOperacao: nfe.natureza || '',
+      ambiente: nfe.ambiente || 2
+    };
     
-    if (nfe.xmlAutorizado) {
-      xmlString = nfe.xmlAutorizado;
-    } else if (nfe.xmlAssinado) {
-      xmlString = nfe.xmlAssinado;
-    } else if (nfe.xml) {
-      xmlString = nfe.xml;
-    } else {
-      return c.json({
-        success: false,
-        error: 'XML da NF-e não encontrado'
-      }, 400);
-    }
-    
-    // 4. Extrair dados do XML
-    const dadosDANFE = extrairDadosDoXML(xmlString);
-    
-    // 5. Retornar JSON
+    // 4. Retornar JSON
     return c.json({
       success: true,
       data: dadosDANFE

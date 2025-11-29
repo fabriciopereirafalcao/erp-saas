@@ -16,7 +16,8 @@
  * ============================================================================
  */
 
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+// NOTA: DOMParser removido - agora usamos dados estruturados da NF-e
+// import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 // Tipos
 interface DadosDANFE {
