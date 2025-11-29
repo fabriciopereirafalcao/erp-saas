@@ -488,11 +488,14 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
               <p className="text-sm text-green-700">Protocolo de Autorização</p>
             </div>
             <p className="text-sm text-green-900 font-mono">{nfe.protocolo}</p>
-            {nfe.dataAutorizacao && (
-              <p className="text-xs text-green-600 mt-1">
-                Autorizada em {formatarData(nfe.dataAutorizacao)}
-              </p>
-            )}
+            {nfe.eventos && nfe.eventos.length > 0 && (() => {
+              const eventoAutorizacao = nfe.eventos.find(e => e.tipo === 'autorizacao');
+              return eventoAutorizacao && (
+                <p className="text-xs text-green-600 mt-1">
+                  Autorizada em {formatarData(eventoAutorizacao.timestamp)}
+                </p>
+              );
+            })()}
           </div>
         )}
 
@@ -509,7 +512,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         )}
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Coluna 1: Timeline de Eventos */}
         <div className="lg:col-span-1">
           <Card className="p-6 h-full">
@@ -564,72 +567,79 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
           </Card>
         </div>
 
-        {/* Coluna 2: Emitente e Destinatário */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Emitente e Destinatário */}
-          <div className="grid grid-cols-1 gap-4">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-900">Emitente</h3>
+        {/* Coluna 2: Emitente */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-5 h-5 text-gray-600" />
+              <h3 className="text-gray-900">Emitente</h3>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-gray-500">Razão Social</p>
+                <p className="text-sm text-gray-900">{nfe.emitente.razaoSocial}</p>
               </div>
-              <div className="space-y-2">
+              {nfe.emitente.nomeFantasia && (
                 <div>
-                  <p className="text-xs text-gray-500">Razão Social</p>
-                  <p className="text-sm text-gray-900">{nfe.emitente.razaoSocial}</p>
+                  <p className="text-xs text-gray-500">Nome Fantasia</p>
+                  <p className="text-sm text-gray-900">{nfe.emitente.nomeFantasia}</p>
                 </div>
-                {nfe.emitente.nomeFantasia && (
-                  <div>
-                    <p className="text-xs text-gray-500">Nome Fantasia</p>
-                    <p className="text-sm text-gray-900">{nfe.emitente.nomeFantasia}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-gray-500">CNPJ</p>
-                  <p className="text-sm text-gray-900">{nfe.emitente.cnpj}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Inscrição Estadual</p>
-                  <p className="text-sm text-gray-900">{nfe.emitente.ie}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">UF</p>
-                  <p className="text-sm text-gray-900">{nfe.emitente.uf}</p>
-                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-500">CNPJ</p>
+                <p className="text-sm text-gray-900">{nfe.emitente.cnpj}</p>
               </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <User className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-900">Destinatário</h3>
+              <div>
+                <p className="text-xs text-gray-500">Inscrição Estadual</p>
+                <p className="text-sm text-gray-900">{nfe.emitente.ie}</p>
               </div>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-gray-500">Razão Social</p>
-                  <p className="text-sm text-gray-900">{nfe.destinatario.nome}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'CNPJ' : 'CPF'}</p>
-                  <p className="text-sm text-gray-900">{nfe.destinatario.cpfCnpj}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Inscrição Estadual</p>
-                  <p className="text-sm text-gray-900">{nfe.destinatario.ie || 'Não informado'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">UF</p>
-                  <p className="text-sm text-gray-900">
-                    {nfe.destinatario.endereco?.uf || 'Não informado'}
-                  </p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-500">UF</p>
+                <p className="text-sm text-gray-900">{nfe.emitente.uf}</p>
               </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </div>
 
-        {/* Coluna 3: Produtos e Valores */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Coluna 3: Destinatário */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-5 h-5 text-gray-600" />
+              <h3 className="text-gray-900">Destinatário</h3>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-gray-500">Razão Social</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.nome}</p>
+              </div>
+              {nfe.destinatario.nomeFantasia && (
+                <div>
+                  <p className="text-xs text-gray-500">Nome Fantasia</p>
+                  <p className="text-sm text-gray-900">{nfe.destinatario.nomeFantasia}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-500">{nfe.destinatario.tipo === 'pj' ? 'CNPJ' : 'CPF'}</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.cpfCnpj}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Inscrição Estadual</p>
+                <p className="text-sm text-gray-900">{nfe.destinatario.ie || 'Não informado'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">UF</p>
+                <p className="text-sm text-gray-900">
+                  {nfe.destinatario.endereco?.uf || 'Não informado'}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Produtos e Valores - Largura Total */}
+      <div className="space-y-6">
           {/* Produtos */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">

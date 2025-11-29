@@ -492,6 +492,7 @@ export function TaxInvoicingModern() {
                   tipo: destinatario.cpf ? 'pf' : 'pj',
                   cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
                   nome: destinatario.name,
+                  nomeFantasia: destinatario.fantasyName || '',
                   email: destinatario.email || '',
                   telefone: destinatario.phone || '',
                   ie: destinatario.stateRegistration || '',
@@ -507,25 +508,29 @@ export function TaxInvoicingModern() {
                 },
                 
                 // Produtos completos
-                produtos: items.map((item, idx) => {
-                  console.log(`[EMITIR] Produto ${idx}:`, {
-                    codigo: item.code,
-                    nome: item.name,
-                    unitPrice: item.unitPrice,
-                    totalValue: item.totalValue
+                produtos: (() => {
+                  console.log('[EMITIR] 📦 Items ANTES do mapeamento:', items);
+                  console.log('[EMITIR] 📦 Primeiro item completo:', items[0]);
+                  return items.map((item, idx) => {
+                    console.log(`[EMITIR] Produto ${idx}:`, {
+                      codigo: item.code,
+                      nome: item.name,
+                      unitPrice: item.unitPrice,
+                      totalValue: item.totalValue
+                    });
+                    return {
+                      codigo: item.code || '',
+                      descricao: item.name || '',
+                      ncm: item.ncm || '',
+                      cfop: item.cfop || '',
+                      unidade: item.unit || 'UN',
+                      quantidade: item.quantity || 0,
+                      valorUnitario: item.unitPrice || 0,
+                      valorTotal: item.totalValue || 0,
+                      impostos: item.taxes || {}
+                    };
                   });
-                  return {
-                    codigo: item.code || '',
-                    descricao: item.name || '',
-                    ncm: item.ncm || '',
-                    cfop: item.cfop || '',
-                    unidade: item.unit || 'UN',
-                    quantidade: item.quantity || 0,
-                    valorUnitario: item.unitPrice || 0,
-                    valorTotal: item.totalValue || 0,
-                    impostos: item.taxes || {}
-                  };
-                }),
+                })(),
                 
                 // Valores completos
                 valores: {
@@ -649,6 +654,7 @@ export function TaxInvoicingModern() {
                   tipo: destinatario.cpf ? 'pf' : 'pj',
                   cpfCnpj: destinatario.cpf || destinatario.cnpj || '',
                   nome: destinatario.name,
+                  nomeFantasia: destinatario.fantasyName || '',
                   email: destinatario.email || '',
                   telefone: destinatario.phone || '',
                   ie: destinatario.stateRegistration || '',
@@ -663,25 +669,29 @@ export function TaxInvoicingModern() {
                   }
                 },
                 
-                produtos: items.map((item, idx) => {
-                  console.log(`[EMITIR_IMEDIATO] Produto ${idx}:`, {
-                    codigo: item.code,
-                    nome: item.name,
-                    unitPrice: item.unitPrice,
-                    totalValue: item.totalValue
+                produtos: (() => {
+                  console.log('[EMITIR_IMEDIATO] 📦 Items ANTES do mapeamento:', items);
+                  console.log('[EMITIR_IMEDIATO] 📦 Primeiro item completo:', items[0]);
+                  return items.map((item, idx) => {
+                    console.log(`[EMITIR_IMEDIATO] Produto ${idx}:`, {
+                      codigo: item.code,
+                      nome: item.name,
+                      unitPrice: item.unitPrice,
+                      totalValue: item.totalValue
+                    });
+                    return {
+                      codigo: item.code || '',
+                      descricao: item.name || '',
+                      ncm: item.ncm || '',
+                      cfop: item.cfop || '',
+                      unidade: item.unit || 'UN',
+                      quantidade: item.quantity || 0,
+                      valorUnitario: item.unitPrice || 0,
+                      valorTotal: item.totalValue || 0,
+                      impostos: item.taxes || {}
+                    };
                   });
-                  return {
-                    codigo: item.code || '',
-                    descricao: item.name || '',
-                    ncm: item.ncm || '',
-                    cfop: item.cfop || '',
-                    unidade: item.unit || 'UN',
-                    quantidade: item.quantity || 0,
-                    valorUnitario: item.unitPrice || 0,
-                    valorTotal: item.totalValue || 0,
-                    impostos: item.taxes || {}
-                  };
-                }),
+                })(),
                 
                 valores: {
                   totalProdutos: totalProdutos,
