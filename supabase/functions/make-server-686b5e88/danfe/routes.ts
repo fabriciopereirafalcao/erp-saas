@@ -42,14 +42,18 @@ danfe.get('/nfe/:nfeId', async (c) => {
     
     // 2. Buscar NF-e no KV Store
     const nfeKey = `nfe:${user.id}:${nfeId}`;
-    const nfe = await kv.get(nfeKey);
+    const nfeRaw = await kv.get(nfeKey);
     
-    if (!nfe) {
+    if (!nfeRaw) {
       return c.json({
         success: false,
         error: 'NF-e não encontrada'
       }, 404);
     }
+    
+    // Parse do objeto (pode vir como string)
+    const nfe = typeof nfeRaw === 'string' ? JSON.parse(nfeRaw) : nfeRaw;
+    console.log('[DANFE_ROUTES] NF-e encontrada:', nfe.id, '- Status:', nfe.status);
     
     // 3. Verificar se tem XML autorizado
     let xmlString = '';
@@ -60,13 +64,14 @@ danfe.get('/nfe/:nfeId', async (c) => {
     } else if (nfe.xmlAssinado) {
       console.log('[DANFE_ROUTES] ⚠️ Usando XML assinado (NF-e ainda não autorizada)');
       xmlString = nfe.xmlAssinado;
-    } else if (nfe.xmlOriginal) {
+    } else if (nfe.xml) {
       console.log('[DANFE_ROUTES] ⚠️ Usando XML original (NF-e ainda não assinada)');
-      xmlString = nfe.xmlOriginal;
+      xmlString = nfe.xml;
     } else {
+      console.error('[DANFE_ROUTES] ❌ Nenhum XML disponível. Campos:', Object.keys(nfe));
       return c.json({
         success: false,
-        error: 'XML da NF-e não encontrado'
+        error: 'XML da NF-e não encontrado. Verifique se a NF-e foi gerada corretamente.'
       }, 400);
     }
     
@@ -122,14 +127,17 @@ danfe.get('/nfe/:nfeId/json', async (c) => {
     
     // 2. Buscar NF-e no KV Store
     const nfeKey = `nfe:${user.id}:${nfeId}`;
-    const nfe = await kv.get(nfeKey);
+    const nfeRaw = await kv.get(nfeKey);
     
-    if (!nfe) {
+    if (!nfeRaw) {
       return c.json({
         success: false,
         error: 'NF-e não encontrada'
       }, 404);
     }
+    
+    // Parse do objeto (pode vir como string)
+    const nfe = typeof nfeRaw === 'string' ? JSON.parse(nfeRaw) : nfeRaw;
     
     // 3. Pegar XML
     let xmlString = '';
@@ -138,8 +146,8 @@ danfe.get('/nfe/:nfeId/json', async (c) => {
       xmlString = nfe.xmlAutorizado;
     } else if (nfe.xmlAssinado) {
       xmlString = nfe.xmlAssinado;
-    } else if (nfe.xmlOriginal) {
-      xmlString = nfe.xmlOriginal;
+    } else if (nfe.xml) {
+      xmlString = nfe.xml;
     } else {
       return c.json({
         success: false,

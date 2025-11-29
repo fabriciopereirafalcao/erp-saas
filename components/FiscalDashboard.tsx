@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -102,13 +103,14 @@ export function FiscalDashboard() {
   const [periodo, setPeriodo] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [ambiente, setAmbiente] = useState<'todos' | 'producao' | 'homologacao'>('producao'); // Padrão: apenas produção
   const [estatisticas, setEstatisticas] = useState<Estatisticas | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Carregar estatísticas
   useEffect(() => {
     carregarEstatisticas();
-  }, []);
+  }, [ambiente]); // Recarregar quando mudar o ambiente
 
   const carregarEstatisticas = async (refresh = false) => {
     try {
@@ -131,6 +133,11 @@ export function FiscalDashboard() {
       
       if (periodo === 'custom' && dataInicio && dataFim) {
         url += `&dataInicio=${dataInicio}&dataFim=${dataFim}`;
+      }
+      
+      // Adicionar filtro de ambiente
+      if (ambiente !== 'todos') {
+        url += `&ambiente=${ambiente}`;
       }
 
       const response = await fetch(url, {
@@ -225,7 +232,24 @@ export function FiscalDashboard() {
       {/* HEADER COM FILTROS */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl">Dashboard Fiscal</h2>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-2xl">Dashboard Fiscal</h2>
+            {ambiente === 'producao' && (
+              <Badge variant="default" className="bg-green-600">
+                Produção
+              </Badge>
+            )}
+            {ambiente === 'homologacao' && (
+              <Badge variant="secondary" className="bg-yellow-600 text-white">
+                Homologação
+              </Badge>
+            )}
+            {ambiente === 'todos' && (
+              <Badge variant="outline">
+                Todos os Ambientes
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Período: {formatarData(estatisticas.periodo.inicio)} a {formatarData(estatisticas.periodo.fim)}
           </p>
@@ -241,6 +265,32 @@ export function FiscalDashboard() {
               <SelectItem value="30d">Últimos 30 dias</SelectItem>
               <SelectItem value="90d">Últimos 90 dias</SelectItem>
               <SelectItem value="custom">Período customizado</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={ambiente} onValueChange={(v) => setAmbiente(v as any)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="producao">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  Apenas Produção
+                </div>
+              </SelectItem>
+              <SelectItem value="homologacao">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                  Apenas Homologação
+                </div>
+              </SelectItem>
+              <SelectItem value="todos">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  Todos os Ambientes
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
 

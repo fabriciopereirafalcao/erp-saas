@@ -196,8 +196,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/${nfeId}`,
         {
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'x-user-id': session.user.id
+            'Authorization': `Bearer ${session.access_token}`
           }
         }
       );
@@ -234,8 +233,7 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/nfe/xml/${nfeId}/${tipo}`,
         {
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'x-user-id': session.user.id
+            'Authorization': `Bearer ${session.access_token}`
           }
         }
       );

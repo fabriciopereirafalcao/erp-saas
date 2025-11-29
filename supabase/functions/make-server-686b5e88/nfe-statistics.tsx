@@ -201,6 +201,7 @@ nfeStatistics.get('/nfe/estatisticas', async (c) => {
     
     // 2. Parâmetros de período
     const periodo = c.req.query('periodo') || '30d';
+    const ambiente = c.req.query('ambiente') || null; // 'producao', 'homologacao' ou null (todos)
     let dataInicio: Date;
     let dataFim: Date = new Date();
     dataFim.setHours(23, 59, 59, 999);
@@ -225,6 +226,7 @@ nfeStatistics.get('/nfe/estatisticas', async (c) => {
     }
     
     console.log(`[NFE_STATISTICS] Período: ${formatarData(dataInicio)} a ${formatarData(dataFim)}`);
+    console.log(`[NFE_STATISTICS] Filtro de ambiente: ${ambiente || 'todos'}`);
     
     // 3. Buscar índice de NF-es
     const indexKey = getIndexKey(user.id);
@@ -243,12 +245,21 @@ nfeStatistics.get('/nfe/estatisticas', async (c) => {
         
         // Filtrar por período
         if (nfeData >= dataInicio && nfeData <= dataFim) {
-          nfes.push(nfe);
+          // Filtrar por ambiente (se especificado)
+          if (ambiente) {
+            const nfeAmbiente = nfe.ambiente === 'producao' || nfe.ambiente === 1 ? 'producao' : 'homologacao';
+            if (nfeAmbiente === ambiente) {
+              nfes.push(nfe);
+            }
+          } else {
+            // Sem filtro de ambiente - incluir todas
+            nfes.push(nfe);
+          }
         }
       }
     }
     
-    console.log(`[NFE_STATISTICS] NF-es no período: ${nfes.length}`);
+    console.log(`[NFE_STATISTICS] NF-es no período (após filtros): ${nfes.length}`);
     
     // 5. Calcular estatísticas
     const estatisticas: Estatisticas = calcularEstatisticas(nfes, dataInicio, dataFim);

@@ -157,8 +157,35 @@ app.get("/:id", async (c) => {
   console.log(`[NFE_PERSISTENCE] GET /${id} - Início`);
   
   try {
-    const userId = c.req.header('x-user-id') || 'system';
+    // Autenticação via token (compatível com DANFE e outros módulos)
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const userIdHeader = c.req.header('x-user-id');
+    
+    let userId = 'system';
+    
+    // Se tem token, usar autenticação completa
+    if (accessToken) {
+      const { createClient } = await import('npm:@supabase/supabase-js@2.49.2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      
+      if (authError || !user) {
+        console.log('[NFE_PERSISTENCE] ❌ Token inválido');
+        return c.json({ success: false, error: 'Token inválido' }, 401);
+      }
+      
+      userId = user.id;
+    } else if (userIdHeader) {
+      // Fallback para header x-user-id (retrocompatibilidade)
+      userId = userIdHeader;
+    }
+    
     const key = `nfe:${userId}:${id}`;
+    console.log(`[NFE_PERSISTENCE] Buscando com key: ${key}`);
     
     const result = await kv.get(key);
     
