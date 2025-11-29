@@ -56,10 +56,11 @@ danfe.get('/nfe/:nfeId', async (c) => {
     console.log('[DANFE_ROUTES] NF-e encontrada:', nfe.id, '- Status:', nfe.status);
     
     // 3. Verificar se tem XML autorizado
+    console.log('[DANFE_ROUTES] 🔍 Campos disponíveis na NF-e:', Object.keys(nfe));
     let xmlString = '';
     
     if (nfe.xmlAutorizado) {
-      console.log('[DANFE_ROUTES] Usando XML autorizado');
+      console.log('[DANFE_ROUTES] ✅ Usando XML autorizado');
       xmlString = nfe.xmlAutorizado;
     } else if (nfe.xmlAssinado) {
       console.log('[DANFE_ROUTES] ⚠️ Usando XML assinado (NF-e ainda não autorizada)');
@@ -68,22 +69,34 @@ danfe.get('/nfe/:nfeId', async (c) => {
       console.log('[DANFE_ROUTES] ⚠️ Usando XML original (NF-e ainda não assinada)');
       xmlString = nfe.xml;
     } else {
-      console.error('[DANFE_ROUTES] ❌ Nenhum XML disponível. Campos:', Object.keys(nfe));
+      console.error('[DANFE_ROUTES] ❌ Nenhum XML disponível!');
+      console.error('[DANFE_ROUTES] ❌ Campos disponíveis:', Object.keys(nfe));
+      console.error('[DANFE_ROUTES] ❌ Status da NF-e:', nfe.status);
       return c.json({
         success: false,
         error: 'XML da NF-e não encontrado. Verifique se a NF-e foi gerada corretamente.'
       }, 400);
     }
     
+    console.log('[DANFE_ROUTES] 📄 Tamanho do XML:', xmlString.length, 'caracteres');
+    console.log('[DANFE_ROUTES] 📄 Início do XML:', xmlString.substring(0, 100));
+    
     // 4. Extrair dados do XML
-    console.log('[DANFE_ROUTES] Extraindo dados do XML...');
+    console.log('[DANFE_ROUTES] 🔄 Extraindo dados do XML...');
     const dadosDANFE = extrairDadosDoXML(xmlString);
+    console.log('[DANFE_ROUTES] ✅ Dados extraídos:', {
+      chave: dadosDANFE.chaveAcesso?.substring(0, 20) + '...',
+      emitente: dadosDANFE.emitente?.razaoSocial,
+      destinatario: dadosDANFE.destinatario?.nome,
+      totalProdutos: dadosDANFE.produtos?.length
+    });
     
     // 5. Gerar HTML do DANFE
-    console.log('[DANFE_ROUTES] Gerando HTML do DANFE...');
+    console.log('[DANFE_ROUTES] 🎨 Gerando HTML do DANFE...');
     const html = gerarHTMLDanfe(dadosDANFE);
+    console.log('[DANFE_ROUTES] 📄 Tamanho do HTML gerado:', html.length, 'caracteres');
     
-    console.log('[DANFE_ROUTES] ✅ DANFE gerado com sucesso');
+    console.log('[DANFE_ROUTES] ✅ DANFE gerado com sucesso!');
     
     // 6. Retornar HTML
     return c.html(html);

@@ -272,6 +272,8 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
       }
 
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/danfe/nfe/${nfeId}`;
+      console.log('[NFE_DETALHES] 🖨️ Gerando DANFE para NF-e:', nfeId);
+      console.log('[NFE_DETALHES] 🖨️ URL:', url);
       
       const newWindow = window.open('', '_blank');
       if (!newWindow) {
@@ -285,21 +287,42 @@ export function NFeDetalhes({ nfeId, onVoltar }: NFeDetalhesProps) {
         }
       });
 
+      console.log('[NFE_DETALHES] 🖨️ Status da resposta:', response.status);
+      console.log('[NFE_DETALHES] 🖨️ Content-Type:', response.headers.get('Content-Type'));
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao gerar DANFE');
+        let errorMessage = 'Erro ao gerar DANFE';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+          console.error('[NFE_DETALHES] ❌ Erro JSON:', error);
+        } catch {
+          const errorText = await response.text();
+          console.error('[NFE_DETALHES] ❌ Erro TEXT:', errorText);
+          errorMessage = errorText || errorMessage;
+        }
+        newWindow.close();
+        throw new Error(errorMessage);
       }
 
       const html = await response.text();
+      console.log('[NFE_DETALHES] 📄 HTML recebido - Tamanho:', html.length);
+      console.log('[NFE_DETALHES] 📄 Início do HTML:', html.substring(0, 100));
+      
+      if (!html || html.length < 100) {
+        newWindow.close();
+        throw new Error('HTML vazio ou inválido recebido do servidor');
+      }
       
       newWindow.document.open();
       newWindow.document.write(html);
       newWindow.document.close();
 
+      console.log('[NFE_DETALHES] ✅ DANFE aberto com sucesso');
       toast.success('DANFE aberto em nova aba');
 
     } catch (error: any) {
-      console.error('[NFE_DETALHES] Erro ao visualizar DANFE:', error);
+      console.error('[NFE_DETALHES] ❌ Erro ao visualizar DANFE:', error);
       toast.error(`Erro ao visualizar DANFE: ${error.message}`);
     }
   };

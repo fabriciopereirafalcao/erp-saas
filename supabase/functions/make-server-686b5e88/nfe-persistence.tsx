@@ -161,6 +161,9 @@ app.get("/:id", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const userIdHeader = c.req.header('x-user-id');
     
+    console.log(`[NFE_PERSISTENCE] accessToken: ${accessToken ? 'presente' : 'ausente'}`);
+    console.log(`[NFE_PERSISTENCE] userIdHeader: ${userIdHeader || 'ausente'}`);
+    
     let userId = 'system';
     
     // Se tem token, usar autenticação completa
@@ -174,23 +177,37 @@ app.get("/:id", async (c) => {
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
       
       if (authError || !user) {
-        console.log('[NFE_PERSISTENCE] ❌ Token inválido');
+        console.log('[NFE_PERSISTENCE] ❌ Token inválido:', authError?.message);
         return c.json({ success: false, error: 'Token inválido' }, 401);
       }
       
       userId = user.id;
+      console.log(`[NFE_PERSISTENCE] ✅ User autenticado: ${userId}`);
     } else if (userIdHeader) {
       // Fallback para header x-user-id (retrocompatibilidade)
       userId = userIdHeader;
+      console.log(`[NFE_PERSISTENCE] ⚠️ Usando x-user-id: ${userId}`);
+    } else {
+      console.log(`[NFE_PERSISTENCE] ⚠️ Sem autenticação, usando 'system'`);
     }
     
     const key = `nfe:${userId}:${id}`;
-    console.log(`[NFE_PERSISTENCE] Buscando com key: ${key}`);
+    console.log(`[NFE_PERSISTENCE] 🔍 Buscando com key: ${key}`);
     
     const result = await kv.get(key);
+    console.log(`[NFE_PERSISTENCE] 🔍 Resultado do KV: ${result ? 'encontrado' : 'null'}`);
     
     if (!result) {
-      console.log(`[NFE_PERSISTENCE] ❌ NF-e não encontrada: ${id}`);
+      // Tentar buscar todas as keys com prefixo para debug
+      console.log(`[NFE_PERSISTENCE] 🔍 Tentando buscar com prefixo: nfe:${userId}:`);
+      const allKeys = await kv.getByPrefix(`nfe:${userId}:`);
+      console.log(`[NFE_PERSISTENCE] 🔍 Total de NF-es do usuário: ${allKeys.length}`);
+      if (allKeys.length > 0) {
+        console.log(`[NFE_PERSISTENCE] 🔍 Primeira key encontrada: ${allKeys[0]?.key}`);
+        console.log(`[NFE_PERSISTENCE] 🔍 IDs disponíveis:`, allKeys.map(k => k.key.split(':')[2]).join(', '));
+      }
+      
+      console.log(`[NFE_PERSISTENCE] ❌ NF-e não encontrada com ID: ${id}`);
       return c.json({
         success: false,
         error: 'NF-e não encontrada'
@@ -199,7 +216,7 @@ app.get("/:id", async (c) => {
     
     const nfe = typeof result === 'string' ? JSON.parse(result) : result;
     
-    console.log(`[NFE_PERSISTENCE] ✅ NF-e encontrada: ${id}`);
+    console.log(`[NFE_PERSISTENCE] ✅ NF-e encontrada: ${nfe.id} - Status: ${nfe.status}`);
     return c.json({
       success: true,
       data: nfe
