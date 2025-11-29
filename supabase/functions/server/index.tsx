@@ -1221,16 +1221,50 @@ app.get("/make-server-686b5e88/data/:key", async (c) => {
     
     console.log(`[DATA_GET] 🔍 Buscando no KV: ${fullKey}`);
     
+    // 🔍 DEBUG: Listar TODAS as keys com mesmo prefixo para debug
+    const debugPrefix = `erp_${profile.company_id}_`;
+    const allCompanyKeys = await kv.getByPrefix(debugPrefix);
+    console.log(`[DATA_GET] 🔍 Total de keys do company ${profile.company_id}: ${allCompanyKeys.length}`);
+    if (allCompanyKeys.length > 0) {
+      console.log(`[DATA_GET] 📋 Keys disponíveis:`, allCompanyKeys.map(k => k.key).slice(0, 10));
+    }
+    
+    // 🔍 DEBUG: Verificar se há dados no sistema antigo (erp_system_*)
+    const systemKey = `erp_system_${key}`;
+    const systemValue = await kv.get(systemKey);
+    if (systemValue) {
+      console.warn(`[DATA_GET] ⚠️  ATENÇÃO: Dados encontrados na key ANTIGA: ${systemKey}`);
+      console.warn(`[DATA_GET] ⚠️  Esses dados deveriam estar em: ${fullKey}`);
+      console.log(`[DATA_GET] ℹ️  Dados antigos (tamanho): ${JSON.stringify(systemValue).length} bytes`);
+    }
+    
     // Buscar do KV store
-    const value = await kv.get(fullKey);
+    let value = await kv.get(fullKey);
+    
+    // 🔧 MIGRAÇÃO AUTOMÁTICA: Se não encontrou na key correta, tentar migrar da key antiga
+    if (!value && systemValue) {
+      console.log(`[DATA_GET] 🔧 MIGRANDO dados da key antiga para a correta...`);
+      console.log(`[DATA_GET]    DE: ${systemKey}`);
+      console.log(`[DATA_GET]    PARA: ${fullKey}`);
+      
+      // Salvar na key correta
+      await kv.set(fullKey, systemValue);
+      
+      // OPCIONAL: Remover key antiga (comentado por segurança)
+      // await kv.del(systemKey);
+      
+      value = systemValue;
+      console.log(`[DATA_GET] ✅ MIGRAÇÃO CONCLUÍDA! Dados agora estão na key correta`);
+    }
     
     if (!value) {
-      console.log(`[DATA_GET] ⚠️  Dados não encontrados (normal se for primeira vez)`);
+      console.log(`[DATA_GET] ⚠️  Dados NÃO ENCONTRADOS na key correta: ${fullKey}`);
+      console.log(`[DATA_GET] ℹ️  Isso é normal se for a primeira vez`);
       return c.json({ data: null });
     }
     
     const dataSize = JSON.stringify(value).length;
-    console.log(`[DATA_GET] ✅ Dados encontrados: ${dataSize} bytes`);
+    console.log(`[DATA_GET] ✅ Dados encontrados e retornados: ${dataSize} bytes`);
     
     return c.json({ 
       success: true, 

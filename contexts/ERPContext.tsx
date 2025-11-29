@@ -1180,11 +1180,34 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log('[CACHE] 📂 Carregando cache do localStorage...');
     console.log(`[CACHE] 🔑 Company ID: ${profile.company_id}`);
     
-    // DEBUG: Listar TODAS as chaves do localStorage relacionadas ao ERP
-    const allKeys = Object.keys(localStorage).filter(k => k.startsWith('erp_system_'));
-    console.log(`[CACHE] 🔍 Total de chaves no localStorage: ${allKeys.length}`);
-    if (allKeys.length > 0) {
-      console.log(`[CACHE] 📋 Chaves encontradas:`, allKeys.slice(0, 10)); // Primeiras 10
+    // 🔧 LIMPEZA DE DADOS ÓRFÃOS - Remove dados de company_id incorreto
+    const allKeys = Object.keys(localStorage);
+    const erpKeys = allKeys.filter(k => k.startsWith('erp_'));
+    const currentCompanyPrefix = `erp_${profile.company_id}_`;
+    const systemPrefix = 'erp_system_'; // Dados sem company_id (legado)
+    
+    // Dados órfãos = não são do company_id atual E não são do sistema de auth
+    const orphanKeys = erpKeys.filter(k => 
+      !k.startsWith(currentCompanyPrefix) && 
+      !k.includes('auth') &&
+      k.startsWith(systemPrefix) // Especificamente dados system_ que deveriam ter company_id
+    );
+    
+    console.log(`[CACHE] 🔍 Total de chaves ERP: ${erpKeys.length}`);
+    console.log(`[CACHE] 🎯 Chaves do company atual: ${erpKeys.filter(k => k.startsWith(currentCompanyPrefix)).length}`);
+    
+    if (orphanKeys.length > 0) {
+      console.warn(`[CACHE] ⚠️  DADOS ÓRFÃOS DETECTADOS: ${orphanKeys.length} chaves`);
+      console.log(`[CACHE] 📋 Órfãos (primeiras 5):`, orphanKeys.slice(0, 5));
+      console.log(`[CACHE] 🗑️  LIMPANDO dados órfãos para evitar conflitos...`);
+      
+      orphanKeys.forEach(k => {
+        localStorage.removeItem(k);
+      });
+      
+      console.log(`[CACHE] ✅ ${orphanKeys.length} dados órfãos removidos!`);
+    } else {
+      console.log(`[CACHE] ✅ Nenhum dado órfão detectado`);
     }
     
     // Função helper para carregar com company_id
@@ -1254,17 +1277,23 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     const loadInitialData = async () => {
       try {
-        console.log('[SUPABASE] 📥 Carregando dados iniciais do Supabase...');
+        console.log('[SUPABASE] 📥 ============================================');
+        console.log('[SUPABASE] 📥 CARREGANDO DADOS INICIAIS DO SUPABASE');
+        console.log('[SUPABASE] 📥 ============================================');
+        console.log(`[SUPABASE] 🆔 Company ID: ${profile.company_id}`);
+        console.log(`[SUPABASE] 🔑 A chave no KV será: erp_${profile.company_id}_customers`);
         
         // Carregar clientes
-        console.log(`[SUPABASE] 🔍 Tentando carregar customers (company_id: ${profile.company_id})...`);
+        console.log(`[SUPABASE] 🔍 Tentando carregar customers...`);
         const customersData = await loadFromSupabase<Customer[]>('customers');
         console.log(`[SUPABASE] 🔍 Resposta customers:`, customersData);
+        console.log(`[SUPABASE] 📊 Tipo:`, typeof customersData, '| Array?', Array.isArray(customersData));
         if (isSubscribed && customersData && customersData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados do Supabase`);
+          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados do Supabase - APLICANDO NO STATE`);
           setCustomers(customersData);
         } else {
-          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase (normal se for primeira vez)`);
+          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
+          console.log(`[SUPABASE] ℹ️  Se você cadastrou clientes, eles podem estar salvos como 'erp_system_customers' (company_id incorreto)`);
         }
         
         // Carregar inventário  
