@@ -33,6 +33,10 @@ import { sendInviteEmail, sendEmail, isEmailServiceConfigured } from './emailSer
  * ⚠️ IMPORTANTE: A segurança REAL está no backend. Nunca confie apenas no frontend!
  */
 
+console.log('='.repeat(60));
+console.log('🚀 ERP SYSTEM - BACKEND STARTING');
+console.log('📅 Deploy Version: 2024-11-29 - ROTAS ESPECÍFICAS v1.0');
+console.log('='.repeat(60));
 console.log('[INDEX] 🔍 INÍCIO - Antes de importar módulo fiscal...');
 
 // Force deploy v1.3 - Diagnóstico robusto
