@@ -27,7 +27,7 @@ import { authGet, authPatch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
-import { useSupabaseSync, loadFromSupabase } from '../hooks/useSupabaseSync';
+import { useEntityPersistence, loadEntity } from '../hooks/useEntityPersistence';
 
 // ==================== INTERFACES ====================
 
@@ -1285,7 +1285,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         // Carregar clientes
         console.log(`[SUPABASE] 🔍 Tentando carregar customers...`);
-        const customersData = await loadFromSupabase<Customer[]>('customers');
+        const customersData = await loadEntity<Customer[]>('customers');
         console.log(`[SUPABASE] 🔍 Resposta customers:`, customersData);
         console.log(`[SUPABASE] 📊 Tipo:`, typeof customersData, '| Array?', Array.isArray(customersData));
         if (isSubscribed && customersData && customersData.length > 0) {
@@ -1293,11 +1293,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setCustomers(customersData);
         } else {
           console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
-          console.log(`[SUPABASE] ℹ️  Se você cadastrou clientes, eles podem estar salvos como 'erp_system_customers' (company_id incorreto)`);
         }
         
         // Carregar inventário  
-        const inventoryData = await loadFromSupabase<InventoryItem[]>('inventory');
+        const inventoryData = await loadEntity<InventoryItem[]>('inventory');
         if (isSubscribed && inventoryData && inventoryData.length > 0) {
           console.log(`[SUPABASE] ✅ ${inventoryData.length} itens de inventário carregados do Supabase`);
           setInventory(inventoryData);
@@ -1306,7 +1305,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
         
         // Carregar fornecedores
-        const suppliersData = await loadFromSupabase<Supplier[]>('suppliers');
+        const suppliersData = await loadEntity<Supplier[]>('suppliers');
         if (isSubscribed && suppliersData && suppliersData.length > 0) {
           console.log(`[SUPABASE] ✅ ${suppliersData.length} fornecedores carregados do Supabase`);
           setSuppliers(suppliersData);
@@ -1315,7 +1314,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
         
         // Carregar pedidos de venda
-        const salesOrdersData = await loadFromSupabase<SalesOrder[]>('salesOrders');
+        const salesOrdersData = await loadEntity<SalesOrder[]>('sales-orders');
         if (isSubscribed && salesOrdersData && salesOrdersData.length > 0) {
           console.log(`[SUPABASE] ✅ ${salesOrdersData.length} pedidos de venda carregados do Supabase`);
           setSalesOrders(salesOrdersData);
@@ -1324,119 +1323,119 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
         
         // Carregar pedidos de compra
-        const purchaseOrdersData = await loadFromSupabase<PurchaseOrder[]>('purchaseOrders');
+        const purchaseOrdersData = await loadEntity<PurchaseOrder[]>('purchase-orders');
         if (isSubscribed && purchaseOrdersData && purchaseOrdersData.length > 0) {
           console.log(`[SUPABASE] ✅ ${purchaseOrdersData.length} pedidos de compra carregados`);
           setPurchaseOrders(purchaseOrdersData);
         }
         
         // Carregar movimentações de estoque
-        const stockMovementsData = await loadFromSupabase<StockMovement[]>('stockMovements');
+        const stockMovementsData = await loadEntity<StockMovement[]>('stock-movements');
         if (isSubscribed && stockMovementsData && stockMovementsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${stockMovementsData.length} movimentações de estoque carregadas`);
           setStockMovements(stockMovementsData);
         }
         
         // Carregar tabelas de preço
-        const priceTablesData = await loadFromSupabase<PriceTable[]>('priceTables');
+        const priceTablesData = await loadEntity<PriceTable[]>('price-tables');
         if (isSubscribed && priceTablesData && priceTablesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${priceTablesData.length} tabelas de preço carregadas`);
           setPriceTables(priceTablesData);
         }
         
         // Carregar categorias de produtos
-        const productCategoriesData = await loadFromSupabase<string[]>('productCategories');
+        const productCategoriesData = await loadEntity<string[]>('product-categories');
         if (isSubscribed && productCategoriesData && productCategoriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${productCategoriesData.length} categorias de produtos carregadas`);
           setProductCategories(productCategoriesData);
         }
         
         // Carregar vendedores
-        const salespeopleData = await loadFromSupabase<Salesperson[]>('salespeople');
+        const salespeopleData = await loadEntity<Salesperson[]>('salespeople');
         if (isSubscribed && salespeopleData && salespeopleData.length > 0) {
           console.log(`[SUPABASE] ✅ ${salespeopleData.length} vendedores carregados`);
           setSalespeople(salespeopleData);
         }
         
         // Carregar compradores
-        const buyersData = await loadFromSupabase<Buyer[]>('buyers');
+        const buyersData = await loadEntity<Buyer[]>('buyers');
         if (isSubscribed && buyersData && buyersData.length > 0) {
           console.log(`[SUPABASE] ✅ ${buyersData.length} compradores carregados`);
           setBuyers(buyersData);
         }
         
         // Carregar formas de pagamento
-        const paymentMethodsData = await loadFromSupabase<PaymentMethod[]>('paymentMethods');
+        const paymentMethodsData = await loadEntity<PaymentMethod[]>('payment-methods');
         if (isSubscribed && paymentMethodsData && paymentMethodsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${paymentMethodsData.length} formas de pagamento carregadas`);
           setPaymentMethods(paymentMethodsData);
         }
         
         // Carregar categorias de contas
-        const accountCategoriesData = await loadFromSupabase<AccountCategory[]>('accountCategories');
+        const accountCategoriesData = await loadEntity<AccountCategory[]>('account-categories');
         if (isSubscribed && accountCategoriesData && accountCategoriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
           setAccountCategories(accountCategoriesData);
         }
         
         // Carregar transações financeiras
-        const financialTransactionsData = await loadFromSupabase<FinancialTransaction[]>('financialTransactions');
+        const financialTransactionsData = await loadEntity<FinancialTransaction[]>('financial-transactions');
         if (isSubscribed && financialTransactionsData && financialTransactionsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${financialTransactionsData.length} transações financeiras carregadas`);
           setFinancialTransactions(financialTransactionsData);
         }
         
         // Carregar contas a receber
-        const accountsReceivableData = await loadFromSupabase<AccountReceivable[]>('accountsReceivable');
+        const accountsReceivableData = await loadEntity<AccountReceivable[]>('accounts-receivable');
         if (isSubscribed && accountsReceivableData && accountsReceivableData.length > 0) {
           console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
           setAccountsReceivable(accountsReceivableData);
         }
         
         // Carregar contas a pagar
-        const accountsPayableData = await loadFromSupabase<AccountPayable[]>('accountsPayable');
+        const accountsPayableData = await loadEntity<AccountPayable[]>('accounts-payable');
         if (isSubscribed && accountsPayableData && accountsPayableData.length > 0) {
           console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
           setAccountsPayable(accountsPayableData);
         }
         
         // Carregar movimentações bancárias
-        const bankMovementsData = await loadFromSupabase<BankMovement[]>('bankMovements');
+        const bankMovementsData = await loadEntity<BankMovement[]>('bank-movements');
         if (isSubscribed && bankMovementsData && bankMovementsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${bankMovementsData.length} movimentações bancárias carregadas`);
           setBankMovements(bankMovementsData);
         }
         
         // Carregar entradas de fluxo de caixa
-        const cashFlowEntriesData = await loadFromSupabase<CashFlowEntry[]>('cashFlowEntries');
+        const cashFlowEntriesData = await loadEntity<CashFlowEntry[]>('cash-flow-entries');
         if (isSubscribed && cashFlowEntriesData && cashFlowEntriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${cashFlowEntriesData.length} entradas de fluxo de caixa carregadas`);
           setCashFlowEntries(cashFlowEntriesData);
         }
         
         // Carregar problemas de auditoria
-        const auditIssuesData = await loadFromSupabase<AuditIssue[]>('auditIssues');
+        const auditIssuesData = await loadEntity<AuditIssue[]>('audit-issues');
         if (isSubscribed && auditIssuesData && auditIssuesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${auditIssuesData.length} problemas de auditoria carregados`);
           setAuditIssues(auditIssuesData);
         }
         
         // Carregar data da última análise
-        const lastAnalysisDateData = await loadFromSupabase<string>('lastAnalysisDate');
+        const lastAnalysisDateData = await loadEntity<string>('last-analysis-date');
         if (isSubscribed && lastAnalysisDateData) {
           console.log(`[SUPABASE] ✅ Data da última análise carregada`);
           setLastAnalysisDate(new Date(lastAnalysisDateData));
         }
         
         // Carregar histórico da empresa
-        const companyHistoryData = await loadFromSupabase<CompanyHistoryEntry[]>('companyHistory');
+        const companyHistoryData = await loadEntity<CompanyHistoryEntry[]>('company-history');
         if (isSubscribed && companyHistoryData && companyHistoryData.length > 0) {
           console.log(`[SUPABASE] ✅ ${companyHistoryData.length} entradas de histórico carregadas`);
           setCompanyHistory(companyHistoryData);
         }
         
         // Carregar status de reconciliação
-        const reconciliationStatusData = await loadFromSupabase<Record<string, boolean>>('reconciliationStatus');
+        const reconciliationStatusData = await loadEntity<Record<string, boolean>>('reconciliation-status');
         if (isSubscribed && reconciliationStatusData) {
           console.log(`[SUPABASE] ✅ Status de reconciliação carregado`);
           setReconciliationStatus(reconciliationStatusData);
@@ -1502,33 +1501,39 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   }, [stockMovements, profile?.company_id]);
 
-  // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM SUPABASE ====================
+  // ==================== PERSISTÊNCIA AUTOMÁTICA COM ROTAS ESPECÍFICAS ====================
   
-  // Sincroniza dados com Supabase em background (debounced 2s)
-  // FASE 1: Entidades principais
-  useSupabaseSync('customers', customers, !!profile?.company_id);
-  useSupabaseSync('inventory', inventory, !!profile?.company_id);
-  useSupabaseSync('suppliers', suppliers, !!profile?.company_id);
-  useSupabaseSync('salesOrders', salesOrders, !!profile?.company_id);
+  // Sistema de persistência imediata (sem debounce) via rotas específicas
+  // Mais robusto, seguro e performático que o sistema anterior
   
-  // FASE 2: Entidades restantes
-  useSupabaseSync('purchaseOrders', purchaseOrders, !!profile?.company_id);
-  useSupabaseSync('stockMovements', stockMovements, !!profile?.company_id);
-  useSupabaseSync('priceTables', priceTables, !!profile?.company_id);
-  useSupabaseSync('productCategories', productCategories, !!profile?.company_id);
-  useSupabaseSync('salespeople', salespeople, !!profile?.company_id);
-  useSupabaseSync('buyers', buyers, !!profile?.company_id);
-  useSupabaseSync('paymentMethods', paymentMethods, !!profile?.company_id);
-  useSupabaseSync('accountCategories', accountCategories, !!profile?.company_id);
-  useSupabaseSync('financialTransactions', financialTransactions, !!profile?.company_id);
-  useSupabaseSync('accountsReceivable', accountsReceivable, !!profile?.company_id);
-  useSupabaseSync('accountsPayable', accountsPayable, !!profile?.company_id);
-  useSupabaseSync('bankMovements', bankMovements, !!profile?.company_id);
-  useSupabaseSync('cashFlowEntries', cashFlowEntries, !!profile?.company_id);
-  useSupabaseSync('auditIssues', auditIssues, !!profile?.company_id);
-  useSupabaseSync('lastAnalysisDate', lastAnalysisDate, !!profile?.company_id);
-  useSupabaseSync('companyHistory', companyHistory, !!profile?.company_id);
-  useSupabaseSync('reconciliationStatus', reconciliationStatus, !!profile?.company_id);
+  // FASE 1: Entidades principais (críticas)
+  useEntityPersistence({ entityName: 'customers', data: customers, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'inventory', data: inventory, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'suppliers', data: suppliers, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'sales-orders', data: salesOrders, enabled: !!profile?.company_id, throttleMs: 500 });
+  
+  // FASE 2: Entidades secundárias
+  useEntityPersistence({ entityName: 'purchase-orders', data: purchaseOrders, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'stock-movements', data: stockMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'price-tables', data: priceTables, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'product-categories', data: productCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'salespeople', data: salespeople, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'buyers', data: buyers, enabled: !!profile?.company_id, throttleMs: 1000 });
+  
+  // FASE 3: Entidades financeiras
+  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'bank-movements', data: bankMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'cash-flow-entries', data: cashFlowEntries, enabled: !!profile?.company_id, throttleMs: 1000 });
+  
+  // FASE 4: Entidades auxiliares
+  useEntityPersistence({ entityName: 'audit-issues', data: auditIssues, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'last-analysis-date', data: lastAnalysisDate, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: !!profile?.company_id, throttleMs: 2000 });
 
   // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
   

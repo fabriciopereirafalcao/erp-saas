@@ -1176,9 +1176,31 @@ if (certificado) {
 }
 
 // =====================================================
-// DATA PERSISTENCE ROUTES - KV Store para ERP
+// DATA ROUTES - Rotas Específicas de Persistência
 // =====================================================
-console.log('[INDEX] 🔍 Registrando rotas de persistência de dados...');
+console.log('[INDEX] 🔍 Carregando módulo de rotas de dados...');
+
+let dataRoutes;
+try {
+  dataRoutes = await import('./data-routes.tsx');
+  console.log('[INDEX] ✅ Módulo data-routes carregado com sucesso');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao carregar data-routes:', error);
+}
+
+if (dataRoutes?.default) {
+  console.log('[INDEX] 🔍 Registrando rotas de dados específicas...');
+  app.route('/make-server-686b5e88/data', dataRoutes.default);
+  console.log('[INDEX] ✅ Rotas de dados registradas em /make-server-686b5e88/data/*');
+  console.log('[INDEX] 📋 Exemplos: /data/customers, /data/suppliers, /data/inventory');
+} else {
+  console.error('[INDEX] ❌ MÓDULO DATA ROUTES NÃO CARREGADO! As rotas não serão registradas.');
+}
+
+// =====================================================
+// DATA PERSISTENCE ROUTES (LEGADO) - KV Store Genérico
+// =====================================================
+console.log('[INDEX] 🔍 Registrando rotas de persistência legadas (fallback)...');
 
 // GET - Carregar dados de uma chave específica
 app.get("/make-server-686b5e88/data/:key", async (c) => {
