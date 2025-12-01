@@ -114,7 +114,27 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         setSubscription(data.data);
       } else {
-        console.error("Erro ao carregar assinatura:", data.error);
+        // Se não encontrou assinatura, tentar criar uma padrão (reparação automática)
+        console.warn("⚠️ Assinatura não encontrada. Tentando criar assinatura padrão...");
+        
+        const createResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/initialize`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const createData = await createResponse.json();
+
+        if (createData.success) {
+          console.log("✅ Assinatura padrão criada com sucesso!");
+          setSubscription(createData.data);
+        } else {
+          console.error("❌ Erro ao criar assinatura padrão:", createData.error);
+        }
       }
     } catch (error) {
       console.error("Erro ao carregar assinatura:", error);
