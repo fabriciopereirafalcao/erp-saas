@@ -213,6 +213,17 @@ function AppContent() {
   const [currentView, setCurrentView] =
     useState<NavigationView>("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [nfeDataFromOrder, setNfeDataFromOrder] = useState<any>(null);
+
+  // Callback para navegar para NF-e a partir de um pedido
+  const handleNavigateToNFeFromOrder = (orderData: any) => {
+    setNfeDataFromOrder(orderData);
+    setCurrentView("taxInvoicing");
+    // Limpar dados após 3 segundos para permitir que sejam usados
+    setTimeout(() => {
+      setNfeDataFromOrder(null);
+    }, 3000);
+  };
 
   // Verificar se há um token de convite na URL
   const hasInviteToken = () => {
@@ -255,7 +266,7 @@ function AppContent() {
       case "purchases":
         return <PurchaseOrders />;
       case "sales":
-        return <SalesOrders />;
+        return <SalesOrders onNavigateToNFe={handleNavigateToNFeFromOrder} />;
       case "customers":
         return <Customers />;
       case "suppliers":
@@ -271,7 +282,7 @@ function AppContent() {
       case "priceTables":
         return <PriceTables />;
       case "taxInvoicing":
-        return <TaxInvoicing />;
+        return <TaxInvoicing orderData={nfeDataFromOrder} />;
       case "reports":
         return <Reports />;
       case "usersPermissions":

@@ -68,7 +68,15 @@ interface CertificadoInfo {
 /*                         COMPONENTE PRINCIPAL                              */
 /* ========================================================================= */
 
-export function TaxInvoicingModern() {
+interface TaxInvoicingModernProps {
+  orderData?: {
+    order: any;
+    customer: any;
+    items: any[];
+  };
+}
+
+export function TaxInvoicingModern({ orderData }: TaxInvoicingModernProps = {}) {
   const { customers, inventory, companySettings } = useERP();
   const { session } = useAuth();
   
@@ -115,6 +123,13 @@ export function TaxInvoicingModern() {
     }
   }, [session, serie]);
 
+  // Pré-preencher dados quando vem de um pedido
+  useEffect(() => {
+    if (orderData) {
+      preencherDadosDoPedido();
+    }
+  }, [orderData]);
+
   /* ======================================================================= */
   /*                           FUNÇÕES - CERTIFICADO                         */
   /* ======================================================================= */
@@ -150,6 +165,68 @@ export function TaxInvoicingModern() {
       setCertificado(null);
     } finally {
       setLoadingCertificado(false);
+    }
+  };
+
+  /* ======================================================================= */
+  /*                   FUNÇÕES - PRÉ-PREENCHIMENTO DE PEDIDO                 */
+  /* ======================================================================= */
+
+  const preencherDadosDoPedido = () => {
+    if (!orderData) return;
+
+    console.log('📦 [PEDIDO→NF-e] Preenchendo dados do pedido:', orderData.order.id);
+
+    try {
+      // 1. Preencher destinatário (cliente)
+      if (orderData.customer) {
+        setDestinatarioId(orderData.customer.id);
+        toast.success(`Cliente ${orderData.customer.name} selecionado automaticamente`);
+      }
+
+      // 2. Preencher informações adicionais com referência ao pedido
+      const infoAdicionais = `Referente ao Pedido de Venda #${orderData.order.id}\n` +
+        `Data do Pedido: ${new Date(orderData.order.orderDate || orderData.order.issueDate).toLocaleDateString('pt-BR')}\n` +
+        `${orderData.order.customerNotes || orderData.order.internalNotes || ''}`.trim();
+      setInformacoesAdicionais(infoAdicionais);
+
+      // 3. Converter itens do pedido para itens de NF-e
+      const nfeItems: NFeItem[] = orderData.items.map((item: any, index: number) => {
+        // Buscar produto no inventário para pegar NCM
+        const produto = inventory.find(p => 
+          p.name === item.productName || 
+          p.id === item.productId
+        );
+
+        return {
+          id: `item-${index + 1}`,
+          productId: item.productId || produto?.id || `produto-${index + 1}`,
+          productName: item.productName,
+          ncm: produto?.ncm || '00000000',
+          cfop: '5102', // CFOP padrão para venda de mercadoria
+          quantity: item.quantity || 1,
+          unitValue: item.unitPrice || (item.subtotal / (item.quantity || 1)),
+          totalValue: item.subtotal || item.totalAmount || (item.quantity * item.unitPrice),
+          // Alíquotas padrão (podem ser ajustadas pelo usuário)
+          icmsAliquota: 18,
+          ipiAliquota: 0,
+          pisAliquota: 1.65,
+          cofinsAliquota: 7.6
+        };
+      });
+
+      setItems(nfeItems);
+      toast.success(`${nfeItems.length} ${nfeItems.length === 1 ? 'produto adicionado' : 'produtos adicionados'} à NF-e`);
+
+      // 4. Ativar aba de emissão
+      setActiveTab('emissao');
+
+      console.log('✅ [PEDIDO→NF-e] Dados preenchidos com sucesso');
+      console.log('📊 [PEDIDO→NF-e] Itens convertidos:', nfeItems);
+
+    } catch (error) {
+      console.error('❌ [PEDIDO→NF-e] Erro ao preencher dados:', error);
+      toast.error('Erro ao preencher dados do pedido');
     }
   };
 
