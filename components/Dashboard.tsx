@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useERP } from "../contexts/ERPContext";
 import { DataPersistenceStatus } from "./DataPersistenceStatus";
 import { Tooltip as TooltipUI, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { SubscriptionDebug } from "./SubscriptionDebug";
 
 const salesDataMock = [
   { month: "Jan", sales: 45000, purchases: 32000 },
@@ -520,6 +521,9 @@ export function Dashboard() {
           </div>
         </div>
       </Card>
+
+      {/* Subscription Debug */}
+      <SubscriptionDebug />
     </div>
   );
 }
