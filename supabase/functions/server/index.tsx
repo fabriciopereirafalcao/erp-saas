@@ -218,15 +218,15 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
       return c.json({ error: `Erro ao criar perfil: ${profileError.message}` }, 500);
     }
 
-    // 4. Criar assinatura padrão (Trial com plano Intermediário)
+    // 4. Criar assinatura padrão (Trial com plano Ilimitado)
     try {
       const now = new Date();
       const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 14); // 14 dias de trial
+      trialEnd.setDate(trialEnd.getDate() + 7); // 7 dias de trial
 
       const defaultSubscription = {
         userId: authData.user.id,
-        planId: "intermediario", // Plano padrão: Intermediário
+        planId: "ilimitado", // Plano padrão: Ilimitado (para testes completos)
         billingCycle: "monthly",
         status: "trial",
         currentPeriodStart: now.toISOString(),
