@@ -218,6 +218,39 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
       return c.json({ error: `Erro ao criar perfil: ${profileError.message}` }, 500);
     }
 
+    // 4. Criar assinatura padrão (Trial com plano Intermediário)
+    try {
+      const now = new Date();
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 14); // 14 dias de trial
+
+      const defaultSubscription = {
+        userId: authData.user.id,
+        planId: "intermediario", // Plano padrão: Intermediário
+        billingCycle: "monthly",
+        status: "trial",
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: trialEnd.toISOString(),
+        trialEnd: trialEnd.toISOString(),
+        usage: {
+          users: 1, // Conta o owner
+          products: 0,
+          customers: 0,
+          nfe: 0,
+        },
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+
+      // Salvar no KV store
+      await kv.set(`subscription:${authData.user.id}`, defaultSubscription);
+      
+      console.log(`✅ Assinatura criada para usuário ${authData.user.id} - Plano: ${defaultSubscription.planId} (Trial)`);
+    } catch (subError) {
+      console.error('⚠️ Erro ao criar assinatura padrão:', subError);
+      // Não fazer rollback - assinatura pode ser criada depois
+    }
+
     // Sucesso!
     return c.json({
       success: true,
