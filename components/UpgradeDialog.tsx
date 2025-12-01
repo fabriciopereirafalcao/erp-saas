@@ -11,7 +11,6 @@ import { Crown, Zap, Shield, TrendingUp, CheckCircle, XCircle, ArrowRight } from
 import { useSubscription } from "../contexts/SubscriptionContext";
 import { PlanTier } from "../types/subscription";
 import { PLANS, getPlan, formatPrice } from "../config/plans";
-import { useNavigate } from "react-router-dom";
 
 /* =========================================================================
  * COMPONENTE PRINCIPAL
@@ -19,7 +18,6 @@ import { useNavigate } from "react-router-dom";
 
 export function UpgradeDialog() {
   const { upgradeDialogState, closeUpgradeDialog, subscription } = useSubscription();
-  const navigate = useNavigate();
 
   if (!subscription) return null;
 
@@ -31,16 +29,9 @@ export function UpgradeDialog() {
 
   const handleUpgrade = () => {
     closeUpgradeDialog();
-    // Navegar para página de planos
-    navigate("/configuracoes");
-    // Pequeno delay para garantir navegação
-    setTimeout(() => {
-      // Tentar abrir tab de planos programaticamente se possível
-      const billingTab = document.querySelector('[value="plano"]');
-      if (billingTab instanceof HTMLElement) {
-        billingTab.click();
-      }
-    }, 100);
+    
+    // Disparar evento customizado para navegar para billing
+    window.dispatchEvent(new CustomEvent('navigate-to-billing'));
   };
 
   return (
