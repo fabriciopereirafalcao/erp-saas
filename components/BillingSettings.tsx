@@ -21,6 +21,7 @@ import {
   Shield,
   Download,
   Clock,
+  FlaskConical,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner@2.0.3";
@@ -28,6 +29,7 @@ import { Subscription, PlanTier, BillingCycle } from "../types/subscription";
 import { PLANS, getPlan, formatPrice, getAllPlans, getBillingCycleLabel } from "../config/plans";
 import { getUsageOverview, getUsageWarnings } from "../utils/subscriptionLimits";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
+import { IS_DEVELOPMENT } from "../utils/environment";
 
 /* =========================================================================
  * COMPONENTE PRINCIPAL
@@ -90,6 +92,48 @@ export function BillingSettings() {
   };
 
   /* =======================================================================
+   * FUNÇÃO - TROCAR PLANO (APENAS DEV)
+   * ======================================================================= */
+
+  const changePlanForTesting = async (planId: PlanTier) => {
+    try {
+      const token = session?.access_token;
+      if (!token) {
+        throw new Error("Não autenticado");
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/change-plan`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ planId }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSubscription(data.data);
+        toast.success(`Plano alterado para ${getPlan(planId).name}! Recarregue a página para ver as mudanças.`);
+        
+        // Recarregar página após 1 segundo para atualizar contextos
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        throw new Error(data.error || "Erro ao trocar plano");
+      }
+    } catch (error) {
+      console.error("Erro ao trocar plano:", error);
+      toast.error("Erro ao trocar plano de teste");
+    }
+  };
+  
+  /* =======================================================================
    * RENDER - LOADING
    * ======================================================================= */
 
@@ -147,6 +191,57 @@ export function BillingSettings() {
         </Alert>
       )}
 
+      {/* MODO DE TESTE - APENAS DESENVOLVIMENTO */}
+      {IS_DEVELOPMENT && (
+        <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-900/20">
+          <FlaskConical className="h-4 w-4 text-purple-600" />
+          <AlertDescription>
+            <div className="space-y-3">
+              <div>
+                <strong className="text-purple-700 dark:text-purple-400">🧪 Modo de Teste</strong>
+                <p className="text-sm text-purple-600 dark:text-purple-300 mt-1">
+                  Troque de plano para testar bloqueios e validações. A página será recarregada automaticamente.
+                </p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant={subscription?.planId === "basico" ? "default" : "outline"}
+                  onClick={() => changePlanForTesting("basico")}
+                  className="text-xs"
+                >
+                  Básico R$ 49,90
+                </Button>
+                <Button
+                  size="sm"
+                  variant={subscription?.planId === "intermediario" ? "default" : "outline"}
+                  onClick={() => changePlanForTesting("intermediario")}
+                  className="text-xs"
+                >
+                  Intermediário R$ 69,90
+                </Button>
+                <Button
+                  size="sm"
+                  variant={subscription?.planId === "avancado" ? "default" : "outline"}
+                  onClick={() => changePlanForTesting("avancado")}
+                  className="text-xs"
+                >
+                  Avançado R$ 109,90
+                </Button>
+                <Button
+                  size="sm"
+                  variant={subscription?.planId === "ilimitado" ? "default" : "outline"}
+                  onClick={() => changePlanForTesting("ilimitado")}
+                  className="text-xs"
+                >
+                  Ilimitado R$ 139,90
+                </Button>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {/* CARD DO PLANO ATUAL */}
       <Card className="p-6">
         <div className="flex items-start justify-between">
