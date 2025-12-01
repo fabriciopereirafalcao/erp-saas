@@ -1202,6 +1202,28 @@ if (dataRoutes?.default) {
 }
 
 // =====================================================
+// SUBSCRIPTION ROUTES - Gestão de Assinaturas
+// =====================================================
+console.log('[INDEX] 🔍 Carregando módulo de assinaturas...');
+
+let subscriptionRoutes;
+try {
+  subscriptionRoutes = await import('./subscription.tsx');
+  console.log('[INDEX] ✅ Módulo subscription carregado com sucesso');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao carregar subscription:', error);
+}
+
+if (subscriptionRoutes?.default) {
+  console.log('[INDEX] 🔍 Registrando rotas de assinaturas...');
+  app.route('/make-server-686b5e88/subscription', subscriptionRoutes.default);
+  console.log('[INDEX] ✅ Rotas de assinaturas registradas em /make-server-686b5e88/subscription/*');
+  console.log('[INDEX] 💳 Exemplos: /subscription/current, /subscription/upgrade');
+} else {
+  console.error('[INDEX] ❌ MÓDULO SUBSCRIPTION ROUTES NÃO CARREGADO!');
+}
+
+// =====================================================
 // DATA PERSISTENCE ROUTES (LEGADO) - KV Store Genérico
 // =====================================================
 console.log('[INDEX] 🔍 Registrando rotas de persistência legadas (fallback)...');

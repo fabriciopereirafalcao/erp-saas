@@ -21,6 +21,7 @@ import {
   LogOut,
   Mail,
   FileKey,
+  Crown,
   X
 } from "lucide-react";
 import { FEATURES } from "../utils/environment";
@@ -88,6 +89,7 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
     { id: "reports" as NavigationView, label: "Relatórios", icon: BarChart3 },
     { id: "digitalCertificate" as NavigationView, label: "Certificado Digital", icon: FileKey },
     { id: "emailSettings" as NavigationView, label: "Configurações de Email", icon: Mail },
+    { id: "billing" as NavigationView, label: "Planos & Cobrança", icon: CreditCard },
     { id: "systemAudit" as NavigationView, label: "Auditoria do Sistema", icon: AlertCircle },
     { id: "company" as NavigationView, label: "Minha Empresa", icon: Building2 },
   ];

@@ -161,6 +161,13 @@ const EmailSettings = lazy(() =>
   })),
 );
 
+// Billing & Assinaturas
+const BillingSettings = lazy(() =>
+  import("./components/BillingSettings.tsx").then((m) => ({
+    default: m.BillingSettings,
+  })),
+);
+
 // Importação condicional do SystemAudit (apenas em dev)
 const SystemAudit = IS_DEVELOPMENT
   ? lazy(() =>
@@ -197,6 +204,7 @@ export type NavigationView =
   | "stockLocations"
   | "manufacturingBatches"
   | "profile"
+  | "billing"
   | "testePersistencia";
 
 // ⚡ Loading fallback leve
@@ -289,6 +297,8 @@ function AppContent() {
         return <UsersPermissions />;
       case "emailSettings":
         return <EmailSettings />;
+      case "billing":
+        return <BillingSettings />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {
