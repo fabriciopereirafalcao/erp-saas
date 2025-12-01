@@ -1,5 +1,22 @@
 /* =========================================================================
- * ROTA: GET /subscription/current
+ * SUBSCRIPTION ROUTES - Gerenciamento de Assinaturas
+ * ========================================================================= */
+
+import { Hono } from "npm:hono@4";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import * as kv from "./kv_store.tsx";
+
+// Criar app Hono para rotas de subscription
+const app = new Hono();
+
+// Cliente Supabase (reutilizar para autenticação)
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
+/* =========================================================================
+ * ROTA: GET /current
  * Retorna assinatura atual do usuário autenticado
  * ========================================================================= */
 
@@ -41,7 +58,7 @@ app.get("/current", async (c) => {
 });
 
 /* =========================================================================
- * ROTA: POST /subscription/initialize
+ * ROTA: POST /initialize
  * Cria assinatura padrão para usuários que não têm (REPARAÇÃO)
  * ========================================================================= */
 
@@ -116,3 +133,137 @@ app.post("/initialize", async (c) => {
     );
   }
 });
+
+/* =========================================================================
+ * ROTA: POST /increment-usage
+ * Incrementa uso de uma categoria
+ * ========================================================================= */
+
+app.post("/increment-usage", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Obter dados do body
+    const { type, amount = 1 } = await c.req.json();
+
+    // Buscar assinatura
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json(
+        { success: false, error: "Assinatura não encontrada" },
+        404
+      );
+    }
+
+    // Mapear tipo para campo de uso
+    const usageFieldMap: Record<string, string> = {
+      salesOrders: "salesOrders",
+      purchaseOrders: "purchaseOrders",
+      invoices: "nfe",
+      transactions: "transactions",
+    };
+
+    const usageField = usageFieldMap[type];
+    if (!usageField) {
+      return c.json(
+        { success: false, error: "Tipo de uso inválido" },
+        400
+      );
+    }
+
+    // Incrementar uso
+    subscription.usage[usageField] =
+      (subscription.usage[usageField] || 0) + amount;
+    subscription.updatedAt = new Date().toISOString();
+
+    // Salvar
+    await kv.set(subscriptionKey, subscription);
+
+    return c.json({ success: true, data: subscription });
+  } catch (error) {
+    console.error("Erro ao incrementar uso:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao incrementar uso: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
+/* =========================================================================
+ * ROTA: POST /test/set-plan (MODO DE TESTE)
+ * Altera plano para testar funcionalidades
+ * ========================================================================= */
+
+app.post("/test/set-plan", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Obter planId do body
+    const { planId } = await c.req.json();
+
+    if (!["basico", "intermediario", "avancado", "ilimitado"].includes(planId)) {
+      return c.json({ success: false, error: "Plano inválido" }, 400);
+    }
+
+    // Buscar assinatura
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json(
+        { success: false, error: "Assinatura não encontrada" },
+        404
+      );
+    }
+
+    // Atualizar plano (modo de teste)
+    subscription.planId = planId;
+    subscription.updatedAt = new Date().toISOString();
+
+    // Salvar
+    await kv.set(subscriptionKey, subscription);
+
+    console.log(`🧪 [TESTE] Plano alterado para: ${planId} (usuário ${user.id})`);
+
+    return c.json({
+      success: true,
+      data: subscription,
+      message: `Plano alterado para ${planId} (modo de teste)`,
+    });
+  } catch (error) {
+    console.error("Erro ao alterar plano:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao alterar plano: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
+// Exportar app como default
+export default app;

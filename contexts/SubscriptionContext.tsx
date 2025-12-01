@@ -109,13 +109,45 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         }
       );
 
+      // Verificar se a resposta é JSON antes de tentar parsear
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+
+      // Se não for JSON ou for erro 404, tentar criar assinatura padrão
+      if (!isJson || response.status === 404) {
+        console.warn("⚠️ Assinatura não encontrada (404 ou resposta inválida). Tentando criar assinatura padrão...");
+        
+        const createResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/initialize`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const createData = await createResponse.json();
+
+        if (createData.success) {
+          console.log("✅ Assinatura padrão criada com sucesso!");
+          setSubscription(createData.data);
+        } else {
+          console.error("❌ Erro ao criar assinatura padrão:", createData.error);
+        }
+        return;
+      }
+
+      // Se chegou aqui, a resposta é JSON válido
       const data = await response.json();
 
       if (data.success) {
         setSubscription(data.data);
+        console.log("✅ Assinatura carregada:", data.data.planId);
       } else {
-        // Se não encontrou assinatura, tentar criar uma padrão (reparação automática)
-        console.warn("⚠️ Assinatura não encontrada. Tentando criar assinatura padrão...");
+        // Erro retornado pela API em JSON
+        console.warn("⚠️ API retornou erro:", data.error);
+        console.warn("⚠️ Tentando criar assinatura padrão...");
         
         const createResponse = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/initialize`,
@@ -137,7 +169,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("Erro ao carregar assinatura:", error);
+      console.error("❌ Erro ao carregar assinatura:", error);
     } finally {
       setLoading(false);
     }
