@@ -8,7 +8,7 @@ import {
 import { Button } from "../ui/button";
 import { Check, X, Sparkles } from "lucide-react";
 import { PLAN_CONFIG, PlanId } from "../../lib/plans";
-import { cn } from "../../lib/utils";
+import { cn } from "../ui/utils";
 
 interface PlanComparisonModalProps {
   open: boolean;
