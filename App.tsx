@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
@@ -11,6 +11,7 @@ import { AuthFlow } from "./components/auth/AuthFlow.tsx";
 import { LoadingScreen } from "./components/LoadingScreen.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { UpgradeDialog } from "./components/UpgradeDialog.tsx";
+import { SubscriptionAlerts } from "./components/subscription/SubscriptionAlerts.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
@@ -235,6 +236,19 @@ function AppContent() {
     }, 3000);
   };
 
+  // Listener para navegar para billing via evento customizado
+  useEffect(() => {
+    const handleNavigateToBilling = () => {
+      setCurrentView("billing");
+    };
+    
+    window.addEventListener('navigate-to-billing', handleNavigateToBilling);
+    
+    return () => {
+      window.removeEventListener('navigate-to-billing', handleNavigateToBilling);
+    };
+  }, []);
+
   // Verificar se há um token de convite na URL
   const hasInviteToken = () => {
     const params = new URLSearchParams(window.location.search);
@@ -382,6 +396,7 @@ export default function App() {
           <AppContent />
           <SpeedInsights />
           <UpgradeDialog />
+          <SubscriptionAlerts />
         </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -265,5 +265,247 @@ app.post("/test/set-plan", async (c) => {
   }
 });
 
+/* =========================================================================
+ * ROTA: POST /upgrade
+ * Faz upgrade do plano da assinatura
+ * ========================================================================= */
+
+app.post("/upgrade", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Obter dados do body
+    const { newPlanId, billingCycle } = await c.req.json();
+
+    // Validar plano
+    if (!["basico", "intermediario", "avancado", "ilimitado"].includes(newPlanId)) {
+      return c.json({ success: false, error: "Plano inválido" }, 400);
+    }
+
+    // Validar ciclo de cobrança
+    if (billingCycle && !["monthly", "yearly"].includes(billingCycle)) {
+      return c.json({ success: false, error: "Ciclo de cobrança inválido" }, 400);
+    }
+
+    // Buscar assinatura atual
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json(
+        { success: false, error: "Assinatura não encontrada" },
+        404
+      );
+    }
+
+    // Hierarquia de planos
+    const planHierarchy = ["basico", "intermediario", "avancado", "ilimitado"];
+    const currentIndex = planHierarchy.indexOf(subscription.planId);
+    const newIndex = planHierarchy.indexOf(newPlanId);
+
+    // Verificar se é upgrade
+    if (newIndex <= currentIndex) {
+      return c.json(
+        { success: false, error: "O novo plano deve ser superior ao atual" },
+        400
+      );
+    }
+
+    // Atualizar assinatura
+    const now = new Date();
+    subscription.planId = newPlanId;
+    subscription.billingCycle = billingCycle || subscription.billingCycle;
+    subscription.status = "active"; // Sair de trial
+    subscription.updatedAt = now.toISOString();
+
+    // Se estava em trial, definir período de cobrança
+    if (subscription.status === "trial") {
+      subscription.currentPeriodStart = now.toISOString();
+      const periodEnd = new Date(now);
+      if (subscription.billingCycle === "yearly") {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      } else {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
+      subscription.currentPeriodEnd = periodEnd.toISOString();
+    }
+
+    // Salvar
+    await kv.set(subscriptionKey, subscription);
+
+    console.log(
+      `✅ [UPGRADE] Usuário ${user.id}: ${subscription.planId} → ${newPlanId}`
+    );
+
+    return c.json({
+      success: true,
+      data: subscription,
+      message: `Upgrade realizado com sucesso para o plano ${newPlanId}`,
+    });
+  } catch (error) {
+    console.error("Erro ao fazer upgrade:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao fazer upgrade: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
+/* =========================================================================
+ * ROTA: POST /downgrade
+ * Faz downgrade do plano da assinatura (efetivado no fim do período)
+ * ========================================================================= */
+
+app.post("/downgrade", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Obter dados do body
+    const { newPlanId } = await c.req.json();
+
+    // Validar plano
+    if (!["basico", "intermediario", "avancado", "ilimitado"].includes(newPlanId)) {
+      return c.json({ success: false, error: "Plano inválido" }, 400);
+    }
+
+    // Buscar assinatura atual
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json(
+        { success: false, error: "Assinatura não encontrada" },
+        404
+      );
+    }
+
+    // Hierarquia de planos
+    const planHierarchy = ["basico", "intermediario", "avancado", "ilimitado"];
+    const currentIndex = planHierarchy.indexOf(subscription.planId);
+    const newIndex = planHierarchy.indexOf(newPlanId);
+
+    // Verificar se é downgrade
+    if (newIndex >= currentIndex) {
+      return c.json(
+        { success: false, error: "O novo plano deve ser inferior ao atual" },
+        400
+      );
+    }
+
+    // Agendar downgrade para o fim do período
+    subscription.scheduledPlanChange = {
+      newPlanId,
+      scheduledFor: subscription.currentPeriodEnd,
+      requestedAt: new Date().toISOString(),
+    };
+    subscription.updatedAt = new Date().toISOString();
+
+    // Salvar
+    await kv.set(subscriptionKey, subscription);
+
+    console.log(
+      `⏳ [DOWNGRADE] Agendado para usuário ${user.id}: ${subscription.planId} → ${newPlanId} em ${subscription.currentPeriodEnd}`
+    );
+
+    return c.json({
+      success: true,
+      data: subscription,
+      message: `Downgrade agendado para ${newPlanId}. Será efetivado em ${new Date(subscription.currentPeriodEnd).toLocaleDateString("pt-BR")}`,
+    });
+  } catch (error) {
+    console.error("Erro ao fazer downgrade:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao fazer downgrade: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
+/* =========================================================================
+ * ROTA: POST /cancel-scheduled-change
+ * Cancela mudança de plano agendada
+ * ========================================================================= */
+
+app.post("/cancel-scheduled-change", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Buscar assinatura atual
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json(
+        { success: false, error: "Assinatura não encontrada" },
+        404
+      );
+    }
+
+    if (!subscription.scheduledPlanChange) {
+      return c.json(
+        { success: false, error: "Não há mudança de plano agendada" },
+        400
+      );
+    }
+
+    // Remover agendamento
+    delete subscription.scheduledPlanChange;
+    subscription.updatedAt = new Date().toISOString();
+
+    // Salvar
+    await kv.set(subscriptionKey, subscription);
+
+    console.log(`❌ [CANCEL] Mudança de plano cancelada para usuário ${user.id}`);
+
+    return c.json({
+      success: true,
+      data: subscription,
+      message: "Mudança de plano cancelada com sucesso",
+    });
+  } catch (error) {
+    console.error("Erro ao cancelar mudança:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao cancelar mudança: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
 // Exportar app como default
 export default app;
