@@ -5,10 +5,12 @@ import { TopBar } from "./components/TopBar.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
 import { ERPProvider } from "./contexts/ERPContext.tsx";
 import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext.tsx";
 import { AuthFlow } from "./components/auth/AuthFlow.tsx";
 import { LoadingScreen } from "./components/LoadingScreen.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { UpgradeDialog } from "./components/UpgradeDialog.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
@@ -376,8 +378,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
-        <SpeedInsights />
+        <SubscriptionProvider>
+          <AppContent />
+          <SpeedInsights />
+          <UpgradeDialog />
+        </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>
   );

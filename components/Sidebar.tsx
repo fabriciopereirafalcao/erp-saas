@@ -22,12 +22,15 @@ import {
   Mail,
   FileKey,
   Crown,
+  Lock,
   X
 } from "lucide-react";
 import { FEATURES } from "../utils/environment";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useModuleAccess } from "../hooks/useModuleAccess";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { memo, useEffect } from "react";
 
 interface SidebarProps {
@@ -41,6 +44,7 @@ interface SidebarProps {
 export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, onClose }: SidebarProps) {
   const { signOut, profile, company } = useAuth();
   const { isDarkMode } = useTheme();
+  const { checkModuleAccess, tryAccessModule } = useModuleAccess();
 
   // Fechar sidebar ao pressionar ESC em mobile
   useEffect(() => {
@@ -66,6 +70,15 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
   }, [isOpen]);
 
   const handleNavigate = (view: NavigationView) => {
+    // Verificar acesso ao módulo antes de navegar
+    const access = checkModuleAccess(view);
+    
+    if (!access.allowed) {
+      // Tenta acessar (mostrará dialog de upgrade)
+      tryAccessModule(view);
+      return;
+    }
+    
     onNavigate(view);
     // Fechar sidebar em mobile após navegação
     if (window.innerWidth < 768) {
@@ -143,6 +156,8 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
               
               const Icon = item.icon;
               const isActive = currentView === item.id;
+              const access = checkModuleAccess(item.id);
+              const isLocked = !access.allowed && access.requiresUpgrade;
               
               return (
                 <li key={item.id}>
@@ -151,16 +166,29 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive
                         ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                        : isLocked
+                        ? "text-gray-400 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 opacity-60"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                    
+                    {/* Badge de bloqueio */}
+                    {isLocked && (
+                      <Lock className="w-4 h-4 text-amber-500" />
+                    )}
+                    
                     {/* Badge de DEV para módulo de auditoria */}
-                    {item.id === "systemAudit" && (
+                    {item.id === "systemAudit" && !isLocked && (
                       <span className="ml-auto text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded">
                         DEV
                       </span>
+                    )}
+                    
+                    {/* Badge Crown para Billing */}
+                    {item.id === "billing" && (
+                      <Crown className="w-4 h-4 text-amber-500" />
                     )}
                   </button>
                 </li>
