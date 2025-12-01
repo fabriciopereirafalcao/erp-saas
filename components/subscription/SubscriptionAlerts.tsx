@@ -4,7 +4,7 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { PLAN_CONFIG } from "../../lib/plans";
 
 interface UsageAlert {
-  type: "users" | "products" | "customers" | "nfe" | "transactions";
+  type: "salesOrders" | "purchaseOrders" | "invoices" | "transactions";
   percentage: number;
   current: number;
   limit: number;
@@ -25,10 +25,13 @@ export function SubscriptionAlerts() {
 
     // Verificar cada limite
     const checkLimit = (
-      type: "users" | "products" | "customers" | "nfe" | "transactions",
+      type: "salesOrders" | "purchaseOrders" | "invoices" | "transactions",
       label: string
     ) => {
-      const limit = plan.limits[type === "nfe" ? "invoices" : type];
+      const limitKey = type === "invoices" ? "invoices" : type === "transactions" ? "transactions" : null;
+      if (!limitKey) return; // Não verificar salesOrders e purchaseOrders
+
+      const limit = plan.limits[limitKey];
       if (limit === null) return; // Ilimitado
 
       const current = usage[type] || 0;
@@ -47,19 +50,15 @@ export function SubscriptionAlerts() {
       }
     };
 
-    checkLimit("users", "Usuários");
-    checkLimit("products", "Produtos");
-    checkLimit("customers", "Clientes");
-    checkLimit("nfe", "NF-e");
+    checkLimit("invoices", "NF-e");
     checkLimit("transactions", "Transações");
 
     // Mostrar alertas
     alerts.forEach((alert) => {
       const labels: Record<typeof alert.type, string> = {
-        users: "Usuários",
-        products: "Produtos",
-        customers: "Clientes",
-        nfe: "NF-e",
+        salesOrders: "Pedidos de Venda",
+        purchaseOrders: "Pedidos de Compra",
+        invoices: "NF-e",
         transactions: "Transações",
       };
 

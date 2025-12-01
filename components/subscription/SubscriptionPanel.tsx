@@ -235,29 +235,22 @@ export function SubscriptionPanel() {
         <h2 className="text-gray-900 mb-4">Uso de Recursos</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <UsageProgressCard
-            label="Usuários"
-            current={subscription.usage.users || 0}
-            limit={plan.limits.users}
-            icon={<Users className="size-5 text-gray-600" />}
+            label="Pedidos de Venda/Mês"
+            current={subscription.usage.salesOrders || 0}
+            limit={null} 
+            icon={<FileText className="size-5 text-gray-600" />}
             color="bg-blue-500"
           />
           <UsageProgressCard
-            label="Produtos"
-            current={subscription.usage.products || 0}
-            limit={plan.limits.products}
+            label="Pedidos de Compra/Mês"
+            current={subscription.usage.purchaseOrders || 0}
+            limit={null}
             icon={<Package className="size-5 text-gray-600" />}
             color="bg-purple-500"
           />
           <UsageProgressCard
-            label="Clientes"
-            current={subscription.usage.customers || 0}
-            limit={plan.limits.customers}
-            icon={<Users className="size-5 text-gray-600" />}
-            color="bg-green-500"
-          />
-          <UsageProgressCard
             label="NF-e/Mês"
-            current={subscription.usage.nfe || 0}
+            current={subscription.usage.invoices || 0}
             limit={plan.limits.invoices}
             icon={<FileText className="size-5 text-gray-600" />}
             color="bg-orange-500"
