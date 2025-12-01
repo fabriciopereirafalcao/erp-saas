@@ -109,8 +109,8 @@ export function PlanComparisonModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[98vw] w-full max-h-[98vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-2xl">Compare os Planos</DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
             Selecione o plano que melhor atende às suas necessidades.
@@ -118,7 +118,7 @@ export function PlanComparisonModal({
         </DialogHeader>
 
         {/* Toggle de Ciclo de Cobrança */}
-        <div className="flex items-center justify-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg flex-shrink-0">
           <Button
             variant={billingCycle === "monthly" ? "default" : "outline"}
             onClick={() => setBillingCycle("monthly")}
@@ -138,12 +138,12 @@ export function PlanComparisonModal({
           </Button>
         </div>
 
-        {/* Tabela de Comparação */}
-        <div className="overflow-x-auto">
+        {/* Tabela de Comparação - com scroll interno apenas se necessário */}
+        <div className="flex-1 overflow-auto">
           <table className="w-full border-collapse">
-            <thead>
+            <thead className="sticky top-0 bg-white z-10">
               <tr className="border-b-2 border-gray-300">
-                <th className="p-4 text-left text-gray-600">Recursos</th>
+                <th className="p-3 text-left text-gray-600 text-sm">Recursos</th>
                 {plans.map((planId) => {
                   const isCurrentPlan = planId === currentPlanId;
                   const isRecommended = planId === "intermediario";
