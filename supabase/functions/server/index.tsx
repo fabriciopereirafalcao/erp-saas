@@ -222,7 +222,7 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
     try {
       const now = new Date();
       const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 7); // 7 dias de trial
+      trialEnd.setDate(trialEnd.getDate() + 14); // 14 dias de trial (conforme TRIAL_DURATION_DAYS)
 
       const defaultSubscription = {
         userId: authData.user.id,

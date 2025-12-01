@@ -90,7 +90,7 @@ app.post("/initialize", async (c) => {
     // Criar assinatura padrão
     const now = new Date();
     const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 7); // 7 dias de trial
+    trialEnd.setDate(trialEnd.getDate() + 14); // 14 dias de trial (conforme TRIAL_DURATION_DAYS)
 
     const defaultSubscription = {
       userId: user.id,

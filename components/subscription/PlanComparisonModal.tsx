@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Check, X, Sparkles } from "lucide-react";
@@ -108,9 +109,12 @@ export function PlanComparisonModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Compare os Planos</DialogTitle>
+          <DialogDescription className="text-sm text-gray-500">
+            Selecione o plano que melhor atende às suas necessidades.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Toggle de Ciclo de Cobrança */}
