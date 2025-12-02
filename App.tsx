@@ -171,14 +171,12 @@ const BillingSettings = lazy(() =>
   })),
 );
 
-// Importação condicional do SystemAudit (apenas em dev)
-const SystemAudit = IS_DEVELOPMENT
-  ? lazy(() =>
-      import("./components/SystemAudit.tsx").then((m) => ({
-        default: m.SystemAudit,
-      })),
-    )
-  : null;
+// Nova tela de Alterar Plano
+const ChangePlan = lazy(() =>
+  import("./components/subscription/ChangePlan.tsx").then((m) => ({
+    default: m.ChangePlan,
+  })),
+);
 
 export type NavigationView =
   | "dashboard"
@@ -207,7 +205,8 @@ export type NavigationView =
   | "stockLocations"
   | "manufacturingBatches"
   | "profile"
-  | "billing"
+  | "myPlan"
+  | "changePlan"
   | "testePersistencia";
 
 // ⚡ Loading fallback leve
@@ -315,6 +314,10 @@ function AppContent() {
         return <EmailSettings />;
       case "billing":
         return <BillingSettings />;
+      case "myPlan":
+        return <BillingSettings />;
+      case "changePlan":
+        return <ChangePlan />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {

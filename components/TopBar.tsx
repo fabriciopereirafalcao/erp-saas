@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown } from 'lucide-react';
+import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown, CreditCard, ArrowUpCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -167,15 +167,35 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
           </DropdownMenu>
 
           {/* Planos e Cobrança */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onNavigate('billing')}
-            className="relative hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Planos e Cobrança"
-          >
-            <Crown className="w-5 h-5 text-amber-500" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-gray-100 dark:hover:bg-gray-800"
+                title="Planos e Cobrança"
+              >
+                <Crown className="w-5 h-5 text-amber-500" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Planos e Cobrança</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onClick={() => onNavigate('myPlan')}>
+                <CreditCard className="w-4 h-4 mr-2" />
+                Meu Plano
+              </DropdownMenuItem>
+              
+              {/* Apenas para owner */}
+              {profile?.role === 'owner' && (
+                <DropdownMenuItem onClick={() => onNavigate('changePlan')}>
+                  <ArrowUpCircle className="w-4 h-4 mr-2" />
+                  Alterar Plano
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Toggle Tema (apenas UI por enquanto) */}
           <Button

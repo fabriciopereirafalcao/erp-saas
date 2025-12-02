@@ -188,7 +188,7 @@ export function SubscriptionPanel() {
       {/* Plano Atual */}
       <Card className="p-6 mb-8">
         <div className="flex items-start justify-between mb-6">
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-gray-900 capitalize">{plan.name}</h2>
               {isTrial && (
@@ -200,10 +200,6 @@ export function SubscriptionPanel() {
             </div>
             <p className="text-gray-600">{plan.description}</p>
           </div>
-          <Button onClick={() => setShowPlansModal(true)} className="gap-2">
-            <CreditCard className="size-4" />
-            Alterar Plano
-          </Button>
         </div>
 
         {/* Informações de Cobrança */}
