@@ -119,27 +119,6 @@ export function ChangePlan() {
         </p>
       </div>
 
-      {/* Alertas Informativos */}
-      <div className="space-y-4 mb-8">
-        <Alert className="bg-blue-50 border-blue-200">
-          <Info className="h-5 w-5 text-blue-600" />
-          <AlertTitle className="text-blue-900">Sobre Upgrades</AlertTitle>
-          <AlertDescription className="text-blue-700">
-            Upgrades são aplicados <strong>imediatamente</strong> e você terá acesso instantâneo aos novos recursos.
-          </AlertDescription>
-        </Alert>
-
-        {!isTrial && (
-          <Alert className="bg-orange-50 border-orange-200">
-            <Info className="h-5 w-5 text-orange-600" />
-            <AlertTitle className="text-orange-900">Sobre Downgrades</AlertTitle>
-            <AlertDescription className="text-orange-700">
-              Downgrades são agendados para o <strong>próximo período de cobrança</strong>. Não há reembolso proporcional.
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
-
       {/* Toggle de Ciclo de Cobrança */}
       <div className="flex items-center justify-center gap-4 mb-8">
         <Button
