@@ -1,36 +1,5 @@
-import { NavigationView } from "../App";
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  TrendingUp, 
-  Users, 
-  Truck,
-  Receipt,
-  Wallet,
-  CreditCard,
-  GitCompare,
-  ArrowUpDown,
-  BarChart3,
-  Tag,
-  Building2,
-  FileText,
-  Shield,
-  AlertCircle,
-  CheckSquare,
-  LogOut,
-  Mail,
-  FileKey,
-  Crown,
-  Lock,
-  X
-} from "lucide-react";
-import { FEATURES } from "../utils/environment";
-import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext";
 import { useModuleAccess } from "../hooks/useModuleAccess";
 import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
 import { memo, useEffect } from "react";
 
 interface SidebarProps {
@@ -100,9 +69,6 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
     { id: "balanceReconciliation" as NavigationView, label: "Conciliações", icon: CheckSquare },
     { id: "cashFlow" as NavigationView, label: "Fluxo de Caixa", icon: ArrowUpDown },
     { id: "reports" as NavigationView, label: "Relatórios", icon: BarChart3 },
-    { id: "digitalCertificate" as NavigationView, label: "Certificado Digital", icon: FileKey },
-    { id: "emailSettings" as NavigationView, label: "Configurações de Email", icon: Mail },
-    { id: "billing" as NavigationView, label: "Planos & Cobrança", icon: CreditCard },
     { id: "systemAudit" as NavigationView, label: "Auditoria do Sistema", icon: AlertCircle },
     { id: "company" as NavigationView, label: "Minha Empresa", icon: Building2 },
   ];
@@ -184,11 +150,6 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
                       <span className="ml-auto text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded">
                         DEV
                       </span>
-                    )}
-                    
-                    {/* Badge Crown para Billing */}
-                    {item.id === "billing" && (
-                      <Crown className="w-4 h-4 text-amber-500" />
                     )}
                   </button>
                 </li>
