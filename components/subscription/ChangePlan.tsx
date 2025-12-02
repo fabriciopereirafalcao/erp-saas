@@ -171,7 +171,7 @@ export function ChangePlan() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {plans.map((planId) => {
           const plan = PLANS[planId];
-          const isCurrentPlan = planId === currentPlanId;
+          const isCurrentPlan = planId === currentPlanId && !isTrial;
           const isSelected = selectedPlan?.planId === planId;
           const willBeUpgrade = isUpgrade(planId);
           const willBeDowngrade = isDowngrade(planId);
@@ -302,7 +302,7 @@ export function ChangePlan() {
                   variant={isSelected ? "default" : "outline"}
                   className="w-full"
                 >
-                  {isSelected ? "Selecionado" : willBeUpgrade ? "Fazer Upgrade" : "Fazer Downgrade"}
+                  {isSelected ? "Selecionado" : "Contratar"}
                 </Button>
               )}
 
