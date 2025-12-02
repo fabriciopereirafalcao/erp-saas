@@ -4,7 +4,8 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Check, X, Zap, ArrowRight, Info } from "lucide-react";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { PLAN_CONFIG, PlanId } from "../../lib/plans";
+import { PLANS } from "../../config/plans";
+import { PlanTier } from "../../types/subscription";
 import { toast } from "sonner";
 import { projectId } from "../../utils/supabase/info";
 import {
@@ -16,7 +17,7 @@ import {
 export function ChangePlan() {
   const { subscription, loading, refreshSubscription } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState<{
-    planId: PlanId;
+    planId: PlanTier;
     billingCycle: "monthly" | "yearly";
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,20 +36,20 @@ export function ChangePlan() {
   const currentPlanId = subscription.planId;
   const isTrial = subscription.status === "trial";
   
-  const planHierarchy: PlanId[] = ["basico", "intermediario", "avancado", "ilimitado"];
-  const currentIndex = planHierarchy.indexOf(currentPlanId);
+  const planHierarchy: PlanTier[] = ["basico", "intermediario", "avancado", "ilimitado"];
+  const currentIndex = planHierarchy.indexOf(currentPlanId as PlanTier);
 
-  const isDowngrade = (targetPlanId: PlanId) => {
+  const isDowngrade = (targetPlanId: PlanTier) => {
     const targetIndex = planHierarchy.indexOf(targetPlanId);
     return targetIndex < currentIndex && !isTrial;
   };
 
-  const isUpgrade = (targetPlanId: PlanId) => {
+  const isUpgrade = (targetPlanId: PlanTier) => {
     const targetIndex = planHierarchy.indexOf(targetPlanId);
     return targetIndex > currentIndex || isTrial;
   };
 
-  const handleSelectPlan = (planId: PlanId, billingCycle: "monthly" | "yearly") => {
+  const handleSelectPlan = (planId: PlanTier, billingCycle: "monthly" | "yearly") => {
     setSelectedPlan({ planId, billingCycle });
   };
 
@@ -105,7 +106,7 @@ export function ChangePlan() {
     }
   };
 
-  const plans: PlanId[] = ["basico", "intermediario", "avancado", "ilimitado"];
+  const plans: PlanTier[] = ["basico", "intermediario", "avancado", "ilimitado"];
   const billingCycle = selectedPlan?.billingCycle || subscription.billingCycle;
 
   return (
@@ -161,7 +162,7 @@ export function ChangePlan() {
       {/* Grid de Planos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {plans.map((planId) => {
-          const plan = PLAN_CONFIG[planId];
+          const plan = PLANS[planId];
           const isCurrentPlan = planId === currentPlanId;
           const isSelected = selectedPlan?.planId === planId;
           const willBeUpgrade = isUpgrade(planId);
@@ -208,7 +209,7 @@ export function ChangePlan() {
                   <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">
                     <strong>
-                      {plan.limits.invoices === null ? "Ilimitado" : plan.limits.invoices}
+                      {plan.limits.maxInvoices >= 999999 ? "Ilimitado" : plan.limits.maxInvoices}
                     </strong>{" "}
                     NF-e/mês
                   </span>
@@ -217,7 +218,7 @@ export function ChangePlan() {
                   <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">
                     <strong>
-                      {plan.limits.transactions === null ? "Ilimitado" : plan.limits.transactions}
+                      {plan.limits.maxTransactions >= 999999 ? "Ilimitado" : plan.limits.maxTransactions}
                     </strong>{" "}
                     Transações/mês
                   </span>
@@ -225,10 +226,13 @@ export function ChangePlan() {
                 <li className="flex items-start gap-2 text-sm">
                   <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">
-                    <strong>Ilimitado</strong> Pedidos
+                    <strong>
+                      {plan.limits.maxUsers >= 999999 ? "Ilimitado" : plan.limits.maxUsers}
+                    </strong>{" "}
+                    {plan.limits.maxUsers === 1 ? "Usuário" : "Usuários"}
                   </span>
                 </li>
-                {plan.features.multiUser ? (
+                {plan.limits.maxUsers > 1 ? (
                   <li className="flex items-start gap-2 text-sm">
                     <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Multi-usuário</span>
@@ -239,7 +243,7 @@ export function ChangePlan() {
                     <span className="text-gray-400">Multi-usuário</span>
                   </li>
                 )}
-                {plan.features.advancedReports ? (
+                {plan.limits.features.advancedReports ? (
                   <li className="flex items-start gap-2 text-sm">
                     <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Relatórios Avançados</span>
@@ -250,7 +254,7 @@ export function ChangePlan() {
                     <span className="text-gray-400">Relatórios Avançados</span>
                   </li>
                 )}
-                {plan.features.apiAccess ? (
+                {plan.limits.features.apiAccess ? (
                   <li className="flex items-start gap-2 text-sm">
                     <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Acesso API</span>
@@ -261,7 +265,7 @@ export function ChangePlan() {
                     <span className="text-gray-400">Acesso API</span>
                   </li>
                 )}
-                {plan.features.prioritySupport && (
+                {plan.limits.features.prioritySupport && (
                   <li className="flex items-start gap-2 text-sm">
                     <Zap className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Suporte Prioritário</span>
@@ -309,7 +313,7 @@ export function ChangePlan() {
               </h3>
               <p className="text-green-700 text-sm">
                 Você está alterando para o plano{" "}
-                <strong className="capitalize">{PLAN_CONFIG[selectedPlan.planId].name}</strong> (
+                <strong className="capitalize">{PLANS[selectedPlan.planId].name}</strong> (
                 {selectedPlan.billingCycle === "monthly" ? "Mensal" : "Anual"}).
                 {isDowngrade(selectedPlan.planId)
                   ? " A mudança será efetivada no próximo período de cobrança."
