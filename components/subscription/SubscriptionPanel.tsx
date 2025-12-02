@@ -33,7 +33,7 @@ export function SubscriptionPanel() {
 
   if (loading || !subscription) {
     return (
-      <div className="p-6">
+      <div className="p-8">
         <div className="animate-pulse space-y-4">
           <div className="h-32 bg-gray-200 rounded-lg"></div>
           <div className="h-48 bg-gray-200 rounded-lg"></div>
@@ -136,9 +136,9 @@ export function SubscriptionPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-8">
       {/* Header */}
-      <div>
+      <div className="mb-8">
         <h1 className="text-gray-900 mb-2">Planos & Cobrança</h1>
         <p className="text-gray-600">
           Gerencie sua assinatura e acompanhe o uso dos recursos
@@ -147,15 +147,17 @@ export function SubscriptionPanel() {
 
       {/* Trial Countdown */}
       {isTrial && subscription.trialEnd && (
-        <TrialCountdown
-          trialEnd={subscription.trialEnd}
-          onUpgradeClick={() => setShowPlansModal(true)}
-        />
+        <div className="mb-6">
+          <TrialCountdown
+            trialEnd={subscription.trialEnd}
+            onUpgradeClick={() => setShowPlansModal(true)}
+          />
+        </div>
       )}
 
       {/* Mudança Agendada */}
       {subscription.scheduledPlanChange && (
-        <Card className="p-6 border-2 border-orange-500 bg-orange-50">
+        <Card className="p-6 border-2 border-orange-500 bg-orange-50 mb-6">
           <div className="flex items-start gap-4">
             <Calendar className="size-6 text-orange-600 flex-shrink-0 mt-1" />
             <div className="flex-1">
@@ -184,7 +186,7 @@ export function SubscriptionPanel() {
       )}
 
       {/* Plano Atual */}
-      <Card className="p-6">
+      <Card className="p-6 mb-8">
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -233,7 +235,7 @@ export function SubscriptionPanel() {
       {/* Uso de Recursos */}
       <div>
         <h2 className="text-gray-900 mb-4">Uso de Recursos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <UsageProgressCard
             label="Pedidos de Venda/Mês"
             current={subscription.usage.salesOrders || 0}
