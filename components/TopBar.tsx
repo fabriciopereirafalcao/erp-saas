@@ -2,8 +2,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown, CreditCard, ArrowUpCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import logoLight from 'figma:asset/f6006f7e8991b908a5a049443bc875c2d89a4059.png';
-import logoDark from 'figma:asset/f57df3247935a56eba40e341a0b4dd156aca82a8.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,7 +52,10 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
         {/* Logo META ERP - versão texto */}
         <div className="flex items-center gap-2 min-w-[180px]">
           <img 
-            src={isDarkMode ? logoDark : logoLight} 
+            src={isDarkMode 
+              ? 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-dark.svg'
+              : 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg'
+            } 
             alt="META ERP" 
             className="h-8"
           />
