@@ -16,6 +16,7 @@ import {
 
 export function ChangePlan() {
   const { subscription, loading, refreshSubscription } = useSubscription();
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "semiannual" | "yearly">("monthly");
   const [selectedPlan, setSelectedPlan] = useState<{
     planId: PlanTier;
     billingCycle: "monthly" | "semiannual" | "yearly";
@@ -107,7 +108,6 @@ export function ChangePlan() {
   };
 
   const plans: PlanTier[] = ["basico", "intermediario", "avancado", "ilimitado"];
-  const billingCycle = selectedPlan?.billingCycle || subscription.billingCycle;
 
   return (
     <div className="p-8">
@@ -144,14 +144,14 @@ export function ChangePlan() {
       <div className="flex items-center justify-center gap-4 mb-8">
         <Button
           variant={billingCycle === "monthly" ? "default" : "outline"}
-          onClick={() => setSelectedPlan(selectedPlan ? { ...selectedPlan, billingCycle: "monthly" } : null)}
+          onClick={() => setBillingCycle("monthly")}
           className="min-w-[120px]"
         >
           Mensal
         </Button>
         <Button
           variant={billingCycle === "semiannual" ? "default" : "outline"}
-          onClick={() => setSelectedPlan(selectedPlan ? { ...selectedPlan, billingCycle: "semiannual" } : null)}
+          onClick={() => setBillingCycle("semiannual")}
           className="min-w-[120px]"
         >
           Semestral
@@ -159,7 +159,7 @@ export function ChangePlan() {
         </Button>
         <Button
           variant={billingCycle === "yearly" ? "default" : "outline"}
-          onClick={() => setSelectedPlan(selectedPlan ? { ...selectedPlan, billingCycle: "yearly" } : null)}
+          onClick={() => setBillingCycle("yearly")}
           className="min-w-[120px]"
         >
           Anual
