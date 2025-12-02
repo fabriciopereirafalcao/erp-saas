@@ -1,3 +1,26 @@
+import { NavigationView } from "../App";
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  TrendingUp, 
+  Users, 
+  Truck,
+  Wallet,
+  CreditCard,
+  ArrowUpDown,
+  BarChart3,
+  Tag,
+  Building2,
+  FileText,
+  AlertCircle,
+  CheckSquare,
+  Lock,
+  X
+} from "lucide-react";
+import { FEATURES } from "../utils/environment";
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { useModuleAccess } from "../hooks/useModuleAccess";
 import { Button } from "./ui/button";
 import { memo, useEffect } from "react";
