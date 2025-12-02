@@ -18,7 +18,7 @@ export function ChangePlan() {
   const { subscription, loading, refreshSubscription } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState<{
     planId: PlanTier;
-    billingCycle: "monthly" | "yearly";
+    billingCycle: "monthly" | "semiannual" | "yearly";
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -49,7 +49,7 @@ export function ChangePlan() {
     return targetIndex > currentIndex || isTrial;
   };
 
-  const handleSelectPlan = (planId: PlanTier, billingCycle: "monthly" | "yearly") => {
+  const handleSelectPlan = (planId: PlanTier, billingCycle: "monthly" | "semiannual" | "yearly") => {
     setSelectedPlan({ planId, billingCycle });
   };
 
@@ -150,6 +150,14 @@ export function ChangePlan() {
           Mensal
         </Button>
         <Button
+          variant={billingCycle === "semiannual" ? "default" : "outline"}
+          onClick={() => setSelectedPlan(selectedPlan ? { ...selectedPlan, billingCycle: "semiannual" } : null)}
+          className="min-w-[120px]"
+        >
+          Semestral
+          <Badge className="ml-2 bg-green-600">-10%</Badge>
+        </Button>
+        <Button
           variant={billingCycle === "yearly" ? "default" : "outline"}
           onClick={() => setSelectedPlan(selectedPlan ? { ...selectedPlan, billingCycle: "yearly" } : null)}
           className="min-w-[120px]"
@@ -167,7 +175,7 @@ export function ChangePlan() {
           const isSelected = selectedPlan?.planId === planId;
           const willBeUpgrade = isUpgrade(planId);
           const willBeDowngrade = isDowngrade(planId);
-          const price = billingCycle === "monthly" ? plan.price.monthly : plan.price.yearly;
+          const price = billingCycle === "monthly" ? plan.price.monthly : billingCycle === "semiannual" ? plan.price.semiannual : plan.price.yearly;
 
           return (
             <Card
@@ -193,14 +201,24 @@ export function ChangePlan() {
                 <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl text-gray-900">
-                    {price === 0 ? "Grátis" : `R$ ${price}`}
+                    {price === 0 ? "Grátis" : `R$ ${price.toFixed(2)}`}
                   </span>
                   {price > 0 && (
                     <span className="text-sm text-gray-600">
-                      /{billingCycle === "monthly" ? "mês" : "ano"}
+                      /{billingCycle === "monthly" ? "mês" : billingCycle === "semiannual" ? "6 meses" : "ano"}
                     </span>
                   )}
                 </div>
+                {billingCycle !== "monthly" && price > 0 && (
+                  <div className="mt-2">
+                    <span className="text-sm text-gray-500 line-through">
+                      R$ {billingCycle === "semiannual" ? (plan.price.monthly * 6).toFixed(2) : (plan.price.monthly * 12).toFixed(2)}
+                    </span>
+                    <span className="ml-2 text-sm text-green-600">
+                      Economize {billingCycle === "semiannual" ? "10%" : "20%"}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Features */}
@@ -314,7 +332,7 @@ export function ChangePlan() {
               <p className="text-green-700 text-sm">
                 Você está alterando para o plano{" "}
                 <strong className="capitalize">{PLANS[selectedPlan.planId].name}</strong> (
-                {selectedPlan.billingCycle === "monthly" ? "Mensal" : "Anual"}).
+                {selectedPlan.billingCycle === "monthly" ? "Mensal" : selectedPlan.billingCycle === "semiannual" ? "Semestral" : "Anual"}).
                 {isDowngrade(selectedPlan.planId)
                   ? " A mudança será efetivada no próximo período de cobrança."
                   : " A mudança será aplicada imediatamente."}
