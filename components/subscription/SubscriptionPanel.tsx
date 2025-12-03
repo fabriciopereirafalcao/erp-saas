@@ -57,11 +57,17 @@ export function SubscriptionPanel() {
     setIsUpgrading(true);
 
     try {
-      const token = localStorage.getItem("sb-access-token");
-      if (!token) {
+      // 🔧 FIX: Obter token via Supabase Auth (método correto)
+      const { supabase } = await import('../../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
         toast.error("Sessão expirada. Faça login novamente.");
+        setIsUpgrading(false);
         return;
       }
+
+      const token = session.access_token;
 
       const planHierarchy = ["basico", "intermediario", "avancado", "ilimitado"];
       const currentIndex = planHierarchy.indexOf(subscription.planId);
@@ -105,11 +111,16 @@ export function SubscriptionPanel() {
 
   const handleCancelScheduledChange = async () => {
     try {
-      const token = localStorage.getItem("sb-access-token");
-      if (!token) {
+      // 🔧 FIX: Obter token via Supabase Auth (método correto)
+      const { supabase } = await import('../../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
         toast.error("Sessão expirada. Faça login novamente.");
         return;
       }
+
+      const token = session.access_token;
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/cancel-scheduled-change`,
@@ -137,11 +148,16 @@ export function SubscriptionPanel() {
 
   const handleManagePayment = async () => {
     try {
-      const token = localStorage.getItem("sb-access-token");
-      if (!token) {
+      // 🔧 FIX: Obter token via Supabase Auth (método correto)
+      const { supabase } = await import('../../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
         toast.error("Sessão expirada. Faça login novamente.");
         return;
       }
+
+      const token = session.access_token;
 
       toast.loading("Abrindo portal de pagamento...");
 

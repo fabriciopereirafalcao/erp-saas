@@ -60,12 +60,17 @@ export function ChangePlan() {
     setIsProcessing(true);
 
     try {
-      const token = localStorage.getItem("sb-access-token");
-      if (!token) {
+      // 🔧 FIX: Obter token via Supabase Auth (método correto)
+      const { supabase } = await import('../../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
         toast.error("Sessão expirada. Faça login novamente.");
+        setIsProcessing(false);
         return;
       }
 
+      const token = session.access_token;
       const willBeDowngrade = isDowngrade(selectedPlan.planId);
       
       // Se for upgrade (incluindo trial), usar Stripe Checkout
@@ -82,6 +87,7 @@ export function ChangePlan() {
             body: JSON.stringify({
               planId: selectedPlan.planId,
               billingCycle: selectedPlan.billingCycle,
+              frontendUrl: window.location.origin,
             }),
           }
         );
