@@ -58,7 +58,8 @@ export function UpgradePreview({
       const now = new Date();
       const periodEnd = new Date(currentPlan.currentPeriodEnd);
       const diffTime = periodEnd.getTime() - now.getTime();
-      daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      // 🔧 FIX: Usar Math.floor para não arredondar para cima (30.1 dias = 30, não 31)
+      daysRemaining = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
     } else {
       daysRemaining = totalDays; // Se não tem data, assume período completo
     }
