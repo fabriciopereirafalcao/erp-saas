@@ -141,8 +141,10 @@ app.post("/create-checkout-session", async (c) => {
       }, 400);
     }
 
-    // URL base para retorno
-    const baseUrl = c.req.url.split('/functions')[0];
+    // URL base para retorno - usar URL do frontend
+    // Em produção: https://erp-saas-d32byzgzx-fabriciopereirafabcas-projects.vercel.app
+    // Em desenvolvimento: http://localhost:5173
+    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://erp-saas-d32byzgzx-fabriciopereirafabcas-projects.vercel.app";
 
     // Criar sessão de checkout
     const session = await stripe.checkout.sessions.create({
@@ -155,8 +157,8 @@ app.post("/create-checkout-session", async (c) => {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}?checkout=cancel`,
+      success_url: `${frontendUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}?checkout=cancel`,
       metadata: {
         userId: user.id,
         planId,
