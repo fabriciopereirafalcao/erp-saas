@@ -32,15 +32,15 @@ export function UpgradePreview({
 }: UpgradePreviewProps) {
   // Calcular valores e crédito proporcional
   const calculateProration = () => {
-    const currentPlanData = PLANS.find((p) => p.id === currentPlan.planId);
-    const newPlanData = PLANS.find((p) => p.id === newPlan.planId);
+    const currentPlanData = PLANS[currentPlan.planId];
+    const newPlanData = PLANS[newPlan.planId];
 
     if (!currentPlanData || !newPlanData) {
       return null;
     }
 
-    const currentPrice = currentPlanData.pricing[currentPlan.billingCycle];
-    const newPrice = newPlanData.pricing[newPlan.billingCycle];
+    const currentPrice = currentPlanData.price[currentPlan.billingCycle];
+    const newPrice = newPlanData.price[newPlan.billingCycle];
 
     // Calcular dias restantes no período atual
     let daysRemaining = 0;
@@ -96,8 +96,8 @@ export function UpgradePreview({
   };
 
   const proration = calculateProration();
-  const currentPlanData = PLANS.find((p) => p.id === currentPlan.planId);
-  const newPlanData = PLANS.find((p) => p.id === newPlan.planId);
+  const currentPlanData = PLANS[currentPlan.planId];
+  const newPlanData = PLANS[newPlan.planId];
 
   if (!proration || !currentPlanData || !newPlanData) {
     return null;
