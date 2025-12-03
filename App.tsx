@@ -21,189 +21,199 @@ import "./utils/cleanDuplicates.ts";
 
 // ⚡ LAZY LOADING - Componentes carregados sob demanda
 const Dashboard = lazy(() =>
-  import("./components/Dashboard.tsx").then((m) => ({
+  import("./components/Dashboard").then((m) => ({
     default: m.Dashboard,
   })),
 );
 const Inventory = lazy(() =>
-  import("./components/Inventory.tsx").then((m) => ({
+  import("./components/Inventory").then((m) => ({
     default: m.Inventory,
   })),
 );
 const SalesOrders = lazy(() =>
-  import("./components/SalesOrders.tsx").then((m) => ({
+  import("./components/SalesOrders").then((m) => ({
     default: m.SalesOrders,
   })),
 );
 const PurchaseOrders = lazy(() =>
-  import("./components/PurchaseOrders.tsx").then((m) => ({
+  import("./components/PurchaseOrders").then((m) => ({
     default: m.PurchaseOrders,
   })),
 );
 const Customers = lazy(() =>
-  import("./components/Customers.tsx").then((m) => ({
+  import("./components/Customers").then((m) => ({
     default: m.Customers,
   })),
 );
 const Suppliers = lazy(() =>
-  import("./components/Suppliers.tsx").then((m) => ({
+  import("./components/Suppliers").then((m) => ({
     default: m.Suppliers,
   })),
 );
 const FinancialTransactions = lazy(() =>
-  import("./components/FinancialTransactions.tsx").then((m) => ({
+  import("./components/FinancialTransactions").then((m) => ({
     default: m.FinancialTransactions,
   })),
 );
 const AccountsPayableReceivable = lazy(() =>
-  import("./components/AccountsPayableReceivable.tsx").then(
+  import("./components/AccountsPayableReceivable").then(
     (m) => ({ default: m.AccountsPayableReceivable }),
   ),
 );
 const BalanceReconciliation = lazy(() =>
-  import("./components/BalanceReconciliation.tsx").then((m) => ({
+  import("./components/BalanceReconciliation").then((m) => ({
     default: m.BalanceReconciliation,
   })),
 );
 const CashFlow = lazy(() =>
-  import("./components/CashFlow.tsx").then((m) => ({
+  import("./components/CashFlow").then((m) => ({
     default: m.CashFlow,
   })),
 );
 const Reports = lazy(() =>
-  import("./components/Reports.tsx").then((m) => ({
+  import("./components/Reports").then((m) => ({
     default: m.Reports,
   })),
 );
 const PriceTables = lazy(() =>
-  import("./components/PriceTables.tsx").then((m) => ({
+  import("./components/PriceTables").then((m) => ({
     default: m.PriceTables,
   })),
 );
 const CompanySettings = lazy(() =>
-  import("./components/CompanySettings.tsx").then((m) => ({
+  import("./components/CompanySettings").then((m) => ({
     default: m.CompanySettings,
   })),
 );
 const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicingModern.tsx").then((m) => ({
+  import("./components/TaxInvoicingModern").then((m) => ({
     default: m.TaxInvoicingModern,
   })),
 );
 const UsersPermissions = lazy(() =>
-  import("./components/UsersPermissions.tsx").then((m) => ({
+  import("./components/UsersPermissions").then((m) => ({
     default: m.UsersPermissions,
   })),
 );
 const TestePersistencia = lazy(() =>
-  import("./components/TestePersistencia.tsx").then((m) => ({
+  import("./components/TestePersistencia").then((m) => ({
     default: m.TestePersistencia,
   })),
 );
 
 // Novos cadastros
 const ChartOfAccounts = lazy(() =>
-  import("./components/ChartOfAccounts.tsx").then((m) => ({
+  import("./components/ChartOfAccounts").then((m) => ({
     default: m.ChartOfAccounts,
   })),
 );
 const CostCenters = lazy(() =>
-  import("./components/CostCenters.tsx").then((m) => ({
+  import("./components/CostCenters").then((m) => ({
     default: m.CostCenters,
   })),
 );
 const DigitalCertificate = lazy(() =>
-  import("./components/DigitalCertificate.tsx").then((m) => ({
+  import("./components/DigitalCertificate").then((m) => ({
     default: m.DigitalCertificate,
   })),
 );
 const Salespeople = lazy(() =>
-  import("./components/Salespeople.tsx").then((m) => ({
+  import("./components/Salespeople").then((m) => ({
     default: m.Salespeople,
   })),
 );
 const Buyers = lazy(() =>
-  import("./components/Buyers.tsx").then((m) => ({
+  import("./components/Buyers").then((m) => ({
     default: m.Buyers,
   })),
 );
 const ProductCategories = lazy(() =>
-  import("./components/ProductCategories.tsx").then((m) => ({
+  import("./components/ProductCategories").then((m) => ({
     default: m.ProductCategories,
   })),
 );
 const StockLocations = lazy(() =>
-  import("./components/StockLocations.tsx").then((m) => ({
+  import("./components/StockLocations").then((m) => ({
     default: m.StockLocations,
   })),
 );
 const ManufacturingBatches = lazy(() =>
-  import("./components/ManufacturingBatches.tsx").then((m) => ({
+  import("./components/ManufacturingBatches").then((m) => ({
     default: m.ManufacturingBatches,
   })),
 );
 
 // Perfil do usuário
 const ProfileView = lazy(() =>
-  import("./components/ProfileView.tsx").then((m) => ({
+  import("./components/ProfileView").then((m) => ({
     default: m.ProfileView,
   })),
 );
 
 // Aceitar convite
 const AcceptInvite = lazy(() =>
-  import("./components/AcceptInvite.tsx").then((m) => ({
+  import("./components/AcceptInvite").then((m) => ({
     default: m.AcceptInvite,
   })),
 );
 
 // Configurações de Email
 const EmailSettings = lazy(() =>
-  import("./components/EmailSettings.tsx").then((m) => ({
+  import("./components/EmailSettings").then((m) => ({
     default: m.EmailSettings,
   })),
 );
 
 // Billing & Assinaturas
 const BillingSettings = lazy(() =>
-  import("./components/BillingSettings.tsx").then((m) => ({
+  import("./components/BillingSettings").then((m) => ({
     default: m.BillingSettings,
   })),
 );
 
 // Nova tela de Alterar Plano
 const ChangePlan = lazy(() =>
-  import("./components/subscription/ChangePlan.tsx").then((m) => ({
+  import("./components/subscription/ChangePlan").then((m) => ({
     default: m.ChangePlan,
   })),
 );
 
 // Telas de Checkout Stripe
 const CheckoutSuccess = lazy(() =>
-  import("./components/subscription/CheckoutSuccess.tsx").then((m) => ({
+  import("./components/subscription/CheckoutSuccess").then((m) => ({
     default: m.CheckoutSuccess,
   })),
 );
 
 const CheckoutCancel = lazy(() =>
-  import("./components/subscription/CheckoutCancel.tsx").then((m) => ({
+  import("./components/subscription/CheckoutCancel").then((m) => ({
     default: m.CheckoutCancel,
   })),
 );
 
 // Webhook Debug Admin
 const WebhookDebug = lazy(() =>
-  import("./components/admin/WebhookDebug.tsx").then((m) => ({
+  import("./components/admin/WebhookDebug").then((m) => ({
     default: m.default,
   })),
 );
 
 // Stripe Test Page
 const StripeTestPage = lazy(() =>
-  import("./components/stripe/StripeTestPage.tsx").then((m) => ({
+  import("./components/stripe/StripeTestPage").then((m) => ({
     default: m.default,
   })),
 );
+
+// System Audit (apenas em desenvolvimento)
+let SystemAudit: any = null;
+if (FEATURES.SYSTEM_AUDIT) {
+  SystemAudit = lazy(() =>
+    import("./components/SystemAudit").then((m) => ({
+      default: m.SystemAudit,
+    })),
+  );
+}
 
 export type NavigationView =
   | "dashboard"
