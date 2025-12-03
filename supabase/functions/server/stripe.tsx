@@ -10,6 +10,10 @@ import * as kv from "./kv_store.tsx";
 // Criar app Hono para rotas do Stripe
 const app = new Hono();
 
+console.log('[STRIPE] 🔧 Módulo Stripe iniciando...');
+console.log('[STRIPE] 🔑 STRIPE_SECRET_KEY configurado:', !!Deno.env.get("STRIPE_SECRET_KEY"));
+console.log('[STRIPE] 🔐 STRIPE_WEBHOOK_SECRET configurado:', !!Deno.env.get("STRIPE_WEBHOOK_SECRET"));
+
 // Cliente Supabase
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -44,6 +48,26 @@ const PRICE_CONFIG = {
     yearly: "price_1Sa6brRyrexM1yHBynXXCukW",
   },
 };
+
+/* =========================================================================
+ * ROTA: GET /health (Health Check / Test)
+ * Verifica se o módulo Stripe está funcionando
+ * ========================================================================= */
+
+app.get("/health", async (c) => {
+  return c.json({
+    status: "ok",
+    message: "Stripe module is running",
+    timestamp: new Date().toISOString(),
+    routes: [
+      "POST /create-checkout-session",
+      "POST /create-portal-session",
+      "POST /webhook",
+      "GET /payment-methods",
+      "GET /health"
+    ]
+  });
+});
 
 /* =========================================================================
  * ROTA: POST /create-checkout-session
@@ -151,10 +175,8 @@ app.post("/create-checkout-session", async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        sessionId: session.id,
-        url: session.url,
-      },
+      checkoutUrl: session.url,
+      sessionId: session.id,
     });
   } catch (error) {
     console.error("❌ [STRIPE] Erro ao criar checkout session:", error);
@@ -223,6 +245,22 @@ app.post("/create-portal-session", async (c) => {
       500
     );
   }
+});
+
+/* =========================================================================
+ * ROTA: GET /webhook (Test endpoint)
+ * Verifica se o webhook está acessível
+ * ========================================================================= */
+
+app.get("/webhook", async (c) => {
+  return c.json({
+    status: "ok",
+    message: "Webhook endpoint is accessible",
+    method: "GET",
+    note: "Stripe will POST events to this endpoint",
+    webhook_secret_configured: !!Deno.env.get("STRIPE_WEBHOOK_SECRET"),
+    timestamp: new Date().toISOString()
+  });
 });
 
 /* =========================================================================
@@ -536,4 +574,12 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 }
 
 // Exportar app como default
+console.log('[STRIPE] ✅ Módulo Stripe carregado. Rotas disponíveis:');
+console.log('[STRIPE]    GET  /health');
+console.log('[STRIPE]    POST /create-checkout-session');
+console.log('[STRIPE]    POST /create-portal-session');
+console.log('[STRIPE]    GET  /webhook (test)');
+console.log('[STRIPE]    POST /webhook (production)');
+console.log('[STRIPE]    GET  /payment-methods');
+
 export default app;

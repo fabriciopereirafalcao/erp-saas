@@ -7,4 +7,28 @@
 import app from '../server/index.tsx';
 
 console.log('[ENTRY POINT] 🚀 Iniciando Supabase Edge Function...');
-Deno.serve(app.fetch);
+
+// Custom handler para permitir rotas públicas (stripe webhooks, health checks, etc)
+Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const path = url.pathname;
+  
+  // Lista de rotas públicas que NÃO requerem autenticação JWT
+  const publicRoutes = [
+    '/make-server-686b5e88/stripe/webhook',
+    '/make-server-686b5e88/stripe/health',
+    '/make-server-686b5e88/health',
+    '/make-server-686b5e88/auth/signup',
+    '/make-server-686b5e88/auth/signin',
+  ];
+  
+  // Se a rota é pública, processar diretamente
+  const isPublicRoute = publicRoutes.some(route => path.includes(route));
+  
+  if (isPublicRoute) {
+    console.log(`[ENTRY POINT] ✅ Rota pública detectada: ${path}`);
+  }
+  
+  // Processar request com Hono
+  return app.fetch(req);
+});
