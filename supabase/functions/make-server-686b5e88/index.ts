@@ -27,6 +27,34 @@ Deno.serve(async (req) => {
   
   if (isPublicRoute) {
     console.log(`[ENTRY POINT] ✅ Rota pública detectada: ${path}`);
+  } else {
+    console.log(`[ENTRY POINT] 🔒 Rota protegida: ${path}`);
+  }
+  
+  // 🔧 FIX: Para rotas do Stripe webhook, adicionar header de bypass se não existir
+  if (path.includes('/stripe/webhook') && req.method === 'POST') {
+    console.log(`[ENTRY POINT] 🔧 Webhook do Stripe detectado - verificando headers`);
+    console.log(`[ENTRY POINT] 📋 Headers recebidos:`, Object.fromEntries(req.headers.entries()));
+    
+    // Se não tem Authorization header, criar um request modificado
+    if (!req.headers.get('Authorization')) {
+      console.log(`[ENTRY POINT] ⚠️ Authorization header ausente - criando request modificado`);
+      
+      // Clonar o request e adicionar header vazio para não quebrar
+      // (o webhook do Stripe usa stripe-signature para autenticação)
+      const modifiedHeaders = new Headers(req.headers);
+      modifiedHeaders.set('X-Webhook-Bypass', 'true');
+      
+      const modifiedReq = new Request(req.url, {
+        method: req.method,
+        headers: modifiedHeaders,
+        body: req.body,
+        // @ts-ignore - duplex é necessário para streaming
+        duplex: 'half'
+      });
+      
+      return app.fetch(modifiedReq);
+    }
   }
   
   // Processar request com Hono

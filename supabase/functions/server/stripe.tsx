@@ -277,13 +277,22 @@ app.post("/webhook", async (c) => {
 
     // Verificar assinatura do webhook
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    
+    // 🔍 LOG DETALHADO PARA DEBUG
+    console.log("🔐 [STRIPE WEBHOOK] Debug da assinatura:");
+    console.log("  - Webhook Secret configurado:", webhookSecret ? `${webhookSecret.substring(0, 10)}...` : "NÃO CONFIGURADO");
+    console.log("  - Signature recebida:", signature.substring(0, 50) + "...");
+    console.log("  - Body length:", body.length);
+    
     let event: Stripe.Event;
 
     if (webhookSecret) {
       try {
         event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        console.log("✅ [STRIPE WEBHOOK] Assinatura validada com sucesso!");
       } catch (err) {
         console.error("❌ [STRIPE WEBHOOK] Erro de verificação:", err);
+        console.error("❌ [STRIPE WEBHOOK] Mensagem do erro:", err instanceof Error ? err.message : String(err));
         return c.json({ error: "Assinatura inválida" }, 400);
       }
     } else {
