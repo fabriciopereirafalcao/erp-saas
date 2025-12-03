@@ -288,7 +288,8 @@ app.post("/webhook", async (c) => {
 
     if (webhookSecret) {
       try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        // 🔧 FIX: Usar constructEventAsync para ambiente Deno/Edge Runtime
+        event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log("✅ [STRIPE WEBHOOK] Assinatura validada com sucesso!");
       } catch (err) {
         console.error("❌ [STRIPE WEBHOOK] Erro de verificação:", err);
