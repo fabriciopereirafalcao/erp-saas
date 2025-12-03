@@ -208,6 +208,16 @@ const StripeTestPage = lazy(() =>
   })),
 );
 
+// Subscription Debug (apenas em desenvolvimento)
+let SubscriptionDebug: any = null;
+if (IS_DEVELOPMENT) {
+  SubscriptionDebug = lazy(() =>
+    import("./components/subscription/SubscriptionDebug").then((m) => ({
+      default: m.default,
+    })),
+  );
+}
+
 // System Audit (apenas em desenvolvimento)
 let SystemAudit: any = null;
 if (FEATURES.SYSTEM_AUDIT) {
@@ -391,6 +401,13 @@ function AppContent() {
         return <WebhookDebug />;
       case "stripeTest":
         return <StripeTestPage />;
+      case "subscriptionDebug":
+        // PROTEÇÃO: Apenas em desenvolvimento
+        if (!IS_DEVELOPMENT || !SubscriptionDebug) {
+          console.warn("Subscription Debug não disponível em produção");
+          return <Dashboard />;
+        }
+        return <SubscriptionDebug />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {

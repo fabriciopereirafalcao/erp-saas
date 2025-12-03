@@ -507,5 +507,66 @@ app.post("/cancel-scheduled-change", async (c) => {
   }
 });
 
+/* =========================================================================
+ * ROTA: GET /debug
+ * Retorna dados de debug da assinatura (para testes)
+ * ========================================================================= */
+
+app.get("/debug", async (c) => {
+  try {
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Buscar assinatura do usuário
+    const subscriptionKey = `subscription:${user.id}`;
+    const subscription = await kv.get(subscriptionKey);
+
+    if (!subscription) {
+      return c.json({
+        success: true,
+        hasSubscription: false,
+        userId: user.id,
+        message: "Nenhuma assinatura encontrada"
+      });
+    }
+
+    // Retornar dados completos para debug
+    return c.json({
+      success: true,
+      hasSubscription: true,
+      userId: user.id,
+      customerId: subscription.stripeCustomerId,
+      subscriptionId: subscription.stripeSubscriptionId,
+      plan: subscription.planId,
+      status: subscription.status,
+      billingCycle: subscription.billingCycle,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      trialEnd: subscription.trialEnd,
+      usage: subscription.usage,
+      createdAt: subscription.createdAt,
+      updatedAt: subscription.updatedAt,
+      rawData: subscription
+    });
+  } catch (error) {
+    console.error("Erro ao buscar dados de debug:", error);
+    return c.json(
+      {
+        success: false,
+        error: `Erro ao buscar dados: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      500
+    );
+  }
+});
+
 // Exportar app como default
 export default app;
