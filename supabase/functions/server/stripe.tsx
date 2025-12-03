@@ -88,7 +88,7 @@ app.post("/create-checkout-session", async (c) => {
     }
 
     // Obter dados do body
-    const { planId, billingCycle } = await c.req.json();
+    const { planId, billingCycle, frontendUrl } = await c.req.json();
 
     // Validações
     if (!["basico", "intermediario", "avancado", "ilimitado"].includes(planId)) {
@@ -140,11 +140,6 @@ app.post("/create-checkout-session", async (c) => {
         error: "Configuração de preço não encontrada. Configure os preços no Stripe Dashboard." 
       }, 400);
     }
-
-    // URL base para retorno - usar URL do frontend
-    // Em produção: https://erp-saas-d32byzgzx-fabriciopereirafabcas-projects.vercel.app
-    // Em desenvolvimento: http://localhost:5173
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://erp-saas-d32byzgzx-fabriciopereirafabcas-projects.vercel.app";
 
     // Criar sessão de checkout
     const session = await stripe.checkout.sessions.create({

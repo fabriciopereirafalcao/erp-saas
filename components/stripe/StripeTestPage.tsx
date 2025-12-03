@@ -67,7 +67,8 @@ export default function StripeTestPage() {
             planId: selectedPlan,
             billingCycle: billingCycle,
             userId: user.id,
-            companyId: userData.company_id
+            companyId: userData.company_id,
+            frontendUrl: window.location.origin // 🔥 Enviar URL do frontend
           })
         }
       );
