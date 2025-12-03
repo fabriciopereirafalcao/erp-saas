@@ -255,12 +255,14 @@ export type NavigationView =
   | "stockLocations"
   | "manufacturingBatches"
   | "profile"
+  | "billing"
   | "myPlan"
   | "changePlan"
   | "checkoutSuccess"
   | "checkoutCancel"
   | "webhookDebug"
   | "stripeTest"
+  | "subscriptionDebug"
   | "testePersistencia";
 
 // ⚡ Loading fallback leve
@@ -288,6 +290,42 @@ function AppContent() {
       setNfeDataFromOrder(null);
     }, 3000);
   };
+
+  // Verificar hash (#stripeTest, #systemAudit, etc) na URL
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== '') {
+        // Verificar se é uma view válida
+        const validViews: NavigationView[] = [
+          'stripeTest', 
+          'systemAudit', 
+          'webhookDebug', 
+          'subscriptionDebug',
+          'testePersistencia',
+          'checkoutSuccess',
+          'checkoutCancel',
+          'billing',
+          'myPlan',
+          'changePlan'
+        ];
+        
+        if (validViews.includes(hash as NavigationView)) {
+          setCurrentView(hash as NavigationView);
+        }
+      }
+    };
+
+    // Executar na montagem
+    handleHashChange();
+
+    // Listener para mudanças no hash
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
 
   // Verificar query params para redirecionamentos do Stripe
   useEffect(() => {
