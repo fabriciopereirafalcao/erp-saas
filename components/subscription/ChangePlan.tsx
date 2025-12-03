@@ -94,8 +94,14 @@ export function ChangePlan() {
 
         const data = await response.json();
 
-        if (data.success && data.checkoutUrl) {
-          // Redirecionar para Stripe Checkout
+        // 🔧 FIX: Verificar se foi upgrade direto (sem checkout) ou redirecionamento
+        if (data.success && data.upgraded) {
+          // Upgrade direto - já foi processado no backend
+          toast.success(data.message || "Plano atualizado com sucesso!");
+          await refreshSubscription();
+          setSelectedPlan(null);
+        } else if (data.success && data.checkoutUrl) {
+          // Redirecionar para Stripe Checkout (primeira assinatura ou trial)
           toast.success("Redirecionando para checkout...");
           window.location.href = data.checkoutUrl;
         } else {

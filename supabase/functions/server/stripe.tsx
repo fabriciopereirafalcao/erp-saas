@@ -99,6 +99,70 @@ app.post("/create-checkout-session", async (c) => {
       return c.json({ success: false, error: "Ciclo de cobrança inválido" }, 400);
     }
 
+    // 🔍 VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA
+    const subscriptionKey = `subscription:${user.id}`;
+    const currentSubscription = await kv.get(subscriptionKey);
+    
+    // Se já tem assinatura ativa do Stripe, fazer UPDATE em vez de criar nova
+    if (currentSubscription?.stripeSubscriptionId && currentSubscription.status === "active") {
+      console.log(`🔄 [STRIPE] Upgrade de assinatura existente: ${currentSubscription.stripeSubscriptionId}`);
+      
+      try {
+        // Obter assinatura atual do Stripe
+        const stripeSubscription = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId);
+        
+        // Obter ID do novo preço
+        const newPriceId = PRICE_CONFIG[planId]?.[billingCycle];
+        
+        if (!newPriceId) {
+          return c.json({ 
+            success: false, 
+            error: "Configuração de preço não encontrada." 
+          }, 400);
+        }
+        
+        // Atualizar assinatura com proration automática
+        const updatedSubscription = await stripe.subscriptions.update(
+          currentSubscription.stripeSubscriptionId,
+          {
+            items: [
+              {
+                id: stripeSubscription.items.data[0].id,
+                price: newPriceId,
+              },
+            ],
+            proration_behavior: "always_invoice", // Cobra proporcional imediatamente
+            metadata: {
+              userId: user.id,
+              planId,
+              billingCycle,
+            },
+          }
+        );
+        
+        // Atualizar no KV store
+        currentSubscription.planId = planId;
+        currentSubscription.billingCycle = billingCycle;
+        currentSubscription.currentPeriodStart = new Date(updatedSubscription.current_period_start * 1000).toISOString();
+        currentSubscription.currentPeriodEnd = new Date(updatedSubscription.current_period_end * 1000).toISOString();
+        currentSubscription.updatedAt = new Date().toISOString();
+        
+        await kv.set(subscriptionKey, currentSubscription);
+        
+        console.log(`✅ [STRIPE] Assinatura atualizada com sucesso (proration aplicada)`);
+        
+        return c.json({
+          success: true,
+          upgraded: true,
+          message: "Plano atualizado com sucesso! A diferença será cobrada proporcionalmente.",
+        });
+        
+      } catch (error) {
+        console.error("❌ Erro ao atualizar assinatura existente:", error);
+        // Se falhar, continua para criar nova checkout session
+      }
+    }
+
     // Buscar ou criar cliente Stripe
     let stripeCustomerId: string;
     
@@ -141,7 +205,7 @@ app.post("/create-checkout-session", async (c) => {
       }, 400);
     }
 
-    // Criar sessão de checkout
+    // Criar sessão de checkout (para primeira assinatura ou trial)
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",
