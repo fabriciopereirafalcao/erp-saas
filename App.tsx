@@ -191,12 +191,15 @@ const CheckoutCancel = lazy(() =>
   })),
 );
 
-// Webhook Debug Admin
-const WebhookDebug = lazy(() =>
-  import("./components/admin/WebhookDebug").then((m) => ({
-    default: m.default,
-  })),
-);
+// Webhook Debug Admin (apenas em desenvolvimento)
+let WebhookDebug: any = null;
+if (IS_DEVELOPMENT) {
+  WebhookDebug = lazy(() =>
+    import("./components/admin/WebhookDebug").then((m) => ({
+      default: m.default,
+    })),
+  );
+}
 
 // Stripe Test Page
 const StripeTestPage = lazy(() =>
@@ -380,6 +383,11 @@ function AppContent() {
       case "checkoutCancel":
         return <CheckoutCancel onNavigate={handleNavigate} />;
       case "webhookDebug":
+        // PROTEÇÃO: Apenas em desenvolvimento
+        if (!IS_DEVELOPMENT || !WebhookDebug) {
+          console.warn("Webhook Debug não disponível em produção");
+          return <Dashboard />;
+        }
         return <WebhookDebug />;
       case "stripeTest":
         return <StripeTestPage />;
