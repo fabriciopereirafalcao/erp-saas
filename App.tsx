@@ -191,6 +191,20 @@ const CheckoutCancel = lazy(() =>
   })),
 );
 
+// Webhook Debug Admin
+const WebhookDebug = lazy(() =>
+  import("./components/admin/WebhookDebug.tsx").then((m) => ({
+    default: m.default,
+  })),
+);
+
+// Stripe Test Page
+const StripeTestPage = lazy(() =>
+  import("./components/stripe/StripeTestPage.tsx").then((m) => ({
+    default: m.default,
+  })),
+);
+
 export type NavigationView =
   | "dashboard"
   | "inventory"
@@ -222,6 +236,8 @@ export type NavigationView =
   | "changePlan"
   | "checkoutSuccess"
   | "checkoutCancel"
+  | "webhookDebug"
+  | "stripeTest"
   | "testePersistencia";
 
 // ⚡ Loading fallback leve
@@ -353,6 +369,10 @@ function AppContent() {
         return <CheckoutSuccess onNavigate={handleNavigate} />;
       case "checkoutCancel":
         return <CheckoutCancel onNavigate={handleNavigate} />;
+      case "webhookDebug":
+        return <WebhookDebug />;
+      case "stripeTest":
+        return <StripeTestPage />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {
