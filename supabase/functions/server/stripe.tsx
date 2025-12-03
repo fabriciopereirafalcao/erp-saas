@@ -103,6 +103,14 @@ app.post("/create-checkout-session", async (c) => {
     const subscriptionKey = `subscription:${user.id}`;
     const currentSubscription = await kv.get(subscriptionKey);
     
+    // 🔍 DEBUG: Logs detalhados
+    console.log("🔍 [DEBUG] Verificando assinatura existente:");
+    console.log("  - UserId:", user.id);
+    console.log("  - Subscription key:", subscriptionKey);
+    console.log("  - Current subscription:", JSON.stringify(currentSubscription, null, 2));
+    console.log("  - Has stripeSubscriptionId:", !!currentSubscription?.stripeSubscriptionId);
+    console.log("  - Status:", currentSubscription?.status);
+    
     // Se já tem assinatura ativa do Stripe, fazer UPDATE em vez de criar nova
     if (currentSubscription?.stripeSubscriptionId && currentSubscription.status === "active") {
       console.log(`🔄 [STRIPE] Upgrade de assinatura existente: ${currentSubscription.stripeSubscriptionId}`);

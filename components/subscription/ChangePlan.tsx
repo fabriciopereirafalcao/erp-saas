@@ -13,6 +13,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "../ui/alert";
+import { UpgradePreview } from "./UpgradePreview";
 
 export function ChangePlan() {
   const { subscription, loading, refreshSubscription } = useSubscription();
@@ -22,6 +23,7 @@ export function ChangePlan() {
     billingCycle: "monthly" | "semiannual" | "yearly";
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   if (loading || !subscription) {
     return (
@@ -52,6 +54,16 @@ export function ChangePlan() {
 
   const handleSelectPlan = (planId: PlanTier, billingCycle: "monthly" | "semiannual" | "yearly") => {
     setSelectedPlan({ planId, billingCycle });
+    
+    // Se for upgrade, mostrar preview
+    if (isUpgrade(planId)) {
+      setShowPreview(true);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    setShowPreview(false);
+    setSelectedPlan(null);
   };
 
   const handleConfirmChange = async () => {
@@ -147,6 +159,25 @@ export function ChangePlan() {
 
   return (
     <div className="p-8">
+      {/* Preview de Upgrade */}
+      {showPreview && selectedPlan && (
+        <UpgradePreview
+          open={showPreview}
+          onClose={handleCancelPreview}
+          onConfirm={handleConfirmChange}
+          currentPlan={{
+            planId: currentPlanId as PlanTier,
+            billingCycle: subscription.billingCycle as "monthly" | "semiannual" | "yearly",
+            currentPeriodEnd: subscription.currentPeriodEnd,
+          }}
+          newPlan={{
+            planId: selectedPlan.planId,
+            billingCycle: selectedPlan.billingCycle,
+          }}
+          isProcessing={isProcessing}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-gray-900 mb-2">Alterar Plano</h1>
