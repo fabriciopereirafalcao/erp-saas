@@ -473,8 +473,16 @@ async function handleSubscriptionUpdate(stripeSubscription: Stripe.Subscription)
 
     if (subscription) {
       subscription.status = stripeSubscription.status === "active" ? "active" : "past_due";
-      subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000).toISOString();
-      subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000).toISOString();
+      
+      // 🔧 FIX: Validar timestamps antes de converter
+      if (stripeSubscription.current_period_start) {
+        subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000).toISOString();
+      }
+      
+      if (stripeSubscription.current_period_end) {
+        subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000).toISOString();
+      }
+      
       subscription.updatedAt = new Date().toISOString();
 
       await kv.set(subscriptionKey, subscription);
