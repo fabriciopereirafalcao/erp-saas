@@ -334,14 +334,18 @@ function AppContent() {
     
     if (checkoutStatus === 'success') {
       setCurrentView('checkoutSuccess');
-      // Limpar URL
-      window.history.replaceState({}, '', window.location.pathname);
+      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
+      setTimeout(() => {
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 100);
     } else if (checkoutStatus === 'cancel') {
       setCurrentView('checkoutCancel');
-      // Limpar URL
-      window.history.replaceState({}, '', window.location.pathname);
+      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
+      setTimeout(() => {
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 100);
     }
-  }, []);
+  }, []); // Executar apenas na montagem inicial
 
   // Listener para navegar para billing via evento customizado
   useEffect(() => {
@@ -427,9 +431,9 @@ function AppContent() {
       case "changePlan":
         return <ChangePlan />;
       case "checkoutSuccess":
-        return <CheckoutSuccess onNavigate={handleNavigate} />;
+        return <CheckoutSuccess onNavigate={setCurrentView} />;
       case "checkoutCancel":
-        return <CheckoutCancel onNavigate={handleNavigate} />;
+        return <CheckoutCancel onNavigate={setCurrentView} />;
       case "webhookDebug":
         // PROTEÇÃO: Apenas em desenvolvimento
         if (!IS_DEVELOPMENT || !WebhookDebug) {
