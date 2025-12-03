@@ -67,42 +67,66 @@ export function ChangePlan() {
       }
 
       const willBeDowngrade = isDowngrade(selectedPlan.planId);
-      const endpoint = willBeDowngrade ? "downgrade" : "upgrade";
+      
+      // Se for upgrade (incluindo trial), usar Stripe Checkout
+      if (!willBeDowngrade) {
+        // Chamar API do Stripe para criar checkout
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/stripe/create-checkout-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              planId: selectedPlan.planId,
+              billingCycle: selectedPlan.billingCycle,
+            }),
+          }
+        );
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            newPlanId: selectedPlan.planId,
-            billingCycle: selectedPlan.billingCycle,
-          }),
+        const data = await response.json();
+
+        if (data.success && data.checkoutUrl) {
+          // Redirecionar para Stripe Checkout
+          toast.success("Redirecionando para checkout...");
+          window.location.href = data.checkoutUrl;
+        } else {
+          toast.error(data.error || "Erro ao criar sessão de checkout");
         }
-      );
+      } else {
+        // Downgrade - usar lógica antiga
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/downgrade`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              newPlanId: selectedPlan.planId,
+              billingCycle: selectedPlan.billingCycle,
+            }),
+          }
+        );
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.success) {
-        if (willBeDowngrade) {
+        if (data.success) {
           toast.success(
             "Downgrade agendado! Será efetivado no próximo período de cobrança."
           );
+          await refreshSubscription();
+          setSelectedPlan(null);
         } else {
-          toast.success("Upgrade realizado com sucesso! Mudanças já estão ativas.");
+          toast.error(data.error || "Erro ao processar downgrade");
         }
-        await refreshSubscription();
-        setSelectedPlan(null);
-      } else {
-        toast.error(data.error || "Erro ao processar mudança de plano");
       }
     } catch (error) {
       console.error("Erro ao mudar plano:", error);
       toast.error("Erro ao processar mudança de plano");
-    } finally {
       setIsProcessing(false);
     }
   };

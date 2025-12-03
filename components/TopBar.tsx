@@ -72,6 +72,7 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
             <Button 
               size="sm"
               className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-4 text-xs ml-auto"
+              onClick={() => onNavigate('changePlan')}
             >
               Comprar agora
             </Button>

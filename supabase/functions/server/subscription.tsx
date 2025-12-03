@@ -292,7 +292,7 @@ app.post("/upgrade", async (c) => {
     }
 
     // Validar ciclo de cobrança
-    if (billingCycle && !["monthly", "yearly"].includes(billingCycle)) {
+    if (billingCycle && !["monthly", "semiannual", "yearly"].includes(billingCycle)) {
       return c.json({ success: false, error: "Ciclo de cobrança inválido" }, 400);
     }
 

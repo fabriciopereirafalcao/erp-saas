@@ -1257,6 +1257,28 @@ if (subscriptionRoutes?.default) {
 }
 
 // =====================================================
+// STRIPE ROUTES - Gateway de Pagamento
+// =====================================================
+console.log('[INDEX] 🔍 Carregando módulo Stripe...');
+
+let stripeRoutes;
+try {
+  stripeRoutes = await import('./stripe.tsx');
+  console.log('[INDEX] ✅ Módulo Stripe carregado com sucesso');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao carregar Stripe:', error);
+}
+
+if (stripeRoutes?.default) {
+  console.log('[INDEX] 🔍 Registrando rotas do Stripe...');
+  app.route('/make-server-686b5e88/stripe', stripeRoutes.default);
+  console.log('[INDEX] ✅ Rotas do Stripe registradas em /make-server-686b5e88/stripe/*');
+  console.log('[INDEX] 💳 Exemplos: /stripe/create-checkout-session, /stripe/webhook');
+} else {
+  console.error('[INDEX] ❌ MÓDULO STRIPE ROUTES NÃO CARREGADO!');
+}
+
+// =====================================================
 // DATA PERSISTENCE ROUTES (LEGADO) - KV Store Genérico
 // =====================================================
 console.log('[INDEX] 🔍 Registrando rotas de persistência legadas (fallback)...');

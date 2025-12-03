@@ -27,7 +27,7 @@ export function SubscriptionPanel() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{
     planId: string;
-    billingCycle: "monthly" | "yearly";
+    billingCycle: "monthly" | "semiannual" | "yearly";
   } | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
@@ -45,7 +45,7 @@ export function SubscriptionPanel() {
   const plan = PLAN_CONFIG[subscription.planId];
   const isTrial = subscription.status === "trial";
 
-  const handleSelectPlan = (planId: string, billingCycle: "monthly" | "yearly") => {
+  const handleSelectPlan = (planId: string, billingCycle: "monthly" | "semiannual" | "yearly") => {
     setSelectedPlan({ planId, billingCycle });
     setShowPlansModal(false);
     setShowConfirmDialog(true);
@@ -135,6 +135,41 @@ export function SubscriptionPanel() {
     }
   };
 
+  const handleManagePayment = async () => {
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      if (!token) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      toast.loading("Abrindo portal de pagamento...");
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/stripe/create-portal-session`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.portalUrl) {
+        // Abrir portal em nova aba
+        window.open(data.portalUrl, "_blank");
+        toast.dismiss();
+      } else {
+        toast.error(data.error || "Erro ao abrir portal de pagamento");
+      }
+    } catch (error) {
+      console.error("Erro ao abrir portal:", error);
+      toast.error("Erro ao abrir portal de pagamento");
+    }
+  };
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -200,6 +235,18 @@ export function SubscriptionPanel() {
             </div>
             <p className="text-gray-600">{plan.description}</p>
           </div>
+          
+          {/* Botão de Gerenciar Pagamento (apenas se não estiver em trial) */}
+          {!isTrial && (
+            <Button
+              onClick={handleManagePayment}
+              variant="outline"
+              className="gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Gerenciar Pagamento
+            </Button>
+          )}
         </div>
 
         {/* Informações de Cobrança */}
@@ -207,7 +254,11 @@ export function SubscriptionPanel() {
           <div>
             <div className="text-sm text-gray-600 mb-1">Ciclo de Cobrança</div>
             <div className="font-medium text-gray-900 capitalize">
-              {subscription.billingCycle === "monthly" ? "Mensal" : "Anual"}
+              {subscription.billingCycle === "monthly" 
+                ? "Mensal" 
+                : subscription.billingCycle === "semiannual"
+                ? "Semestral"
+                : "Anual"}
             </div>
           </div>
           <div>

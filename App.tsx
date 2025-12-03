@@ -178,6 +178,19 @@ const ChangePlan = lazy(() =>
   })),
 );
 
+// Telas de Checkout Stripe
+const CheckoutSuccess = lazy(() =>
+  import("./components/subscription/CheckoutSuccess.tsx").then((m) => ({
+    default: m.CheckoutSuccess,
+  })),
+);
+
+const CheckoutCancel = lazy(() =>
+  import("./components/subscription/CheckoutCancel.tsx").then((m) => ({
+    default: m.CheckoutCancel,
+  })),
+);
+
 export type NavigationView =
   | "dashboard"
   | "inventory"
@@ -207,6 +220,8 @@ export type NavigationView =
   | "profile"
   | "myPlan"
   | "changePlan"
+  | "checkoutSuccess"
+  | "checkoutCancel"
   | "testePersistencia";
 
 // ⚡ Loading fallback leve
@@ -234,6 +249,22 @@ function AppContent() {
       setNfeDataFromOrder(null);
     }, 3000);
   };
+
+  // Verificar query params para redirecionamentos do Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutStatus = params.get('checkout');
+    
+    if (checkoutStatus === 'success') {
+      setCurrentView('checkoutSuccess');
+      // Limpar URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (checkoutStatus === 'cancel') {
+      setCurrentView('checkoutCancel');
+      // Limpar URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Listener para navegar para billing via evento customizado
   useEffect(() => {
@@ -318,6 +349,10 @@ function AppContent() {
         return <BillingSettings />;
       case "changePlan":
         return <ChangePlan />;
+      case "checkoutSuccess":
+        return <CheckoutSuccess onNavigate={handleNavigate} />;
+      case "checkoutCancel":
+        return <CheckoutCancel onNavigate={handleNavigate} />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {
