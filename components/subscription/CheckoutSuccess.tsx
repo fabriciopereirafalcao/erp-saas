@@ -10,18 +10,43 @@ interface CheckoutSuccessProps {
 }
 
 export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
-  const { refreshSubscription } = useSubscription();
+  const { refreshSubscription, subscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 10; // 10 tentativas = ~20 segundos
 
   useEffect(() => {
-    // Aguardar 2 segundos para o webhook do Stripe processar
-    const timer = setTimeout(async () => {
-      await refreshSubscription();
-      setIsLoading(false);
-    }, 2000);
+    let isMounted = true;
+    let timeoutId: number;
 
-    return () => clearTimeout(timer);
-  }, [refreshSubscription]);
+    const checkPaymentStatus = async () => {
+      // Aguardar 2 segundos inicial para webhook processar
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh subscription
+      await refreshSubscription();
+      
+      // Se ainda estiver montado e em trial, tentar novamente
+      if (isMounted) {
+        if (subscription?.status === 'trial' && retryCount < maxRetries) {
+          // Ainda em trial, tentar novamente em 2s
+          console.log(`[CHECKOUT] Aguardando webhook... tentativa ${retryCount + 1}/${maxRetries}`);
+          setRetryCount(prev => prev + 1);
+          timeoutId = window.setTimeout(checkPaymentStatus, 2000);
+        } else {
+          // Pagamento confirmado ou atingiu max retries
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkPaymentStatus();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [retryCount, refreshSubscription, subscription?.status]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
@@ -38,6 +63,11 @@ export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
             <p className="text-gray-600">
               Aguarde enquanto confirmamos sua assinatura.
             </p>
+            {retryCount > 3 && (
+              <p className="text-sm text-gray-500 mt-4">
+                Isso pode levar alguns segundos... ({retryCount}/{maxRetries})
+              </p>
+            )}
           </>
         ) : (
           <>

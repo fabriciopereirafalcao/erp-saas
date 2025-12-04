@@ -190,7 +190,7 @@ export function SubscriptionPanel() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">Planos & Cobrança</h1>
+        <h1 className="text-gray-900 mb-2">Meu Plano</h1>
         <p className="text-gray-600">
           Gerencie sua assinatura e acompanhe o uso dos recursos
         </p>
@@ -201,7 +201,10 @@ export function SubscriptionPanel() {
         <div className="mb-6">
           <TrialCountdown
             trialEnd={subscription.trialEnd}
-            onUpgradeClick={() => setShowPlansModal(true)}
+            onUpgradeClick={() => {
+              // Navegar para ChangePlan via hash
+              window.location.hash = 'changePlan';
+            }}
           />
         </div>
       )}
