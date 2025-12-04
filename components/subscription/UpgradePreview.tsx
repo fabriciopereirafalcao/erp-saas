@@ -131,8 +131,8 @@ export function UpgradePreview({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Info className="size-5 text-blue-600" />
             Confirmar Upgrade de Plano
@@ -142,70 +142,71 @@ export function UpgradePreview({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Mudança de Plano */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+        {/* Conteúdo com scroll */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          {/* Mudança de Plano - COMPACTO */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <div>
-              <p className="text-sm text-gray-600">Plano Atual</p>
+              <p className="text-xs text-gray-600">Plano Atual</p>
               <p className="font-semibold">{currentPlanData.name}</p>
-              <Badge variant="secondary" className="mt-1">
+              <Badge variant="secondary" className="mt-1 text-xs">
                 {getBillingCycleLabel(currentPlan.billingCycle)}
               </Badge>
             </div>
             <ArrowRight className="size-5 text-gray-400" />
             <div className="text-right">
-              <p className="text-sm text-gray-600">Novo Plano</p>
+              <p className="text-xs text-gray-600">Novo Plano</p>
               <p className="font-semibold text-blue-600">{newPlanData.name}</p>
-              <Badge variant="default" className="mt-1">
+              <Badge variant="default" className="mt-1 text-xs">
                 {getBillingCycleLabel(newPlan.billingCycle)}
               </Badge>
             </div>
           </div>
 
-          {/* Cálculo Detalhado */}
-          <div className="border rounded-lg p-4 space-y-3">
+          {/* Cálculo Detalhado - COMPACTO */}
+          <div className="border rounded-lg p-3 space-y-2">
             <div className="flex items-start gap-2">
-              <CreditCard className="size-5 text-gray-500 mt-0.5" />
+              <CreditCard className="size-4 text-gray-500 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold mb-3">Cálculo Proporcional</h4>
+                <h4 className="font-semibold mb-2 text-sm">Cálculo Proporcional</h4>
                 
-                <div className="space-y-2 text-sm">
+                <div className="space-y-1.5 text-xs">
                   {/* Valor diário */}
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <span className="text-gray-600">Valor diário do plano atual:</span>
-                    <span className="font-mono">
+                    <span className="font-mono text-right">
                       {formatCurrency(proration.currentPrice)} ÷ {proration.totalDays} dias = {formatCurrency(proration.dailyRate)}/dia
                     </span>
                   </div>
 
                   {/* Crédito não usado */}
-                  <div className="flex justify-between text-green-600">
+                  <div className="flex justify-between gap-2 text-green-600">
                     <span>Crédito não usado:</span>
-                    <span className="font-mono">
+                    <span className="font-mono text-right">
                       {proration.daysRemaining} dias × {formatCurrency(proration.dailyRate)} = {formatCurrency(proration.unusedCredit)}
                     </span>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-1" />
 
                   {/* Valor novo plano */}
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <span className="text-gray-600">Valor do novo plano ({getBillingCycleLabel(newPlan.billingCycle)}):</span>
-                    <span className="font-mono">{formatCurrency(proration.newPrice)}</span>
+                    <span className="font-mono text-right">{formatCurrency(proration.newPrice)}</span>
                   </div>
 
                   {/* Desconto */}
-                  <div className="flex justify-between text-green-600">
+                  <div className="flex justify-between gap-2 text-green-600">
                     <span>Desconto (crédito aplicado):</span>
-                    <span className="font-mono">- {formatCurrency(proration.unusedCredit)}</span>
+                    <span className="font-mono text-right">- {formatCurrency(proration.unusedCredit)}</span>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-1" />
 
                   {/* Total a pagar */}
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="font-semibold text-lg">Total a pagar hoje:</span>
-                    <span className="font-bold text-2xl text-blue-600">
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="font-semibold">Total a pagar hoje:</span>
+                    <span className="font-bold text-xl text-blue-600">
                       {formatCurrency(proration.amountDue)}
                     </span>
                   </div>
@@ -214,28 +215,28 @@ export function UpgradePreview({
             </div>
           </div>
 
-          {/* Nova Validade */}
-          <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+          {/* Nova Validade - COMPACTO */}
+          <div className="border rounded-lg p-3 bg-blue-50 border-blue-200">
             <div className="flex items-start gap-2">
-              <Calendar className="size-5 text-blue-600 mt-0.5" />
+              <Calendar className="size-4 text-blue-600 mt-0.5" />
               <div>
-                <h4 className="font-semibold text-blue-900 mb-1">Validade da Nova Licença</h4>
-                <p className="text-sm text-blue-700">
+                <h4 className="font-semibold text-blue-900 mb-0.5 text-sm">Validade da Nova Licença</h4>
+                <p className="text-xs text-blue-700">
                   <strong>{getBillingCycleLabel(newPlan.billingCycle)}</strong> - De{" "}
                   <strong>hoje</strong> até <strong>{formatDate(proration.newPeriodEnd)}</strong>
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="text-xs text-blue-600 mt-0.5">
                   Um novo período de {proration.newPeriodDays} dias será iniciado
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Aviso Importante */}
-          <Alert className="bg-amber-50 border-amber-200">
+          {/* Aviso Importante - COMPACTO */}
+          <Alert className="bg-amber-50 border-amber-200 py-2">
             <Info className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-900">Importante:</AlertTitle>
-            <AlertDescription className="text-amber-800 space-y-1">
+            <AlertTitle className="text-amber-900 text-sm">Importante:</AlertTitle>
+            <AlertDescription className="text-amber-800 space-y-0.5 text-xs">
               <p>• O pagamento será processado <strong>imediatamente</strong> no seu cartão cadastrado</p>
               <p>• Seu plano será atualizado após a confirmação do pagamento</p>
               <p>• A próxima cobrança será em{" "}
@@ -244,25 +245,25 @@ export function UpgradePreview({
               </p>
             </AlertDescription>
           </Alert>
+        </div>
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              disabled={isProcessing}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={onConfirm}
-              disabled={isProcessing}
-            >
-              {isProcessing ? "Processando..." : `Confirmar e Pagar ${formatCurrency(proration.amountDue)}`}
-            </Button>
-          </div>
+        {/* Botões - FIXOS NO RODAPÉ */}
+        <div className="flex gap-3 pt-4 border-t flex-shrink-0">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={onClose}
+            disabled={isProcessing}
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={onConfirm}
+            disabled={isProcessing}
+          >
+            {isProcessing ? "Processando..." : `Confirmar e Pagar ${formatCurrency(proration.amountDue)}`}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
