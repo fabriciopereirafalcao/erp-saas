@@ -188,6 +188,7 @@ export function ChangePlan() {
             planId: currentPlanId as PlanTier,
             billingCycle: subscription.billingCycle as "monthly" | "semiannual" | "yearly",
             currentPeriodEnd: subscription.currentPeriodEnd,
+            status: subscription.status, // ← CRITICAL FIX: Passar status para verificar trial
           }}
           newPlan={{
             planId: selectedPlan.planId,
