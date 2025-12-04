@@ -713,10 +713,9 @@ app.post("/create-boleto-payment", async (c) => {
         billing_details: {
           name: billingDetails.name,
           email: billingDetails.email,
-          tax_id: {
-            type: 'br_cpf', // ou 'br_cnpj' dependendo do tamanho
-            value: billingDetails.tax_id.replace(/\D/g, ''), // Remover formatação
-          },
+        },
+        boleto: {
+          tax_id: billingDetails.tax_id.replace(/\D/g, ''), // ← CPF/CNPJ apenas números
         },
       },
       confirm: true, // ← CRÍTICO: Confirmar imediatamente para gerar boleto
