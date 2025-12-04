@@ -131,7 +131,7 @@ export function UpgradePreview({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Info className="size-5 text-blue-600" />
@@ -143,7 +143,7 @@ export function UpgradePreview({
         </DialogHeader>
 
         {/* Conteúdo com scroll */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0">
           {/* Mudança de Plano */}
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
