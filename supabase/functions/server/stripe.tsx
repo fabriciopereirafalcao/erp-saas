@@ -112,11 +112,21 @@ app.post("/create-checkout-session", async (c) => {
     console.log("  - Status:", currentSubscription?.status);
     
     // 🎯 LÓGICA CORRETA DE UPGRADE:
-    // - Se JÁ tem assinatura ativa do Stripe → Usar subscriptions.update() com proration
-    // - Se NÃO tem (trial ou primeira vez) → Criar checkout session
+    // - Se JÁ tem assinatura PAGA (status "active") do Stripe → Usar subscriptions.update() com proration
+    // - Se está em TRIAL (status "trial") ou primeira vez → Criar checkout session SEM proration
+    // - IMPORTANTE: Trial é GRÁTIS, NÃO pode ter crédito proporcional!
     
-    if (currentSubscription?.stripeSubscriptionId && currentSubscription.status === "active") {
-      console.log(`🔄 [STRIPE] Upgrade via API com proration automática`);
+    const isPaidSubscription = 
+      currentSubscription?.stripeSubscriptionId && 
+      currentSubscription.status === "active";
+    
+    const isTrialSubscription = 
+      currentSubscription?.status === "trial";
+    
+    console.log(`🔍 [DEBUG] isPaidSubscription: ${isPaidSubscription}, isTrialSubscription: ${isTrialSubscription}`);
+    
+    if (isPaidSubscription && !isTrialSubscription) {
+      console.log(`🔄 [STRIPE] Upgrade via API com proration automática (assinatura PAGA)`);
       
       try {
         // Obter assinatura atual do Stripe
