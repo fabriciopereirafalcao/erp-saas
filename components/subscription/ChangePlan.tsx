@@ -125,21 +125,19 @@ export function ChangePlan() {
       }
 
       const token = session.access_token;
+      
+      // 🔥 NOVA LÓGICA: Verificar se é upgrade ou downgrade
+      const willBeUpgrade = isUpgrade(selectedPlan.planId, selectedPlan.billingCycle);
       const willBeDowngrade = isDowngrade(selectedPlan.planId);
       
-      // 🔥 NOVO: Se for PIX ou Boleto, usar nova lógica
-      if (paymentMethod === "pix") {
-        await handlePixPayment(token);
-        return;
-      }
+      console.log('[DEBUG] Trial:', isTrial);
+      console.log('[DEBUG] Will be upgrade:', willBeUpgrade);
+      console.log('[DEBUG] Will be downgrade:', willBeDowngrade);
       
-      if (paymentMethod === "boleto") {
-        await handleBoletoPayment(token);
-        return;
-      }
-      
-      // Se for upgrade (incluindo trial), usar Stripe Checkout (CARTÃO)
-      if (!willBeDowngrade) {
+      // ✅ TRIAL ou UPGRADE → Ir direto para Stripe Checkout (cartão + boleto)
+      if (willBeUpgrade || isTrial) {
+        console.log('[CHECKOUT] Redirecionando para Stripe Checkout...');
+        
         // Chamar API do Stripe para criar checkout
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/stripe/create-checkout-session`,
@@ -175,8 +173,11 @@ export function ChangePlan() {
           toast.error(data.error || "Erro ao criar sessão de checkout");
           setIsProcessing(false);
         }
-      } else {
-        // Downgrade - usar lógica antiga
+      } 
+      // ❌ DOWNGRADE → Agendar para próximo período
+      else if (willBeDowngrade) {
+        console.log('[DOWNGRADE] Agendando para próximo período...');
+        
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/subscription/downgrade`,
           {
@@ -203,6 +204,7 @@ export function ChangePlan() {
         } else {
           toast.error(data.error || "Erro ao processar downgrade");
         }
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error("Erro ao mudar plano:", error);
@@ -535,165 +537,49 @@ export function ChangePlan() {
 
       {/* Área de Confirmação */}
       {selectedPlan && (
-        <>
-          {/* 🔥 NOVO: Seletor de Método de Pagamento */}
-          <Card className="p-6 mb-6 bg-blue-50 border-2 border-blue-500">
-            <h3 className="text-blue-900 mb-4">Escolha o método de pagamento</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Cartão de Crédito */}
-              <button
-                onClick={() => setPaymentMethod("credit_card")}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  paymentMethod === "credit_card"
-                    ? "border-blue-600 bg-blue-100"
-                    : "border-gray-300 bg-white hover:border-blue-400"
-                }`}
-              >
-                <CreditCard className={`w-8 h-8 mx-auto mb-2 ${paymentMethod === "credit_card" ? "text-blue-600" : "text-gray-600"}`} />
-                <p className="font-semibold text-gray-900 text-center">Cartão de Crédito</p>
-                <p className="text-xs text-gray-600 text-center mt-1">Renovação automática</p>
-              </button>
-
-              {/* ⚠️ PIX TEMPORARIAMENTE DESABILITADO
-                  Motivo: Stripe requer 60 dias de processamento de pagamentos
-                  
-                  🔓 PARA HABILITAR PIX NOVAMENTE (após 60 dias):
-                  1. Descomente o código abaixo
-                  2. Altere grid-cols-2 para grid-cols-3 na linha acima
-                  3. Verifique se PIX está ativo no Stripe Dashboard
-                  
-              <button
-                onClick={() => setPaymentMethod("pix")}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  paymentMethod === "pix"
-                    ? "border-green-600 bg-green-100"
-                    : "border-gray-300 bg-white hover:border-green-400"
-                }`}
-              >
-                <QrCode className={`w-8 h-8 mx-auto mb-2 ${paymentMethod === "pix" ? "text-green-600" : "text-gray-600"}`} />
-                <p className="font-semibold text-gray-900 text-center">PIX</p>
-                <p className="text-xs text-gray-600 text-center mt-1">Ativação instantânea</p>
-              </button>
-              */}
-
-              {/* Boleto */}
-              <button
-                onClick={() => setPaymentMethod("boleto")}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  paymentMethod === "boleto"
-                    ? "border-orange-600 bg-orange-100"
-                    : "border-gray-300 bg-white hover:border-orange-400"
-                }`}
-              >
-                <FileText className={`w-8 h-8 mx-auto mb-2 ${paymentMethod === "boleto" ? "text-orange-600" : "text-gray-600"}`} />
-                <p className="font-semibold text-gray-900 text-center">Boleto</p>
-                <p className="text-xs text-gray-600 text-center mt-1">Até 3 dias úteis</p>
-              </button>
-            </div>
-
-            {/* Informações do método escolhido */}
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                {paymentMethod === "credit_card" && (
-                  <span><strong>Renovação automática:</strong> Seu plano será renovado automaticamente no final de cada período.</span>
-                )}
-                {/* PIX temporariamente desabilitado - descomentar quando ativar
-                {paymentMethod === "pix" && (
-                  <span><strong>Pagamento único:</strong> Plano ativo pelo período escolhido. Não renova automaticamente.</span>
-                )}
-                */}
-                {paymentMethod === "boleto" && (
-                  <span><strong>Pagamento único:</strong> Plano ativo pelo período escolhido. Confirmação em até 3 dias úteis.</span>
-                )}
-              </AlertDescription>
-            </Alert>
-
-            {/* 🔥 NOVO: Formulário de dados de cobrança (obrigatório para boleto) */}
-            {paymentMethod === "boleto" && (
-              <div className="mt-6 pt-6 border-t border-blue-300">
-                <h4 className="text-blue-900 mb-4">Dados de Cobrança (obrigatórios)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Nome Completo</Label>
-                    <Input
-                      id="name"
-                      value={billingDetails.name}
-                      onChange={(e) => setBillingDetails({ ...billingDetails, name: e.target.value })}
-                      placeholder="João Silva"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={billingDetails.email}
-                      onChange={(e) => setBillingDetails({ ...billingDetails, email: e.target.value })}
-                      placeholder="joao@empresa.com"
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="tax_id">CPF ou CNPJ</Label>
-                    <Input
-                      id="tax_id"
-                      value={billingDetails.tax_id}
-                      onChange={(e) => setBillingDetails({ ...billingDetails, tax_id: e.target.value })}
-                      placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Área de Confirmação Final */}
-          <Card className="p-6 bg-green-50 border-2 border-green-500">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-green-900 mb-2">
-                  {isDowngrade(selectedPlan.planId) ? "Confirmar Downgrade" : "Confirmar Contratação"}
-                </h3>
-                <p className="text-green-700 text-sm">
-                  Você está alterando para o plano{" "}
-                  <strong className="capitalize">{PLANS[selectedPlan.planId].name}</strong> (
-                  {selectedPlan.billingCycle === "monthly" ? "Mensal" : selectedPlan.billingCycle === "semiannual" ? "Semestral" : "Anual"}) via{" "}
-                  <strong>{paymentMethod === "credit_card" ? "Cartão de Crédito" : paymentMethod === "pix" ? "PIX" : "Boleto"}</strong>.
-                  {isDowngrade(selectedPlan.planId)
-                    ? " A mudança será efetivada no próximo período de cobrança."
-                    : paymentMethod === "credit_card"
-                    ? " A mudança será aplicada imediatamente."
-                    : " Você receberá as instruções de pagamento."}
+        <Card className="p-6 bg-green-50 border-2 border-green-500">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h3 className="text-green-900 mb-2">
+                {isDowngrade(selectedPlan.planId) ? "Confirmar Downgrade" : "Confirmar Contratação"}
+              </h3>
+              <p className="text-green-700 text-sm">
+                Você está alterando para o plano{" "}
+                <strong className="capitalize">{PLANS[selectedPlan.planId].name}</strong> (
+                {selectedPlan.billingCycle === "monthly" ? "Mensal" : selectedPlan.billingCycle === "semiannual" ? "Semestral" : "Anual"}).
+                {isDowngrade(selectedPlan.planId)
+                  ? " A mudança será efetivada no próximo período de cobrança."
+                  : " Você será redirecionado para o checkout seguro do Stripe."}
+              </p>
+              {!isDowngrade(selectedPlan.planId) && (
+                <p className="text-green-600 text-sm mt-2">
+                  💳 <strong>Métodos de pagamento:</strong> Cartão de Crédito (recorrente) ou Boleto (pagamento único).
                 </p>
-              </div>
-              <div className="flex gap-3 ml-6">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedPlan(null);
-                    setPaymentMethod("credit_card");
-                    setBillingDetails({ name: "", email: "", tax_id: "", address: { line1: "", city: "", state: "", postal_code: "" } });
-                  }}
-                  disabled={isProcessing}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleConfirmChange}
-                  disabled={isProcessing}
-                  className="gap-2"
-                >
-                  {isProcessing ? "Processando..." : "Confirmar"}
-                  {!isProcessing && <ArrowRight className="w-4 h-4" />}
-                </Button>
-              </div>
+              )}
             </div>
-          </Card>
-        </>
+            <div className="flex gap-3 ml-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedPlan(null);
+                  setPaymentMethod("credit_card");
+                  setBillingDetails({ name: "", email: "", tax_id: "", address: { line1: "", city: "", state: "", postal_code: "" } });
+                }}
+                disabled={isProcessing}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmChange}
+                disabled={isProcessing}
+                className="gap-2"
+              >
+                {isProcessing ? "Processando..." : "Confirmar"}
+                {!isProcessing && <ArrowRight className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* 🔥 MODAIS PIX/BOLETO */}
