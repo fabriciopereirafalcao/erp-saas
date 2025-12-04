@@ -43,6 +43,12 @@ export function ChangePlan() {
     name: "",
     email: "",
     tax_id: "", // CPF ou CNPJ
+    address: {
+      line1: "",
+      city: "",
+      state: "",
+      postal_code: "",
+    },
   });
 
   if (loading || !subscription) {
@@ -300,7 +306,11 @@ export function ChangePlan() {
         setShowPreview(false);
         toast.success("Boleto gerado com sucesso!");
       } else {
-        toast.error(data.error || "Erro ao gerar boleto");
+        // 🔍 LOG DETALHADO DO ERRO
+        console.error("Erro detalhado do boleto:", data);
+        const errorMsg = data.error || "Erro ao gerar boleto";
+        const details = data.details ? ` (${data.details.type}: ${data.details.param})` : '';
+        toast.error(`${errorMsg}${details}`);
       }
     } catch (error) {
       console.error("Erro ao criar boleto:", error);
@@ -666,7 +676,7 @@ export function ChangePlan() {
                   onClick={() => {
                     setSelectedPlan(null);
                     setPaymentMethod("credit_card");
-                    setBillingDetails({ name: "", email: "", tax_id: "" });
+                    setBillingDetails({ name: "", email: "", tax_id: "", address: { line1: "", city: "", state: "", postal_code: "" } });
                   }}
                   disabled={isProcessing}
                 >

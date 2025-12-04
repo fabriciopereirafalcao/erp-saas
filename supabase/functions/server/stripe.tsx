@@ -698,6 +698,14 @@ app.post("/create-boleto-payment", async (c) => {
 
     // 🔥 CRIAR PAYMENT INTENT COM BOLETO
     console.log('[STRIPE] 📄 Criando Payment Intent Boleto...');
+    console.log('[STRIPE] 🔍 Debug - Dados enviados:', {
+      amount: amountInCents,
+      customer: stripeCustomerId,
+      tax_id_clean: billingDetails.tax_id.replace(/\D/g, ''),
+      name: billingDetails.name,
+      email: billingDetails.email,
+    });
+    
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: "brl",
@@ -713,6 +721,14 @@ app.post("/create-boleto-payment", async (c) => {
         billing_details: {
           name: billingDetails.name,
           email: billingDetails.email,
+          address: {
+            line1: billingDetails.address?.line1 || 'Rua Exemplo, 123',
+            line2: billingDetails.address?.line2 || null,
+            city: billingDetails.address?.city || 'São Paulo',
+            state: billingDetails.address?.state || 'SP',
+            postal_code: billingDetails.address?.postal_code || '01310-100',
+            country: 'BR',
+          },
         },
         boleto: {
           tax_id: billingDetails.tax_id.replace(/\D/g, ''), // ← CPF/CNPJ apenas números
@@ -754,9 +770,24 @@ app.post("/create-boleto-payment", async (c) => {
 
   } catch (error: any) {
     console.error("[STRIPE] ❌ Erro ao criar boleto:", error);
+    
+    // 🔍 LOG DETALHADO DO ERRO
+    if (error.type === 'StripeInvalidRequestError') {
+      console.error('[STRIPE] ❌ Stripe Invalid Request Error:');
+      console.error('  - Message:', error.message);
+      console.error('  - Code:', error.code);
+      console.error('  - Param:', error.param);
+      console.error('  - Type:', error.type);
+    }
+    
     return c.json({
       success: false,
       error: error.message || "Erro ao processar boleto",
+      details: {
+        type: error.type,
+        code: error.code,
+        param: error.param,
+      }
     }, 500);
   }
 });
