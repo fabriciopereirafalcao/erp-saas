@@ -6,17 +6,15 @@
  * mensagem de upgrade obrigatório.
  */
 
-import { useEffect } from "react";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Alert, AlertTitle, AlertDescription } from "../ui/alert";
 import { AlertCircle, CreditCard, Clock, CheckCircle } from "lucide-react";
-import { NavigationView } from "../../App";
 
 interface TrialExpiredGuardProps {
   children: React.ReactNode;
-  currentView: NavigationView;
+  currentView: string; // ← CORRIGIDO: usar string ao invés de NavigationView
   onNavigateToPlans: () => void;
 }
 
@@ -28,7 +26,7 @@ export function TrialExpiredGuard({
   const { subscription, loading } = useSubscription();
 
   // Views que são SEMPRE permitidas (mesmo com trial expirado)
-  const allowedViews: NavigationView[] = [
+  const allowedViews: string[] = [
     "billing",
     "myPlan", 
     "changePlan",
