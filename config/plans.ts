@@ -18,9 +18,9 @@ export const PLANS: Record<PlanTier, Plan> = {
     description: 'Ideal para começar',
     price: {
       monthly: 49.90,
-      quarterly: 47.41,      // 5% desconto
-      semiannual: 44.91,     // 10% desconto
-      yearly: 39.92,         // 20% desconto
+      quarterly: 142.23,     // 47.41 × 3 meses (5% desconto)
+      semiannual: 269.46,    // 44.91 × 6 meses (10% desconto)
+      yearly: 479.04,        // 39.92 × 12 meses (20% desconto)
     },
     discount: {
       quarterly: 5,
@@ -76,9 +76,9 @@ export const PLANS: Record<PlanTier, Plan> = {
     description: 'Para pequenas empresas',
     price: {
       monthly: 69.90,
-      quarterly: 66.41,      // 5% desconto
-      semiannual: 62.91,     // 10% desconto
-      yearly: 55.92,         // 20% desconto
+      quarterly: 199.23,     // 66.41 × 3 meses (5% desconto)
+      semiannual: 377.46,    // 62.91 × 6 meses (10% desconto)
+      yearly: 671.04,        // 55.92 × 12 meses (20% desconto)
     },
     discount: {
       quarterly: 5,
@@ -137,9 +137,9 @@ export const PLANS: Record<PlanTier, Plan> = {
     description: 'Todos os módulos inclusos',
     price: {
       monthly: 109.90,
-      quarterly: 104.41,     // 5% desconto
-      semiannual: 98.91,     // 10% desconto
-      yearly: 87.92,         // 20% desconto
+      quarterly: 313.23,     // 104.41 × 3 meses (5% desconto)
+      semiannual: 593.46,    // 98.91 × 6 meses (10% desconto)
+      yearly: 1055.04,       // 87.92 × 12 meses (20% desconto)
     },
     discount: {
       quarterly: 5,
@@ -201,9 +201,9 @@ export const PLANS: Record<PlanTier, Plan> = {
     description: 'Sem limites para crescer',
     price: {
       monthly: 139.90,
-      quarterly: 132.91,     // 5% desconto
-      semiannual: 125.91,    // 10% desconto
-      yearly: 111.92,        // 20% desconto
+      quarterly: 398.73,     // 132.91 × 3 meses (5% desconto)
+      semiannual: 755.46,    // 125.91 × 6 meses (10% desconto)
+      yearly: 1343.04,       // 111.92 × 12 meses (20% desconto)
     },
     discount: {
       quarterly: 5,
@@ -302,10 +302,11 @@ export function calculateSavings(plan: Plan, cycle: 'quarterly' | 'semiannual' |
     yearly: plan.price.monthly * 12,
   };
   
+  // Os preços já são totais do período, não precisa multiplicar novamente
   const cyclePrice = {
-    quarterly: plan.price.quarterly * 3,
-    semiannual: plan.price.semiannual * 6,
-    yearly: plan.price.yearly * 12,
+    quarterly: plan.price.quarterly,
+    semiannual: plan.price.semiannual,
+    yearly: plan.price.yearly,
   };
   
   return monthlyEquivalent[cycle] - cyclePrice[cycle];
