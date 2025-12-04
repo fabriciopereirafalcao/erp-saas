@@ -1,17 +1,6 @@
-import { Suspense, lazy, useState, useEffect } from "react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
-import { Sidebar } from "./components/Sidebar.tsx";
-import { TopBar } from "./components/TopBar.tsx";
-import { Toaster } from "./components/ui/sonner.tsx";
-import { ERPProvider } from "./contexts/ERPContext.tsx";
-import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
-import { SubscriptionProvider } from "./contexts/SubscriptionContext.tsx";
-import { ThemeProvider } from "./contexts/ThemeContext.tsx";
-import { AuthFlow } from "./components/auth/AuthFlow.tsx";
-import { LoadingScreen } from "./components/LoadingScreen.tsx";
-import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { UpgradeDialog } from "./components/UpgradeDialog.tsx";
 import { SubscriptionAlerts } from "./components/subscription/SubscriptionAlerts.tsx";
+import { TrialExpiredGuard } from "./components/subscription/TrialExpiredGuard.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
@@ -507,12 +496,18 @@ function AppContent() {
             onClose={() => setIsSidebarOpen(false)}
           />
           <main className="flex-1 overflow-auto bg-gray-50">
-            {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
-            <ErrorBoundary>
-              <Suspense fallback={<ViewLoader />}>
-                {renderView()}
-              </Suspense>
-            </ErrorBoundary>
+            {/* 🔒 TRIAL EXPIRED GUARD - Bloqueia acesso se trial expirou */}
+            <TrialExpiredGuard 
+              currentView={currentView}
+              onNavigateToPlans={() => setCurrentView("changePlan")}
+            >
+              {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
+              <ErrorBoundary>
+                <Suspense fallback={<ViewLoader />}>
+                  {renderView()}
+                </Suspense>
+              </ErrorBoundary>
+            </TrialExpiredGuard>
           </main>
         </div>
 
