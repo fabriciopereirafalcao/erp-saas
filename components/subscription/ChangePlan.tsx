@@ -530,7 +530,7 @@ export function ChangePlan() {
           <Card className="p-6 mb-6 bg-blue-50 border-2 border-blue-500">
             <h3 className="text-blue-900 mb-4">Escolha o método de pagamento</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {/* Cartão de Crédito */}
               <button
                 onClick={() => setPaymentMethod("credit_card")}
@@ -545,7 +545,14 @@ export function ChangePlan() {
                 <p className="text-xs text-gray-600 text-center mt-1">Renovação automática</p>
               </button>
 
-              {/* PIX */}
+              {/* ⚠️ PIX TEMPORARIAMENTE DESABILITADO
+                  Motivo: Stripe requer 60 dias de processamento de pagamentos
+                  
+                  🔓 PARA HABILITAR PIX NOVAMENTE (após 60 dias):
+                  1. Descomente o código abaixo
+                  2. Altere grid-cols-2 para grid-cols-3 na linha acima
+                  3. Verifique se PIX está ativo no Stripe Dashboard
+                  
               <button
                 onClick={() => setPaymentMethod("pix")}
                 className={`p-4 rounded-lg border-2 transition-all ${
@@ -558,6 +565,7 @@ export function ChangePlan() {
                 <p className="font-semibold text-gray-900 text-center">PIX</p>
                 <p className="text-xs text-gray-600 text-center mt-1">Ativação instantânea</p>
               </button>
+              */}
 
               {/* Boleto */}
               <button
@@ -581,9 +589,11 @@ export function ChangePlan() {
                 {paymentMethod === "credit_card" && (
                   <span><strong>Renovação automática:</strong> Seu plano será renovado automaticamente no final de cada período.</span>
                 )}
+                {/* PIX temporariamente desabilitado - descomentar quando ativar
                 {paymentMethod === "pix" && (
                   <span><strong>Pagamento único:</strong> Plano ativo pelo período escolhido. Não renova automaticamente.</span>
                 )}
+                */}
                 {paymentMethod === "boleto" && (
                   <span><strong>Pagamento único:</strong> Plano ativo pelo período escolhido. Confirmação em até 3 dias úteis.</span>
                 )}

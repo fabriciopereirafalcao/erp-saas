@@ -118,7 +118,8 @@ app.post("/create-checkout-session", async (c) => {
     
     const isPaidSubscription = 
       currentSubscription?.stripeSubscriptionId && 
-      currentSubscription.status === "active";
+      currentSubscription.status === "active" &&
+      currentSubscription.status !== "trial"; // ← NÃO considerar trial como paga!
     
     const isTrialSubscription = 
       currentSubscription?.status === "trial";
@@ -707,6 +708,18 @@ app.post("/create-boleto-payment", async (c) => {
           expires_after_days: 3, // Boleto expira em 3 dias
         },
       },
+      payment_method_data: {
+        type: 'boleto',
+        billing_details: {
+          name: billingDetails.name,
+          email: billingDetails.email,
+          tax_id: {
+            type: 'br_cpf', // ou 'br_cnpj' dependendo do tamanho
+            value: billingDetails.tax_id.replace(/\D/g, ''), // Remover formatação
+          },
+        },
+      },
+      confirm: true, // ← CRÍTICO: Confirmar imediatamente para gerar boleto
       metadata: {
         userId: user.id,
         planId,
