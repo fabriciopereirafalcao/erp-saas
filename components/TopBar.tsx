@@ -63,15 +63,17 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
 
         {/* Trial Banner Inline - apenas se estiver em trial */}
         {showTrialBanner && (
-          <div className="flex-1 flex items-center gap-3 bg-[#77F74A] px-4 py-2 rounded-md">
-            <span className="text-sm text-black">
+          <div className="flex-1 flex items-center gap-2 sm:gap-3 bg-[#77F74A] px-3 sm:px-4 py-2 rounded-md min-w-0">
+            <span className="text-xs sm:text-sm text-black truncate min-w-0 flex-shrink">
               <strong className="uppercase tracking-wide">{profile?.name?.toUpperCase() || 'USUÁRIO'}</strong>
-              {' • '}
-              {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'} para conclusão do Teste Grátis
+              <span className="hidden sm:inline">{' • '}</span>
+              <span className="block sm:inline">
+                {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'} para conclusão do Teste Grátis
+              </span>
             </span>
             <Button 
               size="sm"
-              className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-4 text-xs ml-auto"
+              className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-3 sm:px-4 text-xs flex-shrink-0 whitespace-nowrap"
               onClick={() => onNavigate('changePlan')}
             >
               Comprar agora
