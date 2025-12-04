@@ -436,6 +436,13 @@ app.post("/webhook", async (c) => {
         break;
       }
 
+      // 🔥 NOVO: Payment Intent succeeded (PIX/Boleto confirmado)
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handlePaymentIntentSucceeded(paymentIntent);
+        break;
+      }
+
       default:
         console.log(`⚠️ [STRIPE WEBHOOK] Evento não tratado: ${event.type}`);
     }
@@ -511,189 +518,345 @@ app.get("/payment-methods", async (c) => {
 });
 
 /* =========================================================================
- * WEBHOOK HANDLERS
+ * ROTA: POST /create-pix-payment
+ * Cria pagamento PIX (não recorrente) via Stripe
  * ========================================================================= */
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+app.post("/create-pix-payment", async (c) => {
   try {
-    const userId = session.metadata?.userId;
-    const planId = session.metadata?.planId;
-    const billingCycle = session.metadata?.billingCycle;
-
-    if (!userId || !planId || !billingCycle) {
-      console.error("❌ Metadata ausente no checkout session");
-      return;
-    }
-
-    console.log(`✅ [WEBHOOK] Checkout completado - Usuário: ${userId}, Plano: ${planId}`);
-
-    // Buscar assinatura do Stripe
-    const subscriptionId = session.subscription as string;
-    const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-    // Atualizar assinatura no KV store
-    const subscriptionKey = `subscription:${userId}`;
-    const subscription = await kv.get(subscriptionKey);
-
-    if (subscription) {
-      subscription.planId = planId;
-      subscription.billingCycle = billingCycle;
-      subscription.status = "active";
-      subscription.stripeSubscriptionId = subscriptionId;
-      subscription.stripeCustomerId = session.customer as string;
-      subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000).toISOString();
-      subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000).toISOString();
-      subscription.updatedAt = new Date().toISOString();
-
-      // Remover trial se existir
-      delete subscription.trialEnd;
-
-      await kv.set(subscriptionKey, subscription);
-      console.log(`✅ Assinatura atualizada para usuário ${userId}`);
-    }
-  } catch (error) {
-    console.error("❌ Erro ao processar checkout completed:", error);
-  }
-}
-
-async function handleSubscriptionUpdate(stripeSubscription: Stripe.Subscription) {
-  try {
-    const userId = stripeSubscription.metadata?.userId;
+    console.log('[STRIPE] 🔷 Iniciando criação de pagamento PIX...');
     
-    if (!userId) {
-      console.error("❌ userId ausente na subscription");
-      return;
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      console.error('[STRIPE] ❌ Erro de autenticação:', authError);
+      return c.json({ success: false, error: "Não autenticado" }, 401);
     }
 
-    console.log(`🔄 [WEBHOOK] Subscription atualizada - Usuário: ${userId}`);
+    // Obter dados
+    const { planId, billingCycle } = await c.req.json();
+    console.log(`[STRIPE] 📦 Dados recebidos: planId=${planId}, billingCycle=${billingCycle}`);
 
-    const subscriptionKey = `subscription:${userId}`;
-    const subscription = await kv.get(subscriptionKey);
-
-    if (subscription) {
-      subscription.status = stripeSubscription.status === "active" ? "active" : "past_due";
-      
-      // 🔧 FIX: Validar timestamps antes de converter
-      if (stripeSubscription.current_period_start) {
-        subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000).toISOString();
-      }
-      
-      if (stripeSubscription.current_period_end) {
-        subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000).toISOString();
-      }
-      
-      subscription.updatedAt = new Date().toISOString();
-
-      await kv.set(subscriptionKey, subscription);
-      console.log(`✅ Status da assinatura atualizado: ${subscription.status}`);
+    // Validações
+    if (!["basico", "intermediario", "avancado", "ilimitado"].includes(planId)) {
+      return c.json({ success: false, error: "Plano inválido" }, 400);
     }
-  } catch (error) {
-    console.error("❌ Erro ao processar subscription update:", error);
-  }
-}
 
-async function handleSubscriptionDeleted(stripeSubscription: Stripe.Subscription) {
-  try {
-    const userId = stripeSubscription.metadata?.userId;
+    if (!["monthly", "semiannual", "yearly"].includes(billingCycle)) {
+      return c.json({ success: false, error: "Ciclo inválido" }, 400);
+    }
+
+    // Calcular valor
+    const PLAN_PRICES = {
+      basico: { monthly: 39.90, semiannual: 215.46, yearly: 383.04 },
+      intermediario: { monthly: 79.90, semiannual: 431.46, yearly: 767.04 },
+      avancado: { monthly: 129.90, semiannual: 701.46, yearly: 1247.04 },
+      ilimitado: { monthly: 249.90, semiannual: 1349.46, yearly: 2399.04 },
+    };
+
+    const amount = PLAN_PRICES[planId][billingCycle];
+    const amountInCents = Math.round(amount * 100);
+    console.log(`[STRIPE] 💰 Valor: R$ ${amount} (${amountInCents} cents)`);
+
+    // Buscar ou criar Stripe Customer
+    const subscriptionKey = `subscription:${user.id}`;
+    const currentSubscription = await kv.get(subscriptionKey);
     
-    if (!userId) {
-      console.error("❌ userId ausente na subscription");
-      return;
+    let stripeCustomerId = currentSubscription?.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      console.log('[STRIPE] 👤 Criando novo Stripe Customer...');
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: user.id },
+      });
+      stripeCustomerId = customer.id;
+      console.log(`[STRIPE] ✅ Customer criado: ${stripeCustomerId}`);
     }
 
-    console.log(`🗑️ [WEBHOOK] Subscription deletada - Usuário: ${userId}`);
-
-    const subscriptionKey = `subscription:${userId}`;
-    const subscription = await kv.get(subscriptionKey);
-
-    if (subscription) {
-      // Voltar para plano básico gratuito
-      subscription.planId = "basico";
-      subscription.status = "canceled";
-      subscription.updatedAt = new Date().toISOString();
-      
-      delete subscription.stripeSubscriptionId;
-
-      await kv.set(subscriptionKey, subscription);
-      console.log(`✅ Assinatura cancelada - voltou para plano básico`);
-    }
-  } catch (error) {
-    console.error("❌ Erro ao processar subscription deleted:", error);
-  }
-}
-
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  try {
-    const customerId = invoice.customer as string;
-    
-    // Buscar userId pelo customerId
-    const allCustomers = await kv.getByPrefix("stripe_customer:");
-    const userEntry = allCustomers.find((entry: any) => entry.value === customerId);
-    
-    if (!userEntry) {
-      console.error("❌ Cliente não encontrado no KV store");
-      return;
-    }
-
-    const userId = userEntry.key.replace("stripe_customer:", "");
-    
-    console.log(`💰 [WEBHOOK] Pagamento bem-sucedido - Usuário: ${userId}, Valor: ${invoice.amount_paid / 100}`);
-
-    // Registrar histórico de pagamento
-    const paymentHistory = await kv.get(`payment_history:${userId}`) || [];
-    paymentHistory.push({
-      invoiceId: invoice.id,
-      amount: invoice.amount_paid / 100,
-      currency: invoice.currency,
-      status: "succeeded",
-      paidAt: new Date(invoice.status_transitions.paid_at! * 1000).toISOString(),
+    // 🔥 CRIAR PAYMENT INTENT COM PIX
+    console.log('[STRIPE] 🔷 Criando Payment Intent PIX...');
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: "brl",
+      customer: stripeCustomerId,
+      payment_method_types: ["pix"],
+      metadata: {
+        userId: user.id,
+        planId,
+        billingCycle,
+        paymentType: "pix",
+      },
+      description: `Plano ${planId} - ${billingCycle === "monthly" ? "Mensal" : billingCycle === "semiannual" ? "Semestral" : "Anual"}`,
     });
-    await kv.set(`payment_history:${userId}`, paymentHistory);
-  } catch (error) {
-    console.error("❌ Erro ao processar payment succeeded:", error);
-  }
-}
 
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
+    console.log(`[STRIPE] ✅ Payment Intent criado: ${paymentIntent.id}`);
+
+    // 🔥 OBTER DADOS PIX
+    const pixData = paymentIntent.next_action?.pix_display_qr_code;
+
+    if (!pixData) {
+      console.error('[STRIPE] ❌ Falha ao gerar QR Code PIX');
+      throw new Error("Falha ao gerar QR Code PIX");
+    }
+
+    console.log('[STRIPE] 🎯 QR Code PIX gerado com sucesso');
+    console.log(`[STRIPE] ⏰ Expira em: ${new Date((pixData.expires_at || 0) * 1000).toISOString()}`);
+
+    return c.json({
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
+      pixQrCode: pixData.data,           // Código PIX (string)
+      pixQrCodeUrl: pixData.hosted_url,  // URL da imagem do QR Code
+      amount: amount,
+      expiresAt: pixData.expires_at,     // Timestamp de expiração (24h)
+    });
+
+  } catch (error: any) {
+    console.error("[STRIPE] ❌ Erro ao criar pagamento PIX:", error);
+    return c.json({
+      success: false,
+      error: error.message || "Erro ao processar pagamento PIX",
+    }, 500);
+  }
+});
+
+/* =========================================================================
+ * ROTA: POST /create-boleto-payment
+ * Cria pagamento via Boleto (não recorrente) via Stripe
+ * ========================================================================= */
+
+app.post("/create-boleto-payment", async (c) => {
   try {
-    const customerId = invoice.customer as string;
+    console.log('[STRIPE] 📄 Iniciando criação de boleto...');
     
-    // Buscar userId pelo customerId
-    const allCustomers = await kv.getByPrefix("stripe_customer:");
-    const userEntry = allCustomers.find((entry: any) => entry.value === customerId);
+    // Autenticação
+    const accessToken = c.req.header("Authorization")?.split(" ")[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (!user || authError) {
+      console.error('[STRIPE] ❌ Erro de autenticação:', authError);
+      return c.json({ success: false, error: "Não autenticado" }, 401);
+    }
+
+    // Obter dados (incluindo dados de cobrança para boleto)
+    const { planId, billingCycle, billingDetails } = await c.req.json();
+    console.log(`[STRIPE] 📦 Dados recebidos: planId=${planId}, billingCycle=${billingCycle}`);
+
+    // Validações
+    if (!["basico", "intermediario", "avancado", "ilimitado"].includes(planId)) {
+      return c.json({ success: false, error: "Plano inválido" }, 400);
+    }
+
+    if (!["monthly", "semiannual", "yearly"].includes(billingCycle)) {
+      return c.json({ success: false, error: "Ciclo inválido" }, 400);
+    }
+
+    // Validar dados de cobrança (obrigatórios para boleto)
+    if (!billingDetails?.name || !billingDetails?.email || !billingDetails?.tax_id) {
+      return c.json({ 
+        success: false, 
+        error: "Dados de cobrança incompletos. Nome, email e CPF/CNPJ são obrigatórios para boleto." 
+      }, 400);
+    }
+
+    // Calcular valor
+    const PLAN_PRICES = {
+      basico: { monthly: 39.90, semiannual: 215.46, yearly: 383.04 },
+      intermediario: { monthly: 79.90, semiannual: 431.46, yearly: 767.04 },
+      avancado: { monthly: 129.90, semiannual: 701.46, yearly: 1247.04 },
+      ilimitado: { monthly: 249.90, semiannual: 1349.46, yearly: 2399.04 },
+    };
+
+    const amount = PLAN_PRICES[planId][billingCycle];
+    const amountInCents = Math.round(amount * 100);
+    console.log(`[STRIPE] 💰 Valor: R$ ${amount} (${amountInCents} cents)`);
+
+    // Buscar ou criar Stripe Customer
+    const subscriptionKey = `subscription:${user.id}`;
+    const currentSubscription = await kv.get(subscriptionKey);
     
-    if (!userEntry) {
-      console.error("❌ Cliente não encontrado no KV store");
+    let stripeCustomerId = currentSubscription?.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      console.log('[STRIPE] 👤 Criando novo Stripe Customer...');
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: billingDetails.name,
+        metadata: { 
+          userId: user.id,
+          tax_id: billingDetails.tax_id,
+        },
+      });
+      stripeCustomerId = customer.id;
+      console.log(`[STRIPE] ✅ Customer criado: ${stripeCustomerId}`);
+    }
+
+    // 🔥 CRIAR PAYMENT INTENT COM BOLETO
+    console.log('[STRIPE] 📄 Criando Payment Intent Boleto...');
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: "brl",
+      customer: stripeCustomerId,
+      payment_method_types: ["boleto"],
+      payment_method_options: {
+        boleto: {
+          expires_after_days: 3, // Boleto expira em 3 dias
+        },
+      },
+      metadata: {
+        userId: user.id,
+        planId,
+        billingCycle,
+        paymentType: "boleto",
+      },
+      description: `Plano ${planId} - ${billingCycle === "monthly" ? "Mensal" : billingCycle === "semiannual" ? "Semestral" : "Anual"}`,
+    });
+
+    console.log(`[STRIPE] ✅ Payment Intent criado: ${paymentIntent.id}`);
+
+    // 🔥 OBTER DADOS DO BOLETO
+    const boletoData = paymentIntent.next_action?.boleto_display_details;
+
+    if (!boletoData) {
+      console.error('[STRIPE] ❌ Falha ao gerar boleto');
+      throw new Error("Falha ao gerar boleto");
+    }
+
+    console.log('[STRIPE] 🎯 Boleto gerado com sucesso');
+    console.log(`[STRIPE] ⏰ Expira em: ${new Date((boletoData.expires_at || 0) * 1000).toISOString()}`);
+
+    return c.json({
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
+      boletoNumber: boletoData.number,
+      boletoUrl: boletoData.pdf,          // URL do PDF do boleto
+      boletoBarcode: boletoData.number,   // Código de barras
+      amount: amount,
+      expiresAt: boletoData.expires_at,   // Timestamp de expiração (3 dias)
+    });
+
+  } catch (error: any) {
+    console.error("[STRIPE] ❌ Erro ao criar boleto:", error);
+    return c.json({
+      success: false,
+      error: error.message || "Erro ao processar boleto",
+    }, 500);
+  }
+});
+
+/* =========================================================================
+ * ROTA: POST /check-payment-status
+ * Verifica status de um payment intent
+ * ========================================================================= */
+
+app.post("/check-payment-status", async (c) => {
+  try {
+    const { paymentIntentId } = await c.req.json();
+
+    if (!paymentIntentId) {
+      return c.json({ success: false, error: "Payment Intent ID obrigatório" }, 400);
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    return c.json({
+      success: true,
+      status: paymentIntent.status, // 'succeeded', 'pending', 'failed', 'canceled'
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency.toUpperCase(),
+    });
+
+  } catch (error: any) {
+    console.error("[STRIPE] Erro ao verificar status:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/* =========================================================================
+ * WEBHOOK HANDLER: payment_intent.succeeded
+ * Processa pagamento confirmado via PIX ou Boleto
+ * ========================================================================= */
+
+async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+  try {
+    // Verificar se é pagamento PIX ou Boleto
+    const paymentType = paymentIntent.metadata?.paymentType;
+    
+    if (!paymentType || !["pix", "boleto"].includes(paymentType)) {
+      console.log(`⚠️ [WEBHOOK] Payment Intent ignorado (não é PIX/Boleto): ${paymentIntent.id}`);
       return;
     }
-
-    const userId = userEntry.key.replace("stripe_customer:", "");
     
-    console.log(`❌ [WEBHOOK] Pagamento falhou - Usuário: ${userId}`);
-
-    // Atualizar status da assinatura
-    const subscriptionKey = `subscription:${userId}`;
-    const subscription = await kv.get(subscriptionKey);
-
-    if (subscription) {
-      subscription.status = "past_due";
-      subscription.updatedAt = new Date().toISOString();
-      await kv.set(subscriptionKey, subscription);
+    console.log(`✅ [WEBHOOK] ${paymentType.toUpperCase()} confirmado: ${paymentIntent.id}`);
+    
+    const userId = paymentIntent.metadata.userId;
+    const planId = paymentIntent.metadata.planId;
+    const billingCycle = paymentIntent.metadata.billingCycle;
+    
+    if (!userId || !planId || !billingCycle) {
+      console.error("[WEBHOOK] Metadata incompleto no payment intent");
+      return;
     }
-
-    // TODO: Enviar email notificando falha de pagamento
+    
+    // Calcular datas do período
+    const now = new Date();
+    const periodEnd = new Date(now);
+    
+    if (billingCycle === "monthly") {
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    } else if (billingCycle === "semiannual") {
+      periodEnd.setMonth(periodEnd.getMonth() + 6);
+    } else if (billingCycle === "yearly") {
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    }
+    
+    console.log(`📅 [WEBHOOK] Período: ${now.toISOString()} até ${periodEnd.toISOString()}`);
+    
+    // 🔥 CRIAR/ATUALIZAR SUBSCRIPTION NO KV
+    const subscriptionKey = `subscription:${userId}`;
+    
+    const subscription = {
+      id: `sub_${userId}_${Date.now()}`,
+      userId,
+      planId,
+      status: "active",
+      billingCycle,
+      paymentMethod: paymentType, // "pix" ou "boleto"
+      isRecurring: false, // ← Não renovação automática!
+      startDate: now.toISOString(),
+      currentPeriodStart: now.toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency.toUpperCase(),
+      stripeCustomerId: paymentIntent.customer as string,
+      stripePaymentIntentId: paymentIntent.id,
+      stripeSubscriptionId: null, // ← NULL para PIX/Boleto
+      usage: {
+        salesOrders: 0,
+        purchaseOrders: 0,
+        invoices: 0,
+        transactions: 0,
+        storageMB: 0,
+      },
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+    
+    await kv.set(subscriptionKey, subscription);
+    
+    console.log(`💾 [KV] Subscription ${paymentType.toUpperCase()} criada/atualizada para userId: ${userId}`);
+    console.log(`🎯 [KV] Plano ${planId} ativo até ${periodEnd.toLocaleDateString('pt-BR')}`);
+    
+    // TODO: Enviar email de confirmação de pagamento
+    
   } catch (error) {
-    console.error("❌ Erro ao processar payment failed:", error);
+    console.error("❌ [WEBHOOK] Erro ao processar payment_intent.succeeded:", error);
   }
 }
-
-// Exportar app como default
-console.log('[STRIPE] ✅ Módulo Stripe carregado. Rotas disponíveis:');
-console.log('[STRIPE]    GET  /health');
-console.log('[STRIPE]    POST /create-checkout-session');
-console.log('[STRIPE]    POST /create-portal-session');
-console.log('[STRIPE]    GET  /webhook (test)');
-console.log('[STRIPE]    POST /webhook (production)');
-console.log('[STRIPE]    GET  /payment-methods');
 
 export default app;

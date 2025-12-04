@@ -1,18 +1,18 @@
 import { Suspense, lazy, useState, useEffect } from "react";
+import { Toaster } from "sonner@2.0.3";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
-import { Toaster } from "./components/ui/sonner.tsx";
-import { ERPProvider } from "./contexts/ERPContext.tsx";
-import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
-import { SubscriptionProvider } from "./contexts/SubscriptionContext.tsx";
-import { ThemeProvider } from "./contexts/ThemeContext.tsx";
-import { AuthFlow } from "./components/auth/AuthFlow.tsx";
+import { AuthFlow } from "./components/AuthFlow.tsx";
 import { LoadingScreen } from "./components/LoadingScreen.tsx";
+import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
+import { ThemeProvider } from "./contexts/ThemeContext.tsx";
+import { ERPProvider } from "./contexts/ERPContext.tsx";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { UpgradeDialog } from "./components/UpgradeDialog.tsx";
 import { SubscriptionAlerts } from "./components/subscription/SubscriptionAlerts.tsx";
-import { TrialExpiredGuard } from "./components/subscription/TrialExpiredGuard.tsx";
+import { PlanAccessGuard } from "./components/subscription/PlanAccessGuard.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
@@ -508,8 +508,8 @@ function AppContent() {
             onClose={() => setIsSidebarOpen(false)}
           />
           <main className="flex-1 overflow-auto bg-gray-50">
-            {/* 🔒 TRIAL EXPIRED GUARD - Bloqueia acesso se trial expirou */}
-            <TrialExpiredGuard 
+            {/* 🔒 PLAN ACCESS GUARD - Bloqueia acesso se trial/plano expirou */}
+            <PlanAccessGuard 
               currentView={currentView}
               onNavigateToPlans={() => setCurrentView("changePlan")}
             >
@@ -519,7 +519,7 @@ function AppContent() {
                   {renderView()}
                 </Suspense>
               </ErrorBoundary>
-            </TrialExpiredGuard>
+            </PlanAccessGuard>
           </main>
         </div>
 

@@ -102,9 +102,11 @@ export interface Subscription {
   // PAGAMENTO
   amount: number;                      // Valor pago
   currency: string;                    // Moeda (BRL)
-  paymentMethod?: string;              // Método de pagamento
+  paymentMethod?: string;              // Método de pagamento (credit_card, pix, boleto)
+  isRecurring?: boolean;               // true = cartão (auto-renova), false = PIX/Boleto (manual)
   stripeCustomerId?: string;           // ID do cliente no Stripe
-  stripeSubscriptionId?: string;       // ID da assinatura no Stripe
+  stripeSubscriptionId?: string;       // ID da assinatura no Stripe (null para PIX/Boleto)
+  stripePaymentIntentId?: string;      // ID do payment intent (PIX/Boleto)
   
   // USO (resetado mensalmente)
   usage: {
