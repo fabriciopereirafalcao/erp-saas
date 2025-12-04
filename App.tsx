@@ -3,7 +3,7 @@ import { Toaster } from "sonner@2.0.3";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
-import { AuthFlow } from "./components/AuthFlow.tsx";
+import { AuthFlow } from "./components/auth/AuthFlow.tsx";
 import { LoadingScreen } from "./components/LoadingScreen.tsx";
 import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext.tsx";
