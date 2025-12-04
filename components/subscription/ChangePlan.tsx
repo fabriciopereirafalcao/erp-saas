@@ -37,26 +37,42 @@ export function ChangePlan() {
   }
 
   const currentPlanId = subscription.planId;
+  const currentBillingCycle = subscription.billingCycle as "monthly" | "semiannual" | "yearly";
   const isTrial = subscription.status === "trial";
   
   const planHierarchy: PlanTier[] = ["basico", "intermediario", "avancado", "ilimitado"];
   const currentIndex = planHierarchy.indexOf(currentPlanId as PlanTier);
+
+  // 🔧 FIX: Considerar mudança de ciclo no mesmo plano
+  const isCurrentPlanAndCycle = (planId: PlanTier, cycle: "monthly" | "semiannual" | "yearly") => {
+    return planId === currentPlanId && cycle === currentBillingCycle && !isTrial;
+  };
 
   const isDowngrade = (targetPlanId: PlanTier) => {
     const targetIndex = planHierarchy.indexOf(targetPlanId);
     return targetIndex < currentIndex && !isTrial;
   };
 
-  const isUpgrade = (targetPlanId: PlanTier) => {
+  const isUpgrade = (targetPlanId: PlanTier, targetCycle: "monthly" | "semiannual" | "yearly") => {
     const targetIndex = planHierarchy.indexOf(targetPlanId);
-    return targetIndex > currentIndex || isTrial;
+    
+    // Upgrade de plano (ex: Intermediário → Avançado)
+    if (targetIndex > currentIndex) return true;
+    
+    // Upgrade de ciclo no mesmo plano (ex: Ilimitado Mensal → Ilimitado Semestral)
+    if (targetIndex === currentIndex && targetCycle !== currentBillingCycle) return true;
+    
+    // Trial para qualquer plano é upgrade
+    if (isTrial) return true;
+    
+    return false;
   };
 
   const handleSelectPlan = (planId: PlanTier, billingCycle: "monthly" | "semiannual" | "yearly") => {
     setSelectedPlan({ planId, billingCycle });
     
     // Se for upgrade, mostrar preview
-    if (isUpgrade(planId)) {
+    if (isUpgrade(planId, billingCycle)) {
       setShowPreview(true);
     }
   };
@@ -220,9 +236,9 @@ export function ChangePlan() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {plans.map((planId) => {
           const plan = PLANS[planId];
-          const isCurrentPlan = planId === currentPlanId && !isTrial;
+          const isCurrentPlan = isCurrentPlanAndCycle(planId, billingCycle);
           const isSelected = selectedPlan?.planId === planId;
-          const willBeUpgrade = isUpgrade(planId);
+          const willBeUpgrade = isUpgrade(planId, billingCycle);
           const willBeDowngrade = isDowngrade(planId);
           const price = billingCycle === "monthly" ? plan.price.monthly : billingCycle === "semiannual" ? plan.price.semiannual : plan.price.yearly;
 
@@ -355,14 +371,14 @@ export function ChangePlan() {
                 </Button>
               )}
 
-              {/* Badge de tipo de mudança */}
+              {/* Badge de tipo de mudança - só mostrar se NÃO for plano atual+ciclo */}
               {!isCurrentPlan && (
                 <div className="mt-3 text-center">
                   {willBeUpgrade ? (
                     <Badge className="bg-green-600">Efeito Imediato</Badge>
-                  ) : (
+                  ) : willBeDowngrade ? (
                     <Badge className="bg-orange-600">Agendado</Badge>
-                  )}
+                  ) : null}
                 </div>
               )}
             </Card>
