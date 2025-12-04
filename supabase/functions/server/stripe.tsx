@@ -111,9 +111,82 @@ app.post("/create-checkout-session", async (c) => {
     console.log("  - Has stripeSubscriptionId:", !!currentSubscription?.stripeSubscriptionId);
     console.log("  - Status:", currentSubscription?.status);
     
-    // 🔧 FIX: SEMPRE criar checkout session (mesmo para upgrades)
-    // O Stripe vai calcular automaticamente o crédito proporcional
-    console.log("💳 [STRIPE] Criando checkout session para upgrade/nova assinatura");
+    // 🎯 LÓGICA CORRETA DE UPGRADE:
+    // - Se JÁ tem assinatura ativa do Stripe → Usar subscriptions.update() com proration
+    // - Se NÃO tem (trial ou primeira vez) → Criar checkout session
+    
+    if (currentSubscription?.stripeSubscriptionId && currentSubscription.status === "active") {
+      console.log(`🔄 [STRIPE] Upgrade via API com proration automática`);
+      
+      try {
+        // Obter assinatura atual do Stripe
+        const stripeSubscription = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId);
+        
+        // Obter ID do novo preço
+        const newPriceId = PRICE_CONFIG[planId]?.[billingCycle];
+        
+        if (!newPriceId) {
+          return c.json({ 
+            success: false, 
+            error: "Configuração de preço não encontrada." 
+          }, 400);
+        }
+        
+        console.log(`💰 [STRIPE] Atualizando de ${stripeSubscription.items.data[0].price.id} para ${newPriceId}`);
+        
+        // ✅ ATUALIZAR assinatura com proration automática
+        const updatedSubscription = await stripe.subscriptions.update(
+          currentSubscription.stripeSubscriptionId,
+          {
+            items: [
+              {
+                id: stripeSubscription.items.data[0].id,
+                price: newPriceId,
+              },
+            ],
+            proration_behavior: "create_prorations", // Cria prorations automáticas
+            billing_cycle_anchor: "now", // Reinicia ciclo de cobrança
+            metadata: {
+              userId: user.id,
+              planId,
+              billingCycle,
+            },
+          }
+        );
+        
+        console.log(`✅ [STRIPE] Assinatura atualizada. Nova period_end: ${new Date(updatedSubscription.current_period_end * 1000).toISOString()}`);
+        
+        // Atualizar no KV store
+        currentSubscription.planId = planId;
+        currentSubscription.billingCycle = billingCycle;
+        currentSubscription.currentPeriodStart = new Date(updatedSubscription.current_period_start * 1000).toISOString();
+        currentSubscription.currentPeriodEnd = new Date(updatedSubscription.current_period_end * 1000).toISOString();
+        currentSubscription.updatedAt = new Date().toISOString();
+        
+        await kv.set(subscriptionKey, currentSubscription);
+        
+        console.log(`💾 [KV] Subscription atualizada no KV store`);
+        
+        // 🎯 O Stripe criou uma invoice proporcional automaticamente
+        // Retornar sucesso sem redirect (foi processado via API)
+        return c.json({
+          success: true,
+          upgraded: true,
+          requiresPayment: true, // Cliente receberá invoice por email
+          message: "Plano atualizado! O valor proporcional será cobrado automaticamente.",
+        });
+        
+      } catch (error) {
+        console.error("❌ Erro ao atualizar assinatura:", error);
+        return c.json({ 
+          success: false, 
+          error: `Erro ao processar upgrade: ${error.message}` 
+        }, 500);
+      }
+    }
+    
+    // Se não tem assinatura ativa, criar checkout session normal
+    console.log("💳 [STRIPE] Criando checkout session (primeira assinatura ou trial)");
 
     // Buscar ou criar cliente Stripe
     let stripeCustomerId: string;

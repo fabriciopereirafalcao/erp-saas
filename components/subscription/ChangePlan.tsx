@@ -106,12 +106,21 @@ export function ChangePlan() {
 
         const data = await response.json();
 
-        // ✅ SEMPRE redirecionar para Stripe Checkout
-        if (data.success && data.checkoutUrl) {
+        // Verificar resposta do backend
+        if (data.success && data.upgraded) {
+          // ✅ Upgrade processado via API (não precisa redirecionar)
+          toast.success(data.message || "Plano atualizado! Cobrança proporcional será processada.");
+          await refreshSubscription();
+          setSelectedPlan(null);
+          setShowPreview(false);
+          setIsProcessing(false);
+        } else if (data.success && data.checkoutUrl) {
+          // Redirecionar para Stripe Checkout (primeira assinatura ou trial)
           toast.success("Redirecionando para checkout...");
           window.location.href = data.checkoutUrl;
         } else {
           toast.error(data.error || "Erro ao criar sessão de checkout");
+          setIsProcessing(false);
         }
       } else {
         // Downgrade - usar lógica antiga
