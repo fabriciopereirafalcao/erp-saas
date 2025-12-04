@@ -179,7 +179,7 @@ app.post("/make-server-686b5e88/auth/signup", async (c) => {
 
     // 2. Criar empresa (company)
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14); // Trial de 14 dias
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7); // Trial de 7 dias
 
     const { data: companyData, error: companyError } = await supabase
       .from('companies')
