@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import { Badge } from "../ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "../ui/alert";
 import { Info, Calendar, CreditCard, ArrowRight } from "lucide-react";
 import { PLANS } from "../../config/plans";
 import { PlanTier } from "../../types/subscription";
@@ -230,20 +231,19 @@ export function UpgradePreview({
             </div>
           </div>
 
-          {/* Alert informativo */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex gap-2">
-              <Info className="size-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800">
-                <p className="font-semibold mb-1">Importante:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>O pagamento será processado imediatamente</li>
-                  <li>Seu plano será atualizado após a confirmação do pagamento</li>
-                  <li>A próxima cobrança será em {formatDate(proration.newPeriodEnd)} no valor de {formatCurrency(proration.newPrice)}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          {/* Aviso Importante */}
+          <Alert className="bg-amber-50 border-amber-200">
+            <Info className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-900">Importante:</AlertTitle>
+            <AlertDescription className="text-amber-800 space-y-1">
+              <p>• O pagamento será processado <strong>imediatamente</strong> no seu cartão cadastrado</p>
+              <p>• Seu plano será atualizado após a confirmação do pagamento</p>
+              <p>• A próxima cobrança será em{" "}
+                {new Date(proration.newPeriodEnd).toLocaleDateString("pt-BR")} no valor de{" "}
+                R$ {proration.newPrice.toFixed(2)}
+              </p>
+            </AlertDescription>
+          </Alert>
 
           {/* Botões */}
           <div className="flex gap-3 pt-4">
