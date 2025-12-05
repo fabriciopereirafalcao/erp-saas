@@ -361,7 +361,42 @@ export function Inventory() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 relative">
+      {/* Info Badge - Atualização Automática de Estoque */}
+      <FeatureInfoBadge 
+        title="Atualização Automática de Estoque" 
+        variant="green"
+        position="top-right"
+      >
+        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
+          <p>O estoque é atualizado <strong>automaticamente</strong> quando:</p>
+          
+          <div className="space-y-2">
+            <p className="flex items-start gap-2">
+              <TrendingDown className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <span>
+                Um <strong>Pedido de Venda</strong> é marcado como "Entregue" → <strong>Diminui</strong> a quantidade
+              </span>
+            </p>
+            <p className="flex items-start gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+              <span>
+                Um <strong>Pedido de Compra</strong> é marcado como "Recebido" → <strong>Aumenta</strong> a quantidade
+              </span>
+            </p>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+            <p className="font-semibold mb-2">💡 Status do produto:</p>
+            <ul className="space-y-1 ml-4 list-disc">
+              <li><strong>Em Estoque</strong>: Quantidade acima do nível de reposição</li>
+              <li><strong>Baixo Estoque</strong>: Quantidade no nível de reposição ou abaixo</li>
+              <li><strong>Fora de Estoque</strong>: Quantidade zerada</li>
+            </ul>
+          </div>
+        </div>
+      </FeatureInfoBadge>
+
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -1018,41 +1053,7 @@ export function Inventory() {
         </Table>
       </Card>
 
-      {/* Info Box */}
-      {/* Info Badge - Atualização Automática de Estoque */}
-      <FeatureInfoBadge 
-        title="Atualização Automática de Estoque" 
-        variant="green"
-        position="top-right"
-      >
-        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
-          <p>O estoque é atualizado <strong>automaticamente</strong> quando:</p>
-          
-          <div className="space-y-2">
-            <p className="flex items-start gap-2">
-              <TrendingDown className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-              <span>
-                Um <strong>Pedido de Venda</strong> é marcado como "Entregue" → <strong>Diminui</strong> a quantidade
-              </span>
-            </p>
-            <p className="flex items-start gap-2">
-              <TrendingUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <span>
-                Um <strong>Pedido de Compra</strong> é marcado como "Recebido" → <strong>Aumenta</strong> a quantidade
-              </span>
-            </p>
-          </div>
 
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-            <p className="font-semibold mb-2">💡 Status do produto:</p>
-            <ul className="space-y-1 ml-4 list-disc">
-              <li><strong>Em Estoque</strong>: Quantidade acima do nível de reposição</li>
-              <li><strong>Baixo Estoque</strong>: Quantidade no nível de reposição ou abaixo</li>
-              <li><strong>Fora de Estoque</strong>: Quantidade zerada</li>
-            </ul>
-          </div>
-        </div>
-      </FeatureInfoBadge>
 
       {/* Dialog de Edição */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
