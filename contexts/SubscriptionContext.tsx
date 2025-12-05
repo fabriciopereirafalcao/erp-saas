@@ -87,6 +87,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const loadSubscription = useCallback(async () => {
     try {
+      console.log('[SUBSCRIPTION] 🔄 loadSubscription() CHAMADO');
       setLoading(true);
       const token = session?.access_token;
       if (!token) return;

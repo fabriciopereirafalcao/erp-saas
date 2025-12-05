@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
@@ -11,11 +11,27 @@ interface CheckoutSuccessProps {
 export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
   const { refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ✅ REF para garantir execução ÚNICA (mesmo com re-renders)
+  const hasRefreshed = useRef(false);
+
+  // 🔍 DEBUG: Log de montagem/desmontagem
+  useEffect(() => {
+    console.log('[CHECKOUT] 🔧 Componente CheckoutSuccess MONTADO');
+    
+    return () => {
+      console.log('[CHECKOUT] 🔧 Componente CheckoutSuccess DESMONTADO');
+    };
+  }, []);
 
   useEffect(() => {
-    // ✅ SOLUÇÃO SIMPLES: Aguardar 3s, refresh, mostrar sucesso
-    // O webhook do Stripe pode demorar até 30s, mas não importa
-    // O SubscriptionContext atualiza automaticamente quando o usuário navega
+    // ✅ PROTEÇÃO: Executar apenas UMA VEZ usando ref
+    if (hasRefreshed.current) {
+      console.log('[CHECKOUT] ⚠️ Refresh JÁ foi executado - ignorando');
+      return;
+    }
+    
+    hasRefreshed.current = true;
     
     const timer = setTimeout(async () => {
       console.log('[CHECKOUT] ⏰ Aguardando webhook processar (3s)...');
@@ -24,7 +40,6 @@ export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
       await refreshSubscription();
       
       // Mostrar tela de sucesso (independente do status)
-      // O webhook pode ainda estar processando, mas tudo bem
       setIsLoading(false);
       
       console.log('[CHECKOUT] ✅ Tela de sucesso exibida!');
