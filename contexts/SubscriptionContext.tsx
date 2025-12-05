@@ -88,7 +88,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const loadSubscription = useCallback(async () => {
     try {
       console.log('[SUBSCRIPTION] 🔄 loadSubscription() CHAMADO');
-      setLoading(true);
+      // ✅ NÃO setar loading=true aqui - apenas no mount inicial
+      // setLoading(true); ← REMOVIDO para evitar re-renders
       const token = session?.access_token;
       if (!token) return;
 
@@ -168,14 +169,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [session?.access_token]); // ✅ Depende apenas do token
 
   useEffect(() => {
-    if (session?.access_token) {
+    if (session?.user?.id) {
       loadSubscription();
     } else {
       setSubscription(null);
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token]); // ✅ APENAS access_token - SEM loadSubscription!
+  }, [session?.user?.id]); // ✅ MUDANÇA CRÍTICA: user.id em vez de access_token!
 
   /* =======================================================================
    * INCREMENTAR USO - MEMOIZADA
