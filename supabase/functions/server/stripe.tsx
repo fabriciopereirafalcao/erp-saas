@@ -25,29 +25,71 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   apiVersion: "2024-11-20.acacia",
 });
 
-// Configuração de preços (BRL) - IDs reais do Stripe Dashboard
-const PRICE_CONFIG = {
+// ============================================================
+// CONFIGURAÇÃO DE PRICE IDs (TEST vs LIVE)
+// ============================================================
+
+// Detectar ambiente baseado na URL do Supabase
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const isProduction = SUPABASE_URL.includes("yxaqwtvuvbtyvpmccxlw"); // Production project ID
+const isStaging = SUPABASE_URL.includes("bhykkiladzxjwnzkpdwu");    // Staging project ID
+
+console.log(`[STRIPE] 🌍 Ambiente detectado: ${isProduction ? 'PRODUCTION' : isStaging ? 'STAGING' : 'UNKNOWN'}`);
+console.log(`[STRIPE] 🔗 Supabase URL: ${SUPABASE_URL}`);
+
+// Configuração de preços - TEST MODE (Stripe Dashboard em Test Mode)
+const PRICE_CONFIG_TEST = {
   basico: {
-    monthly: "price_1SaqXnRrWDoIBh95EWJnxW0n",
-    semiannual: "price_1SaqXnRrWDoIBh95vSktBCW3",
-    yearly: "price_1SaqXnRrWDoIBh958kZdKacI",
+    monthly: "price_1Sa6SqRyrexM1yHBRXPxDyo3",      // Básico Mensal (TEST)
+    semiannual: "price_1Sa6SqRyrexM1yHB5Omvn8F9",   // Básico Semestral (TEST)
+    yearly: "price_1Sa6SqRyrexM1yHBA06baOgZ",       // Básico Anual (TEST)
   },
   intermediario: {
-    monthly: "price_1SaqXsRrWDoIBh95izmKfRFT",
-    semiannual: "price_1SaqXsRrWDoIBh95EmhReIdL",
-    yearly: "price_1SaqXsRrWDoIBh95tCFen5Wk",
+    monthly: "price_1Sa6U0RyrexM1yHBaTbjtcwA",      // Intermediário Mensal (TEST)
+    semiannual: "price_1Sa6WGRyrexM1yHBP5vVWStp",   // Intermediário Semestral (TEST)
+    yearly: "price_1Sa6WGRyrexM1yHBzp6j660N",       // Intermediário Anual (TEST)
   },
   avancado: {
-    monthly: "price_1SaqXwRrWDoIBh95F5XYJjae",
-    semiannual: "price_1SaqXvRrWDoIBh9551qy12q2",
-    yearly: "price_1SaqXvRrWDoIBh95dswnRkDa",
+    monthly: "price_1Sa6WnRyrexM1yHBEzgDLFPK",      // Avançado Mensal (TEST)
+    semiannual: "price_1Sa6YXRyrexM1yHBNqQltgjN",   // Avançado Semestral (TEST)
+    yearly: "price_1Sa6YXRyrexM1yHBJemzgpwt",       // Avançado Anual (TEST)
   },
   ilimitado: {
-    monthly: "price_1SaqXzRrWDoIBh95vduYD9BN",
-    semiannual: "price_1SaqXzRrWDoIBh95p7x5JGBS",
-    yearly: "price_1SaqXzRrWDoIBh950p5oWoBK",
+    monthly: "price_1Sa6ZCRyrexM1yHBKAj1KJOi",      // Ilimitado Mensal (TEST)
+    semiannual: "price_1Sa6brRyrexM1yHBG5lIFLKT",   // Ilimitado Semestral (TEST)
+    yearly: "price_1Sa6brRyrexM1yHBynXXCukW",       // Ilimitado Anual (TEST)
   },
 };
+
+// Configuração de preços - LIVE MODE (Stripe Dashboard em Live Mode)
+const PRICE_CONFIG_LIVE = {
+  basico: {
+    monthly: "price_1SaqXnRrWDoIBh95EWJnxW0n",      // Básico Mensal (LIVE)
+    semiannual: "price_1SaqXnRrWDoIBh95vSktBCW3",   // Básico Semestral (LIVE)
+    yearly: "price_1SaqXnRrWDoIBh958kZdKacI",       // Básico Anual (LIVE)
+  },
+  intermediario: {
+    monthly: "price_1SaqXsRrWDoIBh95izmKfRFT",      // Intermediário Mensal (LIVE)
+    semiannual: "price_1SaqXsRrWDoIBh95EmhReIdL",   // Intermediário Semestral (LIVE)
+    yearly: "price_1SaqXsRrWDoIBh95tCFen5Wk",       // Intermediário Anual (LIVE)
+  },
+  avancado: {
+    monthly: "price_1SaqXwRrWDoIBh95F5XYJjae",      // Avançado Mensal (LIVE)
+    semiannual: "price_1SaqXvRrWDoIBh9551qy12q2",   // Avançado Semestral (LIVE)
+    yearly: "price_1SaqXvRrWDoIBh95dswnRkDa",       // Avançado Anual (LIVE)
+  },
+  ilimitado: {
+    monthly: "price_1SaqXzRrWDoIBh95vduYD9BN",      // Ilimitado Mensal (LIVE)
+    semiannual: "price_1SaqXzRrWDoIBh95p7x5JGBS",   // Ilimitado Semestral (LIVE)
+    yearly: "price_1SaqXzRrWDoIBh950p5oWoBK",       // Ilimitado Anual (LIVE)
+  },
+};
+
+// Selecionar configuração baseada no ambiente
+const PRICE_CONFIG = isProduction ? PRICE_CONFIG_LIVE : PRICE_CONFIG_TEST;
+
+console.log(`[STRIPE] 💳 Usando Price IDs: ${isProduction ? 'LIVE MODE' : 'TEST MODE'}`);
+console.log(`[STRIPE] 📋 Exemplo Price ID (Básico Mensal): ${PRICE_CONFIG.basico.monthly}`);
 
 /* =========================================================================
  * ROTA: GET /health (Health Check / Test)
