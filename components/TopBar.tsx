@@ -1,5 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSubscription } from '../contexts/SubscriptionContext'; // ✅ Importar
 import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown, CreditCard, ArrowUpCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -22,15 +23,24 @@ interface TopBarProps {
 export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopBarProps) {
   const { profile, company, signOut } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { subscription } = useSubscription(); // ✅ Usar
 
-  // Calcular dias restantes do trial
+  // ✅ CORREÇÃO: Verificar subscription em vez de company.status
+  // Mostrar banner APENAS se:
+  // 1. Não tiver subscription ativa PAGA (subscription.status !== 'active' ou planId === 'trial')
+  // 2. E ainda estiver dentro do período de trial (company.trial_ends_at)
+  
   const trialEndsAt = company?.trial_ends_at ? new Date(company.trial_ends_at) : null;
   const now = new Date();
   const daysRemaining = trialEndsAt 
     ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const showTrialBanner = company?.status === 'trial' && daysRemaining > 0;
+  // ✅ Banner só aparece se:
+  // - NÃO tiver subscription paga (planId trial ou sem subscription)
+  // - E ainda tiver dias restantes de trial
+  const hasPaidPlan = subscription && subscription.planId !== 'trial' && subscription.status === 'active';
+  const showTrialBanner = !hasPaidPlan && company?.status === 'trial' && daysRemaining > 0;
 
   // Pegar primeiro nome do usuário
   const firstName = profile?.name?.split(' ')[0] || 'Usuário';
