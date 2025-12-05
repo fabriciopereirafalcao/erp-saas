@@ -2,7 +2,7 @@
  * SUBSCRIPTION CONTEXT - GERENCIAMENTO GLOBAL DE ASSINATURA
  * ========================================================================= */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 import { Subscription, PlanTier } from "../types/subscription";
 import { useAuth } from "./AuthContext";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
@@ -82,19 +82,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   });
 
   /* =======================================================================
-   * CARREGAR ASSINATURA
+   * CARREGAR ASSINATURA - MEMOIZADA
    * ======================================================================= */
 
-  useEffect(() => {
-    if (session?.access_token) {
-      loadSubscription();
-    } else {
-      setSubscription(null);
-      setLoading(false);
-    }
-  }, [session]);
-
-  const loadSubscription = async () => {
+  const loadSubscription = useCallback(async () => {
     try {
       setLoading(true);
       const token = session?.access_token;
@@ -173,13 +164,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.access_token]); // ✅ Depende apenas do token
+
+  useEffect(() => {
+    if (session?.access_token) {
+      loadSubscription();
+    } else {
+      setSubscription(null);
+      setLoading(false);
+    }
+  }, [session?.access_token, loadSubscription]); // ✅ Incluir loadSubscription nas dependências
 
   /* =======================================================================
-   * INCREMENTAR USO
+   * INCREMENTAR USO - MEMOIZADA
    * ======================================================================= */
 
-  const incrementUsage = async (
+  const incrementUsage = useCallback(async (
     type: 'salesOrders' | 'purchaseOrders' | 'invoices' | 'transactions',
     amount: number = 1
   ) => {
@@ -208,13 +208,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Erro ao incrementar uso:", error);
     }
-  };
+  }, [session?.access_token]); // ✅ Depende apenas do token
 
   /* =======================================================================
-   * FUNÇÕES DE VALIDAÇÃO (WRAPPERS)
+   * FUNÇÕES DE VALIDAÇÃO (WRAPPERS) - MEMOIZADAS
    * ======================================================================= */
 
-  const validationFunctions = {
+  const validationFunctions = useMemo(() => ({
     canCreateSalesOrder: () => subscription ? canCreateSalesOrder(subscription) : { allowed: false, reason: "Assinatura não encontrada" },
     canCreatePurchaseOrder: () => subscription ? canCreatePurchaseOrder(subscription) : { allowed: false, reason: "Assinatura não encontrada" },
     canCreateInvoice: () => subscription ? canCreateInvoice(subscription) : { allowed: false, reason: "Assinatura não encontrada" },
@@ -227,42 +227,51 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     hasFeature: (feature: string) => subscription ? hasFeature(subscription, feature) : false,
     getUsageOverview: () => subscription ? getUsageOverview(subscription) : null,
     getUsageWarnings: () => subscription ? getUsageWarnings(subscription) : [],
-  };
+  }), [subscription]);
 
   /* =======================================================================
-   * TRIGGER DE UPGRADE
+   * TRIGGER DE UPGRADE - MEMOIZADOS
    * ======================================================================= */
 
-  const triggerUpgrade = (reason: string, requiredPlan?: PlanTier) => {
+  const triggerUpgradeCallback = useCallback((reason: string, requiredPlan?: PlanTier) => {
     setUpgradeDialogState({
       isOpen: true,
       reason,
       requiredPlan,
     });
-  };
+  }, []);
 
-  const closeUpgradeDialog = () => {
+  const closeUpgradeDialogCallback = useCallback(() => {
     setUpgradeDialogState({
       isOpen: false,
       reason: "",
       requiredPlan: undefined,
     });
-  };
+  }, []);
 
   /* =======================================================================
-   * PROVIDER VALUE
+   * PROVIDER VALUE - MEMOIZADO PARA EVITAR RE-RENDERS
    * ======================================================================= */
 
-  const value: SubscriptionContextType = {
+  const value: SubscriptionContextType = useMemo(() => ({
     subscription,
     loading,
     ...validationFunctions,
     refreshSubscription: loadSubscription,
     incrementUsage,
-    triggerUpgrade,
+    triggerUpgrade: triggerUpgradeCallback,
     upgradeDialogState,
-    closeUpgradeDialog,
-  };
+    closeUpgradeDialog: closeUpgradeDialogCallback,
+  }), [
+    subscription, 
+    loading, 
+    validationFunctions, 
+    loadSubscription,    // ✅ Adicionado
+    incrementUsage,      // ✅ Adicionado
+    upgradeDialogState, 
+    triggerUpgradeCallback, 
+    closeUpgradeDialogCallback
+  ]);
 
   return (
     <SubscriptionContext.Provider value={value}>
