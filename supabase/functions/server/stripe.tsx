@@ -28,24 +28,24 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
 // Configuração de preços (BRL) - IDs reais do Stripe Dashboard
 const PRICE_CONFIG = {
   basico: {
-    monthly: "price_1Sa6SqRyrexM1yHBRXPxDyo3",
-    semiannual: "price_1Sa6SqRyrexM1yHB5Omvn8F9",
-    yearly: "price_1Sa6SqRyrexM1yHBA06baOgZ",
+    monthly: "price_1SaqXnRrWDoIBh95EWJnxW0n",
+    semiannual: "price_1SaqXnRrWDoIBh95vSktBCW3",
+    yearly: "price_1SaqXnRrWDoIBh958kZdKacI",
   },
   intermediario: {
-    monthly: "price_1Sa6U0RyrexM1yHBaTbjtcwA",
-    semiannual: "price_1Sa6WGRyrexM1yHBP5vVWStp",
-    yearly: "price_1Sa6WGRyrexM1yHBzp6j660N",
+    monthly: "price_1SaqXsRrWDoIBh95izmKfRFT",
+    semiannual: "price_1SaqXsRrWDoIBh95EmhReIdL",
+    yearly: "price_1SaqXsRrWDoIBh95tCFen5Wk",
   },
   avancado: {
-    monthly: "price_1Sa6WnRyrexM1yHBEzgDLFPK",
-    semiannual: "price_1Sa6YXRyrexM1yHBNqQltgjN",
-    yearly: "price_1Sa6YXRyrexM1yHBJemzgpwt",
+    monthly: "price_1SaqXwRrWDoIBh95F5XYJjae",
+    semiannual: "price_1SaqXvRrWDoIBh9551qy12q2",
+    yearly: "price_1SaqXvRrWDoIBh95dswnRkDa",
   },
   ilimitado: {
-    monthly: "price_1Sa6ZCRyrexM1yHBKAj1KJOi",
-    semiannual: "price_1Sa6brRyrexM1yHBG5lIFLKT",
-    yearly: "price_1Sa6brRyrexM1yHBynXXCukW",
+    monthly: "price_1SaqXzRrWDoIBh95vduYD9BN",
+    semiannual: "price_1SaqXzRrWDoIBh95p7x5JGBS",
+    yearly: "price_1SaqXzRrWDoIBh950p5oWoBK",
   },
 };
 
@@ -853,7 +853,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     
     // Calcular datas do período
     const now = new Date();
-    const periodEnd = new Date(stripeSubscription.current_period_end * 1000);
+    
+    // ✅ VALIDAÇÃO: Só criar Date se o timestamp for válido
+    const periodEnd = stripeSubscription.current_period_end 
+      ? new Date(stripeSubscription.current_period_end * 1000)
+      : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Fallback: +30 dias
     
     console.log(`📅 [WEBHOOK] Período: ${now.toISOString()} até ${periodEnd.toISOString()}`);
     
@@ -922,8 +926,16 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     
     // Atualizar status e datas
     currentSub.status = subscription.status;
-    currentSub.currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
-    currentSub.currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    
+    // ✅ VALIDAÇÃO: Só atualizar datas se forem válidas
+    if (subscription.current_period_start) {
+      currentSub.currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+    }
+    
+    if (subscription.current_period_end) {
+      currentSub.currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    }
+    
     currentSub.updatedAt = new Date().toISOString();
     
     await kv.set(subscriptionKey, currentSub);
