@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '../utils/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { FEATURES } from '../utils/environment';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface UserProfile {
   id: string;
@@ -72,19 +73,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // Carregar perfil do usuário
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, silent = false) => {
+    let hasCache = false;
+    
     try {
-      // ⚡ TIMEOUT: Se a query demorar mais de 5 segundos, abortar
+      // 📦 PRIMEIRO: Tentar carregar do cache (instantâneo)
+      const cachedProfile = localStorage.getItem('erp_system_auth_profile');
+      if (cachedProfile) {
+        try {
+          const parsed = JSON.parse(cachedProfile);
+          if (parsed.id === userId) {
+            console.log('[AuthContext] ⚡ Perfil carregado do cache (instantâneo)');
+            setProfile(parsed);
+            hasCache = true;
+            // Continuar para validar em background
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Cache inválido, ignorando...');
+        }
+      }
+      
+      // ⚡ DEPOIS: Validar com Supabase em background (timeout 5s)
+      const queryStartTime = performance.now();
+      
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout ao carregar perfil')), 5000)
+        setTimeout(() => {
+          const elapsed = Math.round(performance.now() - queryStartTime);
+          reject(new Error(`Timeout ao carregar perfil (${elapsed}ms)`));
+        }, 5000)
       );
       
-      // Query do perfil do usuário
-      const profilePromise = supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      // 🚀 SOLUÇÃO COMPLETA: Bypasear TUDO do Supabase Auth (lento)
+      // - supabase.from() → fetch() direto
+      // - supabase.auth.getSession() → localStorage direto
+      
+      // 🔑 Pegar token direto do localStorage (Supabase guarda lá)
+      // Supabase armazena em: sb-{projectId}-auth-token
+      let accessToken = publicAnonKey;
+      try {
+        const storageKey = `sb-${projectId}-auth-token`;
+        const authData = localStorage.getItem(storageKey);
+        if (authData) {
+          const parsed = JSON.parse(authData);
+          accessToken = parsed.access_token || publicAnonKey;
+          if (!silent) {
+            console.log(`[AuthContext] 🔑 Token obtido do localStorage`);
+          }
+        }
+      } catch (e) {
+        console.warn('[AuthContext] ⚠️ Erro ao buscar token do localStorage, usando anon key');
+      }
+      
+      const profilePromise = fetch(
+        `https://${projectId}.supabase.co/rest/v1/users?id=eq.${userId}&select=*`,
+        {
+          headers: {
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          }
+        }
+      )
+        .then(async (response) => {
+          const elapsed = Math.round(performance.now() - queryStartTime);
+          
+          if (!response.ok) {
+            if (!silent) {
+              console.log(`[AuthContext] ❌ Erro HTTP ${response.status} em ${elapsed}ms`);
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          if (!silent) {
+            console.log(`[AuthContext] ✅ Perfil validado em ${elapsed}ms`);
+          }
+          
+          // Retornar no mesmo formato do Supabase client
+          return {
+            data: data[0] || null,
+            error: data.length === 0 ? { message: 'Perfil não encontrado' } : null
+          };
+        });
       
       const { data: profileData, error: profileError } = await Promise.race([
         profilePromise,
@@ -92,48 +164,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]) as any;
 
       if (profileError) {
-        console.error('[AuthContext] Erro ao buscar perfil:', profileError);
+        // ✅ Se temos cache, erro não é crítico (validação em background)
+        if (hasCache) {
+          if (!silent) {
+            console.warn('[AuthContext] ⚠️ Validação do perfil falhou (usando cache):', profileError.message);
+          }
+          return; // Usar cache
+        }
+        // ❌ Sem cache, é crítico
+        console.error('[AuthContext] ❌ ERRO CRÍTICO - Sem cache disponível:', profileError);
         throw profileError;
       }
 
       if (!profileData) {
-        console.error('[AuthContext] Perfil não encontrado');
+        if (hasCache) {
+          if (!silent) {
+            console.warn('[AuthContext] ⚠️ Perfil não encontrado no banco (usando cache)');
+          }
+          return;
+        }
+        console.error('[AuthContext] ❌ ERRO CRÍTICO - Perfil não encontrado');
         throw new Error('Perfil não encontrado');
       }
 
-      setProfile(profileData);
+      // 🔄 Verificar se dados mudaram
+      if (hasCache) {
+        const cached = JSON.parse(cachedProfile!);
+        const changed = JSON.stringify(cached) !== JSON.stringify(profileData);
+        if (changed) {
+          console.log('[AuthContext] 🔄 Perfil atualizado (dados mudaram no servidor)');
+          setProfile(profileData);
+        } else if (!silent) {
+          console.log('[AuthContext] ✅ Perfil validado (sem mudanças)');
+        }
+      } else {
+        console.log('[AuthContext] ✅ Perfil carregado do Supabase');
+        setProfile(profileData);
+      }
+      
+      // 💾 Atualizar cache
+      localStorage.setItem('erp_system_auth_profile', JSON.stringify(profileData));
       
       // Buscar company separadamente (não travar se falhar)
       if (profileData.company_id) {
         try {
-          const companyPromise = supabase
-            .from('companies')
-            .select('*')
-            .eq('id', profileData.company_id)
-            .single();
-          
-          const { data: companyData, error: companyError } = await Promise.race([
-            companyPromise,
+          // 🚀 Usar fetch() direto também para company
+          const companyResponse = await Promise.race([
+            fetch(
+              `https://${projectId}.supabase.co/rest/v1/companies?id=eq.${profileData.company_id}&select=*`,
+              {
+                headers: {
+                  'apikey': publicAnonKey,
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            ).then(async (res) => {
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              return { data: data[0] || null, error: null };
+            }),
             new Promise((_, reject) => 
               setTimeout(() => reject(new Error('Timeout ao carregar company')), 5000)
             )
           ]) as any;
           
-          if (companyError) {
-            console.warn('[AuthContext] Erro ao buscar company:', companyError);
-          } else if (companyData) {
-            setCompany(companyData);
+          if (companyResponse.error) {
+            console.warn('[AuthContext] Erro ao buscar company:', companyResponse.error);
+          } else if (companyResponse.data) {
+            setCompany(companyResponse.data);
           }
         } catch (error) {
-          console.warn('[AuthContext] Erro ao carregar company:', error);
+          console.warn('[AuthContext] ⚠️ Company não carregada (não crítico):', error);
           // Continuar mesmo sem company
         }
       }
       
     } catch (error) {
-      console.error('[AuthContext] Erro crítico ao carregar perfil:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // ✅ Se temos cache, erro não é crítico (validação em background falhou)
+      if (hasCache) {
+        if (!silent) {
+          console.warn('[AuthContext] ⚠️ Validação em background falhou (usando cache):', errorMessage);
+        }
+        return; // Continuar usando cache
+      }
+      
+      // ❌ Sem cache, é crítico
+      console.error('[AuthContext] ❌ ERRO CRÍTICO ao carregar perfil:', errorMessage);
+      console.error('[AuthContext] Stack trace:', error);
       // Não propagar o erro - permitir que o app continue
-      // O usuário ainda pode usar o app mesmo sem perfil completo
     }
   };
 
@@ -152,6 +273,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ✅ Autenticação real com Supabase
     const initializeAuth = async () => {
       try {
+        // 📂 Tentar carregar do localStorage primeiro (otimização)
+        const cachedProfile = localStorage.getItem('erp_system_auth_profile');
+        if (cachedProfile) {
+          try {
+            const parsedProfile = JSON.parse(cachedProfile);
+            setProfile(parsedProfile);
+            console.log('[AuthContext] ✅ Perfil carregado do cache:', parsedProfile.email);
+          } catch (e) {
+            console.warn('[AuthContext] Erro ao parsear perfil do cache');
+          }
+        }
+        
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -169,6 +302,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (session?.user) {
           await loadUserProfile(session.user.id);
+          
+          // 💾 Salvar token
+          if (session.access_token) {
+            localStorage.setItem('erp_system_auth_token', session.access_token);
+          }
         }
       } catch (error) {
         console.error('[AuthContext] Erro crítico ao inicializar autenticação:', error);
@@ -193,9 +331,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (session?.user) {
             await loadUserProfile(session.user.id);
+            
+            // 💾 Salvar token
+            if (session.access_token) {
+              localStorage.setItem('erp_system_auth_token', session.access_token);
+            }
           } else {
             setProfile(null);
             setCompany(null);
+            
+            // 🗑️ Limpar cache ao fazer logout
+            localStorage.removeItem('erp_system_auth_token');
+            localStorage.removeItem('erp_system_auth_profile');
           }
         } catch (error) {
           console.error('[AuthContext] Erro ao processar mudança de autenticação:', error);
@@ -208,32 +355,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Verificação periódica de sessão (a cada 5 minutos)
+  // 🔄 Verificação e revalidação periódica (a cada 5 minutos)
   useEffect(() => {
     // Não executar em modo BYPASS_AUTH
     if (FEATURES.BYPASS_AUTH) {
       return;
     }
 
-    const checkSessionValidity = async () => {
+    const checkAndRevalidate = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         // Se não houver sessão e o usuário estava logado, fazer logout
         if (!session && user) {
-          console.warn('🚨 Sessão inválida detectada - fazendo logout');
+          console.warn('[AuthContext] 🚨 Sessão inválida detectada - fazendo logout');
           await signOut();
+          return;
+        }
+        
+        // Se temos sessão, revalidar perfil em background
+        if (session?.user && profile) {
+          console.log('[AuthContext] 🔄 Revalidação periódica do perfil...');
+          await loadUserProfile(session.user.id, true); // silent=true
         }
       } catch (error) {
-        console.error('[AuthContext] Erro ao verificar validade da sessão:', error);
+        console.error('[AuthContext] Erro ao verificar/revalidar sessão:', error);
       }
     };
 
-    // Verificar a cada 5 minutos
-    const interval = setInterval(checkSessionValidity, 5 * 60 * 1000);
+    // Verificar a cada 5 minutos (300.000ms)
+    const interval = setInterval(checkAndRevalidate, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, profile]);
 
   // Login
   const signIn = async (email: string, password: string) => {
@@ -244,6 +398,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
+
+      // 💾 Salvar token no localStorage
+      if (data?.session?.access_token) {
+        localStorage.setItem('erp_system_auth_token', data.session.access_token);
+      }
 
       return { error: undefined };
     } catch (error) {
@@ -310,6 +469,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setCompany(null);
     setSession(null);
+    
+    // 🗑️ Limpar localStorage
+    localStorage.removeItem('erp_system_auth_token');
+    localStorage.removeItem('erp_system_auth_profile');
   };
 
   // Recuperar senha

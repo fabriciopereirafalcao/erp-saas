@@ -1,0 +1,5 @@
+# Configuração da Edge Function make-server-686b5e88
+# Desabilita verificação JWT para permitir webhooks públicos
+
+[function]
+verify_jwt = false

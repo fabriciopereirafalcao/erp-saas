@@ -27,6 +27,7 @@ import { authGet, authPatch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
+import { useEntityPersistence, loadEntity } from '../hooks/useEntityPersistence';
 
 // ==================== INTERFACES ====================
 
@@ -665,9 +666,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const [isLoadingCompanySettings, setIsLoadingCompanySettings] = useState(false);
   const [companySettingsLoaded, setCompanySettingsLoaded] = useState(false);
   
-  // Carrega dados do localStorage ou usa valores iniciais
+  // Estados inicializados vazios - serão carregados do localStorage/Supabase após login
   const [customers, setCustomers] = useState<Customer[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.CUSTOMERS, initialCustomers);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Customer[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -694,7 +696,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.SUPPLIERS, initialSuppliers);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Supplier[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -720,7 +723,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     return loaded;
   });
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.SALES_ORDERS, initialSalesOrders);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: SalesOrder[] = [];
     
     // MIGRAÇÃO: Converter status "Recebido" para "Entregue" em pedidos de venda
     return loaded.map(order => {
@@ -731,14 +735,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return order;
     });
   });
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => 
-    loadFromStorage('purchaseOrders', [])
-  );
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => 
-    loadFromStorage(STORAGE_KEYS.INVENTORY, initialInventory)
-  );
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
-    const movements = loadFromStorage(STORAGE_KEYS.STOCK_MOVEMENTS, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const movements: StockMovement[] = [];
     
     // Deduplicar e regenerar IDs se necessário
     const seen = new Set<string>();
@@ -765,14 +767,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     return deduplicated;
   });
-  const [priceTables, setPriceTables] = useState<PriceTable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.PRICE_TABLES, initialPriceTables)
-  );
-  const [productCategories, setProductCategories] = useState<string[]>(() => 
-    loadFromStorage(STORAGE_KEYS.PRODUCT_CATEGORIES, [])
-  );
+  const [priceTables, setPriceTables] = useState<PriceTable[]>([]);
+  
+  const [productCategories, setProductCategories] = useState<string[]>([]);
   const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
-    const loaded = loadFromStorage<Salesperson[]>('salespeople', []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Salesperson[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -799,7 +799,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
-    const loaded = loadFromStorage<Buyer[]>('buyers', []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: Buyer[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -827,7 +828,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   
   // Financial states
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(() => {
-    const loaded = loadFromStorage<PaymentMethod[]>(STORAGE_KEYS.PAYMENT_METHODS, initialPaymentMethods);
+    // Inicialização com dados default - será sobrescrito se houver cache/Supabase
+    const loaded = initialPaymentMethods;
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -854,7 +856,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [accountCategories, setAccountCategories] = useState<AccountCategory[]>(() => {
-    const loaded = loadFromStorage<AccountCategory[]>(STORAGE_KEYS.ACCOUNT_CATEGORIES, initialAccountCategories);
+    // Inicialização com dados default - será sobrescrito se houver cache/Supabase
+    const loaded = initialAccountCategories;
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -889,7 +892,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   // State com limpeza automática de duplicados
   const [internalFinancialTransactions, setInternalFinancialTransactions] = useState<FinancialTransaction[]>(() => {
-    const loaded = loadFromStorage<FinancialTransaction[]>(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []);
+    // Inicialização vazia - dados serão carregados via useEffect após login
+    const loaded: FinancialTransaction[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -961,27 +965,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Alias para usar no código
   const financialTransactions = internalFinancialTransactions;
-  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, initialAccountsReceivable)
-  );
-  const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>(() => 
-    loadFromStorage(STORAGE_KEYS.ACCOUNTS_PAYABLE, initialAccountsPayable)
-  );
-  const [bankMovements, setBankMovements] = useState<BankMovement[]>(() => 
-    loadFromStorage(STORAGE_KEYS.BANK_MOVEMENTS, [])
-  );
-  const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>(() => 
-    loadFromStorage(STORAGE_KEYS.CASH_FLOW_ENTRIES, [])
-  );
+  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>([]);
+  const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>([]);
+  const [bankMovements, setBankMovements] = useState<BankMovement[]>([]);
+  const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>([]);
   
   // Audit states
-  const [auditIssues, setAuditIssues] = useState<AuditIssue[]>(() => 
-    loadFromStorage(STORAGE_KEYS.AUDIT_ISSUES, [])
-  );
-  const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | null>(() => {
-    const stored = loadFromStorage<string | null>(STORAGE_KEYS.LAST_ANALYSIS_DATE, null);
-    return stored ? new Date(stored) : null;
-  });
+  const [auditIssues, setAuditIssues] = useState<AuditIssue[]>([]);
+  const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | null>(null);
   
   const initialCompanySettings: CompanySettings = {
     cnpj: "",
@@ -1026,7 +1017,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const [companySettings, setCompanySettings] = useState<CompanySettings>(() => {
-    const loaded = loadFromStorage(STORAGE_KEYS.COMPANY_SETTINGS, initialCompanySettings);
+    // Inicialização com dados default - será carregado do backend
+    const loaded = initialCompanySettings;
     
     let hasChanges = false;
     let result = { ...loaded };
@@ -1123,14 +1115,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     return result;
   });
 
-  const [companyHistory, setCompanyHistory] = useState<CompanyHistoryEntry[]>(() =>
-    loadFromStorage('companyHistory', [])
-  );
+  const [companyHistory, setCompanyHistory] = useState<CompanyHistoryEntry[]>([]);
 
   // Estado de conciliação de saldos
-  const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>(() =>
-    loadFromStorage('reconciliationStatus', {})
-  );
+  const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>({});
 
   // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
   
@@ -1164,12 +1152,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.SUPPLIERS, suppliers, setSuppliers);
     migrateIfNeeded(STORAGE_KEYS.INVENTORY, inventory, setInventory);
     migrateIfNeeded(STORAGE_KEYS.SALES_ORDERS, salesOrders, setSalesOrders);
-    migrateIfNeeded('purchaseOrders', purchaseOrders, setPurchaseOrders);
+    migrateIfNeeded(STORAGE_KEYS.PURCHASE_ORDERS, purchaseOrders, setPurchaseOrders);
     migrateIfNeeded(STORAGE_KEYS.STOCK_MOVEMENTS, stockMovements, setStockMovements);
     migrateIfNeeded(STORAGE_KEYS.PRICE_TABLES, priceTables, setPriceTables);
     migrateIfNeeded(STORAGE_KEYS.PRODUCT_CATEGORIES, productCategories, setProductCategories);
-    migrateIfNeeded('salespeople', salespeople, setSalespeople);
-    migrateIfNeeded('buyers', buyers, setBuyers);
+    migrateIfNeeded(STORAGE_KEYS.SALESPEOPLE, salespeople, setSalespeople);
+    migrateIfNeeded(STORAGE_KEYS.BUYERS, buyers, setBuyers);
     migrateIfNeeded(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods, setPaymentMethods);
     migrateIfNeeded(STORAGE_KEYS.ACCOUNT_CATEGORIES, accountCategories, setAccountCategories);
     migrateIfNeeded(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, financialTransactions, setFinancialTransactions);
@@ -1177,13 +1165,379 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_PAYABLE, accountsPayable, setAccountsPayable);
     migrateIfNeeded(STORAGE_KEYS.BANK_MOVEMENTS, bankMovements, setBankMovements);
     migrateIfNeeded(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries, setCashFlowEntries);
+    migrateIfNeeded(STORAGE_KEYS.COMPANY_HISTORY, companyHistory, setCompanyHistory);
+    migrateIfNeeded(STORAGE_KEYS.RECONCILIATION_STATUS, reconciliationStatus, setReconciliationStatus);
 
     console.log(`✅ Migração concluída para company_id: ${companyId}`);
   }, [profile?.company_id]); // Executar apenas quando company_id mudar
 
-  // ==================== PERSISTÊNCIA AUTOMÁTICA ====================
+  // ==================== CARREGAMENTO INICIAL DO LOCALSTORAGE (CACHE) ====================
   
-  // Salva dados automaticamente no localStorage sempre que mudarem
+  // Carregar cache do localStorage com company_id ao fazer login
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    
+    console.log('[CACHE] 📂 Carregando cache do localStorage...');
+    console.log(`[CACHE] 🔑 Company ID: ${profile.company_id}`);
+    
+    // 🔧 LIMPEZA DE DADOS ÓRFÃOS - Remove dados de company_id incorreto
+    const allKeys = Object.keys(localStorage);
+    const erpKeys = allKeys.filter(k => k.startsWith('erp_'));
+    const currentCompanyPrefix = `erp_${profile.company_id}_`;
+    const systemPrefix = 'erp_system_'; // Dados sem company_id (legado)
+    
+    // Dados órfãos = não são do company_id atual E não são do sistema de auth
+    const orphanKeys = erpKeys.filter(k => 
+      !k.startsWith(currentCompanyPrefix) && 
+      !k.includes('auth') &&
+      k.startsWith(systemPrefix) // Especificamente dados system_ que deveriam ter company_id
+    );
+    
+    console.log(`[CACHE] 🔍 Total de chaves ERP: ${erpKeys.length}`);
+    console.log(`[CACHE] 🎯 Chaves do company atual: ${erpKeys.filter(k => k.startsWith(currentCompanyPrefix)).length}`);
+    
+    if (orphanKeys.length > 0) {
+      console.warn(`[CACHE] ⚠️  DADOS ÓRFÃOS DETECTADOS: ${orphanKeys.length} chaves`);
+      console.log(`[CACHE] 📋 Órfãos (primeiras 5):`, orphanKeys.slice(0, 5));
+      console.log(`[CACHE] 🗑️  LIMPANDO dados órfãos para evitar conflitos...`);
+      
+      orphanKeys.forEach(k => {
+        localStorage.removeItem(k);
+      });
+      
+      console.log(`[CACHE] ✅ ${orphanKeys.length} dados órfãos removidos!`);
+    } else {
+      console.log(`[CACHE] ✅ Nenhum dado órfão detectado`);
+    }
+    
+    // Função helper para carregar com company_id
+    const loadCached = <T,>(key: string, defaultValue: T): T => {
+      const storageKey = getStorageKey(key, profile.company_id);
+      const data = loadFromStorage(storageKey, defaultValue);
+      if (Array.isArray(data)) {
+        if (data.length > 0) {
+          console.log(`[CACHE] ✅ ${key}: ${data.length} items (chave: ${storageKey})`);
+        } else {
+          console.log(`[CACHE] ⚠️  ${key}: VAZIO (chave: ${storageKey})`);
+        }
+      }
+      return data;
+    };
+    
+    // Carregar todos os dados do cache (se existirem)
+    // IMPORTANTE: Usar valores default apenas para dados que não devem começar vazios
+    setCustomers(loadCached(STORAGE_KEYS.CUSTOMERS, []));
+    setSuppliers(loadCached(STORAGE_KEYS.SUPPLIERS, []));
+    setInventory(loadCached(STORAGE_KEYS.INVENTORY, []));
+    setSalesOrders(loadCached(STORAGE_KEYS.SALES_ORDERS, []));
+    setPurchaseOrders(loadCached(STORAGE_KEYS.PURCHASE_ORDERS, []));
+    setStockMovements(loadCached(STORAGE_KEYS.STOCK_MOVEMENTS, []));
+    setPriceTables(loadCached(STORAGE_KEYS.PRICE_TABLES, []));
+    setProductCategories(loadCached(STORAGE_KEYS.PRODUCT_CATEGORIES, []));
+    setSalespeople(loadCached(STORAGE_KEYS.SALESPEOPLE, []));
+    setBuyers(loadCached(STORAGE_KEYS.BUYERS, []));
+    
+    // Dados com valores default (sempre carregar do cache ou usar default)
+    const cachedPaymentMethods = loadCached(STORAGE_KEYS.PAYMENT_METHODS, initialPaymentMethods);
+    setPaymentMethods(cachedPaymentMethods);
+    console.log(`[CACHE] 📋 Payment Methods: ${cachedPaymentMethods.length} items`);
+    
+    const cachedAccountCategories = loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, initialAccountCategories);
+    setAccountCategories(cachedAccountCategories);
+    console.log(`[CACHE] 📋 Account Categories: ${cachedAccountCategories.length} items`);
+    
+    setFinancialTransactions(loadCached(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []));
+    setAccountsReceivable(loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []));
+    setAccountsPayable(loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []));
+    setBankMovements(loadCached(STORAGE_KEYS.BANK_MOVEMENTS, []));
+    setCashFlowEntries(loadCached(STORAGE_KEYS.CASH_FLOW_ENTRIES, []));
+    setAuditIssues(loadCached(STORAGE_KEYS.AUDIT_ISSUES, []));
+    setCompanyHistory(loadCached(STORAGE_KEYS.COMPANY_HISTORY, []));
+    setReconciliationStatus(loadCached(STORAGE_KEYS.RECONCILIATION_STATUS, {}));
+    
+    const lastAnalysisStr = loadFromStorage<string | null>(
+      getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), 
+      null
+    );
+    if (lastAnalysisStr) {
+      setLastAnalysisDate(new Date(lastAnalysisStr));
+    }
+    
+    console.log('[CACHE] ✅ Cache carregado com sucesso!');
+  }, [profile?.company_id]);
+  
+  // ==================== CARREGAMENTO INICIAL DO SUPABASE ====================
+  
+  // Carregar dados do Supabase ao fazer login (APENAS UMA VEZ)
+  // Sobrescreve o cache se houver dados mais recentes no Supabase
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    
+    let isSubscribed = true;
+    
+    const loadInitialData = async () => {
+      try {
+        console.log('[SUPABASE] 📥 ============================================');
+        console.log('[SUPABASE] 📥 CARREGANDO DADOS INICIAIS DO SUPABASE');
+        console.log('[SUPABASE] 📥 ============================================');
+        console.log(`[SUPABASE] 🆔 Company ID: ${profile.company_id}`);
+        console.log(`[SUPABASE] 🔑 A chave no KV será: erp_${profile.company_id}_customers`);
+        
+        // Carregar clientes
+        console.log(`[SUPABASE] 🔍 Tentando carregar customers...`);
+        const customersData = await loadEntity<Customer[]>('customers');
+        console.log(`[SUPABASE] 🔍 Resposta customers:`, customersData);
+        console.log(`[SUPABASE] 📊 Tipo:`, typeof customersData, '| Array?', Array.isArray(customersData));
+        if (isSubscribed && customersData && customersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${customersData.length} clientes carregados do Supabase - APLICANDO NO STATE`);
+          setCustomers(customersData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Clientes: Dados vazios ou não encontrados no Supabase`);
+        }
+        
+        // Carregar inventário  
+        const inventoryData = await loadEntity<InventoryItem[]>('inventory');
+        if (isSubscribed && inventoryData && inventoryData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${inventoryData.length} itens de inventário carregados do Supabase`);
+          setInventory(inventoryData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Inventário: Dados vazios ou não encontrados no Supabase`);
+        }
+        
+        // Carregar fornecedores
+        const suppliersData = await loadEntity<Supplier[]>('suppliers');
+        if (isSubscribed && suppliersData && suppliersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${suppliersData.length} fornecedores carregados do Supabase`);
+          setSuppliers(suppliersData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Fornecedores: Dados vazios ou não encontrados no Supabase`);
+        }
+        
+        // Carregar pedidos de venda
+        const salesOrdersData = await loadEntity<SalesOrder[]>('sales-orders');
+        if (isSubscribed && salesOrdersData && salesOrdersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${salesOrdersData.length} pedidos de venda carregados do Supabase`);
+          setSalesOrders(salesOrdersData);
+        } else {
+          console.log(`[SUPABASE] ⚠️  Pedidos de Venda: Dados vazios ou não encontrados no Supabase`);
+        }
+        
+        // Carregar pedidos de compra
+        const purchaseOrdersData = await loadEntity<PurchaseOrder[]>('purchase-orders');
+        if (isSubscribed && purchaseOrdersData && purchaseOrdersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${purchaseOrdersData.length} pedidos de compra carregados`);
+          setPurchaseOrders(purchaseOrdersData);
+        }
+        
+        // Carregar movimentações de estoque
+        const stockMovementsData = await loadEntity<StockMovement[]>('stock-movements');
+        if (isSubscribed && stockMovementsData && stockMovementsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${stockMovementsData.length} movimentações de estoque carregadas`);
+          setStockMovements(stockMovementsData);
+        }
+        
+        // Carregar tabelas de preço
+        const priceTablesData = await loadEntity<PriceTable[]>('price-tables');
+        if (isSubscribed && priceTablesData && priceTablesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${priceTablesData.length} tabelas de preço carregadas`);
+          setPriceTables(priceTablesData);
+        }
+        
+        // Carregar categorias de produtos
+        const productCategoriesData = await loadEntity<string[]>('product-categories');
+        if (isSubscribed && productCategoriesData && productCategoriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${productCategoriesData.length} categorias de produtos carregadas`);
+          setProductCategories(productCategoriesData);
+        }
+        
+        // Carregar vendedores
+        const salespeopleData = await loadEntity<Salesperson[]>('salespeople');
+        if (isSubscribed && salespeopleData && salespeopleData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${salespeopleData.length} vendedores carregados`);
+          setSalespeople(salespeopleData);
+        }
+        
+        // Carregar compradores
+        const buyersData = await loadEntity<Buyer[]>('buyers');
+        if (isSubscribed && buyersData && buyersData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${buyersData.length} compradores carregados`);
+          setBuyers(buyersData);
+        }
+        
+        // Carregar formas de pagamento
+        const paymentMethodsData = await loadEntity<PaymentMethod[]>('payment-methods');
+        if (isSubscribed && paymentMethodsData && paymentMethodsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${paymentMethodsData.length} formas de pagamento carregadas`);
+          setPaymentMethods(paymentMethodsData);
+        }
+        
+        // Carregar categorias de contas
+        const accountCategoriesData = await loadEntity<AccountCategory[]>('account-categories');
+        if (isSubscribed && accountCategoriesData && accountCategoriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
+          setAccountCategories(accountCategoriesData);
+        }
+        
+        // Carregar transações financeiras
+        const financialTransactionsData = await loadEntity<FinancialTransaction[]>('financial-transactions');
+        if (isSubscribed && financialTransactionsData && financialTransactionsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${financialTransactionsData.length} transações financeiras carregadas`);
+          setFinancialTransactions(financialTransactionsData);
+        }
+        
+        // Carregar contas a receber
+        const accountsReceivableData = await loadEntity<AccountReceivable[]>('accounts-receivable');
+        if (isSubscribed && accountsReceivableData && accountsReceivableData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
+          setAccountsReceivable(accountsReceivableData);
+        }
+        
+        // Carregar contas a pagar
+        const accountsPayableData = await loadEntity<AccountPayable[]>('accounts-payable');
+        if (isSubscribed && accountsPayableData && accountsPayableData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
+          setAccountsPayable(accountsPayableData);
+        }
+        
+        // Carregar movimentações bancárias
+        const bankMovementsData = await loadEntity<BankMovement[]>('bank-movements');
+        if (isSubscribed && bankMovementsData && bankMovementsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${bankMovementsData.length} movimentações bancárias carregadas`);
+          setBankMovements(bankMovementsData);
+        }
+        
+        // Carregar entradas de fluxo de caixa
+        const cashFlowEntriesData = await loadEntity<CashFlowEntry[]>('cash-flow-entries');
+        if (isSubscribed && cashFlowEntriesData && cashFlowEntriesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${cashFlowEntriesData.length} entradas de fluxo de caixa carregadas`);
+          setCashFlowEntries(cashFlowEntriesData);
+        }
+        
+        // Carregar problemas de auditoria
+        const auditIssuesData = await loadEntity<AuditIssue[]>('audit-issues');
+        if (isSubscribed && auditIssuesData && auditIssuesData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${auditIssuesData.length} problemas de auditoria carregados`);
+          setAuditIssues(auditIssuesData);
+        }
+        
+        // Carregar data da última análise
+        const lastAnalysisDateData = await loadEntity<string>('last-analysis-date');
+        if (isSubscribed && lastAnalysisDateData) {
+          console.log(`[SUPABASE] ✅ Data da última análise carregada`);
+          setLastAnalysisDate(new Date(lastAnalysisDateData));
+        }
+        
+        // Carregar histórico da empresa
+        const companyHistoryData = await loadEntity<CompanyHistoryEntry[]>('company-history');
+        if (isSubscribed && companyHistoryData && companyHistoryData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${companyHistoryData.length} entradas de histórico carregadas`);
+          setCompanyHistory(companyHistoryData);
+        }
+        
+        // Carregar status de reconciliação
+        const reconciliationStatusData = await loadEntity<Record<string, boolean>>('reconciliation-status');
+        if (isSubscribed && reconciliationStatusData) {
+          console.log(`[SUPABASE] ✅ Status de reconciliação carregado`);
+          setReconciliationStatus(reconciliationStatusData);
+        }
+        
+        console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
+        
+      } catch (error) {
+        console.error('[SUPABASE] ❌ Erro ao carregar dados iniciais:', error);
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isSubscribed = false;
+    };
+  }, [profile?.company_id]); // Executar apenas quando company_id mudar (login)
+
+  // ==================== SINCRONIZAÇÃO AUTOMÁTICA COM LOCALSTORAGE ====================
+  
+  // Salva automaticamente no localStorage quando os dados mudarem
+  // Usa getStorageKey para isolar por company_id
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.CUSTOMERS, profile.company_id);
+      saveToStorage(key, customers);
+    }
+  }, [customers, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.SUPPLIERS, profile.company_id);
+      saveToStorage(key, suppliers);
+    }
+  }, [suppliers, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.INVENTORY, profile.company_id);
+      saveToStorage(key, inventory);
+    }
+  }, [inventory, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.SALES_ORDERS, profile.company_id);
+      saveToStorage(key, salesOrders);
+    }
+  }, [salesOrders, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.PURCHASE_ORDERS, profile.company_id);
+      saveToStorage(key, purchaseOrders);
+    }
+  }, [purchaseOrders, profile?.company_id]);
+  
+  useEffect(() => {
+    if (profile?.company_id) {
+      const key = getStorageKey(STORAGE_KEYS.STOCK_MOVEMENTS, profile.company_id);
+      saveToStorage(key, stockMovements);
+    }
+  }, [stockMovements, profile?.company_id]);
+
+  // ==================== PERSISTÊNCIA AUTOMÁTICA COM ROTAS ESPECÍFICAS ====================
+  
+  // Sistema de persistência imediata (sem debounce) via rotas específicas
+  // Mais robusto, seguro e performático que o sistema anterior
+  
+  // FASE 1: Entidades principais (críticas)
+  useEntityPersistence({ entityName: 'customers', data: customers, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'inventory', data: inventory, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'suppliers', data: suppliers, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'sales-orders', data: salesOrders, enabled: !!profile?.company_id, throttleMs: 500 });
+  
+  // FASE 2: Entidades secundárias
+  useEntityPersistence({ entityName: 'purchase-orders', data: purchaseOrders, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'stock-movements', data: stockMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'price-tables', data: priceTables, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'product-categories', data: productCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'salespeople', data: salespeople, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'buyers', data: buyers, enabled: !!profile?.company_id, throttleMs: 1000 });
+  
+  // FASE 3: Entidades financeiras
+  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'bank-movements', data: bankMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'cash-flow-entries', data: cashFlowEntries, enabled: !!profile?.company_id, throttleMs: 1000 });
+  
+  // FASE 4: Entidades auxiliares
+  useEntityPersistence({ entityName: 'audit-issues', data: auditIssues, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'last-analysis-date', data: lastAnalysisDate, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: !!profile?.company_id, throttleMs: 2000 });
+
+  // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
+  
+  // Salva dados automaticamente no localStorage como cache rápido
   useEffect(() => {
     if (!profile?.company_id) return;
     saveToStorage(getStorageKey(STORAGE_KEYS.CUSTOMERS, profile.company_id), customers);
@@ -1201,7 +1555,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('purchaseOrders', profile.company_id), purchaseOrders);
+    saveToStorage(getStorageKey(STORAGE_KEYS.PURCHASE_ORDERS, profile.company_id), purchaseOrders);
   }, [purchaseOrders, profile?.company_id]);
 
   useEffect(() => {
@@ -1226,12 +1580,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('salespeople', profile.company_id), salespeople);
+    saveToStorage(getStorageKey(STORAGE_KEYS.SALESPEOPLE, profile.company_id), salespeople);
   }, [salespeople, profile?.company_id]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey('buyers', profile.company_id), buyers);
+    saveToStorage(getStorageKey(STORAGE_KEYS.BUYERS, profile.company_id), buyers);
   }, [buyers, profile?.company_id]);
 
   useEffect(() => {
@@ -1282,20 +1636,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   }, [companySettings, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('companyHistory', companyHistory);
-  }, [companyHistory]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.COMPANY_HISTORY, profile.company_id), companyHistory);
+  }, [companyHistory, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage('reconciliationStatus', reconciliationStatus);
-  }, [reconciliationStatus]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.RECONCILIATION_STATUS, profile.company_id), reconciliationStatus);
+  }, [reconciliationStatus, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.AUDIT_ISSUES, auditIssues);
-  }, [auditIssues]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.AUDIT_ISSUES, profile.company_id), auditIssues);
+  }, [auditIssues, profile?.company_id]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.LAST_ANALYSIS_DATE, lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
-  }, [lastAnalysisDate]);
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
+  }, [lastAnalysisDate, profile?.company_id]);
 
   // ==================== INTEGRAÇÃO COM BACKEND ====================
   
@@ -1306,6 +1664,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const loadCompanySettingsFromBackend = async () => {
       // Não carregar se já carregou ou se não tem profile
       if (companySettingsLoaded || !profile?.company_id || isLoadingCompanySettings) {
+        return;
+      }
+
+      // VERIFICAR SE TEM TOKEN ANTES DE TENTAR CARREGAR
+      const { getAccessToken } = await import('../utils/authFetch');
+      const token = await getAccessToken();
+      
+      if (!token) {
+        console.log('⚠️ Sem token de acesso - pulando carregamento de companySettings');
         return;
       }
 
@@ -1349,13 +1716,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.error('❌ Erro ao carregar configurações da empresa:', error);
         
         // Em caso de erro, usar dados do localStorage como fallback
-        const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile.company_id);
+        const cacheKey = getStorageKey(STORAGE_KEYS.COMPANY_SETTINGS, profile?.company_id);
         const localSettings = loadFromStorage(cacheKey, initialCompanySettings);
         setCompanySettings(localSettings);
         
-        toast.error('Erro ao carregar dados da empresa', {
-          description: 'Usando dados locais temporariamente.'
-        });
+        // Não mostrar toast de erro se for erro de autenticação
+        if (!error.message?.includes('autenticad') && !error.message?.includes('autorizado')) {
+          toast.error('Erro ao carregar dados da empresa', {
+            description: 'Usando dados locais temporariamente.'
+          });
+        }
       } finally {
         setIsLoadingCompanySettings(false);
       }

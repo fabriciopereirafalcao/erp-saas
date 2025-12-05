@@ -68,7 +68,7 @@ export const FEATURES = {
   
   // 🔓 BYPASS AUTH - Desabilitar autenticação temporariamente (apenas dev)
   // ⚠️ ATENÇÃO: Mude para false para reativar autenticação completa
-  BYPASS_AUTH: IS_DEVELOPMENT && true, // Mude para "false" quando quiser autenticação real
+  BYPASS_AUTH: IS_DEVELOPMENT && false, // ✅ AUTENTICAÇÃO REATIVADA
 };
 
 /**

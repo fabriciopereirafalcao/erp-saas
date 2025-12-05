@@ -42,8 +42,12 @@ export function LoginPage({ onNavigateToRegister, onNavigateToForgotPassword }: 
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-green-600 rounded-xl flex items-center justify-center">
-              <Package className="w-10 h-10 text-white" />
+            <div className="w-32 h-16 flex items-center justify-center">
+              <img 
+                src="https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg" 
+                alt="META ERP" 
+                className="h-12"
+              />
             </div>
           </div>
           <CardTitle className="text-2xl text-center">Bem-vindo de volta</CardTitle>

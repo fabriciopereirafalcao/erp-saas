@@ -1,103 +1,217 @@
-import { useState, useRef } from 'react';
-import { FileKey, Upload, Trash2, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+/**
+ * Componente de Gerenciamento de Certificado Digital A1
+ * 
+ * Permite upload, visualização e remoção de certificado digital
+ * Integrado com backend Supabase para armazenamento seguro
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { toast } from 'sonner';
+import { Upload, FileKey, Calendar, AlertCircle, CheckCircle, Trash2, Info } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
-interface Certificate {
-  fileName: string;
-  password: string;
-  uploadDate: string;
-  expiryDate: string;
-  issuer: string;
-  owner: string;
+interface CertificadoInfo {
+  cnpj: string;
+  razaoSocial: string;
+  validoDe: string;
+  validoAte: string;
+  emissor: string;
+  diasRestantes: number;
+  isValido: boolean;
+  avisoVencimento?: string;
 }
 
 export function DigitalCertificate() {
-  const [certificate, setCertificate] = useState<Certificate | null>(() => {
-    const saved = localStorage.getItem('erp_digital_certificate');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [certificado, setCertificado] = useState<CertificadoInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Upload form
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [senha, setSenha] = useState('');
 
-  const saveCertificate = (cert: Certificate | null) => {
-    setCertificate(cert);
-    if (cert) {
-      localStorage.setItem('erp_digital_certificate', JSON.stringify(cert));
-    } else {
-      localStorage.removeItem('erp_digital_certificate');
-    }
-  };
+  useEffect(() => {
+    carregarCertificado();
+  }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const carregarCertificado = async () => {
+    try {
+      setLoading(true);
 
-    if (!password) {
-      toast.error('Por favor, informe a senha do certificado');
-      return;
-    }
-
-    // Validar extensão .pfx ou .p12
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    if (extension !== 'pfx' && extension !== 'p12') {
-      toast.error('O certificado deve ser um arquivo .pfx ou .p12');
-      return;
-    }
-
-    // Simular dados do certificado (em produção, seria processado no backend)
-    const newCertificate: Certificate = {
-      fileName: file.name,
-      password: password,
-      uploadDate: new Date().toISOString(),
-      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // +1 ano
-      issuer: 'AC SERASA SSL EV',
-      owner: 'EMPRESA EXEMPLO LTDA',
-    };
-
-    saveCertificate(newCertificate);
-    setPassword('');
-    toast.success('Certificado digital carregado com sucesso!');
-  };
-
-  const handleRemoveCertificate = () => {
-    if (confirm('Deseja realmente remover o certificado digital?')) {
-      saveCertificate(null);
-      setPassword('');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        return;
       }
-      toast.success('Certificado removido com sucesso');
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/certificado/info`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setCertificado(data.data);
+      } else {
+        setCertificado(null);
+      }
+
+    } catch (error: any) {
+      console.error('[CERT_SETTINGS] Erro ao carregar certificado:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isExpiringSoon = () => {
-    if (!certificate) return false;
-    const expiryDate = new Date(certificate.expiryDate);
-    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry <= 30;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar extensão
+      if (!file.name.toLowerCase().endsWith('.pfx') && !file.name.toLowerCase().endsWith('.p12')) {
+        toast.error('Arquivo inválido. Selecione um arquivo .pfx ou .p12');
+        return;
+      }
+      
+      setArquivo(file);
+    }
   };
 
-  const isExpired = () => {
-    if (!certificate) return false;
-    return new Date(certificate.expiryDate) < new Date();
+  const handleUpload = async () => {
+    if (!arquivo || !senha) {
+      toast.error('Selecione um arquivo e digite a senha');
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      // Criar FormData
+      const formData = new FormData();
+      formData.append('certificado', arquivo);
+      formData.append('senha', senha);
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/certificado/upload`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao fazer upload do certificado');
+      }
+
+      toast.success('Certificado enviado e validado com sucesso!');
+      
+      // Limpar form
+      setArquivo(null);
+      setSenha('');
+      (document.getElementById('file-upload') as HTMLInputElement).value = '';
+      
+      // Recarregar informações
+      await carregarCertificado();
+
+    } catch (error: any) {
+      console.error('[CERT_SETTINGS] Erro no upload:', error);
+      toast.error(error.message || 'Erro ao fazer upload do certificado');
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+  const handleRemover = async () => {
+    if (!confirm('Tem certeza que deseja remover o certificado digital? Você não poderá emitir NF-es até enviar um novo certificado.')) {
+      return;
+    }
+
+    try {
+      const { supabase } = await import('../utils/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/certificado`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao remover certificado');
+      }
+
+      toast.success('Certificado removido com sucesso');
+      setCertificado(null);
+
+    } catch (error: any) {
+      console.error('[CERT_SETTINGS] Erro ao remover:', error);
+      toast.error(error.message || 'Erro ao remover certificado');
+    }
   };
+
+  const formatarCNPJ = (cnpj: string) => {
+    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  };
+
+  const formatarData = (dataISO: string) => {
+    return new Date(dataISO).toLocaleDateString('pt-BR');
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <FileKey className="w-8 h-8 text-green-600" />
+            <h1 className="text-gray-900">Certificado Digital (A1)</h1>
+          </div>
+          <p className="text-gray-500">Gerencie o certificado digital para emissão de notas fiscais</p>
+        </div>
+        <Card className="p-6">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgb(32,251,225)]"></div>
+            <p className="ml-3 text-gray-600">Carregando...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
+      {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <FileKey className="w-8 h-8 text-green-600" />
@@ -106,152 +220,192 @@ export function DigitalCertificate() {
         <p className="text-gray-500">Gerencie o certificado digital para emissão de notas fiscais</p>
       </div>
 
-      <div className="grid gap-6">
-        {certificate ? (
-          <>
-            {/* Status do Certificado */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {isExpired() ? (
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  ) : isExpiringSoon() ? (
-                    <AlertCircle className="w-5 h-5 text-orange-600" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  )}
-                  Certificado Configurado
-                </CardTitle>
-                <CardDescription>
-                  {isExpired()
-                    ? 'Certificado vencido - atualize para continuar emitindo documentos fiscais'
-                    : isExpiringSoon()
-                    ? 'Atenção: Certificado próximo do vencimento'
-                    : 'Seu certificado digital está ativo e válido'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-500">Arquivo</Label>
-                    <p>{certificate.fileName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Proprietário</Label>
-                    <p>{certificate.owner}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Emissor</Label>
-                    <p>{certificate.issuer}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Data de Upload</Label>
-                    <p>{formatDate(certificate.uploadDate)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Data de Validade</Label>
-                    <p className={isExpired() ? 'text-red-600' : isExpiringSoon() ? 'text-orange-600' : ''}>
-                      <Calendar className="w-4 h-4 inline mr-1" />
-                      {formatDate(certificate.expiryDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Status</Label>
-                    <p>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
-                          isExpired()
-                            ? 'bg-red-100 text-red-800'
-                            : isExpiringSoon()
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
-                      >
-                        {isExpired() ? 'Vencido' : isExpiringSoon() ? 'Próximo ao Vencimento' : 'Válido'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+      <div className="space-y-6">
+        {/* Informações Importantes */}
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <div className="flex gap-3">
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-900">
+              <p className="mb-2"><strong>Importante:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>O certificado A1 é obrigatório para emissão de NF-e em produção</li>
+                <li>O arquivo deve ter extensão .pfx ou .p12</li>
+                <li>A senha é a mesma definida ao exportar o certificado</li>
+                <li>O certificado fica armazenado de forma segura no Supabase Storage</li>
+              </ul>
+            </div>
+          </div>
+        </Card>
 
-                <div className="pt-4 border-t">
-                  <Button
-                    variant="destructive"
-                    onClick={handleRemoveCertificate}
-                    className="gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Remover Certificado
-                  </Button>
+        {/* Certificado Atual */}
+        {certificado ? (
+          <Card className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-lg ${
+                  certificado.diasRestantes > 30 ? 'bg-green-100' :
+                  certificado.diasRestantes > 0 ? 'bg-yellow-100' : 'bg-red-100'
+                }`}>
+                  <FileKey className={`w-6 h-6 ${
+                    certificado.diasRestantes > 30 ? 'text-green-600' :
+                    certificado.diasRestantes > 0 ? 'text-yellow-600' : 'text-red-600'
+                  }`} />
                 </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload do Certificado Digital</CardTitle>
-              <CardDescription>
-                Faça upload do arquivo .pfx ou .p12 do certificado digital tipo A1
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha do Certificado *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Digite a senha do certificado"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? 'Ocultar' : 'Mostrar'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="certificate">Arquivo do Certificado (.pfx ou .p12) *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      ref={fileInputRef}
-                      id="certificate"
-                      type="file"
-                      accept=".pfx,.p12"
-                      onChange={handleFileUpload}
-                    />
-                    <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="gap-2 whitespace-nowrap"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Selecionar Arquivo
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    Formato aceito: .pfx ou .p12
-                  </p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">Informações Importantes</h4>
-                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                    <li>O certificado tipo A1 é armazenado em arquivo digital</li>
-                    <li>Mantenha a senha do certificado em local seguro</li>
-                    <li>Certificados A1 têm validade de 1 ano</li>
-                    <li>Renove o certificado antes do vencimento para evitar interrupções</li>
-                  </ul>
+                <div>
+                  <h4 className="text-gray-900">Certificado Instalado</h4>
+                  <p className="text-sm text-gray-500">Certificado digital ativo</p>
                 </div>
               </div>
-            </CardContent>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleRemover}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remover
+              </Button>
+            </div>
+
+            {certificado.avisoVencimento && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+                certificado.diasRestantes > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'
+              }`}>
+                <AlertCircle className={`w-5 h-5 ${
+                  certificado.diasRestantes > 0 ? 'text-yellow-600' : 'text-red-600'
+                }`} />
+                <p className={`text-sm ${
+                  certificado.diasRestantes > 0 ? 'text-yellow-800' : 'text-red-800'
+                }`}>
+                  {certificado.avisoVencimento}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">CNPJ</p>
+                <p className="text-gray-900">{formatarCNPJ(certificado.cnpj)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Razão Social</p>
+                <p className="text-gray-900">{certificado.razaoSocial}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Emissor</p>
+                <p className="text-gray-900">{certificado.emissor}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Validade</p>
+                <p className="text-gray-900">
+                  {formatarData(certificado.validoDe)} até {formatarData(certificado.validoAte)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Status</p>
+                <div className="flex items-center gap-2">
+                  {certificado.isValido ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-green-600">Válido</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span className="text-red-600">Expirado</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Dias Restantes</p>
+                <p className={`${
+                  certificado.diasRestantes > 30 ? 'text-green-600' :
+                  certificado.diasRestantes > 0 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {certificado.diasRestantes} dias
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-6">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileKey className="w-8 h-8 text-gray-400" />
+              </div>
+              <h4 className="text-gray-900 mb-2">Nenhum certificado instalado</h4>
+              <p className="text-sm text-gray-500 mb-6">
+                Faça upload do seu certificado digital A1 para começar a emitir NF-es
+              </p>
+            </div>
           </Card>
         )}
+
+        {/* Formulário de Upload */}
+        <Card className="p-6">
+          <h4 className="text-gray-900 mb-4">
+            {certificado ? 'Substituir Certificado' : 'Upload de Certificado'}
+          </h4>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-700 mb-2">
+                Arquivo do Certificado (.pfx ou .p12)
+              </label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept=".pfx,.p12"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+                {arquivo && (
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                )}
+              </div>
+              {arquivo && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Arquivo selecionado: <strong>{arquivo.name}</strong> ({(arquivo.size / 1024).toFixed(2)} KB)
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-2">
+                Senha do Certificado
+              </label>
+              <Input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="Digite a senha do certificado"
+                disabled={uploading}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                A senha será armazenada de forma segura no banco de dados
+              </p>
+            </div>
+
+            <Button
+              onClick={handleUpload}
+              disabled={!arquivo || !senha || uploading}
+              className="w-full"
+            >
+              {uploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Enviando e validando...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {certificado ? 'Substituir Certificado' : 'Fazer Upload'}
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

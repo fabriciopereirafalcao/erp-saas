@@ -81,7 +81,7 @@ export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                     ✅ Empresa configurada
                   </p>
                   <p className="text-sm text-green-800">
-                    ✅ Trial de 14 dias ativado
+                    ✅ Trial de 7 dias ativado
                   </p>
                 </div>
               </Alert>
@@ -110,7 +110,7 @@ export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           </div>
           <CardTitle className="text-2xl text-center">Criar sua conta</CardTitle>
           <CardDescription className="text-center">
-            Comece seu trial gratuito de 14 dias
+            Comece seu trial gratuito de 7 dias
           </CardDescription>
         </CardHeader>
         <CardContent>

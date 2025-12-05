@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu } from 'lucide-react';
+import { useSubscription } from '../contexts/SubscriptionContext'; // ✅ Importar
+import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown, CreditCard, ArrowUpCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -22,15 +23,24 @@ interface TopBarProps {
 export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopBarProps) {
   const { profile, company, signOut } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { subscription } = useSubscription(); // ✅ Usar
 
-  // Calcular dias restantes do trial
+  // ✅ CORREÇÃO: Verificar subscription em vez de company.status
+  // Mostrar banner APENAS se:
+  // 1. Não tiver subscription ativa PAGA (subscription.status !== 'active' ou planId === 'trial')
+  // 2. E ainda estiver dentro do período de trial (company.trial_ends_at)
+  
   const trialEndsAt = company?.trial_ends_at ? new Date(company.trial_ends_at) : null;
   const now = new Date();
   const daysRemaining = trialEndsAt 
     ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const showTrialBanner = company?.status === 'trial' && daysRemaining > 0;
+  // ✅ Banner só aparece se:
+  // - NÃO tiver subscription paga (planId trial ou sem subscription)
+  // - E ainda tiver dias restantes de trial
+  const hasPaidPlan = subscription && subscription.planId !== 'trial' && subscription.status === 'active';
+  const showTrialBanner = !hasPaidPlan && company?.status === 'trial' && daysRemaining > 0;
 
   // Pegar primeiro nome do usuário
   const firstName = profile?.name?.split(' ')[0] || 'Usuário';
@@ -51,26 +61,30 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
 
         {/* Logo META ERP - versão texto */}
         <div className="flex items-center gap-2 min-w-[180px]">
-          <div className="flex items-center gap-2">
-            <Package className={`w-8 h-8 ${isDarkMode ? 'text-[#20FBE1]' : 'text-[#1AC9B4]'}`} />
-            <span className={`text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              <span className="font-bold">META</span>
-              <span className="font-normal ml-1">ERP</span>
-            </span>
-          </div>
+          <img 
+            src={isDarkMode 
+              ? 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-dark.svg'
+              : 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg'
+            } 
+            alt="META ERP" 
+            className="h-8"
+          />
         </div>
 
         {/* Trial Banner Inline - apenas se estiver em trial */}
         {showTrialBanner && (
-          <div className="flex-1 flex items-center gap-3 bg-[#77F74A] px-4 py-2 rounded-md">
-            <span className="text-sm text-black">
+          <div className="flex-1 flex items-center gap-2 sm:gap-3 bg-[#77F74A] px-3 sm:px-4 py-2 rounded-md min-w-0">
+            <span className="text-xs sm:text-sm text-black truncate min-w-0 flex-shrink">
               <strong className="uppercase tracking-wide">{profile?.name?.toUpperCase() || 'USUÁRIO'}</strong>
-              {' • '}
-              {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'} para conclusão do Teste Grátis
+              <span className="hidden sm:inline">{' • '}</span>
+              <span className="block sm:inline">
+                {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'} para conclusão do Teste Grátis
+              </span>
             </span>
             <Button 
               size="sm"
-              className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-4 text-xs ml-auto"
+              className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-3 sm:px-4 text-xs flex-shrink-0 whitespace-nowrap"
+              onClick={() => onNavigate('changePlan')}
             >
               Comprar agora
             </Button>
@@ -163,6 +177,37 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
                 <PackageCheck className="w-4 h-4 mr-2" />
                 Lotes de Fabricação
               </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Planos e Cobrança */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-gray-100 dark:hover:bg-gray-800"
+                title="Planos e Cobrança"
+              >
+                <Crown className="w-5 h-5 text-amber-500" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Planos e Cobrança</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onClick={() => onNavigate('myPlan')}>
+                <CreditCard className="w-4 h-4 mr-2" />
+                Meu Plano
+              </DropdownMenuItem>
+              
+              {/* Apenas para owner */}
+              {profile?.role === 'owner' && (
+                <DropdownMenuItem onClick={() => onNavigate('changePlan')}>
+                  <ArrowUpCircle className="w-4 h-4 mr-2" />
+                  Alterar Plano
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

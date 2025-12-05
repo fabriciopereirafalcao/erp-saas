@@ -2,23 +2,41 @@
  * Utilitário para fazer requisições autenticadas com tratamento automático de erro 401
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from './supabase/info';
+import { supabase } from './supabase/client';
 import { toast } from 'sonner';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
 
 /**
  * Logout e limpeza de sessão
  */
 export const handleUnauthorized = async () => {
+  // Verificar se realmente há uma sessão ativa antes de fazer logout
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    // Se não há sessão, não precisa fazer logout nem mostrar toast
+    console.log('⚠️ Tentativa de acesso sem autenticação');
+    return;
+  }
+  
   console.warn('🚨 Erro 401 detectado - Fazendo logout...');
   
-  // Limpar localStorage e sessionStorage
-  localStorage.clear();
+  // IMPORTANTE: NÃO limpar localStorage completo (dados do ERP estão lá)
+  // Apenas limpar tokens de autenticação
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (
+      key.includes('supabase') || 
+      key.includes('auth') || 
+      key.includes('token') ||
+      key.includes('session')
+    )) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+  
+  // Limpar sessionStorage (não tem dados críticos)
   sessionStorage.clear();
   
   // Fazer logout no Supabase
@@ -80,8 +98,7 @@ export const authFetch = async (
     const accessToken = await getAccessToken();
     
     if (!accessToken) {
-      console.error('❌ Token de acesso não encontrado');
-      await handleUnauthorized();
+      // Não mostrar erro nem fazer logout se não há token (usuário não logado)
       throw new Error('Não autenticado');
     }
     
@@ -147,11 +164,24 @@ export const authGet = async (url: string): Promise<any> => {
   const response = await authFetch(url, { method: 'GET' });
   
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    let errorData: any = {};
+    try {
+      errorData = await response.json();
+    } catch (parseError) {
+      // Se não conseguir parsear JSON, pode ser HTML (erro 404, 500, etc)
+      const text = await response.text();
+      console.error('❌ Erro ao parsear resposta:', text.substring(0, 200));
+      throw new Error(`Erro ${response.status}: Resposta inválida do servidor`);
+    }
     throw new Error(errorData.error || `Erro ${response.status}`);
   }
   
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseError) {
+    console.error('❌ Erro ao parsear resposta JSON:', parseError);
+    throw new Error('Resposta inválida do servidor');
+  }
 };
 
 /**
@@ -164,11 +194,23 @@ export const authPost = async (url: string, body: any): Promise<any> => {
   });
   
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    let errorData: any = {};
+    try {
+      errorData = await response.json();
+    } catch (parseError) {
+      const text = await response.text();
+      console.error('❌ Erro ao parsear resposta:', text.substring(0, 200));
+      throw new Error(`Erro ${response.status}: Resposta inválida do servidor`);
+    }
     throw new Error(errorData.error || `Erro ${response.status}`);
   }
   
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseError) {
+    console.error('❌ Erro ao parsear resposta JSON:', parseError);
+    throw new Error('Resposta inválida do servidor');
+  }
 };
 
 /**
@@ -181,11 +223,23 @@ export const authPatch = async (url: string, body: any): Promise<any> => {
   });
   
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    let errorData: any = {};
+    try {
+      errorData = await response.json();
+    } catch (parseError) {
+      const text = await response.text();
+      console.error('❌ Erro ao parsear resposta:', text.substring(0, 200));
+      throw new Error(`Erro ${response.status}: Resposta inválida do servidor`);
+    }
     throw new Error(errorData.error || `Erro ${response.status}`);
   }
   
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseError) {
+    console.error('❌ Erro ao parsear resposta JSON:', parseError);
+    throw new Error('Resposta inválida do servidor');
+  }
 };
 
 /**
@@ -197,9 +251,21 @@ export const authDelete = async (url: string): Promise<any> => {
   });
   
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    let errorData: any = {};
+    try {
+      errorData = await response.json();
+    } catch (parseError) {
+      const text = await response.text();
+      console.error('❌ Erro ao parsear resposta:', text.substring(0, 200));
+      throw new Error(`Erro ${response.status}: Resposta inválida do servidor`);
+    }
     throw new Error(errorData.error || `Erro ${response.status}`);
   }
   
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseError) {
+    console.error('❌ Erro ao parsear resposta JSON:', parseError);
+    throw new Error('Resposta inválida do servidor');
+  }
 };

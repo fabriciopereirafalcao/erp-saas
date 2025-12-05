@@ -1,14 +1,18 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
+import { Toaster } from "sonner@2.0.3";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
-import { Toaster } from "./components/ui/sonner.tsx";
-import { ERPProvider } from "./contexts/ERPContext.tsx";
-import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
-import { ThemeProvider } from "./contexts/ThemeContext.tsx";
 import { AuthFlow } from "./components/auth/AuthFlow.tsx";
 import { LoadingScreen } from "./components/LoadingScreen.tsx";
+import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
+import { ThemeProvider } from "./contexts/ThemeContext.tsx";
+import { ERPProvider } from "./contexts/ERPContext.tsx";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { UpgradeDialog } from "./components/UpgradeDialog.tsx";
+import { SubscriptionAlerts } from "./components/subscription/SubscriptionAlerts.tsx";
+import { PlanAccessGuard } from "./components/subscription/PlanAccessGuard.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
@@ -18,152 +22,212 @@ import "./utils/cleanDuplicates.ts";
 
 // ⚡ LAZY LOADING - Componentes carregados sob demanda
 const Dashboard = lazy(() =>
-  import("./components/Dashboard.tsx").then((m) => ({
+  import("./components/Dashboard").then((m) => ({
     default: m.Dashboard,
   })),
 );
 const Inventory = lazy(() =>
-  import("./components/Inventory.tsx").then((m) => ({
+  import("./components/Inventory").then((m) => ({
     default: m.Inventory,
   })),
 );
 const SalesOrders = lazy(() =>
-  import("./components/SalesOrders.tsx").then((m) => ({
+  import("./components/SalesOrders").then((m) => ({
     default: m.SalesOrders,
   })),
 );
 const PurchaseOrders = lazy(() =>
-  import("./components/PurchaseOrders.tsx").then((m) => ({
+  import("./components/PurchaseOrders").then((m) => ({
     default: m.PurchaseOrders,
   })),
 );
 const Customers = lazy(() =>
-  import("./components/Customers.tsx").then((m) => ({
+  import("./components/Customers").then((m) => ({
     default: m.Customers,
   })),
 );
 const Suppliers = lazy(() =>
-  import("./components/Suppliers.tsx").then((m) => ({
+  import("./components/Suppliers").then((m) => ({
     default: m.Suppliers,
   })),
 );
 const FinancialTransactions = lazy(() =>
-  import("./components/FinancialTransactions.tsx").then((m) => ({
+  import("./components/FinancialTransactions").then((m) => ({
     default: m.FinancialTransactions,
   })),
 );
 const AccountsPayableReceivable = lazy(() =>
-  import("./components/AccountsPayableReceivable.tsx").then(
+  import("./components/AccountsPayableReceivable").then(
     (m) => ({ default: m.AccountsPayableReceivable }),
   ),
 );
 const BalanceReconciliation = lazy(() =>
-  import("./components/BalanceReconciliation.tsx").then((m) => ({
+  import("./components/BalanceReconciliation").then((m) => ({
     default: m.BalanceReconciliation,
   })),
 );
 const CashFlow = lazy(() =>
-  import("./components/CashFlow.tsx").then((m) => ({
+  import("./components/CashFlow").then((m) => ({
     default: m.CashFlow,
   })),
 );
 const Reports = lazy(() =>
-  import("./components/Reports.tsx").then((m) => ({
+  import("./components/Reports").then((m) => ({
     default: m.Reports,
   })),
 );
 const PriceTables = lazy(() =>
-  import("./components/PriceTables.tsx").then((m) => ({
+  import("./components/PriceTables").then((m) => ({
     default: m.PriceTables,
   })),
 );
 const CompanySettings = lazy(() =>
-  import("./components/CompanySettings.tsx").then((m) => ({
+  import("./components/CompanySettings").then((m) => ({
     default: m.CompanySettings,
   })),
 );
 const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicing.tsx").then((m) => ({
-    default: m.TaxInvoicing,
+  import("./components/TaxInvoicingModern").then((m) => ({
+    default: m.TaxInvoicingModern,
   })),
 );
 const UsersPermissions = lazy(() =>
-  import("./components/UsersPermissions.tsx").then((m) => ({
+  import("./components/UsersPermissions").then((m) => ({
     default: m.UsersPermissions,
+  })),
+);
+const TestePersistencia = lazy(() =>
+  import("./components/TestePersistencia").then((m) => ({
+    default: m.TestePersistencia,
   })),
 );
 
 // Novos cadastros
 const ChartOfAccounts = lazy(() =>
-  import("./components/ChartOfAccounts.tsx").then((m) => ({
+  import("./components/ChartOfAccounts").then((m) => ({
     default: m.ChartOfAccounts,
   })),
 );
 const CostCenters = lazy(() =>
-  import("./components/CostCenters.tsx").then((m) => ({
+  import("./components/CostCenters").then((m) => ({
     default: m.CostCenters,
   })),
 );
 const DigitalCertificate = lazy(() =>
-  import("./components/DigitalCertificate.tsx").then((m) => ({
+  import("./components/DigitalCertificate").then((m) => ({
     default: m.DigitalCertificate,
   })),
 );
 const Salespeople = lazy(() =>
-  import("./components/Salespeople.tsx").then((m) => ({
+  import("./components/Salespeople").then((m) => ({
     default: m.Salespeople,
   })),
 );
 const Buyers = lazy(() =>
-  import("./components/Buyers.tsx").then((m) => ({
+  import("./components/Buyers").then((m) => ({
     default: m.Buyers,
   })),
 );
 const ProductCategories = lazy(() =>
-  import("./components/ProductCategories.tsx").then((m) => ({
+  import("./components/ProductCategories").then((m) => ({
     default: m.ProductCategories,
   })),
 );
 const StockLocations = lazy(() =>
-  import("./components/StockLocations.tsx").then((m) => ({
+  import("./components/StockLocations").then((m) => ({
     default: m.StockLocations,
   })),
 );
 const ManufacturingBatches = lazy(() =>
-  import("./components/ManufacturingBatches.tsx").then((m) => ({
+  import("./components/ManufacturingBatches").then((m) => ({
     default: m.ManufacturingBatches,
   })),
 );
 
 // Perfil do usuário
 const ProfileView = lazy(() =>
-  import("./components/ProfileView.tsx").then((m) => ({
+  import("./components/ProfileView").then((m) => ({
     default: m.ProfileView,
   })),
 );
 
 // Aceitar convite
 const AcceptInvite = lazy(() =>
-  import("./components/AcceptInvite.tsx").then((m) => ({
+  import("./components/AcceptInvite").then((m) => ({
     default: m.AcceptInvite,
   })),
 );
 
 // Configurações de Email
 const EmailSettings = lazy(() =>
-  import("./components/EmailSettings.tsx").then((m) => ({
+  import("./components/EmailSettings").then((m) => ({
     default: m.EmailSettings,
   })),
 );
 
-// Importação condicional do SystemAudit (apenas em dev)
-const SystemAudit = IS_DEVELOPMENT
-  ? lazy(() =>
-      import("./components/SystemAudit.tsx").then((m) => ({
-        default: m.SystemAudit,
-      })),
-    )
-  : null;
+// Billing & Assinaturas
+const BillingSettings = lazy(() =>
+  import("./components/BillingSettings").then((m) => ({
+    default: m.BillingSettings,
+  })),
+);
+
+// Nova tela de Alterar Plano
+const ChangePlan = lazy(() =>
+  import("./components/subscription/ChangePlan").then((m) => ({
+    default: m.ChangePlan,
+  })),
+);
+
+// Telas de Checkout Stripe
+const CheckoutSuccess = lazy(() =>
+  import("./components/subscription/CheckoutSuccess").then((m) => ({
+    default: m.CheckoutSuccess,
+  })),
+);
+
+const CheckoutCancel = lazy(() =>
+  import("./components/subscription/CheckoutCancel").then((m) => ({
+    default: m.CheckoutCancel,
+  })),
+);
+
+// Webhook Debug Admin (apenas em desenvolvimento)
+let WebhookDebug: any = null;
+if (IS_DEVELOPMENT) {
+  WebhookDebug = lazy(() =>
+    import("./components/admin/WebhookDebug").then((m) => ({
+      default: m.default,
+    })),
+  );
+}
+
+// Stripe Test Page
+const StripeTestPage = lazy(() =>
+  import("./components/stripe/StripeTestPage").then((m) => ({
+    default: m.default,
+  })),
+);
+
+// Subscription Debug (apenas em desenvolvimento)
+let SubscriptionDebug: any = null;
+if (IS_DEVELOPMENT) {
+  SubscriptionDebug = lazy(() =>
+    import("./components/subscription/SubscriptionDebug").then((m) => ({
+      default: m.default,
+    })),
+  );
+}
+
+// System Audit (apenas em desenvolvimento)
+let SystemAudit: any = null;
+if (FEATURES.SYSTEM_AUDIT) {
+  SystemAudit = lazy(() =>
+    import("./components/SystemAudit").then((m) => ({
+      default: m.SystemAudit,
+    })),
+  );
+}
 
 export type NavigationView =
   | "dashboard"
@@ -191,7 +255,16 @@ export type NavigationView =
   | "productCategories"
   | "stockLocations"
   | "manufacturingBatches"
-  | "profile";
+  | "profile"
+  | "billing"
+  | "myPlan"
+  | "changePlan"
+  | "checkoutSuccess"
+  | "checkoutCancel"
+  | "webhookDebug"
+  | "stripeTest"
+  | "subscriptionDebug"
+  | "testePersistencia";
 
 // ⚡ Loading fallback leve
 function ViewLoader() {
@@ -207,6 +280,91 @@ function AppContent() {
   const [currentView, setCurrentView] =
     useState<NavigationView>("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [nfeDataFromOrder, setNfeDataFromOrder] = useState<any>(null);
+  
+  // ✅ FLAG para evitar processamento duplicado de checkout
+  const [hasProcessedCheckout, setHasProcessedCheckout] = useState(false);
+
+  // Callback para navegar para NF-e a partir de um pedido
+  const handleNavigateToNFeFromOrder = (orderData: any) => {
+    setNfeDataFromOrder(orderData);
+    setCurrentView("taxInvoicing");
+    // Limpar dados após 3 segundos para permitir que sejam usados
+    setTimeout(() => {
+      setNfeDataFromOrder(null);
+    }, 3000);
+  };
+
+  // Verificar hash (#stripeTest, #systemAudit, etc) na URL
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== '') {
+        // Verificar se é uma view válida
+        const validViews: NavigationView[] = [
+          'stripeTest', 
+          'systemAudit', 
+          'webhookDebug', 
+          'subscriptionDebug',
+          'testePersistencia',
+          'checkoutSuccess',
+          'checkoutCancel',
+          'billing',
+          'myPlan',
+          'changePlan'
+        ];
+        
+        if (validViews.includes(hash as NavigationView)) {
+          setCurrentView(hash as NavigationView);
+        }
+      }
+    };
+
+    // Executar na montagem
+    handleHashChange();
+
+    // Listener para mudanças no hash
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
+  // Verificar query params para redirecionamentos do Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutStatus = params.get('checkout');
+    
+    if (checkoutStatus === 'success' && !hasProcessedCheckout) {
+      setCurrentView('checkoutSuccess');
+      setHasProcessedCheckout(true);
+      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
+      setTimeout(() => {
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 100);
+    } else if (checkoutStatus === 'cancel' && !hasProcessedCheckout) {
+      setCurrentView('checkoutCancel');
+      setHasProcessedCheckout(true);
+      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
+      setTimeout(() => {
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 100);
+    }
+  }, []); // Executar apenas na montagem inicial
+
+  // Listener para navegar para billing via evento customizado
+  useEffect(() => {
+    const handleNavigateToBilling = () => {
+      setCurrentView("billing");
+    };
+    
+    window.addEventListener('navigate-to-billing', handleNavigateToBilling);
+    
+    return () => {
+      window.removeEventListener('navigate-to-billing', handleNavigateToBilling);
+    };
+  }, []);
 
   // Verificar se há um token de convite na URL
   const hasInviteToken = () => {
@@ -249,7 +407,7 @@ function AppContent() {
       case "purchases":
         return <PurchaseOrders />;
       case "sales":
-        return <SalesOrders />;
+        return <SalesOrders onNavigateToNFe={handleNavigateToNFeFromOrder} />;
       case "customers":
         return <Customers />;
       case "suppliers":
@@ -265,13 +423,39 @@ function AppContent() {
       case "priceTables":
         return <PriceTables />;
       case "taxInvoicing":
-        return <TaxInvoicing />;
+        return <TaxInvoicing orderData={nfeDataFromOrder} />;
       case "reports":
         return <Reports />;
       case "usersPermissions":
         return <UsersPermissions />;
       case "emailSettings":
         return <EmailSettings />;
+      case "billing":
+        return <BillingSettings />;
+      case "myPlan":
+        return <BillingSettings />;
+      case "changePlan":
+        return <ChangePlan />;
+      case "checkoutSuccess":
+        return <CheckoutSuccess onNavigate={setCurrentView} />;
+      case "checkoutCancel":
+        return <CheckoutCancel onNavigate={setCurrentView} />;
+      case "webhookDebug":
+        // PROTEÇÃO: Apenas em desenvolvimento
+        if (!IS_DEVELOPMENT || !WebhookDebug) {
+          console.warn("Webhook Debug não disponível em produção");
+          return <Dashboard />;
+        }
+        return <WebhookDebug />;
+      case "stripeTest":
+        return <StripeTestPage />;
+      case "subscriptionDebug":
+        // PROTEÇÃO: Apenas em desenvolvimento
+        if (!IS_DEVELOPMENT || !SubscriptionDebug) {
+          console.warn("Subscription Debug não disponível em produção");
+          return <Dashboard />;
+        }
+        return <SubscriptionDebug />;
       case "systemAudit":
         // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
         if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {
@@ -301,6 +485,8 @@ function AppContent() {
         return <ManufacturingBatches />;
       case "profile":
         return <ProfileView onNavigate={setCurrentView} />;
+      case "testePersistencia":
+        return <TestePersistencia />;
       default:
         return <Dashboard />;
     }
@@ -327,12 +513,18 @@ function AppContent() {
             onClose={() => setIsSidebarOpen(false)}
           />
           <main className="flex-1 overflow-auto bg-gray-50">
-            {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
-            <ErrorBoundary>
-              <Suspense fallback={<ViewLoader />}>
-                {renderView()}
-              </Suspense>
-            </ErrorBoundary>
+            {/* 🔒 PLAN ACCESS GUARD - Bloqueia acesso se trial/plano expirou */}
+            <PlanAccessGuard 
+              currentView={currentView}
+              onNavigateToPlans={() => setCurrentView("changePlan")}
+            >
+              {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
+              <ErrorBoundary>
+                <Suspense fallback={<ViewLoader />}>
+                  {renderView()}
+                </Suspense>
+              </ErrorBoundary>
+            </PlanAccessGuard>
           </main>
         </div>
 
@@ -347,8 +539,12 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
-        <SpeedInsights />
+        <SubscriptionProvider>
+          <AppContent />
+          <SpeedInsights />
+          <UpgradeDialog />
+          <SubscriptionAlerts />
+        </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>
   );

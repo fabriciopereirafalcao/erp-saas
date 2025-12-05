@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "./ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -13,7 +13,8 @@ import { Textarea } from "./ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Checkbox } from "./ui/checkbox";
-import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus } from "lucide-react";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus, Receipt, AlertCircle } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -42,7 +43,11 @@ interface PaymentInstallment {
   amount: number;
 }
 
-export function SalesOrders() {
+interface SalesOrdersProps {
+  onNavigateToNFe?: (orderData: any) => void;
+}
+
+export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople } = useERP();
   
   // ✅ Proteções contra arrays undefined
@@ -63,6 +68,8 @@ export function SalesOrders() {
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<typeof salesOrders[0] | null>(null);
   const [isExceptionalMode, setIsExceptionalMode] = useState(false);
   const [isPersonManagementOpen, setIsPersonManagementOpen] = useState(false);
+  const [isNFeConfirmDialogOpen, setIsNFeConfirmDialogOpen] = useState(false);
+  const [selectedOrderForNFe, setSelectedOrderForNFe] = useState<any>(null);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -747,6 +754,58 @@ export function SalesOrders() {
 
     setIsDialogOpen(true);
     toast.info(`Editando pedido ${order.id}`);
+  };
+
+  // Função para preparar emissão de NF-e
+  const handleEmitirNFe = (order: typeof salesOrders[0]) => {
+    // Verificar se o status permite emissão de NF-e
+    const statusPermitidos = ["Confirmado", "Enviado", "Entregue", "Concluído"];
+    if (!statusPermitidos.includes(order.status)) {
+      toast.error("Apenas pedidos confirmados ou em status mais avançados podem gerar NF-e");
+      return;
+    }
+
+    // Buscar dados completos do cliente
+    const customer = safeCustomers.find(c => c.id === order.customerId);
+    if (!customer) {
+      toast.error("Cliente não encontrado");
+      return;
+    }
+
+    setSelectedOrderForNFe(order);
+    setIsNFeConfirmDialogOpen(true);
+  };
+
+  // Confirmar e navegar para emissão de NF-e
+  const handleConfirmEmitirNFe = () => {
+    if (!selectedOrderForNFe) return;
+
+    const customer = safeCustomers.find(c => c.id === selectedOrderForNFe.customerId);
+    if (!customer) {
+      toast.error("Cliente não encontrado");
+      return;
+    }
+
+    // Preparar dados para NF-e
+    const nfeData = {
+      order: selectedOrderForNFe,
+      customer: customer,
+      items: selectedOrderForNFe.items || [{
+        productName: selectedOrderForNFe.productName,
+        quantity: selectedOrderForNFe.quantity,
+        unitPrice: selectedOrderForNFe.unitPrice,
+        totalAmount: selectedOrderForNFe.totalAmount
+      }]
+    };
+
+    setIsNFeConfirmDialogOpen(false);
+    
+    // Navegar para o módulo de NF-e ou usar callback
+    if (onNavigateToNFe) {
+      onNavigateToNFe(nfeData);
+    }
+    
+    toast.success("Abrindo módulo de NF-e...");
   };
 
   const totalProcessing = salesOrders.filter(o => o.status === "Processando").length;
@@ -1868,6 +1927,17 @@ export function SalesOrders() {
                           <Copy className="mr-2 h-4 w-4" />
                           Duplicar Pedido
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleEmitirNFe(order)}
+                          disabled={!["Confirmado", "Enviado", "Entregue", "Concluído"].includes(order.status)}
+                          className={!["Confirmado", "Enviado", "Entregue", "Concluído"].includes(order.status) ? "opacity-50 cursor-not-allowed" : ""}
+                        >
+                          <Receipt className="mr-2 h-4 w-4" />
+                          Emitir NF-e
+                          {!["Confirmado", "Enviado", "Entregue", "Concluído"].includes(order.status) && 
+                            <span className="ml-1 text-xs">(requer confirmação)</span>
+                          }
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -2001,6 +2071,129 @@ export function SalesOrders() {
         onClose={() => setIsPersonManagementOpen(false)}
         defaultTab="salespeople"
       />
+
+      {/* Dialog de Confirmação para Emitir NF-e */}
+      <Dialog open={isNFeConfirmDialogOpen} onOpenChange={setIsNFeConfirmDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-blue-600" />
+              Emitir NF-e a partir do Pedido
+            </DialogTitle>
+            <DialogDescription>
+              Confirme os dados do pedido que serão utilizados para gerar a Nota Fiscal Eletrônica
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrderForNFe && (() => {
+            const customer = safeCustomers.find(c => c.id === selectedOrderForNFe.customerId);
+            const items = selectedOrderForNFe.items || [{
+              productName: selectedOrderForNFe.productName,
+              quantity: selectedOrderForNFe.quantity,
+              unitPrice: selectedOrderForNFe.unitPrice,
+              subtotal: selectedOrderForNFe.totalAmount
+            }];
+
+            return (
+              <div className="space-y-4 py-4">
+                {/* Informações do Pedido */}
+                <Card className="p-4 bg-blue-50 border-blue-200">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-gray-700">Pedido:</span>
+                      <span className="text-sm font-bold text-blue-900">{selectedOrderForNFe.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-gray-700">Status:</span>
+                      <Badge className={getStatusColor(selectedOrderForNFe.status)}>
+                        {selectedOrderForNFe.status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-gray-700">Valor Total:</span>
+                      <span className="text-sm font-bold text-green-700">
+                        R$ {selectedOrderForNFe.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Informações do Cliente */}
+                {customer && (
+                  <Card className="p-4">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Destinatário (Cliente)
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Nome:</span>
+                        <span className="font-medium">{customer.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">CPF/CNPJ:</span>
+                        <span className="font-medium">{customer.cpfCnpj}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Endereço:</span>
+                        <span className="font-medium text-right">{customer.address}</span>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Itens do Pedido */}
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Produtos ({items.length} {items.length === 1 ? 'item' : 'itens'})
+                  </h4>
+                  <div className="space-y-2">
+                    {items.map((item: any, index: number) => (
+                      <div key={index} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.productName}</p>
+                          <p className="text-xs text-gray-500">
+                            Qtd: {item.quantity} × R$ {item.unitPrice?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <span className="font-medium">
+                          R$ {(item.subtotal || item.quantity * item.unitPrice).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Aviso */}
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription className="text-sm">
+                    Você será redirecionado para o módulo de <strong>Faturamento Fiscal</strong> onde poderá 
+                    revisar os dados, adicionar informações fiscais e transmitir a NF-e para a SEFAZ.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            );
+          })()}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNFeConfirmDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmEmitirNFe}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Receipt className="w-4 h-4 mr-2" />
+              Continuar para Emissão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
