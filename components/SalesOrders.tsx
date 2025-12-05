@@ -816,59 +816,60 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
-    <div className="p-8 relative">
-      {/* Info Badge - Controle Inteligente de Status */}
-      <FeatureInfoBadge 
-        title="Controle Inteligente de Status" 
-        variant="blue"
-        position="top-right"
-      >
-        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
-          <p className="font-semibold">Fluxo de Status do Pedido:</p>
-          
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">🔵 Processando</Badge>
-            <span className="text-gray-400">→</span>
-            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">🟣 Confirmado</Badge>
-            <span className="text-gray-400">→</span>
-            <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">🟡 Enviado</Badge>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">🟢 Entregue</Badge>
-            <span className="text-gray-400">→</span>
-            <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">🟠 Parcialmente Concluído</Badge>
-            <span className="text-gray-400">→</span>
-            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">✅ Concluído</Badge>
-          </div>
-
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
-            <p className="flex items-start gap-2">
-              <Package className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-              <span><strong>Enviado</strong> → baixa estoque automaticamente</span>
-            </p>
-            <p className="flex items-start gap-2">
-              <DollarSign className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <span><strong>Entregue</strong> → gera transações financeiras</span>
-            </p>
-            <p className="flex items-start gap-2">
-              <History className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <span>Use o botão <strong>Histórico</strong> para ver todas as mudanças de status</span>
-            </p>
-          </div>
-
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              💡 Os lançamentos financeiros são criados automaticamente ao entregar o pedido e devem ser baixados manualmente quando o pagamento for recebido.
-            </p>
-          </div>
-        </div>
-      </FeatureInfoBadge>
-
+    <div className="p-8">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Pedidos de Venda</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-gray-900">Pedidos de Venda</h1>
+              {/* Info Badge - Controle Inteligente de Status */}
+              <FeatureInfoBadge 
+                title="Controle Inteligente de Status" 
+                variant="blue"
+                position="inline"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
+                  <p className="font-semibold">Fluxo de Status do Pedido:</p>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">🔵 Processando</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">🟣 Confirmado</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">🟡 Enviado</Badge>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">🟢 Entregue</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">🟠 Parcialmente Concluído</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">✅ Concluído</Badge>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                    <p className="flex items-start gap-2">
+                      <Package className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                      <span><strong>Enviado</strong> → baixa estoque automaticamente</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <DollarSign className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span><strong>Entregue</strong> → gera transações financeiras</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <History className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span>Use o botão <strong>Histórico</strong> para ver todas as mudanças de status</span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      💡 Os lançamentos financeiros são criados automaticamente ao entregar o pedido e devem ser baixados manualmente quando o pagamento for recebido.
+                    </p>
+                  </div>
+                </div>
+              </FeatureInfoBadge>
+            </div>
             <p className="text-gray-600">Gerencie pedidos de clientes e vendas com controle inteligente de status</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
