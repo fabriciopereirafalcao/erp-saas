@@ -821,10 +821,230 @@ app.post("/check-payment-status", async (c) => {
 });
 
 /* =========================================================================
- * WEBHOOK HANDLER: payment_intent.succeeded
- * Processa pagamento confirmado via PIX ou Boleto
+ * WEBHOOK HANDLERS - FUNÇÕES AUXILIARES
  * ========================================================================= */
 
+/**
+ * Handler: checkout.session.completed
+ * Processa checkout completado (cartão de crédito)
+ */
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  try {
+    console.log(`✅ [WEBHOOK] Checkout completado: ${session.id}`);
+    
+    const userId = session.metadata?.userId;
+    const planId = session.metadata?.planId;
+    const billingCycle = session.metadata?.billingCycle;
+    
+    if (!userId || !planId || !billingCycle) {
+      console.error("[WEBHOOK] Metadata incompleto no checkout session");
+      return;
+    }
+    
+    // Buscar subscription do Stripe
+    const subscriptionId = session.subscription as string;
+    
+    if (!subscriptionId) {
+      console.error("[WEBHOOK] Subscription ID não encontrado no checkout session");
+      return;
+    }
+    
+    const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+    
+    // Calcular datas do período
+    const now = new Date();
+    const periodEnd = new Date(stripeSubscription.current_period_end * 1000);
+    
+    console.log(`📅 [WEBHOOK] Período: ${now.toISOString()} até ${periodEnd.toISOString()}`);
+    
+    // Criar/Atualizar subscription no KV
+    const subscriptionKey = `subscription:${userId}`;
+    
+    const subscription = {
+      id: subscriptionId,
+      userId,
+      planId,
+      status: stripeSubscription.status, // "active", "trialing", etc
+      billingCycle,
+      paymentMethod: "card",
+      isRecurring: true, // ← Renovação automática!
+      startDate: now.toISOString(),
+      currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
+      amount: (stripeSubscription.items.data[0]?.price.unit_amount || 0) / 100,
+      currency: stripeSubscription.currency.toUpperCase(),
+      stripeCustomerId: stripeSubscription.customer as string,
+      stripePaymentIntentId: session.payment_intent as string,
+      stripeSubscriptionId: subscriptionId,
+      usage: {
+        salesOrders: 0,
+        purchaseOrders: 0,
+        invoices: 0,
+        transactions: 0,
+        storageMB: 0,
+      },
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+    
+    await kv.set(subscriptionKey, subscription);
+    
+    console.log(`💾 [KV] Subscription CARD criada/atualizada para userId: ${userId}`);
+    console.log(`🎯 [KV] Plano ${planId} ativo até ${periodEnd.toLocaleDateString('pt-BR')}`);
+    
+  } catch (error) {
+    console.error("❌ [WEBHOOK] Erro ao processar checkout.session.completed:", error);
+  }
+}
+
+/**
+ * Handler: customer.subscription.created/updated
+ * Processa atualização de subscription
+ */
+async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
+  try {
+    console.log(`🔄 [WEBHOOK] Subscription atualizada: ${subscription.id}`);
+    
+    const userId = subscription.metadata?.userId;
+    
+    if (!userId) {
+      console.error("[WEBHOOK] userId não encontrado no metadata da subscription");
+      return;
+    }
+    
+    const subscriptionKey = `subscription:${userId}`;
+    const currentSub = await kv.get(subscriptionKey);
+    
+    if (!currentSub) {
+      console.warn(`⚠️ [WEBHOOK] Subscription não encontrada no KV para userId: ${userId}`);
+      return;
+    }
+    
+    // Atualizar status e datas
+    currentSub.status = subscription.status;
+    currentSub.currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+    currentSub.currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    currentSub.updatedAt = new Date().toISOString();
+    
+    await kv.set(subscriptionKey, currentSub);
+    
+    console.log(`💾 [KV] Subscription atualizada: status=${subscription.status}`);
+    
+  } catch (error) {
+    console.error("❌ [WEBHOOK] Erro ao processar subscription.updated:", error);
+  }
+}
+
+/**
+ * Handler: customer.subscription.deleted
+ * Processa cancelamento de subscription
+ */
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  try {
+    console.log(`🗑️ [WEBHOOK] Subscription cancelada: ${subscription.id}`);
+    
+    const userId = subscription.metadata?.userId;
+    
+    if (!userId) {
+      console.error("[WEBHOOK] userId não encontrado no metadata da subscription");
+      return;
+    }
+    
+    const subscriptionKey = `subscription:${userId}`;
+    const currentSub = await kv.get(subscriptionKey);
+    
+    if (!currentSub) {
+      console.warn(`⚠️ [WEBHOOK] Subscription não encontrada no KV para userId: ${userId}`);
+      return;
+    }
+    
+    // Atualizar para status cancelado
+    currentSub.status = "canceled";
+    currentSub.updatedAt = new Date().toISOString();
+    
+    await kv.set(subscriptionKey, currentSub);
+    
+    console.log(`💾 [KV] Subscription cancelada para userId: ${userId}`);
+    
+  } catch (error) {
+    console.error("❌ [WEBHOOK] Erro ao processar subscription.deleted:", error);
+  }
+}
+
+/**
+ * Handler: invoice.payment_succeeded
+ * Processa pagamento bem-sucedido de fatura
+ */
+async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
+  try {
+    console.log(`✅ [WEBHOOK] Pagamento bem-sucedido: invoice=${invoice.id}`);
+    
+    const subscriptionId = invoice.subscription as string;
+    
+    if (!subscriptionId) {
+      console.log("⚠️ [WEBHOOK] Invoice sem subscription - ignorando");
+      return;
+    }
+    
+    // Buscar subscription
+    const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const userId = stripeSubscription.metadata?.userId;
+    
+    if (!userId) {
+      console.error("[WEBHOOK] userId não encontrado no metadata da subscription");
+      return;
+    }
+    
+    console.log(`💰 [WEBHOOK] Pagamento confirmado para userId: ${userId}, valor: ${(invoice.amount_paid / 100).toFixed(2)}`);
+    
+    // Atualizar subscription (já deve estar ativa)
+    await handleSubscriptionUpdate(stripeSubscription);
+    
+  } catch (error) {
+    console.error("❌ [WEBHOOK] Erro ao processar invoice.payment_succeeded:", error);
+  }
+}
+
+/**
+ * Handler: invoice.payment_failed
+ * Processa falha de pagamento de fatura
+ */
+async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  try {
+    console.log(`❌ [WEBHOOK] Pagamento falhou: invoice=${invoice.id}`);
+    
+    const subscriptionId = invoice.subscription as string;
+    
+    if (!subscriptionId) {
+      console.log("⚠️ [WEBHOOK] Invoice sem subscription - ignorando");
+      return;
+    }
+    
+    // Buscar subscription
+    const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const userId = stripeSubscription.metadata?.userId;
+    
+    if (!userId) {
+      console.error("[WEBHOOK] userId não encontrado no metadata da subscription");
+      return;
+    }
+    
+    console.log(`⚠️ [WEBHOOK] Falha de pagamento para userId: ${userId}`);
+    
+    // Atualizar status (Stripe pode já ter mudado para past_due)
+    await handleSubscriptionUpdate(stripeSubscription);
+    
+    // TODO: Enviar email de notificação de falha
+    
+  } catch (error) {
+    console.error("❌ [WEBHOOK] Erro ao processar invoice.payment_failed:", error);
+  }
+}
+
+/**
+ * Handler: payment_intent.succeeded
+ * Processa pagamento confirmado via PIX ou Boleto
+ */
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     // Verificar se é pagamento PIX ou Boleto
@@ -860,7 +1080,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     
     console.log(`📅 [WEBHOOK] Período: ${now.toISOString()} até ${periodEnd.toISOString()}`);
     
-    // 🔥 CRIAR/ATUALIZAR SUBSCRIPTION NO KV
+    // Criar/Atualizar subscription no KV
     const subscriptionKey = `subscription:${userId}`;
     
     const subscription = {
@@ -894,8 +1114,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     
     console.log(`💾 [KV] Subscription ${paymentType.toUpperCase()} criada/atualizada para userId: ${userId}`);
     console.log(`🎯 [KV] Plano ${planId} ativo até ${periodEnd.toLocaleDateString('pt-BR')}`);
-    
-    // TODO: Enviar email de confirmação de pagamento
     
   } catch (error) {
     console.error("❌ [WEBHOOK] Erro ao processar payment_intent.succeeded:", error);

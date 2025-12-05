@@ -281,6 +281,9 @@ function AppContent() {
     useState<NavigationView>("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [nfeDataFromOrder, setNfeDataFromOrder] = useState<any>(null);
+  
+  // ✅ FLAG para evitar processamento duplicado de checkout
+  const [hasProcessedCheckout, setHasProcessedCheckout] = useState(false);
 
   // Callback para navegar para NF-e a partir de um pedido
   const handleNavigateToNFeFromOrder = (orderData: any) => {
@@ -333,14 +336,16 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const checkoutStatus = params.get('checkout');
     
-    if (checkoutStatus === 'success') {
+    if (checkoutStatus === 'success' && !hasProcessedCheckout) {
       setCurrentView('checkoutSuccess');
+      setHasProcessedCheckout(true);
       // Limpar URL após um pequeno delay para garantir que a view seja renderizada
       setTimeout(() => {
         window.history.replaceState({}, '', window.location.pathname);
       }, 100);
-    } else if (checkoutStatus === 'cancel') {
+    } else if (checkoutStatus === 'cancel' && !hasProcessedCheckout) {
       setCurrentView('checkoutCancel');
+      setHasProcessedCheckout(true);
       // Limpar URL após um pequeno delay para garantir que a view seja renderizada
       setTimeout(() => {
         window.history.replaceState({}, '', window.location.pathname);
