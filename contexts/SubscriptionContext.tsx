@@ -174,7 +174,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setSubscription(null);
       setLoading(false);
     }
-  }, [session?.access_token, loadSubscription]); // ✅ Incluir loadSubscription nas dependências
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token]); // ✅ APENAS access_token - SEM loadSubscription!
 
   /* =======================================================================
    * INCREMENTAR USO - MEMOIZADA
