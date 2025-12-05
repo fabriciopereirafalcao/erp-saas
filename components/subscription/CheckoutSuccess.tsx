@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
@@ -12,41 +12,61 @@ interface CheckoutSuccessProps {
 export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
   const { refreshSubscription, subscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 10; // 10 tentativas = ~20 segundos
+  const [attempts, setAttempts] = useState(0);
+  const intervalRef = useRef<number | null>(null);
+  const attemptCountRef = useRef(0);
+  const maxAttempts = 15; // 15 tentativas = ~30 segundos
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: number;
 
     const checkPaymentStatus = async () => {
-      // Aguardar 2 segundos inicial para webhook processar
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!isMounted) return;
       
-      // Refresh subscription
+      attemptCountRef.current++;
+      setAttempts(attemptCountRef.current);
+      
+      console.log(`[CHECKOUT] Verificando status... tentativa ${attemptCountRef.current}/${maxAttempts}, Status atual: ${subscription?.status}`);
+      
+      // Refresh subscription do context
       await refreshSubscription();
-      
-      // Se ainda estiver montado e em trial, tentar novamente
-      if (isMounted) {
-        if (subscription?.status === 'trial' && retryCount < maxRetries) {
-          // Ainda em trial, tentar novamente em 2s
-          console.log(`[CHECKOUT] Aguardando webhook... tentativa ${retryCount + 1}/${maxRetries}`);
-          setRetryCount(prev => prev + 1);
-          timeoutId = window.setTimeout(checkPaymentStatus, 2000);
-        } else {
-          // Pagamento confirmado ou atingiu max retries
-          setIsLoading(false);
-        }
-      }
     };
 
-    checkPaymentStatus();
+    // Primeira verificação após 2s
+    const initialTimeout = setTimeout(async () => {
+      if (!isMounted) return;
+      
+      await checkPaymentStatus();
+      
+      // Continuar verificando a cada 2s
+      intervalRef.current = window.setInterval(async () => {
+        await checkPaymentStatus();
+      }, 2000);
+    }, 2000);
 
     return () => {
       isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
+      clearTimeout(initialTimeout);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [retryCount, refreshSubscription, subscription?.status]);
+  }, []); // Executar apenas na montagem
+
+  // ✅ EFEITO SEPARADO: Monitorar mudanças no subscription
+  useEffect(() => {
+    console.log(`[CHECKOUT] Subscription atualizado: ${subscription?.status}, Tentativas: ${attemptCountRef.current}`);
+    
+    // Parar quando não for mais trial OU atingiu max tentativas
+    if (subscription?.status !== 'trial' || attemptCountRef.current >= maxAttempts) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setIsLoading(false);
+      console.log(`[CHECKOUT] ✅ Finalizado! Status final: ${subscription?.status}`);
+    }
+  }, [subscription?.status]); // Monitorar mudanças no status
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
@@ -63,9 +83,9 @@ export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
             <p className="text-gray-600">
               Aguarde enquanto confirmamos sua assinatura.
             </p>
-            {retryCount > 3 && (
+            {attempts > 3 && (
               <p className="text-sm text-gray-500 mt-4">
-                Isso pode levar alguns segundos... ({retryCount}/{maxRetries})
+                Aguardando confirmação do Stripe... ({attempts}/15)
               </p>
             )}
           </>
