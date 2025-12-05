@@ -3,7 +3,6 @@ import { Card } from "./ui/card";
 import { TrendingUp, TrendingDown, Package, DollarSign, Users, Truck, AlertTriangle, Activity, Info } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useERP } from "../contexts/ERPContext";
-import { DataPersistenceStatus } from "./DataPersistenceStatus";
 import { Tooltip as TooltipUI, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 const salesDataMock = [
@@ -251,11 +250,6 @@ export function Dashboard() {
       <div className="mb-8">
         <h1 className="text-gray-900 mb-2">Painel de Controle</h1>
         <p className="text-gray-600">Bem-vindo ao seu Sistema ERP de Gestão Empresarial</p>
-      </div>
-
-      {/* Data Persistence Status */}
-      <div className="mb-6">
-        <DataPersistenceStatus />
       </div>
 
       {/* Key Metrics */}
