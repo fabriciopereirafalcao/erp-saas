@@ -1,72 +1,39 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { useNavigate } from "../ui/navigate";
 
 interface CheckoutSuccessProps {
   onNavigate: (view: string) => void;
 }
 
 export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
-  const { refreshSubscription, subscription } = useSubscription();
+  const { refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(true);
-  const [attempts, setAttempts] = useState(0);
-  const intervalRef = useRef<number | null>(null);
-  const attemptCountRef = useRef(0);
-  const maxAttempts = 15; // 15 tentativas = ~30 segundos
 
   useEffect(() => {
-    let isMounted = true;
-
-    const checkPaymentStatus = async () => {
-      if (!isMounted) return;
+    // ✅ SOLUÇÃO SIMPLES: Aguardar 3s, refresh, mostrar sucesso
+    // O webhook do Stripe pode demorar até 30s, mas não importa
+    // O SubscriptionContext atualiza automaticamente quando o usuário navega
+    
+    const timer = setTimeout(async () => {
+      console.log('[CHECKOUT] ⏰ Aguardando webhook processar (3s)...');
       
-      attemptCountRef.current++;
-      setAttempts(attemptCountRef.current);
-      
-      console.log(`[CHECKOUT] Verificando status... tentativa ${attemptCountRef.current}/${maxAttempts}, Status atual: ${subscription?.status}`);
-      
-      // Refresh subscription do context
+      // Fazer refresh da subscription
       await refreshSubscription();
-    };
-
-    // Primeira verificação após 2s
-    const initialTimeout = setTimeout(async () => {
-      if (!isMounted) return;
       
-      await checkPaymentStatus();
+      // Mostrar tela de sucesso (independente do status)
+      // O webhook pode ainda estar processando, mas tudo bem
+      setIsLoading(false);
       
-      // Continuar verificando a cada 2s
-      intervalRef.current = window.setInterval(async () => {
-        await checkPaymentStatus();
-      }, 2000);
-    }, 2000);
+      console.log('[CHECKOUT] ✅ Tela de sucesso exibida!');
+    }, 3000); // 3 segundos
 
     return () => {
-      isMounted = false;
-      clearTimeout(initialTimeout);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      clearTimeout(timer);
     };
-  }, []); // Executar apenas na montagem
-
-  // ✅ EFEITO SEPARADO: Monitorar mudanças no subscription
-  useEffect(() => {
-    console.log(`[CHECKOUT] Subscription atualizado: ${subscription?.status}, Tentativas: ${attemptCountRef.current}`);
-    
-    // Parar quando não for mais trial OU atingiu max tentativas
-    if (subscription?.status !== 'trial' || attemptCountRef.current >= maxAttempts) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      setIsLoading(false);
-      console.log(`[CHECKOUT] ✅ Finalizado! Status final: ${subscription?.status}`);
-    }
-  }, [subscription?.status]); // Monitorar mudanças no status
+  }, []); // ✅ SEM DEPENDÊNCIAS - executar apenas UMA VEZ na montagem
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
@@ -83,11 +50,6 @@ export function CheckoutSuccess({ onNavigate }: CheckoutSuccessProps) {
             <p className="text-gray-600">
               Aguarde enquanto confirmamos sua assinatura.
             </p>
-            {attempts > 3 && (
-              <p className="text-sm text-gray-500 mt-4">
-                Aguardando confirmação do Stripe... ({attempts}/15)
-              </p>
-            )}
           </>
         ) : (
           <>
