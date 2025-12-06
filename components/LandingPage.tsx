@@ -296,127 +296,127 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 lg:py-32 bg-white dark:bg-gray-900">
+      <section id="features" className="py-12 lg:py-16 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
-          <div className="text-center max-w-3xl mx-auto mb-16">
+          <div className="text-center max-w-3xl mx-auto mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#20FBE1]/10 dark:bg-[#20FBE1]/20 rounded-full mb-4">
               <Sparkles className="w-4 h-4 text-[#20FBE1]" />
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Recursos Principais</span>
             </div>
-            <h2 className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
               Tudo que você precisa em um só lugar
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-base lg:text-lg text-gray-600 dark:text-gray-300">
               Sistema completo de gestão empresarial com recursos profissionais para alavancar seu negócio
             </p>
           </div>
 
           {/* Features Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Feature 1 - NF-e Real */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-[#20FBE1] dark:hover:border-[#20FBE1] hover:shadow-xl hover:shadow-[#20FBE1]/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#20FBE1] to-[#1BCFBA] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <FileText className="w-7 h-7 text-gray-900" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-[#20FBE1] dark:hover:border-[#20FBE1] hover:shadow-xl hover:shadow-[#20FBE1]/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#20FBE1] to-[#1BCFBA] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <FileText className="w-6 h-6 text-gray-900" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 NF-e Real Integrada
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Emissão de Nota Fiscal Eletrônica homologada e integrada diretamente com a SEFAZ. 
                 Assinatura digital, transmissão automática e DANFE profissional.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-[#20FBE1]">
+              <div className="mt-3 flex items-center gap-2 text-sm text-[#20FBE1]">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>100% Homologado</span>
               </div>
             </div>
 
             {/* Feature 2 - Estoque */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-green-500 dark:hover:border-green-500 hover:shadow-xl hover:shadow-green-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Package className="w-7 h-7 text-white" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-green-500 dark:hover:border-green-500 hover:shadow-xl hover:shadow-green-500/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Package className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Gestão de Estoque
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Controle completo de inventário com categorias, locais, lotes de fabricação, 
                 alertas de estoque mínimo e rastreabilidade total de movimentações.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
+              <div className="mt-3 flex items-center gap-2 text-sm text-green-600">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Controle em Tempo Real</span>
               </div>
             </div>
 
             {/* Feature 3 - Vendas e Compras */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <ShoppingCart className="w-7 h-7 text-white" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <ShoppingCart className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Vendas & Compras
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Gerencie pedidos de venda e compra com facilidade. Controle de clientes, fornecedores, 
                 tabelas de preço e conversão direta para NF-e.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-blue-600">
+              <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Fluxo Completo</span>
               </div>
             </div>
 
             {/* Feature 4 - Financeiro */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Wallet className="w-7 h-7 text-white" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Financeiro Completo
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Contas a pagar e receber, plano de contas, centros de custo, reconciliação bancária, 
                 fluxo de caixa e transações financeiras integradas.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-amber-600">
+              <div className="mt-3 flex items-center gap-2 text-sm text-amber-600">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Gestão Profissional</span>
               </div>
             </div>
 
             {/* Feature 5 - Relatórios */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-7 h-7 text-white" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Relatórios e Dashboards
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Visualize seus dados com dashboards interativos e relatórios gerenciais. 
                 Métricas de vendas, estoque, financeiro e muito mais em tempo real.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-purple-600">
+              <div className="mt-3 flex items-center gap-2 text-sm text-purple-600">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Insights Inteligentes</span>
               </div>
             </div>
 
             {/* Feature 6 - Multi-usuários */}
-            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-rose-500 dark:hover:border-rose-500 hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-rose-400 to-rose-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Users className="w-7 h-7 text-white" />
+            <div className="group relative bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-rose-500 dark:hover:border-rose-500 hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-300">
+              <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-rose-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Users className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Controle de Acesso
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 Gerencie múltiplos usuários com sistema completo de permissões por módulo. 
                 Auditoria de ações, convites por email e hierarquia de acessos.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-rose-600">
+              <div className="mt-3 flex items-center gap-2 text-sm text-rose-600">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Segurança Avançada</span>
               </div>
@@ -424,8 +424,8 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
           </div>
 
           {/* Bottom CTA */}
-          <div className="mt-16 text-center">
-            <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-gradient-to-r from-[#20FBE1]/10 to-green-500/10 dark:from-[#20FBE1]/20 dark:to-green-500/20 p-8 rounded-2xl border border-[#20FBE1]/30 dark:border-[#20FBE1]/50">
+          <div className="mt-10 text-center">
+            <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-gradient-to-r from-[#20FBE1]/10 to-green-500/10 dark:from-[#20FBE1]/20 dark:to-green-500/20 p-6 rounded-2xl border border-[#20FBE1]/30 dark:border-[#20FBE1]/50">
               <div className="flex items-center gap-3">
                 <Clock className="w-6 h-6 text-[#20FBE1]" />
                 <span className="text-lg text-gray-900 dark:text-white">
@@ -446,24 +446,24 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 lg:py-32 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      <section id="pricing" className="py-12 lg:py-16 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
-          <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="text-center max-w-3xl mx-auto mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#20FBE1]/10 dark:bg-[#20FBE1]/20 rounded-full mb-4">
               <Star className="w-4 h-4 text-[#20FBE1]" />
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Planos e Preços</span>
             </div>
-            <h2 className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
               Escolha o plano ideal para o seu negócio
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-base lg:text-lg text-gray-600 dark:text-gray-300">
               Todos os planos incluem 7 dias de teste grátis. Cancele quando quiser.
             </p>
           </div>
 
           {/* Billing Cycle Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-12">
+          <div className="flex items-center justify-center gap-4 mb-8">
             <Button
               variant={billingCycle === "monthly" ? "default" : "outline"}
               onClick={() => setBillingCycle("monthly")}
@@ -494,11 +494,11 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
           </div>
 
           {/* Pricing Cards Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Plano Básico */}
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-6 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                   Básico
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -506,11 +506,11 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-sm text-gray-600 dark:text-gray-400">R$</span>
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("basico").reais}</span>
-                  <span className="text-lg text-gray-600 dark:text-gray-400">,{getFormattedPrice("basico").centavos}</span>
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("basico").reais}</span>
+                  <span className="text-base text-gray-600 dark:text-gray-400">,{getFormattedPrice("basico").centavos}</span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                   {getPriceLabel()}
@@ -519,13 +519,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               <Button 
-                className="w-full mb-6 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900"
+                className="w-full mb-5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900"
                 onClick={handleGetStarted}
               >
                 Começar grátis
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">1 usuário</span>
@@ -558,13 +558,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
             </div>
 
             {/* Plano Intermediário */}
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-blue-500 dark:border-blue-500 p-8 hover:border-blue-600 dark:hover:border-blue-400 transition-all shadow-lg">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-blue-500 dark:border-blue-500 p-6 hover:border-blue-600 dark:hover:border-blue-400 transition-all shadow-lg">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-xs font-medium">
                 Recomendado
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                   Intermediário
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -572,11 +572,11 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-sm text-gray-600 dark:text-gray-400">R$</span>
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("intermediario").reais}</span>
-                  <span className="text-lg text-gray-600 dark:text-gray-400">,{getFormattedPrice("intermediario").centavos}</span>
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("intermediario").reais}</span>
+                  <span className="text-base text-gray-600 dark:text-gray-400">,{getFormattedPrice("intermediario").centavos}</span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                   {getPriceLabel()}
@@ -585,13 +585,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               <Button 
-                className="w-full mb-6 bg-blue-500 hover:bg-blue-600 text-white"
+                className="w-full mb-5 bg-blue-500 hover:bg-blue-600 text-white"
                 onClick={handleGetStarted}
               >
                 Começar grátis
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">3 usuários</span>
@@ -624,13 +624,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
             </div>
 
             {/* Plano Avançado */}
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-[#20FBE1] dark:border-[#20FBE1] p-8 hover:border-[#1BCFBA] dark:hover:border-[#1BCFBA] transition-all shadow-lg">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#20FBE1] text-gray-900 px-4 py-1 rounded-full text-sm font-medium">
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-[#20FBE1] dark:border-[#20FBE1] p-6 hover:border-[#1BCFBA] dark:hover:border-[#1BCFBA] transition-all shadow-lg">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#20FBE1] text-gray-900 px-4 py-1 rounded-full text-xs font-medium">
                 Mais Popular
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                   Avançado
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -638,11 +638,11 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-sm text-gray-600 dark:text-gray-400">R$</span>
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("avancado").reais}</span>
-                  <span className="text-lg text-gray-600 dark:text-gray-400">,{getFormattedPrice("avancado").centavos}</span>
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">{getFormattedPrice("avancado").reais}</span>
+                  <span className="text-base text-gray-600 dark:text-gray-400">,{getFormattedPrice("avancado").centavos}</span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                   {getPriceLabel()}
@@ -651,13 +651,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               <Button 
-                className="w-full mb-6 bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900"
+                className="w-full mb-5 bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900"
                 onClick={handleGetStarted}
               >
                 Começar grátis
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">10 usuários</span>
@@ -690,14 +690,14 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
             </div>
 
             {/* Plano Ilimitado */}
-            <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 dark:from-gray-700 dark:to-gray-600 rounded-2xl border-2 border-amber-500 dark:border-amber-400 p-8 hover:border-amber-400 dark:hover:border-amber-300 transition-all shadow-xl">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
-                <Crown className="w-4 h-4" />
+            <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 dark:from-gray-700 dark:to-gray-600 rounded-2xl border-2 border-amber-500 dark:border-amber-400 p-6 hover:border-amber-400 dark:hover:border-amber-300 transition-all shadow-xl">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <Crown className="w-3 h-3" />
                 Premium
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-white mb-1">
                   Ilimitado
                 </h3>
                 <p className="text-sm text-gray-300">
@@ -705,11 +705,11 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-sm text-gray-400">R$</span>
-                  <span className="text-4xl font-bold text-white">{getFormattedPrice("ilimitado").reais}</span>
-                  <span className="text-lg text-gray-300">,{getFormattedPrice("ilimitado").centavos}</span>
+                  <span className="text-3xl font-bold text-white">{getFormattedPrice("ilimitado").reais}</span>
+                  <span className="text-base text-gray-300">,{getFormattedPrice("ilimitado").centavos}</span>
                 </div>
                 <p className="text-sm text-gray-400 mt-1">
                   {getPriceLabel()}
@@ -718,13 +718,13 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               <Button 
-                className="w-full mb-6 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white border-0"
+                className="w-full mb-5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white border-0"
                 onClick={handleGetStarted}
               >
                 Começar grátis
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-white">Usuários ilimitados</span>
@@ -773,24 +773,24 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-20 lg:py-32 bg-white dark:bg-gray-900">
+      <section id="faq" className="py-12 lg:py-16 bg-white dark:bg-gray-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#20FBE1]/10 dark:bg-[#20FBE1]/20 rounded-full mb-4">
               <HelpCircle className="w-4 h-4 text-[#20FBE1]" />
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Perguntas Frequentes</span>
             </div>
-            <h2 className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
               Tire suas dúvidas
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-base lg:text-lg text-gray-600 dark:text-gray-300">
               Encontre respostas para as perguntas mais comuns sobre o META ERP
             </p>
           </div>
 
           {/* FAQ Accordion */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* FAQ Item 1 */}
             <div className="group bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-[#20FBE1] dark:hover:border-[#20FBE1] transition-all">
               <button
