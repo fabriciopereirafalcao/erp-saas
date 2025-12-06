@@ -134,10 +134,10 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500/10 rounded-full blur-3xl"></div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left Column - Text Content */}
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm">
                 <Zap className="w-4 h-4 text-[#20FBE1]" />
@@ -147,21 +147,21 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               {/* Main Headline */}
-              <div className="space-y-4">
-                <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight">
+              <div className="space-y-3">
+                <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
                   Gerencie seu negócio com{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#20FBE1] to-green-500">
                     inteligência
                   </span>
                 </h1>
-                <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl">
+                <p className="text-lg lg:text-xl text-gray-600 dark:text-gray-300 max-w-2xl">
                   Sistema ERP completo para PMEs: Estoque, Financeiro, NF-e Real, 
                   Vendas e Compras em uma plataforma moderna e intuitiva.
                 </p>
               </div>
 
               {/* Key Benefits */}
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
                   <span className="text-gray-700 dark:text-gray-300">
@@ -183,7 +183,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
                 <Button 
                   size="lg" 
                   className="bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900 shadow-lg shadow-[#20FBE1]/25 text-base px-8"
@@ -203,7 +203,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               </div>
 
               {/* Trust Indicators */}
-              <div className="flex flex-wrap gap-6 pt-4 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex flex-wrap gap-6 pt-2 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span>Sem cartão de crédito</span>
