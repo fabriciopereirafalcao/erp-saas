@@ -4,7 +4,12 @@ import { ArrowRight, Check, Menu, X, Star, Users, TrendingUp, Shield, Zap, Clock
 import { Button } from './ui/button';
 import { projectId } from '../utils/supabase/info';
 
-export function LandingPage() {
+interface LandingPageProps {
+  onNavigateToLogin?: () => void;
+  onNavigateToSignup?: () => void;
+}
+
+export function LandingPage({ onNavigateToLogin, onNavigateToSignup }: LandingPageProps = {}) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "semiannual" | "yearly">("monthly");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
@@ -12,13 +17,21 @@ export function LandingPage() {
   const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleGetStarted = () => {
-    // Navegar para página de registro
-    window.location.href = '/register';
+    // Usar callback do App.tsx se fornecido, senão navegar diretamente
+    if (onNavigateToSignup) {
+      onNavigateToSignup();
+    } else {
+      window.location.href = '/register';
+    }
   };
 
   const handleLogin = () => {
-    // Navegar para página de login
-    window.location.href = '/login';
+    // Usar callback do App.tsx se fornecido, senão navegar diretamente
+    if (onNavigateToLogin) {
+      onNavigateToLogin();
+    } else {
+      window.location.href = '/login';
+    }
   };
 
   const handleViewDemo = () => {
