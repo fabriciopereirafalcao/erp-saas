@@ -442,7 +442,8 @@ function AppContent() {
             setCurrentRoute('/login');
           }}
           onNavigateToSignup={() => {
-            window.history.pushState({}, '', '/login');
+            // ✅ Redirecionar para /login com parâmetro signup=true
+            window.history.pushState({}, '', '/login?signup=true');
             setCurrentRoute('/login');
           }}
         />
