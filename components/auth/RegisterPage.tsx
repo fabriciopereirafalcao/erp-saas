@@ -6,6 +6,7 @@ import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert } from '../ui/alert';
 import { Package, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { projectId } from '../../utils/supabase/info';
 
 interface RegisterPageProps {
   onNavigateToLogin: () => void;
@@ -22,6 +23,9 @@ export function RegisterPage({ onNavigateToLogin, onNavigateToLanding }: Registe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  
+  // Dynamically build Supabase Storage URL based on project
+  const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +111,7 @@ export function RegisterPage({ onNavigateToLogin, onNavigateToLanding }: Registe
           <div className="flex items-center justify-center mb-4">
             <div className="w-32 h-16 flex items-center justify-center">
               <img 
-                src="https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg" 
+                src={`${supabaseStorageUrl}/logo-light.svg`} 
                 alt="META ERP" 
                 className="h-12"
               />

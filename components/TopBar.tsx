@@ -1,7 +1,7 @@
+import { Bell, Settings, LogOut, User, Moon, Sun, Shield, ChevronDown, Users, BarChart3, Package, Building2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useSubscription } from '../contexts/SubscriptionContext'; // ✅ Importar
-import { Bell, Settings, Moon, Sun, ChevronDown, Package, Building2, ListTree, Target, FileKey, Users, ShoppingBag, Tags, Warehouse, PackageCheck, Shield, User, Menu, Crown, CreditCard, ArrowUpCircle } from 'lucide-react';
+import { projectId } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -23,27 +23,12 @@ interface TopBarProps {
 export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopBarProps) {
   const { profile, company, signOut } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
-  const { subscription } = useSubscription(); // ✅ Usar
-
-  // ✅ CORREÇÃO: Verificar subscription em vez de company.status
-  // Mostrar banner APENAS se:
-  // 1. Não tiver subscription ativa PAGA (subscription.status !== 'active' ou planId === 'trial')
-  // 2. E ainda estiver dentro do período de trial (company.trial_ends_at)
-  
-  const trialEndsAt = company?.trial_ends_at ? new Date(company.trial_ends_at) : null;
-  const now = new Date();
-  const daysRemaining = trialEndsAt 
-    ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    : 0;
-
-  // ✅ Banner só aparece se:
-  // - NÃO tiver subscription paga (planId trial ou sem subscription)
-  // - E ainda tiver dias restantes de trial
-  const hasPaidPlan = subscription && subscription.planId !== 'trial' && subscription.status === 'active';
-  const showTrialBanner = !hasPaidPlan && company?.status === 'trial' && daysRemaining > 0;
 
   // Pegar primeiro nome do usuário
   const firstName = profile?.name?.split(' ')[0] || 'Usuário';
+  
+  // Dynamically build Supabase Storage URL based on project
+  const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   return (
     <div className={`fixed top-0 left-0 right-0 h-16 border-b shadow-sm z-50 ${isDarkMode ? 'dark bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -63,36 +48,16 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
         <div className="flex items-center gap-2 min-w-[180px]">
           <img 
             src={isDarkMode 
-              ? 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-dark.svg'
-              : 'https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg'
+              ? `${supabaseStorageUrl}/logo-dark.svg`
+              : `${supabaseStorageUrl}/logo-light.svg`
             } 
             alt="META ERP" 
             className="h-8"
           />
         </div>
 
-        {/* Trial Banner Inline - apenas se estiver em trial */}
-        {showTrialBanner && (
-          <div className="flex-1 flex items-center gap-2 sm:gap-3 bg-[#77F74A] px-3 sm:px-4 py-2 rounded-md min-w-0">
-            <span className="text-xs sm:text-sm text-black truncate min-w-0 flex-shrink">
-              <strong className="uppercase tracking-wide">{profile?.name?.toUpperCase() || 'USUÁRIO'}</strong>
-              <span className="hidden sm:inline">{' • '}</span>
-              <span className="block sm:inline">
-                {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'} para conclusão do Teste Grátis
-              </span>
-            </span>
-            <Button 
-              size="sm"
-              className="bg-white text-black hover:bg-gray-100 border-0 shadow-none h-7 px-3 sm:px-4 text-xs flex-shrink-0 whitespace-nowrap"
-              onClick={() => onNavigate('changePlan')}
-            >
-              Comprar agora
-            </Button>
-          </div>
-        )}
-
         {/* Spacer quando não há trial banner */}
-        {!showTrialBanner && <div className="flex-1" />}
+        <div className="flex-1" />
 
         {/* Ícones de ação */}
         <div className="flex items-center gap-2">

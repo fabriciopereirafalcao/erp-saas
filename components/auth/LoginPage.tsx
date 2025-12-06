@@ -5,19 +5,24 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert } from '../ui/alert';
-import { Package, Loader2 } from 'lucide-react';
+import { Package, Loader2, ArrowLeft } from 'lucide-react';
+import { projectId } from '../../utils/supabase/info';
 
 interface LoginPageProps {
   onNavigateToRegister: () => void;
   onNavigateToForgotPassword: () => void;
+  onNavigateToLanding?: () => void;
 }
 
-export function LoginPage({ onNavigateToRegister, onNavigateToForgotPassword }: LoginPageProps) {
+export function LoginPage({ onNavigateToRegister, onNavigateToForgotPassword, onNavigateToLanding }: LoginPageProps) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Dynamically build Supabase Storage URL based on project
+  const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +49,7 @@ export function LoginPage({ onNavigateToRegister, onNavigateToForgotPassword }: 
           <div className="flex items-center justify-center mb-4">
             <div className="w-32 h-16 flex items-center justify-center">
               <img 
-                src="https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/logo-light.svg" 
+                src={`${supabaseStorageUrl}/logo-light.svg`} 
                 alt="META ERP" 
                 className="h-12"
               />
@@ -125,6 +130,19 @@ export function LoginPage({ onNavigateToRegister, onNavigateToForgotPassword }: 
                 Criar conta grátis
               </button>
             </div>
+
+            {onNavigateToLanding && (
+              <div className="text-center text-sm text-gray-600 mt-2">
+                <button
+                  type="button"
+                  onClick={onNavigateToLanding}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1 inline" />
+                  Voltar para a página inicial
+                </button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

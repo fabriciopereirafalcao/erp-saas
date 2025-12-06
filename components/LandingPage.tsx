@@ -1,49 +1,21 @@
-import { Button } from "./ui/button";
-import { 
-  ArrowRight, 
-  CheckCircle2, 
-  Sparkles,
-  FileText,
-  TrendingUp,
-  Shield,
-  Zap,
-  Package,
-  ShoppingCart,
-  Wallet,
-  BarChart3,
-  Users,
-  Clock,
-  Check,
-  X,
-  Crown,
-  Star,
-  ChevronDown,
-  HelpCircle
-} from "lucide-react";
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { motion, useScroll, useTransform, useInView } from 'motion/react';
+import { ArrowRight, Check, Menu, X, Star, Users, TrendingUp, Shield, Zap, Clock, BarChart3, FileText, DollarSign, Package, ShoppingCart, Smartphone, Globe, ChevronDown, PlayCircle, Sparkles, Wallet, CheckCircle2, HelpCircle, Crown } from 'lucide-react';
+import { Button } from './ui/button';
+import { projectId } from '../utils/supabase/info';
 
-interface LandingPageProps {
-  onNavigateToSignup?: () => void;
-  onNavigateToLogin?: () => void;
-}
-
-export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPageProps) {
+export function LandingPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "semiannual" | "yearly">("monthly");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  const handleGetStarted = () => {
-    if (onNavigateToSignup) {
-      onNavigateToSignup();
-    } else {
-      console.log('Navegar para cadastro');
-    }
-  };
+  // Dynamically build Supabase Storage URL based on project
+  const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
-  const handleLogin = () => {
-    if (onNavigateToLogin) {
-      onNavigateToLogin();
-    } else {
-      console.log('Navegar para login');
+  const handleGetStarted = () => {
+    // Scroll para features section
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -115,7 +87,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleLogin}>
+              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleGetStarted}>
                 Entrar
               </Button>
               <Button className="bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900" onClick={handleGetStarted}>
@@ -241,7 +213,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 {/* Real Dashboard Image */}
                 <div className="relative overflow-hidden">
                   <img 
-                    src="https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/dashboard-hero.png"
+                    src={`${supabaseStorageUrl}/dashboard-hero.png`}
                     alt="Dashboard META ERP - Visão Geral do Sistema" 
                     className="w-full h-auto"
                   />
