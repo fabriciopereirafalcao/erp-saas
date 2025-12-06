@@ -4,7 +4,12 @@ import { ArrowRight, Check, Menu, X, Star, Users, TrendingUp, Shield, Zap, Clock
 import { Button } from './ui/button';
 import { projectId } from '../utils/supabase/info';
 
-export function LandingPage() {
+interface LandingPageProps {
+  onNavigateToLogin?: () => void;
+  onNavigateToSignup?: () => void;
+}
+
+export function LandingPage({ onNavigateToLogin, onNavigateToSignup }: LandingPageProps = {}) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "semiannual" | "yearly">("monthly");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
@@ -12,10 +17,20 @@ export function LandingPage() {
   const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleGetStarted = () => {
-    // Scroll para features section
-    const featuresSection = document.getElementById('features');
-    if (featuresSection) {
-      featuresSection.scrollIntoView({ behavior: 'smooth' });
+    // Usar callback do App.tsx se fornecido, senão navegar diretamente
+    if (onNavigateToSignup) {
+      onNavigateToSignup();
+    } else {
+      window.location.href = '/register';
+    }
+  };
+
+  const handleLogin = () => {
+    // Usar callback do App.tsx se fornecido, senão navegar diretamente
+    if (onNavigateToLogin) {
+      onNavigateToLogin();
+    } else {
+      window.location.href = '/login';
     }
   };
 
@@ -87,7 +102,7 @@ export function LandingPage() {
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleGetStarted}>
+              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleLogin}>
                 Entrar
               </Button>
               <Button className="bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900" onClick={handleGetStarted}>
