@@ -241,7 +241,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 {/* Real Dashboard Image */}
                 <div className="relative overflow-hidden">
                   <img 
-                    src="https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGRhc2hib2FyZCUyMGFuYWx5dGljc3xlbnwxfHx8fDE3NjUwMzYxMDl8MA&ixlib=rb-4.1.0&q=80&w=1080"
+                    src="https://bhykkiladzxjwnzkpdwu.supabase.co/storage/v1/object/public/meta-erp-assets/dashboard-hero.png"
                     alt="Dashboard META ERP - Visão Geral do Sistema" 
                     className="w-full h-auto"
                   />
