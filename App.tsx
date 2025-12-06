@@ -219,6 +219,13 @@ if (IS_DEVELOPMENT) {
   );
 }
 
+// Landing Page
+const LandingPage = lazy(() =>
+  import("./components/LandingPage").then((m) => ({
+    default: m.LandingPage,
+  })),
+);
+
 // System Audit (apenas em desenvolvimento)
 let SystemAudit: any = null;
 if (FEATURES.SYSTEM_AUDIT) {
@@ -285,6 +292,9 @@ function AppContent() {
   // ✅ FLAG para evitar processamento duplicado de checkout
   const [hasProcessedCheckout, setHasProcessedCheckout] = useState(false);
 
+  // ✅ Estado para gerenciar roteamento
+  const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+
   // Callback para navegar para NF-e a partir de um pedido
   const handleNavigateToNFeFromOrder = (orderData: any) => {
     setNfeDataFromOrder(orderData);
@@ -294,6 +304,35 @@ function AppContent() {
       setNfeDataFromOrder(null);
     }, 3000);
   };
+
+  // ✅ Listener para mudanças na URL (navegação)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentRoute(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, []);
+
+  // ✅ Redirecionar usuário logado da landing para /app
+  useEffect(() => {
+    if (user && currentRoute === '/') {
+      window.history.pushState({}, '', '/app');
+      setCurrentRoute('/app');
+    }
+  }, [user, currentRoute]);
+
+  // ✅ Redirecionar para /app após login bem-sucedido
+  useEffect(() => {
+    if (user && (currentRoute === '/login' || currentRoute === '/signup')) {
+      window.history.pushState({}, '', '/app');
+      setCurrentRoute('/app');
+    }
+  }, [user, currentRoute]);
 
   // Verificar hash (#stripeTest, #systemAudit, etc) na URL
   useEffect(() => {
@@ -392,7 +431,38 @@ function AppContent() {
     );
   }
 
-  // Mostrar tela de autenticação se não estiver logado
+  // ✅ SISTEMA DE ROTAS
+  // Landing Page pública (/) - acessível sem login
+  if (currentRoute === '/' && !user) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <LandingPage 
+          onNavigateToLogin={() => {
+            window.history.pushState({}, '', '/login');
+            setCurrentRoute('/login');
+          }}
+          onNavigateToSignup={() => {
+            window.history.pushState({}, '', '/login');
+            setCurrentRoute('/login');
+          }}
+        />
+      </Suspense>
+    );
+  }
+
+  // Login/Signup (/login) - apenas para usuários não logados
+  if ((currentRoute === '/login' || currentRoute === '/signup') && !user) {
+    return <AuthFlow />;
+  }
+
+  // Redirecionar usuário não logado tentando acessar /app para /login
+  if (currentRoute === '/app' && !user) {
+    window.history.pushState({}, '', '/login');
+    setCurrentRoute('/login');
+    return <AuthFlow />;
+  }
+
+  // Se não estiver logado e não estiver nas rotas públicas, mostrar login
   if (!user) {
     return <AuthFlow />;
   }
