@@ -21,6 +21,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { useState } from "react";
+import dashboardImage from "figma:asset/f15b7452fdd40c32d480b0cf14db12e4793c73d5.png";
 
 interface LandingPageProps {
   onNavigateToSignup?: () => void;
@@ -224,62 +225,34 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
               {/* Decorative Elements */}
               <div className="absolute -top-4 -right-4 w-72 h-72 bg-gradient-to-br from-[#20FBE1]/30 to-green-500/30 rounded-full blur-3xl"></div>
               
-              {/* Screenshot Placeholder */}
-              <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Dashboard Screenshot - Modern Mockup */}
+              <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform hover:scale-[1.02] transition-transform duration-300">
                 {/* Browser Chrome */}
                 <div className="bg-gray-100 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-400"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                    <div className="ml-4 flex-1 bg-gray-200 dark:bg-gray-700 rounded px-3 py-1 text-xs text-gray-500 dark:text-gray-400">
+                      metaerp.com.br/dashboard
+                    </div>
                   </div>
                 </div>
 
-                {/* Dashboard Preview */}
-                <div className="p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-                  <div className="space-y-4">
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="h-8 w-48 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                        <div className="h-4 w-32 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                      </div>
-                      <div className="h-10 w-32 bg-[#20FBE1] rounded-lg"></div>
-                    </div>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-5 h-5 text-green-500" />
-                          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                        </div>
-                        <div className="h-8 w-24 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-500" />
-                          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                        </div>
-                        <div className="h-8 w-24 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    </div>
-
-                    {/* Chart Placeholder */}
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="h-4 w-32 bg-gray-300 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="space-y-2">
-                        <div className="h-2 w-full bg-gray-200 dark:bg-gray-600 rounded"></div>
-                        <div className="h-2 w-4/5 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                        <div className="h-2 w-3/4 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
+                {/* Real Dashboard Image */}
+                <div className="relative overflow-hidden">
+                  <img 
+                    src={dashboardImage} 
+                    alt="Dashboard META ERP - Visão Geral do Sistema" 
+                    className="w-full h-auto"
+                  />
+                  {/* Subtle gradient overlay for depth */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/5 to-transparent pointer-events-none"></div>
                 </div>
               </div>
 
-              {/* Floating Badge */}
-              <div className="absolute -bottom-6 -left-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4">
+              {/* Floating Badge - SEFAZ Integration */}
+              <div className="absolute -bottom-6 -left-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 backdrop-blur-sm bg-white/90 dark:bg-gray-800/90">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
                     <Shield className="w-6 h-6 text-white" />
