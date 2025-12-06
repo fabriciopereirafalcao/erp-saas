@@ -12,11 +12,13 @@ export function LandingPage() {
   const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleGetStarted = () => {
-    // Scroll para features section
-    const featuresSection = document.getElementById('features');
-    if (featuresSection) {
-      featuresSection.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Navegar para página de registro
+    window.location.href = '/register';
+  };
+
+  const handleLogin = () => {
+    // Navegar para página de login
+    window.location.href = '/login';
   };
 
   const handleViewDemo = () => {
@@ -87,7 +89,7 @@ export function LandingPage() {
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleGetStarted}>
+              <Button variant="ghost" className="hidden sm:inline-flex" onClick={handleLogin}>
                 Entrar
               </Button>
               <Button className="bg-[#20FBE1] hover:bg-[#1BCFBA] text-gray-900" onClick={handleGetStarted}>
