@@ -23,6 +23,7 @@ import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "./PaginationControls";
 import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statusTransitionValidation";
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
+import { FeatureInfoBadge } from "./FeatureInfoBadge";
 
 interface OrderItem {
   productId: string;
@@ -669,7 +670,56 @@ export function PurchaseOrders() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Pedidos de Compra</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-gray-900">Pedidos de Compra</h1>
+              {/* Info Badge - Controle Inteligente de Status */}
+              <FeatureInfoBadge 
+                title="Controle Inteligente de Status" 
+                variant="purple"
+                position="inline"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
+                  <p className="font-semibold">Fluxo de Status do Pedido:</p>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">🔵 Processando</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">🟣 Confirmado</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">🟡 Enviado</Badge>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">🟢 Recebido</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">🟠 Parcialmente Concluído</Badge>
+                    <span className="text-gray-400">→</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">✅ Concluído</Badge>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                    <p className="flex items-start gap-2">
+                      <Package className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span><strong>Recebido</strong> → aumenta estoque automaticamente</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <DollarSign className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <span><strong>Recebido</strong> → gera transações financeiras (contas a pagar)</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <History className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span>Use o botão <strong>Histórico</strong> para ver todas as mudanças de status</span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      💡 Os lançamentos financeiros são criados automaticamente ao receber o pedido e devem ser baixados manualmente quando o pagamento for efetuado.
+                    </p>
+                  </div>
+                </div>
+              </FeatureInfoBadge>
+            </div>
             <p className="text-gray-600">Gerencie pedidos de fornecedores e compras com controle inteligente de status</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
@@ -1505,38 +1555,7 @@ export function PurchaseOrders() {
           </Card>
         </div>
 
-        {/* Fluxo de Status - Info Card */}
-        <Card className="p-4 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                🚀 Controle Inteligente de Status
-              </h3>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Badge className="bg-blue-100 text-blue-700">🔵 Processando</Badge>
-                <span className="text-gray-400">→</span>
-                <Badge className="bg-purple-100 text-purple-700">🟣 Confirmado</Badge>
-                <span className="text-gray-400">→</span>
-                <Badge className="bg-yellow-100 text-yellow-700">🟡 Enviado</Badge>
-                <span className="text-gray-400">→</span>
-                <Badge className="bg-green-100 text-green-700">🟢 Recebido</Badge>
-                <span className="text-xs text-gray-500">(entrada estoque + transações)</span>
-                <span className="text-gray-400">→</span>
-                <Badge className="bg-orange-100 text-orange-700">🟠 Parcialmente Concluído</Badge>
-                <span className="text-gray-400">→</span>
-                <Badge className="bg-emerald-100 text-emerald-700">🟢 Concluído</Badge>
-              </div>
-              <p className="text-xs text-gray-600">
-                💡 Os lançamentos financeiros são criados automaticamente ao receber o pedido e devem ser baixados manualmente quando o pagamento for efetuado. Use <History className="inline w-3 h-3" /> para ver o histórico.
-              </p>
-            </div>
-          </div>
-        </Card>
+
 
         {/* Search */}
         <div className="relative">

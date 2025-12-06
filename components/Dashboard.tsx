@@ -3,7 +3,6 @@ import { Card } from "./ui/card";
 import { TrendingUp, TrendingDown, Package, DollarSign, Users, Truck, AlertTriangle, Activity, Info } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useERP } from "../contexts/ERPContext";
-import { DataPersistenceStatus } from "./DataPersistenceStatus";
 import { Tooltip as TooltipUI, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 const salesDataMock = [
@@ -253,11 +252,6 @@ export function Dashboard() {
         <p className="text-gray-600">Bem-vindo ao seu Sistema ERP de Gestão Empresarial</p>
       </div>
 
-      {/* Data Persistence Status */}
-      <div className="mb-6">
-        <DataPersistenceStatus />
-      </div>
-
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="p-6">
@@ -347,14 +341,14 @@ export function Dashboard() {
                 <div className={`relative z-10 flex-1 flex items-center justify-center gap-1 transition-colors duration-200 ${
                   !isAccrualBasis ? 'text-white' : 'text-gray-600'
                 }`}>
-                  <span className="text-sm" style={{ fontWeight: 500 }}>Caixa</span>
+                  <span className="text-sm" style={{ fontWeight: 500 }}>R. Cx</span>
                 </div>
                 
                 {/* Competência Label */}
                 <div className={`relative z-10 flex-1 flex items-center justify-center gap-1 transition-colors duration-200 ${
                   isAccrualBasis ? 'text-white' : 'text-gray-600'
                 }`}>
-                  <span className="text-sm" style={{ fontWeight: 500 }}>Competência</span>
+                  <span className="text-sm" style={{ fontWeight: 500 }}>R. Cmpt</span>
                 </div>
               </div>
               
@@ -369,8 +363,8 @@ export function Dashboard() {
                   <TooltipContent className="max-w-xs">
                     <div className="space-y-1">
                       <p className="text-xs">Altere o regime de visualização:</p>
-                      <p className="text-xs"><strong>Caixa:</strong> mostra valores recebidos/pagos.</p>
-                      <p className="text-xs"><strong>Competência:</strong> mostra valores pela data em que foram gerados (a receber/a pagar).</p>
+                      <p className="text-xs"><strong>R. Cx (Regime de Caixa):</strong> mostra valores recebidos/pagos.</p>
+                      <p className="text-xs"><strong>R. Cmpt (Regime de Competência):</strong> mostra valores pela data em que foram gerados (a receber/a pagar).</p>
                     </div>
                   </TooltipContent>
                 </TooltipUI>

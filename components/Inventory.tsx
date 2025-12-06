@@ -17,6 +17,7 @@ import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "./PaginationControls";
 import { formatDateLocal } from "../utils/dateUtils";
 import { formatNCM, validateNCM } from "../utils/ncmValidation";
+import { FeatureInfoBadge } from "./FeatureInfoBadge";
 
 export function Inventory() {
   const { inventory, addInventoryItem, updateInventoryItem, addStockMovement, getStockMovementsByProduct, companySettings, productCategories, addProductCategory, deleteProductCategory } = useERP();
@@ -364,7 +365,43 @@ export function Inventory() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Gestão de Estoque</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-gray-900">Gestão de Estoque</h1>
+              {/* Info Badge - Atualização Automática de Estoque */}
+              <FeatureInfoBadge 
+                title="Atualização Automática de Estoque" 
+                variant="green"
+                position="inline"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
+                  <p>O estoque é atualizado <strong>automaticamente</strong> quando:</p>
+                  
+                  <div className="space-y-2">
+                    <p className="flex items-start gap-2">
+                      <TrendingDown className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        Um <strong>Pedido de Venda</strong> é marcado como "Entregue" → <strong>Diminui</strong> a quantidade
+                      </span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        Um <strong>Pedido de Compra</strong> é marcado como "Recebido" → <strong>Aumenta</strong> a quantidade
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <p className="font-semibold mb-2">💡 Status do produto:</p>
+                    <ul className="space-y-1 ml-4 list-disc">
+                      <li><strong>Em Estoque</strong>: Quantidade acima do nível de reposição</li>
+                      <li><strong>Baixo Estoque</strong>: Quantidade no nível de reposição ou abaixo</li>
+                      <li><strong>Fora de Estoque</strong>: Quantidade zerada</li>
+                    </ul>
+                  </div>
+                </div>
+              </FeatureInfoBadge>
+            </div>
             <p className="text-gray-600">Monitore e gerencie o inventário de produtos</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -1017,34 +1054,7 @@ export function Inventory() {
         </Table>
       </Card>
 
-      {/* Info Box */}
-      <Card className="mt-6 p-6 bg-green-50 border-green-200">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <h3 className="text-green-900 mb-2">🔄 Atualização Automática de Estoque</h3>
-            <div className="text-sm text-green-800 space-y-1">
-              <p>O estoque é atualizado <strong>automaticamente</strong> quando:</p>
-              <p className="ml-4 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4" />
-                Um <strong>Pedido de Venda</strong> é marcado como "Entregue" → <strong>Diminui</strong> a quantidade
-              </p>
-              <p className="ml-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Um <strong>Pedido de Compra</strong> é marcado como "Recebido" → <strong>Aumenta</strong> a quantidade
-              </p>
-              <p className="mt-2 text-green-700">
-                💡 <strong>Status do produto:</strong>
-              </p>
-              <p className="ml-4">• <strong>Em Estoque</strong>: Quantidade acima do nível de reposição</p>
-              <p className="ml-4">• <strong>Baixo Estoque</strong>: Quantidade no nível de reposição ou abaixo</p>
-              <p className="ml-4">• <strong>Fora de Estoque</strong>: Quantidade zerada</p>
-            </div>
-          </div>
-        </div>
-      </Card>
+
 
       {/* Dialog de Edição */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

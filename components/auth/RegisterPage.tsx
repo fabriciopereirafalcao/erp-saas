@@ -5,13 +5,15 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert } from '../ui/alert';
-import { Package, Loader2, CheckCircle2 } from 'lucide-react';
+import { Package, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { projectId } from '../../utils/supabase/info';
 
 interface RegisterPageProps {
   onNavigateToLogin: () => void;
+  onNavigateToLanding?: () => void;
 }
 
-export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
+export function RegisterPage({ onNavigateToLogin, onNavigateToLanding }: RegisterPageProps) {
   const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,6 +23,9 @@ export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  
+  // Dynamically build Supabase Storage URL based on project
+  const supabaseStorageUrl = `https://${projectId}.supabase.co/storage/v1/object/public/meta-erp-assets`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,8 +109,12 @@ export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-green-600 rounded-xl flex items-center justify-center">
-              <Package className="w-10 h-10 text-white" />
+            <div className="w-32 h-16 flex items-center justify-center">
+              <img 
+                src={`${supabaseStorageUrl}/logo-light.svg`} 
+                alt="META ERP" 
+                className="h-12"
+              />
             </div>
           </div>
           <CardTitle className="text-2xl text-center">Criar sua conta</CardTitle>
@@ -212,6 +221,19 @@ export function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                 Fazer login
               </button>
             </div>
+
+            {onNavigateToLanding && (
+              <div className="text-center text-sm text-gray-600">
+                <button
+                  type="button"
+                  onClick={onNavigateToLanding}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1 inline" />
+                  Voltar para a página inicial
+                </button>
+              </div>
+            )}
 
             <p className="text-xs text-center text-gray-500">
               Ao criar uma conta, você concorda com nossos{' '}
