@@ -21,7 +21,6 @@ import {
   HelpCircle
 } from "lucide-react";
 import { useState } from "react";
-import dashboardImage from "figma:asset/f15b7452fdd40c32d480b0cf14db12e4793c73d5.png";
 
 interface LandingPageProps {
   onNavigateToSignup?: () => void;
@@ -242,7 +241,7 @@ export function LandingPage({ onNavigateToSignup, onNavigateToLogin }: LandingPa
                 {/* Real Dashboard Image */}
                 <div className="relative overflow-hidden">
                   <img 
-                    src={dashboardImage} 
+                    src="https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGRhc2hib2FyZCUyMGFuYWx5dGljc3xlbnwxfHx8fDE3NjUwMzYxMDl8MA&ixlib=rb-4.1.0&q=80&w=1080"
                     alt="Dashboard META ERP - Visão Geral do Sistema" 
                     className="w-full h-auto"
                   />
