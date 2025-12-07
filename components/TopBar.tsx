@@ -1,4 +1,28 @@
-import { Bell, Settings, LogOut, User, Moon, Sun, Shield, ChevronDown, Users, BarChart3, Package, Building2 } from 'lucide-react';
+import { 
+  Bell, 
+  Settings, 
+  LogOut, 
+  User, 
+  Moon, 
+  Sun, 
+  Shield, 
+  ChevronDown, 
+  Users, 
+  BarChart3, 
+  Package, 
+  Building2, 
+  Menu,
+  ListTree,
+  Target,
+  FileKey,
+  ShoppingBag,
+  Tags,
+  Warehouse,
+  PackageCheck,
+  Crown,
+  CreditCard,
+  ArrowUpCircle
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { projectId } from '../utils/supabase/info';
