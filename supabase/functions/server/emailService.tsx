@@ -33,21 +33,33 @@ interface ResendResponse {
 // MODO PRODUÇÃO (padrão):
 //   - Emails são enviados para os destinatários reais
 //   - Obrigatório para ambiente de produção
+//
+// CONFIGURAÇÃO DE REMETENTE:
+//   EMAIL_FROM_DOMAIN=metaerp.com.br (domínio verificado no Resend)
+//   EMAIL_FROM_ADDRESS=contato (parte antes do @)
+//   EMAIL_FROM_NAME=META ERP (nome que aparece no email)
 // =====================================================
 
 const EMAIL_TEST_MODE = Deno.env.get('EMAIL_TEST_MODE') === 'true';
 const TEST_EMAIL = Deno.env.get('TEST_EMAIL') || 'fabriciopereirafalcao@gmail.com';
 
+// Configuração do remetente (com fallback para resend.dev em desenvolvimento)
+const EMAIL_FROM_DOMAIN = Deno.env.get('EMAIL_FROM_DOMAIN') || 'resend.dev';
+const EMAIL_FROM_ADDRESS = Deno.env.get('EMAIL_FROM_ADDRESS') || 'onboarding';
+const EMAIL_FROM_NAME = Deno.env.get('EMAIL_FROM_NAME') || 'META ERP';
+const DEFAULT_FROM_EMAIL = `${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDRESS}@${EMAIL_FROM_DOMAIN}>`;
+
 // Log de inicialização para debug
 console.log('📧 Email Service Inicializado:');
 console.log(`   → Modo de Teste: ${EMAIL_TEST_MODE ? '🧪 ATIVO' : '🚀 PRODUÇÃO'}`);
+console.log(`   → Remetente padrão: ${DEFAULT_FROM_EMAIL}`);
 if (EMAIL_TEST_MODE) {
   console.log(`   → Emails redirecionados para: ${TEST_EMAIL}`);
   console.log('   ⚠️  ATENÇÃO: Modo de teste ativo! Desative em produção!');
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<ResendResponse> {
-  const { to: originalTo, subject, html, from = 'Sistema ERP <onboarding@resend.dev>' } = params;
+  const { to: originalTo, subject, html, from = DEFAULT_FROM_EMAIL } = params;
   
   const apiKey = Deno.env.get('RESEND_API_KEY');
   
@@ -304,11 +316,13 @@ export async function sendInviteEmail(data: {
     expiresAt,
   });
 
+  // Usar remetente configurado via env vars
+  // Se não configurado, usa o padrão (onboarding@resend.dev)
   return await sendEmail({
     to,
     subject,
     html,
-    from: `${companyName} <onboarding@resend.dev>`,
+    // from será automaticamente DEFAULT_FROM_EMAIL se não especificado
   });
 }
 
