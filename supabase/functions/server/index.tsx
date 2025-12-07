@@ -401,6 +401,23 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este e-mail já foi convidado' }, 400);
     }
 
+    // Buscar dados da empresa do KV store
+    let companyName = profile.company_id; // Fallback para o ID
+    try {
+      const companyData = await kv.get(`company:${profile.company_id}`);
+      if (companyData) {
+        const company = typeof companyData === 'string' ? JSON.parse(companyData) : companyData;
+        // Priorizar nome fantasia, depois razão social, depois ID
+        companyName = company.nomeFantasia || company.razaoSocial || company.name || profile.company_id;
+        console.log('✅ Nome da empresa encontrado:', companyName);
+      } else {
+        console.log('⚠️ Dados da empresa não encontrados no KV store. Usando company_id.');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados da empresa:', error);
+      console.log('⚠️ Usando company_id como fallback');
+    }
+
     // Criar token único para o convite
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date();
@@ -411,7 +428,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       email,
       role,
       company_id: profile.company_id,
-      company_name: profile.company_id, // Você pode buscar o nome real da company se quiser
+      company_name: companyName, // Agora usa o nome real da empresa
       invited_by: user.id,
       invited_by_name: profile.name,
       created_at: new Date().toISOString(),
@@ -455,7 +472,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
         await sendInviteEmail({
           to: email,
           inviterName: profile.name,
-          companyName: profile.company_id, // TODO: Buscar nome real da empresa
+          companyName: companyName, // Agora usa o nome real da empresa
           roleName: roleNames[role] || role,
           inviteLink,
           expiresAt: expiresAt.toISOString(),
