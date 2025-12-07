@@ -401,20 +401,41 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este e-mail já foi convidado' }, 400);
     }
 
-    // Buscar dados da empresa do KV store
+    // Buscar nome da empresa (prioridade: KV store > Tabela companies)
     let companyName = profile.company_id; // Fallback para o ID
+    
     try {
-      const companyData = await kv.get(`company:${profile.company_id}`);
-      if (companyData) {
-        const company = typeof companyData === 'string' ? JSON.parse(companyData) : companyData;
-        // Priorizar nome fantasia, depois razão social, depois ID
-        companyName = company.nomeFantasia || company.razaoSocial || company.name || profile.company_id;
-        console.log('✅ Nome da empresa encontrado:', companyName);
+      // 1. Tentar buscar dados completos do KV store (se usuário preencheu Configurações)
+      const companyDataKV = await kv.get(`company:${profile.company_id}`);
+      if (companyDataKV) {
+        const company = typeof companyDataKV === 'string' ? JSON.parse(companyDataKV) : companyDataKV;
+        // Priorizar nome fantasia, depois razão social
+        if (company.nomeFantasia) {
+          companyName = company.nomeFantasia;
+          console.log('✅ Nome fantasia encontrado no KV store:', companyName);
+        } else if (company.razaoSocial) {
+          companyName = company.razaoSocial;
+          console.log('✅ Razão social encontrada no KV store:', companyName);
+        }
       } else {
-        console.log('⚠️ Dados da empresa não encontrados no KV store. Usando company_id.');
+        console.log('⚠️ Dados detalhados não encontrados no KV store. Buscando na tabela companies...');
+        
+        // 2. Buscar da tabela companies (dados do signup)
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', profile.company_id)
+          .single();
+        
+        if (!companyError && companyData?.name) {
+          companyName = companyData.name;
+          console.log('✅ Nome da empresa encontrado na tabela companies:', companyName);
+        } else {
+          console.log('⚠️ Empresa não encontrada na tabela companies. Usando company_id.');
+        }
       }
     } catch (error) {
-      console.error('❌ Erro ao buscar dados da empresa:', error);
+      console.error('❌ Erro ao buscar nome da empresa:', error);
       console.log('⚠️ Usando company_id como fallback');
     }
 
