@@ -431,6 +431,9 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
     // Verificar se o serviço de email está configurado
     if (isEmailServiceConfigured()) {
       try {
+        console.log('📧 Serviço de email configurado! Iniciando envio...');
+        console.log('📧 Email destino:', email);
+        
         // Mapear role para nome legível
         const roleNames: Record<string, string> = {
           admin: 'Administrador',
@@ -441,7 +444,14 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
           viewer: 'Visualizador',
         };
 
+        console.log('📧 Preparando dados do email...');
+        console.log('📧 Inviter:', profile.name);
+        console.log('📧 Company:', profile.company_id);
+        console.log('📧 Role:', roleNames[role] || role);
+        console.log('📧 Link:', inviteLink);
+
         // Enviar email com link de convite
+        console.log('📧 Chamando sendInviteEmail...');
         await sendInviteEmail({
           to: email,
           inviterName: profile.name,
@@ -454,6 +464,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
         console.log('✅ Email de convite enviado com sucesso para:', email);
       } catch (emailError: any) {
         console.error('❌ Erro ao enviar email de convite:', emailError.message);
+        console.error('❌ Stack do erro:', emailError.stack);
         // Não falhar a requisição se email falhar, apenas logar
       }
     } else {
