@@ -1333,7 +1333,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         const stockMovementsData = await loadEntity<StockMovement[]>('stock-movements');
         if (isSubscribed && stockMovementsData && stockMovementsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${stockMovementsData.length} movimentações de estoque carregadas`);
-          setStockMovements(stockMovementsData);
+          // Sanitizar dados: garantir que date e time sejam válidos
+          const sanitizedMovements = stockMovementsData.map(movement => ({
+            ...movement,
+            date: movement.date || '',
+            time: movement.time || ''
+          }));
+          setStockMovements(sanitizedMovements);
         }
         
         // Carregar tabelas de preço
