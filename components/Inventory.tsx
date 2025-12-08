@@ -21,6 +21,18 @@ import { FeatureInfoBadge } from "./FeatureInfoBadge";
 
 export function Inventory() {
   const { inventory, addInventoryItem, updateInventoryItem, addStockMovement, getStockMovementsByProduct, companySettings, productCategories, addProductCategory, deleteProductCategory } = useERP();
+  
+  // Debug: verificar se todas as funções estão definidas
+  console.log('[INVENTORY] 🔍 Verificando funções do ERPContext:', {
+    inventory: Array.isArray(inventory),
+    addInventoryItem: typeof addInventoryItem,
+    updateInventoryItem: typeof updateInventoryItem,
+    addStockMovement: typeof addStockMovement,
+    getStockMovementsByProduct: typeof getStockMovementsByProduct,
+    addProductCategory: typeof addProductCategory,
+    deleteProductCategory: typeof deleteProductCategory
+  });
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
