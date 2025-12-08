@@ -3,10 +3,11 @@ import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
 import { ForgotPasswordPage } from './ForgotPasswordPage';
 import { LandingPage } from '../LandingPage';
+import { useAuth } from '../../contexts/AuthContext';
 
 type AuthView = 'landing' | 'login' | 'register' | 'forgot-password';
 
-export function AuthFlow() {
+export function AuthFlow({ children }: { children: React.ReactNode }) {
   // ✅ Detectar se deve iniciar na tela de cadastro via URL param
   const getInitialView = (): AuthView => {
     const params = new URLSearchParams(window.location.search);
@@ -17,6 +18,13 @@ export function AuthFlow() {
   };
 
   const [view, setView] = useState<AuthView>(getInitialView);
+  const { currentUser, loading } = useAuth();
+
+  console.log('🔐 AuthFlow State:', {
+    currentUser: currentUser?.email,
+    loading,
+    view
+  });
 
   // ✅ Limpar parâmetro signup=true da URL quando mudar de view
   useEffect(() => {
@@ -30,6 +38,14 @@ export function AuthFlow() {
     }
   }, [view]);
 
+  // ✅ Se usuário está autenticado, renderizar children (AppContent)
+  if (currentUser) {
+    console.log('✅ AuthFlow: Usuário autenticado, renderizando children');
+    return <>{children}</>;
+  }
+
+  // ❌ Se não está autenticado, mostrar telas de login/registro
+  console.log('❌ AuthFlow: Usuário não autenticado, renderizando', view);
   switch (view) {
     case 'landing':
       return (

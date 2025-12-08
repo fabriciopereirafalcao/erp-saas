@@ -16,11 +16,50 @@ interface ResendResponse {
   created_at: string;
 }
 
-const VERIFIED_TEST_EMAIL = 'fabriciopereirafalcao@gmail.com';
-let isTestMode = true;
+// =====================================================
+// CONFIGURAÇÃO DE MODO DE TESTE
+// =====================================================
+// Por padrão, o sistema está em PRODUÇÃO (isTestMode = false)
+// 
+// Para ativar modo de teste, configure as variáveis de ambiente:
+//   EMAIL_TEST_MODE=true
+//   TEST_EMAIL=seu-email-verificado@exemplo.com
+//
+// MODO DE TESTE:
+//   - Todos os emails são redirecionados para TEST_EMAIL
+//   - Útil para desenvolvimento/staging
+//   - NUNCA usar em produção!
+//
+// MODO PRODUÇÃO (padrão):
+//   - Emails são enviados para os destinatários reais
+//   - Obrigatório para ambiente de produção
+//
+// CONFIGURAÇÃO DE REMETENTE:
+//   EMAIL_FROM_DOMAIN=metaerp.com.br (domínio verificado no Resend)
+//   EMAIL_FROM_ADDRESS=contato (parte antes do @)
+//   EMAIL_FROM_NAME=META ERP (nome que aparece no email)
+// =====================================================
+
+const EMAIL_TEST_MODE = Deno.env.get('EMAIL_TEST_MODE') === 'true';
+const TEST_EMAIL = Deno.env.get('TEST_EMAIL') || 'fabriciopereirafalcao@gmail.com';
+
+// Configuração do remetente (com fallback para resend.dev em desenvolvimento)
+const EMAIL_FROM_DOMAIN = Deno.env.get('EMAIL_FROM_DOMAIN') || 'resend.dev';
+const EMAIL_FROM_ADDRESS = Deno.env.get('EMAIL_FROM_ADDRESS') || 'onboarding';
+const EMAIL_FROM_NAME = Deno.env.get('EMAIL_FROM_NAME') || 'META ERP';
+const DEFAULT_FROM_EMAIL = `${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDRESS}@${EMAIL_FROM_DOMAIN}>`;
+
+// Log de inicialização para debug
+console.log('📧 Email Service Inicializado:');
+console.log(`   → Modo de Teste: ${EMAIL_TEST_MODE ? '🧪 ATIVO' : '🚀 PRODUÇÃO'}`);
+console.log(`   → Remetente padrão: ${DEFAULT_FROM_EMAIL}`);
+if (EMAIL_TEST_MODE) {
+  console.log(`   → Emails redirecionados para: ${TEST_EMAIL}`);
+  console.log('   ⚠️  ATENÇÃO: Modo de teste ativo! Desative em produção!');
+}
 
 export async function sendEmail(params: SendEmailParams): Promise<ResendResponse> {
-  const { to: originalTo, subject, html, from = 'Sistema ERP <onboarding@resend.dev>' } = params;
+  const { to: originalTo, subject, html, from = DEFAULT_FROM_EMAIL } = params;
   
   const apiKey = Deno.env.get('RESEND_API_KEY');
   
@@ -30,9 +69,9 @@ export async function sendEmail(params: SendEmailParams): Promise<ResendResponse
   }
 
   let to = originalTo;
-  if (isTestMode && originalTo !== VERIFIED_TEST_EMAIL) {
-    console.log(`🧪 MODO DE TESTE: Redirecionando email de ${originalTo} para ${VERIFIED_TEST_EMAIL}`);
-    to = VERIFIED_TEST_EMAIL;
+  if (EMAIL_TEST_MODE && originalTo !== TEST_EMAIL) {
+    console.log(`🧪 MODO DE TESTE ATIVO: Redirecionando email de ${originalTo} para ${TEST_EMAIL}`);
+    to = TEST_EMAIL;
   }
 
   try {
@@ -51,10 +90,10 @@ export async function sendEmail(params: SendEmailParams): Promise<ResendResponse
       body: JSON.stringify({
         from,
         to: [to],
-        subject: isTestMode && to !== originalTo 
+        subject: EMAIL_TEST_MODE && to !== originalTo 
           ? `[TESTE para ${originalTo}] ${subject}` 
           : subject,
-        html: isTestMode && to !== originalTo
+        html: EMAIL_TEST_MODE && to !== originalTo
           ? `<div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
               <strong>⚠️ MODO DE TESTE DO RESEND</strong><br/>
               Este email deveria ter sido enviado para: <strong>${originalTo}</strong><br/>
@@ -72,11 +111,10 @@ export async function sendEmail(params: SendEmailParams): Promise<ResendResponse
       
       if (response.status === 403 && errorData.message?.includes('testing emails')) {
         console.log('🔍 Detectado modo de teste do Resend');
-        isTestMode = true;
         
-        if (to === originalTo && originalTo !== VERIFIED_TEST_EMAIL) {
+        if (to === originalTo && originalTo !== TEST_EMAIL) {
           console.log('🔄 Tentando novamente com email verificado...');
-          return await sendEmail({ ...params, to: VERIFIED_TEST_EMAIL });
+          return await sendEmail({ ...params, to: TEST_EMAIL });
         }
       }
       
@@ -278,11 +316,13 @@ export async function sendInviteEmail(data: {
     expiresAt,
   });
 
+  // Usar remetente configurado via env vars
+  // Se não configurado, usa o padrão (onboarding@resend.dev)
   return await sendEmail({
     to,
     subject,
     html,
-    from: `${companyName} <onboarding@resend.dev>`,
+    // from será automaticamente DEFAULT_FROM_EMAIL se não especificado
   });
 }
 

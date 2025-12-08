@@ -1387,14 +1387,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         // Carregar contas a receber
         const accountsReceivableData = await loadEntity<AccountReceivable[]>('accounts-receivable');
-        if (isSubscribed && accountsReceivableData && accountsReceivableData.length > 0) {
+        if (isSubscribed && accountsReceivableData) {
           console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
           setAccountsReceivable(accountsReceivableData);
         }
         
         // Carregar contas a pagar
         const accountsPayableData = await loadEntity<AccountPayable[]>('accounts-payable');
-        if (isSubscribed && accountsPayableData && accountsPayableData.length > 0) {
+        if (isSubscribed && accountsPayableData) {
           console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
           setAccountsPayable(accountsPayableData);
         }

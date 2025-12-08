@@ -401,6 +401,44 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Este e-mail já foi convidado' }, 400);
     }
 
+    // Buscar nome da empresa (prioridade: KV store > Tabela companies)
+    let companyName = profile.company_id; // Fallback para o ID
+    
+    try {
+      // 1. Tentar buscar dados completos do KV store (se usuário preencheu Configurações)
+      const companyDataKV = await kv.get(`company:${profile.company_id}`);
+      if (companyDataKV) {
+        const company = typeof companyDataKV === 'string' ? JSON.parse(companyDataKV) : companyDataKV;
+        // Priorizar nome fantasia, depois razão social
+        if (company.nomeFantasia) {
+          companyName = company.nomeFantasia;
+          console.log('✅ Nome fantasia encontrado no KV store:', companyName);
+        } else if (company.razaoSocial) {
+          companyName = company.razaoSocial;
+          console.log('✅ Razão social encontrada no KV store:', companyName);
+        }
+      } else {
+        console.log('⚠️ Dados detalhados não encontrados no KV store. Buscando na tabela companies...');
+        
+        // 2. Buscar da tabela companies (dados do signup)
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', profile.company_id)
+          .single();
+        
+        if (!companyError && companyData?.name) {
+          companyName = companyData.name;
+          console.log('✅ Nome da empresa encontrado na tabela companies:', companyName);
+        } else {
+          console.log('⚠️ Empresa não encontrada na tabela companies. Usando company_id.');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar nome da empresa:', error);
+      console.log('⚠️ Usando company_id como fallback');
+    }
+
     // Criar token único para o convite
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date();
@@ -411,7 +449,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       email,
       role,
       company_id: profile.company_id,
-      company_name: profile.company_id, // Você pode buscar o nome real da company se quiser
+      company_name: companyName, // Agora usa o nome real da empresa
       invited_by: user.id,
       invited_by_name: profile.name,
       created_at: new Date().toISOString(),
@@ -424,13 +462,19 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
     await kv.set(`invite:${inviteToken}`, JSON.stringify(inviteData));
     console.log('✅ Convite salvo com sucesso!');
     
-    // Construir link de convite
-    const baseUrl = c.req.url.split('/make-server')[0];
-    const inviteLink = `${baseUrl}?token=${inviteToken}`;
+    // Construir link de convite usando o domínio do frontend
+    // PRODUÇÃO: https://metaerp.com.br?token=xxx
+    // STAGING: Pode ser detectado dinamicamente ou usar variável de ambiente
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://metaerp.com.br';
+    const inviteLink = `${frontendUrl}?token=${inviteToken}`;
+    console.log('🔗 Link de convite gerado:', inviteLink);
 
     // Verificar se o serviço de email está configurado
     if (isEmailServiceConfigured()) {
       try {
+        console.log('📧 Serviço de email configurado! Iniciando envio...');
+        console.log('📧 Email destino:', email);
+        
         // Mapear role para nome legível
         const roleNames: Record<string, string> = {
           admin: 'Administrador',
@@ -441,11 +485,18 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
           viewer: 'Visualizador',
         };
 
+        console.log('📧 Preparando dados do email...');
+        console.log('📧 Inviter:', profile.name);
+        console.log('📧 Company:', profile.company_id);
+        console.log('📧 Role:', roleNames[role] || role);
+        console.log('📧 Link:', inviteLink);
+
         // Enviar email com link de convite
+        console.log('📧 Chamando sendInviteEmail...');
         await sendInviteEmail({
           to: email,
           inviterName: profile.name,
-          companyName: profile.company_id, // TODO: Buscar nome real da empresa
+          companyName: companyName, // Agora usa o nome real da empresa
           roleName: roleNames[role] || role,
           inviteLink,
           expiresAt: expiresAt.toISOString(),
@@ -454,6 +505,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
         console.log('✅ Email de convite enviado com sucesso para:', email);
       } catch (emailError: any) {
         console.error('❌ Erro ao enviar email de convite:', emailError.message);
+        console.error('❌ Stack do erro:', emailError.stack);
         // Não falhar a requisição se email falhar, apenas logar
       }
     } else {

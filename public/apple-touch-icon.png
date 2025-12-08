@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Fundo azul escuro -->
+  <rect width="180" height="180" fill="#1e40af"/>
+  
+  <!-- Letra M estilizada em branco - versão maior para iOS -->
+  <path d="M 45 135 L 45 50 L 67 50 L 90 95 L 113 50 L 135 50 L 135 135 L 118 135 L 118 78 L 101 113 L 79 113 L 62 78 L 62 135 Z" fill="white"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Fundo azul escuro com bordas arredondadas -->
+  <rect width="128" height="128" fill="#1e40af" rx="24"/>
+  
+  <!-- Letra M estilizada em branco -->
+  <path d="M 32 96 L 32 36 L 48 36 L 64 68 L 80 36 L 96 36 L 96 96 L 84 96 L 84 56 L 72 80 L 56 80 L 44 56 L 44 96 Z" fill="white"/>
+</svg>

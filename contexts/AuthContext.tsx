@@ -532,5 +532,9 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error('useAuth deve ser usado dentro de AuthProvider');
   }
-  return context;
+  // Adicionar alias currentUser para compatibilidade
+  return {
+    ...context,
+    currentUser: context.user,
+  };
 }

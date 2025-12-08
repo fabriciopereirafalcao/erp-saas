@@ -16,6 +16,7 @@ import { PlanAccessGuard } from "./components/subscription/PlanAccessGuard.tsx";
 import { FEATURES, IS_DEVELOPMENT } from "./utils/environment.ts";
 import { DebugPersistence } from "./components/DebugPersistence.tsx";
 import { checkAuth, handleUnauthorized } from "./utils/authFetch.tsx";
+import { MaintenancePage } from "./components/MaintenancePage.tsx";
 
 // Importar utilitário de limpeza (disponível no console do navegador)
 import "./utils/cleanDuplicates.ts";
@@ -51,24 +52,9 @@ const Suppliers = lazy(() =>
     default: m.Suppliers,
   })),
 );
-const FinancialTransactions = lazy(() =>
-  import("./components/FinancialTransactions").then((m) => ({
-    default: m.FinancialTransactions,
-  })),
-);
 const AccountsPayableReceivable = lazy(() =>
-  import("./components/AccountsPayableReceivable").then(
-    (m) => ({ default: m.AccountsPayableReceivable }),
-  ),
-);
-const BalanceReconciliation = lazy(() =>
-  import("./components/BalanceReconciliation").then((m) => ({
-    default: m.BalanceReconciliation,
-  })),
-);
-const CashFlow = lazy(() =>
-  import("./components/CashFlow").then((m) => ({
-    default: m.CashFlow,
+  import("./components/AccountsPayableReceivable").then((m) => ({
+    default: m.AccountsPayableReceivable,
   })),
 );
 const Reports = lazy(() =>
@@ -76,9 +62,19 @@ const Reports = lazy(() =>
     default: m.Reports,
   })),
 );
-const PriceTables = lazy(() =>
-  import("./components/PriceTables").then((m) => ({
-    default: m.PriceTables,
+const CashFlow = lazy(() =>
+  import("./components/CashFlow").then((m) => ({
+    default: m.CashFlow,
+  })),
+);
+const BalanceReconciliation = lazy(() =>
+  import("./components/BalanceReconciliation").then((m) => ({
+    default: m.BalanceReconciliation,
+  })),
+);
+const TaxInvoicing = lazy(() =>
+  import("./components/TaxInvoicing").then((m) => ({
+    default: m.TaxInvoicing,
   })),
 );
 const CompanySettings = lazy(() =>
@@ -86,537 +82,235 @@ const CompanySettings = lazy(() =>
     default: m.CompanySettings,
   })),
 );
-const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicingModern").then((m) => ({
-    default: m.TaxInvoicingModern,
-  })),
-);
 const UsersPermissions = lazy(() =>
   import("./components/UsersPermissions").then((m) => ({
     default: m.UsersPermissions,
   })),
 );
-const TestePersistencia = lazy(() =>
-  import("./components/TestePersistencia").then((m) => ({
-    default: m.TestePersistencia,
+const SystemAudit = lazy(() =>
+  import("./components/SystemAudit").then((m) => ({
+    default: m.SystemAudit,
   })),
 );
-
-// Novos cadastros
-const ChartOfAccounts = lazy(() =>
-  import("./components/ChartOfAccounts").then((m) => ({
-    default: m.ChartOfAccounts,
+const LandingPage = lazy(() =>
+  import("./components/LandingPage").then((m) => ({
+    default: m.LandingPage,
   })),
 );
-const CostCenters = lazy(() =>
-  import("./components/CostCenters").then((m) => ({
-    default: m.CostCenters,
+const BillingSettings = lazy(() =>
+  import("./components/BillingSettings").then((m) => ({
+    default: m.BillingSettings,
   })),
 );
-const DigitalCertificate = lazy(() =>
-  import("./components/DigitalCertificate").then((m) => ({
-    default: m.DigitalCertificate,
-  })),
-);
-const Salespeople = lazy(() =>
-  import("./components/Salespeople").then((m) => ({
-    default: m.Salespeople,
-  })),
-);
-const Buyers = lazy(() =>
-  import("./components/Buyers").then((m) => ({
-    default: m.Buyers,
-  })),
-);
-const ProductCategories = lazy(() =>
-  import("./components/ProductCategories").then((m) => ({
-    default: m.ProductCategories,
-  })),
-);
-const StockLocations = lazy(() =>
-  import("./components/StockLocations").then((m) => ({
-    default: m.StockLocations,
-  })),
-);
-const ManufacturingBatches = lazy(() =>
-  import("./components/ManufacturingBatches").then((m) => ({
-    default: m.ManufacturingBatches,
-  })),
-);
-
-// Perfil do usuário
-const ProfileView = lazy(() =>
-  import("./components/ProfileView").then((m) => ({
-    default: m.ProfileView,
-  })),
-);
-
-// Aceitar convite
 const AcceptInvite = lazy(() =>
   import("./components/AcceptInvite").then((m) => ({
     default: m.AcceptInvite,
   })),
 );
 
-// Configurações de Email
-const EmailSettings = lazy(() =>
-  import("./components/EmailSettings").then((m) => ({
-    default: m.EmailSettings,
-  })),
-);
+// 🔒 VERIFICAÇÃO DE AMBIENTE - Manutenção apenas em PRODUÇÃO
+// IMPORTANTE: Só ativa manutenção quando VITE_VERCEL_ENV for explicitamente 'production'
+const IS_MAINTENANCE_MODE = import.meta.env?.VITE_VERCEL_ENV === 'production';
 
-// Billing & Assinaturas
-const BillingSettings = lazy(() =>
-  import("./components/BillingSettings").then((m) => ({
-    default: m.BillingSettings,
-  })),
-);
-
-// Nova tela de Alterar Plano
-const ChangePlan = lazy(() =>
-  import("./components/subscription/ChangePlan").then((m) => ({
-    default: m.ChangePlan,
-  })),
-);
-
-// Telas de Checkout Stripe
-const CheckoutSuccess = lazy(() =>
-  import("./components/subscription/CheckoutSuccess").then((m) => ({
-    default: m.CheckoutSuccess,
-  })),
-);
-
-const CheckoutCancel = lazy(() =>
-  import("./components/subscription/CheckoutCancel").then((m) => ({
-    default: m.CheckoutCancel,
-  })),
-);
-
-// Webhook Debug Admin (apenas em desenvolvimento)
-let WebhookDebug: any = null;
-if (IS_DEVELOPMENT) {
-  WebhookDebug = lazy(() =>
-    import("./components/admin/WebhookDebug").then((m) => ({
-      default: m.default,
-    })),
-  );
-}
-
-// Stripe Test Page
-const StripeTestPage = lazy(() =>
-  import("./components/stripe/StripeTestPage").then((m) => ({
-    default: m.default,
-  })),
-);
-
-// Subscription Debug (apenas em desenvolvimento)
-let SubscriptionDebug: any = null;
-if (IS_DEVELOPMENT) {
-  SubscriptionDebug = lazy(() =>
-    import("./components/subscription/SubscriptionDebug").then((m) => ({
-      default: m.default,
-    })),
-  );
-}
-
-// Landing Page
-const LandingPage = lazy(() =>
-  import("./components/LandingPage").then((m) => ({
-    default: m.LandingPage,
-  })),
-);
-
-// System Audit (apenas em desenvolvimento)
-let SystemAudit: any = null;
-if (FEATURES.SYSTEM_AUDIT) {
-  SystemAudit = lazy(() =>
-    import("./components/SystemAudit").then((m) => ({
-      default: m.SystemAudit,
-    })),
-  );
-}
-
-export type NavigationView =
-  | "dashboard"
-  | "inventory"
-  | "purchases"
-  | "sales"
-  | "customers"
-  | "suppliers"
-  | "financialTransactions"
-  | "accountsPayableReceivable"
-  | "balanceReconciliation"
-  | "cashFlow"
-  | "priceTables"
-  | "taxInvoicing"
-  | "reports"
-  | "usersPermissions"
-  | "emailSettings"
-  | "systemAudit"
-  | "company"
-  | "chartOfAccounts"
-  | "costCenters"
-  | "digitalCertificate"
-  | "salespeople"
-  | "buyers"
-  | "productCategories"
-  | "stockLocations"
-  | "manufacturingBatches"
-  | "profile"
-  | "billing"
-  | "myPlan"
-  | "changePlan"
-  | "checkoutSuccess"
-  | "checkoutCancel"
-  | "webhookDebug"
-  | "stripeTest"
-  | "subscriptionDebug"
-  | "testePersistencia";
-
-// ⚡ Loading fallback leve
-function ViewLoader() {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-    </div>
-  );
-}
+console.log('🔧 Environment Check:', {
+  VITE_VERCEL_ENV: import.meta.env?.VITE_VERCEL_ENV,
+  IS_PROD: import.meta.env?.PROD,
+  IS_MAINTENANCE_MODE,
+  mode: import.meta.env?.MODE
+});
 
 function AppContent() {
-  const { user, loading } = useAuth();
-  const [currentView, setCurrentView] =
-    useState<NavigationView>("dashboard");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [nfeDataFromOrder, setNfeDataFromOrder] = useState<any>(null);
-  
-  // ✅ FLAG para evitar processamento duplicado de checkout
-  const [hasProcessedCheckout, setHasProcessedCheckout] = useState(false);
+  const { currentUser, loading: authLoading } = useAuth();
+  const [currentView, setCurrentView] = useState<string>("dashboard");
 
-  // ✅ Estado para gerenciar roteamento
-  const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+  console.log('👤 AppContent State:', {
+    currentUser: currentUser?.email,
+    authLoading,
+    IS_MAINTENANCE_MODE
+  });
 
-  // Callback para navegar para NF-e a partir de um pedido
-  const handleNavigateToNFeFromOrder = (orderData: any) => {
-    setNfeDataFromOrder(orderData);
-    setCurrentView("taxInvoicing");
-    // Limpar dados após 3 segundos para permitir que sejam usados
-    setTimeout(() => {
-      setNfeDataFromOrder(null);
-    }, 3000);
-  };
-
-  // ✅ Listener para mudanças na URL (navegação)
   useEffect(() => {
-    const handleLocationChange = () => {
-      setCurrentRoute(window.location.pathname);
-    };
+    // Verificar autenticação periodicamente
+    const interval = setInterval(() => {
+      checkAuth().catch(() => {
+        handleUnauthorized();
+      });
+    }, 5 * 60 * 1000); // A cada 5 minutos
 
-    window.addEventListener('popstate', handleLocationChange);
-    
-    return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  // ✅ Redirecionar usuário logado da landing para /app
-  useEffect(() => {
-    if (user && currentRoute === '/') {
-      window.history.pushState({}, '', '/app');
-      setCurrentRoute('/app');
-    }
-  }, [user, currentRoute]);
+  // 🛑 MODO DE MANUTENÇÃO - Exibir apenas em PRODUÇÃO
+  if (IS_MAINTENANCE_MODE) {
+    console.log('🛑 Modo de manutenção ativo');
+    return <MaintenancePage />;
+  }
 
-  // ✅ Redirecionar para /app após login bem-sucedido
-  useEffect(() => {
-    if (user && (currentRoute === '/login' || currentRoute === '/signup')) {
-      window.history.pushState({}, '', '/app');
-      setCurrentRoute('/app');
-    }
-  }, [user, currentRoute]);
-
-  // Verificar hash (#stripeTest, #systemAudit, etc) na URL
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && hash !== '') {
-        // Verificar se é uma view válida
-        const validViews: NavigationView[] = [
-          'stripeTest', 
-          'systemAudit', 
-          'webhookDebug', 
-          'subscriptionDebug',
-          'testePersistencia',
-          'checkoutSuccess',
-          'checkoutCancel',
-          'billing',
-          'myPlan',
-          'changePlan'
-        ];
-        
-        if (validViews.includes(hash as NavigationView)) {
-          setCurrentView(hash as NavigationView);
-        }
-      }
-    };
-
-    // Executar na montagem
-    handleHashChange();
-
-    // Listener para mudanças no hash
-    window.addEventListener('hashchange', handleHashChange);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
-
-  // Verificar query params para redirecionamentos do Stripe
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const checkoutStatus = params.get('checkout');
-    
-    if (checkoutStatus === 'success' && !hasProcessedCheckout) {
-      setCurrentView('checkoutSuccess');
-      setHasProcessedCheckout(true);
-      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
-      setTimeout(() => {
-        window.history.replaceState({}, '', window.location.pathname);
-      }, 100);
-    } else if (checkoutStatus === 'cancel' && !hasProcessedCheckout) {
-      setCurrentView('checkoutCancel');
-      setHasProcessedCheckout(true);
-      // Limpar URL após um pequeno delay para garantir que a view seja renderizada
-      setTimeout(() => {
-        window.history.replaceState({}, '', window.location.pathname);
-      }, 100);
-    }
-  }, []); // Executar apenas na montagem inicial
-
-  // Listener para navegar para billing via evento customizado
-  useEffect(() => {
-    const handleNavigateToBilling = () => {
-      setCurrentView("billing");
-    };
-    
-    window.addEventListener('navigate-to-billing', handleNavigateToBilling);
-    
-    return () => {
-      window.removeEventListener('navigate-to-billing', handleNavigateToBilling);
-    };
-  }, []);
-
-  // Verificar se há um token de convite na URL
-  const hasInviteToken = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.has("token");
-  };
-
-  // Mostrar tela de loading enquanto verifica autenticação
-  if (loading) {
+  // ⏳ Aguardar autenticação
+  if (authLoading) {
+    console.log('⏳ Aguardando autenticação...');
     return <LoadingScreen />;
   }
 
-  // Se houver token de convite na URL, mostrar tela de aceite (independente de estar logado)
-  if (hasInviteToken()) {
+  // ⚠️ IMPORTANTE: O AuthFlow já cuida de verificar se o usuário está autenticado!
+  // Se chegamos aqui, é porque o usuário ESTÁ autenticado (AuthFlow validou)
+  // Mas por segurança, vamos verificar mesmo assim
+  if (!currentUser) {
+    console.warn('⚠️ AppContent renderizado sem usuário (não deveria acontecer)');
+    return <LoadingScreen />;
+  }
+
+  // Rota de convite
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteId = urlParams.get('invite');
+  if (inviteId) {
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <AcceptInvite
-          onSuccess={() => {
-            // Limpar token da URL e redirecionar para login
-            window.history.replaceState({}, "", "/");
-            window.location.reload();
-          }}
-        />
+        <AcceptInvite inviteId={inviteId} />
       </Suspense>
     );
   }
 
-  // ✅ SISTEMA DE ROTAS
-  // Landing Page pública (/) - acessível sem login
-  if (currentRoute === '/' && !user) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <LandingPage 
-          onNavigateToLogin={() => {
-            window.history.pushState({}, '', '/login');
-            setCurrentRoute('/login');
-          }}
-          onNavigateToSignup={() => {
-            // ✅ Redirecionar para /login com parâmetro signup=true
-            window.history.pushState({}, '', '/login?signup=true');
-            setCurrentRoute('/login');
-          }}
-        />
-      </Suspense>
-    );
-  }
+  console.log('✅ Usuário autenticado - Renderizando app');
 
-  // Login/Signup (/login) - apenas para usuários não logados
-  if ((currentRoute === '/login' || currentRoute === '/signup') && !user) {
-    return <AuthFlow />;
-  }
-
-  // Redirecionar usuário não logado tentando acessar /app para /login
-  if (currentRoute === '/app' && !user) {
-    window.history.pushState({}, '', '/login');
-    setCurrentRoute('/login');
-    return <AuthFlow />;
-  }
-
-  // Se não estiver logado e não estiver nas rotas públicas, mostrar login
-  if (!user) {
-    return <AuthFlow />;
-  }
-
-  // ⚡ Renderizar view com Suspense para lazy loading
-  const renderView = () => {
+  // Renderizar conteúdo com base na view selecionada
+  const renderContent = () => {
     switch (currentView) {
       case "dashboard":
-        return <Dashboard />;
+        return (
+          <PlanAccessGuard feature="dashboard">
+            <Dashboard />
+          </PlanAccessGuard>
+        );
       case "inventory":
-        return <Inventory />;
-      case "purchases":
-        return <PurchaseOrders />;
-      case "sales":
-        return <SalesOrders onNavigateToNFe={handleNavigateToNFeFromOrder} />;
+        return (
+          <PlanAccessGuard feature="inventory">
+            <Inventory />
+          </PlanAccessGuard>
+        );
+      case "sales-orders":
+        return (
+          <PlanAccessGuard feature="orders">
+            <SalesOrders />
+          </PlanAccessGuard>
+        );
+      case "purchase-orders":
+        return (
+          <PlanAccessGuard feature="orders">
+            <PurchaseOrders />
+          </PlanAccessGuard>
+        );
       case "customers":
-        return <Customers />;
+        return (
+          <PlanAccessGuard feature="customers">
+            <Customers />
+          </PlanAccessGuard>
+        );
       case "suppliers":
-        return <Suppliers />;
-      case "financialTransactions":
-        return <FinancialTransactions />;
-      case "accountsPayableReceivable":
-        return <AccountsPayableReceivable />;
-      case "balanceReconciliation":
-        return <BalanceReconciliation />;
-      case "cashFlow":
-        return <CashFlow />;
-      case "priceTables":
-        return <PriceTables />;
-      case "taxInvoicing":
-        return <TaxInvoicing orderData={nfeDataFromOrder} />;
+        return (
+          <PlanAccessGuard feature="suppliers">
+            <Suppliers />
+          </PlanAccessGuard>
+        );
+      case "accounts":
+        return (
+          <PlanAccessGuard feature="financial">
+            <AccountsPayableReceivable />
+          </PlanAccessGuard>
+        );
       case "reports":
-        return <Reports />;
-      case "usersPermissions":
-        return <UsersPermissions />;
-      case "emailSettings":
-        return <EmailSettings />;
+        return (
+          <PlanAccessGuard feature="reports">
+            <Reports />
+          </PlanAccessGuard>
+        );
+      case "cash-flow":
+        return (
+          <PlanAccessGuard feature="financial">
+            <CashFlow />
+          </PlanAccessGuard>
+        );
+      case "balance-reconciliation":
+        return (
+          <PlanAccessGuard feature="financial">
+            <BalanceReconciliation />
+          </PlanAccessGuard>
+        );
+      case "tax-invoicing":
+        return (
+          <PlanAccessGuard feature="nfe">
+            <TaxInvoicing />
+          </PlanAccessGuard>
+        );
+      case "company-settings":
+        return (
+          <PlanAccessGuard feature="settings">
+            <CompanySettings />
+          </PlanAccessGuard>
+        );
+      case "users-permissions":
+        return (
+          <PlanAccessGuard feature="users">
+            <UsersPermissions />
+          </PlanAccessGuard>
+        );
+      case "system-audit":
+        return (
+          <PlanAccessGuard feature="audit">
+            <SystemAudit />
+          </PlanAccessGuard>
+        );
       case "billing":
-        return <BillingSettings />;
-      case "myPlan":
-        return <BillingSettings />;
-      case "changePlan":
-        return <ChangePlan />;
-      case "checkoutSuccess":
-        return <CheckoutSuccess onNavigate={setCurrentView} />;
-      case "checkoutCancel":
-        return <CheckoutCancel onNavigate={setCurrentView} />;
-      case "webhookDebug":
-        // PROTEÇÃO: Apenas em desenvolvimento
-        if (!IS_DEVELOPMENT || !WebhookDebug) {
-          console.warn("Webhook Debug não disponível em produção");
-          return <Dashboard />;
-        }
-        return <WebhookDebug />;
-      case "stripeTest":
-        return <StripeTestPage />;
-      case "subscriptionDebug":
-        // PROTEÇÃO: Apenas em desenvolvimento
-        if (!IS_DEVELOPMENT || !SubscriptionDebug) {
-          console.warn("Subscription Debug não disponível em produção");
-          return <Dashboard />;
-        }
-        return <SubscriptionDebug />;
-      case "systemAudit":
-        // PROTEÇÃO TRIPLA: Apenas em desenvolvimento
-        if (!FEATURES.SYSTEM_AUDIT || !SystemAudit) {
-          console.warn(
-            "Módulo de Auditoria não disponível em produção",
-          );
-          return <Dashboard />;
-        }
-        return <SystemAudit />;
-      case "company":
-        return <CompanySettings />;
-      case "chartOfAccounts":
-        return <ChartOfAccounts />;
-      case "costCenters":
-        return <CostCenters />;
-      case "digitalCertificate":
-        return <DigitalCertificate />;
-      case "salespeople":
-        return <Salespeople />;
-      case "buyers":
-        return <Buyers />;
-      case "productCategories":
-        return <ProductCategories />;
-      case "stockLocations":
-        return <StockLocations />;
-      case "manufacturingBatches":
-        return <ManufacturingBatches />;
-      case "profile":
-        return <ProfileView onNavigate={setCurrentView} />;
-      case "testePersistencia":
-        return <TestePersistencia />;
+        return (
+          <PlanAccessGuard feature="billing">
+            <BillingSettings />
+          </PlanAccessGuard>
+        );
       default:
-        return <Dashboard />;
+        return (
+          <PlanAccessGuard feature="dashboard">
+            <Dashboard />
+          </PlanAccessGuard>
+        );
     }
   };
 
   return (
-    <ERPProvider>
-      <div className="flex flex-col h-screen bg-gray-50">
-        {/* TopBar fixa no topo */}
-        <TopBar
-          onNavigate={setCurrentView}
-          onToggleSidebar={() => setIsSidebarOpen(true)}
-        />
-
-        {/* Container principal: Sidebar + Conteúdo */}
-        <div
-          className="flex flex-1 overflow-hidden"
-          style={{ marginTop: "64px" }}
-        >
-          <Sidebar
-            currentView={currentView}
-            onNavigate={setCurrentView}
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-          />
-          <main className="flex-1 overflow-auto bg-gray-50">
-            {/* 🔒 PLAN ACCESS GUARD - Bloqueia acesso se trial/plano expirou */}
-            <PlanAccessGuard 
-              currentView={currentView}
-              onNavigateToPlans={() => setCurrentView("changePlan")}
-            >
-              {/* ⚡ Error Boundary + Suspense para lazy loading seguro */}
-              <ErrorBoundary>
-                <Suspense fallback={<ViewLoader />}>
-                  {renderView()}
-                </Suspense>
-              </ErrorBoundary>
-            </PlanAccessGuard>
-          </main>
-        </div>
-
-        <Toaster position="top-right" richColors />
-        <DebugPersistence />
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar />
+        <SubscriptionAlerts />
+        <main className="flex-1 overflow-y-auto p-6">
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingScreen />}>
+              {renderContent()}
+            </Suspense>
+          </ErrorBoundary>
+        </main>
       </div>
-    </ERPProvider>
+      <UpgradeDialog />
+      {IS_DEVELOPMENT && FEATURES.DEBUG_PERSISTENCE && <DebugPersistence />}
+    </div>
   );
 }
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SubscriptionProvider>
-          <AppContent />
-          <SpeedInsights />
-          <UpgradeDialog />
-          <SubscriptionAlerts />
-        </SubscriptionProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <ERPProvider>
+              <AuthFlow>
+                <AppContent />
+              </AuthFlow>
+              <Toaster position="top-right" />
+              <SpeedInsights />
+            </ERPProvider>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
