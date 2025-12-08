@@ -109,14 +109,12 @@ const AcceptInvite = lazy(() =>
 );
 
 // 🔒 VERIFICAÇÃO DE AMBIENTE - Manutenção apenas em PRODUÇÃO
-const IS_PRODUCTION = import.meta.env?.VITE_VERCEL_ENV === 'production' || 
-                      import.meta.env?.PROD === true;
-const IS_MAINTENANCE_MODE = IS_PRODUCTION; // Ativa manutenção apenas em produção
+// IMPORTANTE: Só ativa manutenção quando VITE_VERCEL_ENV for explicitamente 'production'
+const IS_MAINTENANCE_MODE = import.meta.env?.VITE_VERCEL_ENV === 'production';
 
 console.log('🔧 Environment Check:', {
   VITE_VERCEL_ENV: import.meta.env?.VITE_VERCEL_ENV,
   IS_PROD: import.meta.env?.PROD,
-  IS_PRODUCTION,
   IS_MAINTENANCE_MODE,
   mode: import.meta.env?.MODE
 });
@@ -124,6 +122,12 @@ console.log('🔧 Environment Check:', {
 function AppContent() {
   const { currentUser, loading: authLoading } = useAuth();
   const [currentView, setCurrentView] = useState<string>("dashboard");
+
+  console.log('👤 AppContent State:', {
+    currentUser: currentUser?.email,
+    authLoading,
+    IS_MAINTENANCE_MODE
+  });
 
   useEffect(() => {
     // Verificar autenticação periodicamente
@@ -138,21 +142,24 @@ function AppContent() {
 
   // 🛑 MODO DE MANUTENÇÃO - Exibir apenas em PRODUÇÃO
   if (IS_MAINTENANCE_MODE) {
+    console.log('🛑 Modo de manutenção ativo');
     return <MaintenancePage />;
   }
 
-  // Landing Page para usuários não autenticados
-  if (!authLoading && !currentUser) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <LandingPage />
-      </Suspense>
-    );
+  // ⚠️ IMPORTANTE: Não renderizar LandingPage aqui!
+  // O AuthFlow já cuida da Landing/Login/Register para usuários não autenticados
+  
+  // Aguardar autenticação
+  if (authLoading) {
+    console.log('⏳ Aguardando autenticação...');
+    return <LoadingScreen />;
   }
 
-  // Tela de login
-  if (authLoading) {
-    return <LoadingScreen />;
+  // Se não está autenticado, o AuthFlow vai cuidar disso
+  // Não precisamos fazer nada aqui
+  if (!currentUser) {
+    console.log('❌ Usuário não autenticado - AuthFlow deve estar lidando');
+    return null;
   }
 
   // Rota de convite
@@ -165,6 +172,8 @@ function AppContent() {
       </Suspense>
     );
   }
+
+  console.log('✅ Usuário autenticado - Renderizando app');
 
   // Renderizar conteúdo com base na view selecionada
   const renderContent = () => {
