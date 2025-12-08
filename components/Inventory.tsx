@@ -1736,7 +1736,12 @@ export function Inventory() {
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4 text-gray-400" />
                               <div>
-                                <p className="text-sm">{new Date(movement.date).toLocaleDateString('pt-BR')}</p>
+                                <p className="text-sm">
+                                  {movement.date 
+                                    ? new Date(movement.date).toLocaleDateString('pt-BR')
+                                    : '-'
+                                  }
+                                </p>
                                 <p className="text-xs text-gray-500">{movement.time}</p>
                               </div>
                             </div>

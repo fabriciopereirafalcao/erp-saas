@@ -359,17 +359,26 @@ export async function getStockMovements(companyId: string) {
     throw new Error(error.message);
   }
 
-  return data?.map((row: any) => ({
-    id: row.id,
-    productId: row.product_id,
-    productName: '', // Não temos esse campo na tabela SQL
-    type: row.type,
-    quantity: parseFloat(row.quantity),
-    date: row.created_at,
-    referenceId: row.reference_id,
-    referenceType: row.reference_type,
-    notes: row.notes || ''
-  })) || [];
+  return data?.map((row: any) => {
+    // Converter created_at para date e time
+    const createdAt = row.created_at ? new Date(row.created_at) : null;
+    
+    return {
+      id: row.id,
+      productId: row.product_id,
+      productName: '', // Não temos esse campo na tabela SQL
+      type: row.type,
+      quantity: parseFloat(row.quantity),
+      date: createdAt ? createdAt.toISOString().split('T')[0] : null,
+      time: createdAt ? createdAt.toTimeString().split(' ')[0] : '',
+      previousStock: parseFloat(row.previous_stock || 0),
+      newStock: parseFloat(row.new_stock || 0),
+      reason: row.reason || '',
+      referenceId: row.reference_id,
+      referenceType: row.reference_type,
+      notes: row.notes || ''
+    };
+  }) || [];
 }
 
 export async function saveStockMovements(companyId: string, movements: any[]) {
