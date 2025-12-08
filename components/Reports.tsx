@@ -209,11 +209,20 @@ export function Reports() {
 
   // Estoque por produto
   const inventoryReport = useMemo(() => {
-    return safeInventory
+    console.log('🔍 DEBUG ESTOQUE - Inventory completo:', safeInventory);
+    
+    const report = safeInventory
       .map(item => {
         const quantity = item.quantity || 0;
         const costPerUnit = item.costPerUnit || 0;
         const minStock = item.minStockLevel || 0;
+        
+        console.log(`🔍 Produto: ${item.productName}`, {
+          quantity,
+          costPerUnit,
+          value: quantity * costPerUnit,
+          item: item
+        });
         
         return {
           productName: item.productName,
@@ -224,6 +233,11 @@ export function Reports() {
         };
       })
       .sort((a, b) => b.value - a.value);
+    
+    console.log('🔍 Inventory Report final:', report);
+    console.log('🔍 Valor total do estoque:', report.reduce((sum, item) => sum + item.value, 0));
+    
+    return report;
   }, [safeInventory]);
 
   // Contas a receber por vencimento
