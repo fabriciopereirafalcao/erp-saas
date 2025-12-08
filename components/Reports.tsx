@@ -93,18 +93,22 @@ export function Reports() {
       .filter(o => o.status !== "Cancelado")
       .reduce((sum, o) => sum + o.totalAmount, 0);
     
-    const totalPurchases = 0; // Módulo de compras removido
+    // ✅ CORRIGIDO: Calcular despesas totais a partir de contas a pagar
+    const totalPurchases = safeAccountsPayable
+      .filter(a => a.status === "Pago" || a.status === "Parcial")
+      .reduce((sum, a) => sum + a.paidAmount, 0);
     
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
+    // ✅ CORRIGIDO: Filtrar por "A Vencer" e "Vencido" em vez de "Pendente"
     const totalAccountsReceivable = safeAccountsReceivable
-      .filter(a => a.status === "Pendente")
-      .reduce((sum, a) => sum + a.amount, 0);
+      .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
+      .reduce((sum, a) => sum + a.remainingAmount, 0);
 
     const totalAccountsPayable = safeAccountsPayable
-      .filter(a => a.status === "Pendente")
-      .reduce((sum, a) => sum + a.amount, 0);
+      .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
+      .reduce((sum, a) => sum + a.remainingAmount, 0);
 
     return {
       totalSales,
@@ -229,20 +233,24 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    safeAccountsReceivable.filter(a => a.status === "Pendente").forEach(account => {
+    // ✅ CORRIGIDO: Filtrar por status corretos
+    safeAccountsReceivable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial").forEach(account => {
       const dueDate = new Date(account.dueDate);
       const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
+      // Usar remainingAmount em vez de amount para contas parciais
+      const value = account.remainingAmount || account.amount;
+
       if (daysDiff < 0) {
-        overdue += account.amount;
+        overdue += value;
       } else if (daysDiff === 0) {
-        dueToday += account.amount;
+        dueToday += value;
       } else if (daysDiff <= 7) {
-        due7days += account.amount;
+        due7days += value;
       } else if (daysDiff <= 30) {
-        due30days += account.amount;
+        due30days += value;
       } else {
-        dueFuture += account.amount;
+        dueFuture += value;
       }
     });
 
@@ -264,20 +272,24 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    safeAccountsPayable.filter(a => a.status === "Pendente").forEach(account => {
+    // ✅ CORRIGIDO: Filtrar por status corretos
+    safeAccountsPayable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial").forEach(account => {
       const dueDate = new Date(account.dueDate);
       const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
+      // Usar remainingAmount em vez de amount para contas parciais
+      const value = account.remainingAmount || account.amount;
+
       if (daysDiff < 0) {
-        overdue += account.amount;
+        overdue += value;
       } else if (daysDiff === 0) {
-        dueToday += account.amount;
+        dueToday += value;
       } else if (daysDiff <= 7) {
-        due7days += account.amount;
+        due7days += value;
       } else if (daysDiff <= 30) {
-        due30days += account.amount;
+        due30days += value;
       } else {
-        dueFuture += account.amount;
+        dueFuture += value;
       }
     });
 
