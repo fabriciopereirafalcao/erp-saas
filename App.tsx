@@ -146,20 +146,18 @@ function AppContent() {
     return <MaintenancePage />;
   }
 
-  // ⚠️ IMPORTANTE: Não renderizar LandingPage aqui!
-  // O AuthFlow já cuida da Landing/Login/Register para usuários não autenticados
-  
-  // Aguardar autenticação
+  // ⏳ Aguardar autenticação
   if (authLoading) {
     console.log('⏳ Aguardando autenticação...');
     return <LoadingScreen />;
   }
 
-  // Se não está autenticado, o AuthFlow vai cuidar disso
-  // Não precisamos fazer nada aqui
+  // ⚠️ IMPORTANTE: O AuthFlow já cuida de verificar se o usuário está autenticado!
+  // Se chegamos aqui, é porque o usuário ESTÁ autenticado (AuthFlow validou)
+  // Mas por segurança, vamos verificar mesmo assim
   if (!currentUser) {
-    console.log('❌ Usuário não autenticado - AuthFlow deve estar lidando');
-    return null;
+    console.warn('⚠️ AppContent renderizado sem usuário (não deveria acontecer)');
+    return <LoadingScreen />;
   }
 
   // Rota de convite
