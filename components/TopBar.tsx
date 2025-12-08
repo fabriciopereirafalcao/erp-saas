@@ -48,14 +48,6 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
   const { profile, company, signOut } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   
-  // Debug: verificar se todas as funções estão definidas
-  console.log('[TOPBAR] 🔍 Verificando funções:', {
-    onNavigate: typeof onNavigate,
-    onToggleSidebar: typeof onToggleSidebar,
-    signOut: typeof signOut,
-    toggleTheme: typeof toggleTheme
-  });
-
   // Pegar primeiro nome do usuário
   const firstName = profile?.name?.split(' ')[0] || 'Usuário';
   

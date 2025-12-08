@@ -122,6 +122,7 @@ console.log('🔧 Environment Check:', {
 function AppContent() {
   const { currentUser, loading: authLoading } = useAuth();
   const [currentView, setCurrentView] = useState<string>("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   console.log('👤 AppContent State:', {
     currentUser: currentUser?.email,
@@ -270,9 +271,17 @@ function AppContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+      <Sidebar 
+        currentView={currentView} 
+        onNavigate={setCurrentView} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar 
+          onNavigate={setCurrentView} 
+          onToggleSidebar={() => setIsSidebarOpen(true)} 
+        />
         <SubscriptionAlerts />
         <main className="flex-1 overflow-y-auto p-6">
           <ErrorBoundary>
