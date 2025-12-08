@@ -1260,7 +1260,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       null
     );
     if (lastAnalysisStr) {
-      setLastAnalysisDate(new Date(lastAnalysisStr));
+      const parsedDate = new Date(lastAnalysisStr);
+      // Validar se a data é válida antes de setar
+      if (!isNaN(parsedDate.getTime())) {
+        setLastAnalysisDate(parsedDate);
+      } else {
+        console.warn(`[CACHE] ⚠️  lastAnalysisDate inválido no cache: ${lastAnalysisStr}`);
+      }
     }
     
     console.log('[CACHE] ✅ Cache carregado com sucesso!');
@@ -1430,7 +1436,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         const lastAnalysisDateData = await loadEntity<string>('last-analysis-date');
         if (isSubscribed && lastAnalysisDateData) {
           console.log(`[SUPABASE] ✅ Data da última análise carregada`);
-          setLastAnalysisDate(new Date(lastAnalysisDateData));
+          const parsedDate = new Date(lastAnalysisDateData);
+          // Validar se a data é válida antes de setar
+          if (!isNaN(parsedDate.getTime())) {
+            setLastAnalysisDate(parsedDate);
+          } else {
+            console.warn(`[SUPABASE] ⚠️  lastAnalysisDate inválido: ${lastAnalysisDateData}`);
+          }
         }
         
         // Carregar histórico da empresa
@@ -1537,7 +1549,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   
   // FASE 4: Entidades auxiliares
   useEntityPersistence({ entityName: 'audit-issues', data: auditIssues, enabled: !!profile?.company_id, throttleMs: 2000 });
-  useEntityPersistence({ entityName: 'last-analysis-date', data: lastAnalysisDate, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ 
+    entityName: 'last-analysis-date', 
+    data: lastAnalysisDate && !isNaN(lastAnalysisDate.getTime()) ? lastAnalysisDate.toISOString() : null, 
+    enabled: !!profile?.company_id, 
+    throttleMs: 2000 
+  });
   useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: !!profile?.company_id, throttleMs: 2000 });
   useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: !!profile?.company_id, throttleMs: 2000 });
 
@@ -1658,7 +1675,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    saveToStorage(getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), lastAnalysisDate ? lastAnalysisDate.toISOString() : null);
+    // Validar se lastAnalysisDate é uma data válida antes de chamar toISOString
+    const dateValue = lastAnalysisDate && !isNaN(lastAnalysisDate.getTime()) 
+      ? lastAnalysisDate.toISOString() 
+      : null;
+    saveToStorage(getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), dateValue);
   }, [lastAnalysisDate, profile?.company_id]);
 
   // ==================== INTEGRAÇÃO COM BACKEND ====================
