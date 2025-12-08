@@ -213,13 +213,20 @@ export function Reports() {
     
     const report = safeInventory
       .map(item => {
+        // 🔍 LOG DETALHADO DO OBJETO
+        console.log('🔍 OBJETO COMPLETO:', JSON.stringify(item, null, 2));
+        console.log('🔍 Campos disponíveis:', Object.keys(item));
+        
         const quantity = item.quantity || 0;
-        const costPerUnit = item.costPerUnit || 0;
+        const costPerUnit = item.costPerUnit || item.cost || item.unitCost || 0;
         const minStock = item.minStockLevel || 0;
         
         console.log(`🔍 Produto: ${item.productName}`, {
           quantity,
           costPerUnit,
+          'item.costPerUnit': item.costPerUnit,
+          'item.cost': item.cost,
+          'item.unitCost': item.unitCost,
           value: quantity * costPerUnit,
           item: item
         });
