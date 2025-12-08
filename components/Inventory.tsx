@@ -1042,7 +1042,12 @@ export function Inventory() {
                     R$ {(item.currentStock * item.sellPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </TableCell>
-                <TableCell>{new Date(item.lastRestocked).toLocaleDateString('pt-BR')}</TableCell>
+                <TableCell>
+                  {item.lastRestocked 
+                    ? new Date(item.lastRestocked).toLocaleDateString('pt-BR')
+                    : '-'
+                  }
+                </TableCell>
                 <TableCell>
                   <Badge className={getStatusColor(item.status)}>
                     {item.status}
