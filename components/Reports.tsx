@@ -89,23 +89,25 @@ export function Reports() {
 
   // Métricas gerais
   const metrics = useMemo(() => {
+    // ✅ Receita Total (vendas não canceladas)
     const totalSales = filteredSalesOrders
       .filter(o => o.status !== "Cancelado")
       .reduce((sum, o) => sum + o.totalAmount, 0);
     
-    // ✅ CORRIGIDO: Calcular despesas totais a partir de contas a pagar
-    const totalPurchases = safeAccountsPayable
-      .filter(a => a.status === "Pago" || a.status === "Parcial")
-      .reduce((sum, a) => sum + a.paidAmount, 0);
+    // ✅ CORRIGIDO: Calcular despesas totais a partir de TRANSAÇÕES FINANCEIRAS de Despesa
+    const totalPurchases = safeFinancialTransactions
+      .filter(t => t.type === "Despesa")
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
-    // ✅ CORRIGIDO: Filtrar por "A Vencer" e "Vencido" em vez de "Pendente"
+    // ✅ Contas a receber pendentes
     const totalAccountsReceivable = safeAccountsReceivable
       .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
       .reduce((sum, a) => sum + a.remainingAmount, 0);
 
+    // ✅ Contas a pagar pendentes
     const totalAccountsPayable = safeAccountsPayable
       .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
       .reduce((sum, a) => sum + a.remainingAmount, 0);
@@ -119,7 +121,7 @@ export function Reports() {
       totalAccountsPayable,
       netCashFlow: totalAccountsReceivable - totalAccountsPayable
     };
-  }, [filteredSalesOrders, safeAccountsReceivable, safeAccountsPayable]);
+  }, [filteredSalesOrders, safeAccountsReceivable, safeAccountsPayable, safeFinancialTransactions]);
 
   // Vendas por mês
   const salesByMonth = useMemo(() => {
@@ -534,7 +536,7 @@ export function Reports() {
               <div>
                 <p className="text-sm text-gray-600">Estoque Total</p>
                 <p className="text-gray-900">R$ {inventoryReport.reduce((sum, item) => sum + item.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p className="text-xs text-gray-500">{inventory.length} produtos</p>
+                <p className="text-xs text-gray-500">{safeInventory.length} produtos</p>
               </div>
             </div>
           </Card>
