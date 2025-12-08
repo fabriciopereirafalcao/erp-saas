@@ -89,6 +89,16 @@ export function Reports() {
 
   // Métricas gerais
   const metrics = useMemo(() => {
+    // 🔍 DEBUG TEMPORÁRIO - Remover depois
+    console.log('=== DEBUG REPORTS ===');
+    console.log('Total accountsPayable:', safeAccountsPayable.length);
+    console.log('AccountsPayable:', safeAccountsPayable);
+    console.log('Total accountsReceivable:', safeAccountsReceivable.length);
+    console.log('AccountsReceivable:', safeAccountsReceivable);
+    console.log('Total inventory:', safeInventory.length);
+    console.log('Inventory:', safeInventory);
+    console.log('====================');
+
     const totalSales = filteredSalesOrders
       .filter(o => o.status !== "Cancelado")
       .reduce((sum, o) => sum + o.totalAmount, 0);
@@ -98,6 +108,9 @@ export function Reports() {
       .filter(a => a.status === "Pago" || a.status === "Parcial")
       .reduce((sum, a) => sum + a.paidAmount, 0);
     
+    console.log('🔍 Total Purchases calculado:', totalPurchases);
+    console.log('🔍 Contas Pagas/Parciais:', safeAccountsPayable.filter(a => a.status === "Pago" || a.status === "Parcial"));
+    
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
@@ -106,9 +119,15 @@ export function Reports() {
       .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
       .reduce((sum, a) => sum + a.remainingAmount, 0);
 
+    console.log('🔍 Total A Receber:', totalAccountsReceivable);
+    console.log('🔍 Contas filtradas (A Receber):', safeAccountsReceivable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial"));
+
     const totalAccountsPayable = safeAccountsPayable
       .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
       .reduce((sum, a) => sum + a.remainingAmount, 0);
+
+    console.log('🔍 Total A Pagar:', totalAccountsPayable);
+    console.log('🔍 Contas filtradas (A Pagar):', safeAccountsPayable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial"));
 
     return {
       totalSales,
@@ -119,7 +138,7 @@ export function Reports() {
       totalAccountsPayable,
       netCashFlow: totalAccountsReceivable - totalAccountsPayable
     };
-  }, [filteredSalesOrders, safeAccountsReceivable, safeAccountsPayable]);
+  }, [filteredSalesOrders, safeAccountsReceivable, safeAccountsPayable, safeInventory]);
 
   // Vendas por mês
   const salesByMonth = useMemo(() => {
