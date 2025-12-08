@@ -37,6 +37,15 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
   const { signOut, profile, company } = useAuth();
   const { isDarkMode } = useTheme();
   const { checkModuleAccess, tryAccessModule } = useModuleAccess();
+  
+  // Debug: verificar se todas as funções estão definidas
+  console.log('[SIDEBAR] 🔍 Verificando funções:', {
+    onNavigate: typeof onNavigate,
+    onClose: typeof onClose,
+    signOut: typeof signOut,
+    checkModuleAccess: typeof checkModuleAccess,
+    tryAccessModule: typeof tryAccessModule
+  });
 
   // Fechar sidebar ao pressionar ESC em mobile
   useEffect(() => {
