@@ -107,6 +107,11 @@ const AcceptInvite = lazy(() =>
     default: m.AcceptInvite,
   })),
 );
+const ProfileView = lazy(() =>
+  import("./components/ProfileView").then((m) => ({
+    default: m.ProfileView,
+  })),
+);
 
 // 🔒 VERIFICAÇÃO DE AMBIENTE - Manutenção apenas em PRODUÇÃO
 // IMPORTANTE: Só ativa manutenção quando VITE_VERCEL_ENV for explicitamente 'production'
@@ -169,6 +174,8 @@ function AppContent() {
 
   // Renderizar conteúdo com base na view selecionada
   const renderContent = () => {
+    console.log('🔍 renderContent - currentView:', currentView);
+    
     switch (currentView) {
       case "dashboard":
         return (
@@ -182,18 +189,24 @@ function AppContent() {
             <Inventory />
           </PlanAccessGuard>
         );
+      
+      // ===== VENDAS E COMPRAS =====
+      case "sales":
       case "sales-orders":
         return (
           <PlanAccessGuard feature="orders">
             <SalesOrders />
           </PlanAccessGuard>
         );
+      case "purchases":
       case "purchase-orders":
         return (
           <PlanAccessGuard feature="orders">
             <PurchaseOrders />
           </PlanAccessGuard>
         );
+      
+      // ===== CLIENTES E FORNECEDORES =====
       case "customers":
         return (
           <PlanAccessGuard feature="customers">
@@ -206,48 +219,69 @@ function AppContent() {
             <Suppliers />
           </PlanAccessGuard>
         );
+      
+      // ===== FINANCEIRO =====
+      case "financialTransactions":
+        return (
+          <PlanAccessGuard feature="financial">
+            <AccountsPayableReceivable />
+          </PlanAccessGuard>
+        );
+      case "accountsPayableReceivable":
       case "accounts":
         return (
           <PlanAccessGuard feature="financial">
             <AccountsPayableReceivable />
           </PlanAccessGuard>
         );
-      case "reports":
-        return (
-          <PlanAccessGuard feature="reports">
-            <Reports />
-          </PlanAccessGuard>
-        );
+      case "cashFlow":
       case "cash-flow":
         return (
           <PlanAccessGuard feature="financial">
             <CashFlow />
           </PlanAccessGuard>
         );
+      case "balanceReconciliation":
       case "balance-reconciliation":
         return (
           <PlanAccessGuard feature="financial">
             <BalanceReconciliation />
           </PlanAccessGuard>
         );
+      
+      // ===== FISCAL =====
+      case "taxInvoicing":
       case "tax-invoicing":
         return (
           <PlanAccessGuard feature="nfe">
             <TaxInvoicing />
           </PlanAccessGuard>
         );
+      
+      // ===== RELATÓRIOS =====
+      case "reports":
+        return (
+          <PlanAccessGuard feature="reports">
+            <Reports />
+          </PlanAccessGuard>
+        );
+      
+      // ===== CONFIGURAÇÕES =====
+      case "company":
       case "company-settings":
         return (
           <PlanAccessGuard feature="settings">
             <CompanySettings />
           </PlanAccessGuard>
         );
+      case "usersPermissions":
       case "users-permissions":
         return (
           <PlanAccessGuard feature="users">
             <UsersPermissions />
           </PlanAccessGuard>
         );
+      case "systemAudit":
       case "system-audit":
         return (
           <PlanAccessGuard feature="audit">
@@ -260,6 +294,42 @@ function AppContent() {
             <BillingSettings />
           </PlanAccessGuard>
         );
+      
+      // ===== PERFIL E PLANOS =====
+      case "profile":
+        return (
+          <PlanAccessGuard feature="dashboard">
+            <ProfileView onNavigate={setCurrentView} />
+          </PlanAccessGuard>
+        );
+      case "myPlan":
+      case "changePlan":
+        return (
+          <PlanAccessGuard feature="billing">
+            <BillingSettings />
+          </PlanAccessGuard>
+        );
+      
+      // ===== CADASTROS AUXILIARES =====
+      case "priceTables":
+      case "productCategories":
+      case "stockLocations":
+      case "manufacturingBatches":
+      case "salespeople":
+      case "buyers":
+      case "chartOfAccounts":
+      case "costCenters":
+      case "digitalCertificate":
+      case "emailSettings":
+      case "testePersistencia":
+        // Por ora, redireciona para company settings
+        // TODO: Criar componentes específicos para cada um
+        return (
+          <PlanAccessGuard feature="settings">
+            <CompanySettings />
+          </PlanAccessGuard>
+        );
+      
       default:
         return (
           <PlanAccessGuard feature="dashboard">
