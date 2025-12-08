@@ -462,9 +462,12 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
     await kv.set(`invite:${inviteToken}`, JSON.stringify(inviteData));
     console.log('✅ Convite salvo com sucesso!');
     
-    // Construir link de convite
-    const baseUrl = c.req.url.split('/make-server')[0];
-    const inviteLink = `${baseUrl}?token=${inviteToken}`;
+    // Construir link de convite usando o domínio do frontend
+    // PRODUÇÃO: https://metaerp.com.br?token=xxx
+    // STAGING: Pode ser detectado dinamicamente ou usar variável de ambiente
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://metaerp.com.br';
+    const inviteLink = `${frontendUrl}?token=${inviteToken}`;
+    console.log('🔗 Link de convite gerado:', inviteLink);
 
     // Verificar se o serviço de email está configurado
     if (isEmailServiceConfigured()) {
