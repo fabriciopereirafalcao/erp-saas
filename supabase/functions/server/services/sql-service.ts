@@ -305,7 +305,7 @@ export async function getProducts(companyId: string) {
     maxStock: parseFloat(row.max_stock || 0),
     reorderLevel: parseFloat(row.reorder_level || 0),
     status: row.status || 'Em Estoque',
-    lastRestocked: row.last_restocked || '',
+    lastRestocked: row.last_restocked || null,
     // Dados fiscais
     ncm: row.ncm || '',
     cest: row.cest || '',
