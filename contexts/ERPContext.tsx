@@ -1247,8 +1247,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log(`[CACHE] 📋 Account Categories: ${cachedAccountCategories.length} items`);
     
     setFinancialTransactions(loadCached(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []));
-    setAccountsReceivable(loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []));
-    setAccountsPayable(loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []));
+    
+    const cachedAccountsReceivable = loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []);
+    console.log('[CACHE] 🔍 CONTAS A RECEBER NO LOCALSTORAGE:', cachedAccountsReceivable.length, 'itens');
+    setAccountsReceivable(cachedAccountsReceivable);
+    
+    const cachedAccountsPayable = loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []);
+    console.log('[CACHE] 🔍 CONTAS A PAGAR NO LOCALSTORAGE:', cachedAccountsPayable.length, 'itens');
+    setAccountsPayable(cachedAccountsPayable);
     setBankMovements(loadCached(STORAGE_KEYS.BANK_MOVEMENTS, []));
     setCashFlowEntries(loadCached(STORAGE_KEYS.CASH_FLOW_ENTRIES, []));
     setAuditIssues(loadCached(STORAGE_KEYS.AUDIT_ISSUES, []));
@@ -1387,16 +1393,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         // Carregar contas a receber
         const accountsReceivableData = await loadEntity<AccountReceivable[]>('accounts-receivable');
+        console.log(`[SUPABASE] 🔍 CONTAS A RECEBER retornadas do Supabase:`, accountsReceivableData?.length || 0, 'itens');
         if (isSubscribed && accountsReceivableData) {
-          console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
+          console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas - SOBRESCREVENDO O STATE`);
           setAccountsReceivable(accountsReceivableData);
+        } else if (isSubscribed && accountsReceivableData && accountsReceivableData.length === 0) {
+          console.log(`[SUPABASE] ⚠️  SOBRESCREVENDO contas a receber com array vazio do Supabase (APAGANDO DADOS LOCAIS!)`);
+          setAccountsReceivable([]);
         }
         
         // Carregar contas a pagar
         const accountsPayableData = await loadEntity<AccountPayable[]>('accounts-payable');
+        console.log(`[SUPABASE] 🔍 CONTAS A PAGAR retornadas do Supabase:`, accountsPayableData?.length || 0, 'itens');
         if (isSubscribed && accountsPayableData) {
-          console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
+          console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas - SOBRESCREVENDO O STATE`);
           setAccountsPayable(accountsPayableData);
+        } else if (isSubscribed && accountsPayableData && accountsPayableData.length === 0) {
+          console.log(`[SUPABASE] ⚠️  SOBRESCREVENDO contas a pagar com array vazio do Supabase (APAGANDO DADOS LOCAIS!)`);
+          setAccountsPayable([]);
         }
         
         // Carregar movimentações bancárias
