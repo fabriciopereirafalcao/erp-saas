@@ -187,7 +187,7 @@ export function SubscriptionPanel() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-gray-900 mb-2">Meu Plano</h1>

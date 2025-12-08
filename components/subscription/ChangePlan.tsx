@@ -325,7 +325,7 @@ export function ChangePlan() {
   const plans: PlanTier[] = ["basico", "intermediario", "avancado", "ilimitado"];
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       {/* Preview de Upgrade */}
       {showPreview && selectedPlan && (
         <UpgradePreview

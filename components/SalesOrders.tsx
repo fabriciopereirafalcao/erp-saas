@@ -816,12 +816,12 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-gray-900">Pedidos de Venda</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-gray-900 mb-2">Pedidos de Venda</h1>
               {/* Info Badge - Controle Inteligente de Status */}
               <FeatureInfoBadge 
                 title="Controle Inteligente de Status" 

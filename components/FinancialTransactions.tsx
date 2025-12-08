@@ -778,7 +778,7 @@ export function FinancialTransactions() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
           <div>

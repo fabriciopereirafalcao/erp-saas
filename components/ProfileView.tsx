@@ -209,7 +209,7 @@ export function ProfileView({ onNavigate }: ProfileViewProps) {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl">Meu Perfil</h1>
+          <h1 className="text-gray-900">Meu Perfil</h1>
         </div>
         
         <AlertDialog>

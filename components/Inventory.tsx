@@ -362,12 +362,12 @@ export function Inventory() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-gray-900">Gestão de Estoque</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-gray-900 mb-2">Gestão de Estoque</h1>
               {/* Info Badge - Atualização Automática de Estoque */}
               <FeatureInfoBadge 
                 title="Atualização Automática de Estoque" 

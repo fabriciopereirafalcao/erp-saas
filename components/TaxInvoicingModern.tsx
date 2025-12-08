@@ -887,12 +887,12 @@ export function TaxInvoicingModern({ orderData }: TaxInvoicingModernProps = {}) 
   /* ======================================================================= */
 
   return (
-    <div className="p-8">
+    <div className="p-4">
       {/* HEADER */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl text-gray-900">Faturamento Fiscal</h1>
+            <h1 className="text-gray-900 mb-2">Faturamento Fiscal</h1>
             <p className="text-gray-600">Emissão e gerenciamento de notas fiscais eletrônicas</p>
           </div>
           <Button onClick={limparFormulario} variant="default">
