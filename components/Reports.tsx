@@ -89,9 +89,6 @@ export function Reports() {
 
   // Métricas gerais
   const metrics = useMemo(() => {
-    console.log('🔍 DEBUG FINANCEIRO - Contas a Receber:', safeAccountsReceivable);
-    console.log('🔍 DEBUG FINANCEIRO - Contas a Pagar:', safeAccountsPayable);
-    
     // ✅ Receita Total (vendas não canceladas)
     const totalSales = filteredSalesOrders
       .filter(o => o.status !== "Cancelado")
@@ -105,35 +102,19 @@ export function Reports() {
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
-    // ✅ Contas a receber pendentes - LOG DETALHADO
-    const receivables = safeAccountsReceivable.filter(a => {
-      console.log('🔍 Conta a Receber:', {
-        id: a.id,
-        status: a.status,
-        amount: a.amount,
-        remainingAmount: a.remainingAmount,
-        paidAmount: a.paidAmount,
-        campos: Object.keys(a)
-      });
-      return a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial";
-    });
-    const totalAccountsReceivable = receivables.reduce((sum, a) => sum + (a.remainingAmount || a.amount || 0), 0);
-    console.log('✅ Total A Receber:', totalAccountsReceivable, 'Itens:', receivables.length);
+    // ✅ CORRIGIDO: Contas a receber a partir das TRANSAÇÕES FINANCEIRAS
+    const receivables = safeFinancialTransactions.filter(t => 
+      t.type === "Receita" && 
+      (t.status === "A Receber" || t.status === "Vencido")
+    );
+    const totalAccountsReceivable = receivables.reduce((sum, t) => sum + t.amount, 0);
 
-    // ✅ Contas a pagar pendentes - LOG DETALHADO
-    const payables = safeAccountsPayable.filter(a => {
-      console.log('🔍 Conta a Pagar:', {
-        id: a.id,
-        status: a.status,
-        amount: a.amount,
-        remainingAmount: a.remainingAmount,
-        paidAmount: a.paidAmount,
-        campos: Object.keys(a)
-      });
-      return a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial";
-    });
-    const totalAccountsPayable = payables.reduce((sum, a) => sum + (a.remainingAmount || a.amount || 0), 0);
-    console.log('✅ Total A Pagar:', totalAccountsPayable, 'Itens:', payables.length);
+    // ✅ CORRIGIDO: Contas a pagar a partir das TRANSAÇÕES FINANCEIRAS
+    const payables = safeFinancialTransactions.filter(t => 
+      t.type === "Despesa" && 
+      (t.status === "A Pagar" || t.status === "Vencido")
+    );
+    const totalAccountsPayable = payables.reduce((sum, t) => sum + t.amount, 0);
 
     return {
       totalSales,
@@ -232,22 +213,12 @@ export function Reports() {
 
   // Estoque por produto
   const inventoryReport = useMemo(() => {
-    console.log('🔍 DEBUG ESTOQUE - Inventory completo:', safeInventory);
-    
     const report = safeInventory
       .map(item => {
         // ✅ CORRIGIDO: Usar currentStock e costPrice
         const quantity = item.currentStock || item.quantity || 0;
         const costPerUnit = item.costPrice || item.costPerUnit || item.cost || item.unitCost || 0;
         const minStock = item.reorderLevel || item.minStockLevel || 0;
-        
-        console.log(`✅ Produto: ${item.productName}`, {
-          quantity,
-          costPerUnit,
-          value: quantity * costPerUnit,
-          'CORRETO - currentStock': item.currentStock,
-          'CORRETO - costPrice': item.costPrice
-        });
         
         return {
           productName: item.productName,
@@ -258,9 +229,6 @@ export function Reports() {
         };
       })
       .sort((a, b) => b.value - a.value);
-    
-    console.log('✅ Inventory Report final:', report);
-    console.log('✅ VALOR TOTAL DO ESTOQUE:', report.reduce((sum, item) => sum + item.value, 0));
     
     return report;
   }, [safeInventory]);
@@ -274,26 +242,27 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    // ✅ CORRIGIDO: Filtrar por status corretos
-    safeAccountsReceivable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial").forEach(account => {
-      const dueDate = new Date(account.dueDate);
-      const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    // ✅ CORRIGIDO: Usar transações financeiras de Receita pendentes
+    safeFinancialTransactions
+      .filter(t => t.type === "Receita" && (t.status === "A Receber" || t.status === "Vencido"))
+      .forEach(transaction => {
+        const dueDate = new Date(transaction.dueDate);
+        const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Usar remainingAmount em vez de amount para contas parciais
-      const value = account.remainingAmount || account.amount;
+        const value = transaction.amount;
 
-      if (daysDiff < 0) {
-        overdue += value;
-      } else if (daysDiff === 0) {
-        dueToday += value;
-      } else if (daysDiff <= 7) {
-        due7days += value;
-      } else if (daysDiff <= 30) {
-        due30days += value;
-      } else {
-        dueFuture += value;
-      }
-    });
+        if (daysDiff < 0) {
+          overdue += value;
+        } else if (daysDiff === 0) {
+          dueToday += value;
+        } else if (daysDiff <= 7) {
+          due7days += value;
+        } else if (daysDiff <= 30) {
+          due30days += value;
+        } else {
+          dueFuture += value;
+        }
+      });
 
     return [
       { name: "Vencidas", value: overdue, color: "#ef4444" },
@@ -302,7 +271,7 @@ export function Reports() {
       { name: "30 dias", value: due30days, color: "#8b5cf6" },
       { name: "Futuro", value: dueFuture, color: "#16a34a" }
     ].filter(item => item.value > 0);
-  }, [safeAccountsReceivable]);
+  }, [safeFinancialTransactions]);
 
   // Contas a pagar por vencimento
   const payablesByDueDate = useMemo(() => {
@@ -313,26 +282,27 @@ export function Reports() {
     let due30days = 0;
     let dueFuture = 0;
 
-    // ✅ CORRIGIDO: Filtrar por status corretos
-    safeAccountsPayable.filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial").forEach(account => {
-      const dueDate = new Date(account.dueDate);
-      const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    // ✅ CORRIGIDO: Usar transações financeiras de Despesa pendentes
+    safeFinancialTransactions
+      .filter(t => t.type === "Despesa" && (t.status === "A Pagar" || t.status === "Vencido"))
+      .forEach(transaction => {
+        const dueDate = new Date(transaction.dueDate);
+        const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Usar remainingAmount em vez de amount para contas parciais
-      const value = account.remainingAmount || account.amount;
+        const value = transaction.amount;
 
-      if (daysDiff < 0) {
-        overdue += value;
-      } else if (daysDiff === 0) {
-        dueToday += value;
-      } else if (daysDiff <= 7) {
-        due7days += value;
-      } else if (daysDiff <= 30) {
-        due30days += value;
-      } else {
-        dueFuture += value;
-      }
-    });
+        if (daysDiff < 0) {
+          overdue += value;
+        } else if (daysDiff === 0) {
+          dueToday += value;
+        } else if (daysDiff <= 7) {
+          due7days += value;
+        } else if (daysDiff <= 30) {
+          due30days += value;
+        } else {
+          dueFuture += value;
+        }
+      });
 
     return [
       { name: "Vencidas", value: overdue, color: "#ef4444" },
@@ -341,7 +311,7 @@ export function Reports() {
       { name: "30 dias", value: due30days, color: "#8b5cf6" },
       { name: "Futuro", value: dueFuture, color: "#16a34a" }
     ].filter(item => item.value > 0);
-  }, [safeAccountsPayable]);
+  }, [safeFinancialTransactions]);
 
   // DRE Simplificado
   const dre = useMemo(() => {
