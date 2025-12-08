@@ -89,6 +89,9 @@ export function Reports() {
 
   // Métricas gerais
   const metrics = useMemo(() => {
+    console.log('🔍 DEBUG FINANCEIRO - Contas a Receber:', safeAccountsReceivable);
+    console.log('🔍 DEBUG FINANCEIRO - Contas a Pagar:', safeAccountsPayable);
+    
     // ✅ Receita Total (vendas não canceladas)
     const totalSales = filteredSalesOrders
       .filter(o => o.status !== "Cancelado")
@@ -102,15 +105,35 @@ export function Reports() {
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
-    // ✅ Contas a receber pendentes
-    const totalAccountsReceivable = safeAccountsReceivable
-      .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
-      .reduce((sum, a) => sum + a.remainingAmount, 0);
+    // ✅ Contas a receber pendentes - LOG DETALHADO
+    const receivables = safeAccountsReceivable.filter(a => {
+      console.log('🔍 Conta a Receber:', {
+        id: a.id,
+        status: a.status,
+        amount: a.amount,
+        remainingAmount: a.remainingAmount,
+        paidAmount: a.paidAmount,
+        campos: Object.keys(a)
+      });
+      return a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial";
+    });
+    const totalAccountsReceivable = receivables.reduce((sum, a) => sum + (a.remainingAmount || a.amount || 0), 0);
+    console.log('✅ Total A Receber:', totalAccountsReceivable, 'Itens:', receivables.length);
 
-    // ✅ Contas a pagar pendentes
-    const totalAccountsPayable = safeAccountsPayable
-      .filter(a => a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial")
-      .reduce((sum, a) => sum + a.remainingAmount, 0);
+    // ✅ Contas a pagar pendentes - LOG DETALHADO
+    const payables = safeAccountsPayable.filter(a => {
+      console.log('🔍 Conta a Pagar:', {
+        id: a.id,
+        status: a.status,
+        amount: a.amount,
+        remainingAmount: a.remainingAmount,
+        paidAmount: a.paidAmount,
+        campos: Object.keys(a)
+      });
+      return a.status === "A Vencer" || a.status === "Vencido" || a.status === "Parcial";
+    });
+    const totalAccountsPayable = payables.reduce((sum, a) => sum + (a.remainingAmount || a.amount || 0), 0);
+    console.log('✅ Total A Pagar:', totalAccountsPayable, 'Itens:', payables.length);
 
     return {
       totalSales,
