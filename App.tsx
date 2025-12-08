@@ -125,8 +125,7 @@ function AppContent() {
 
   console.log('👤 AppContent State:', {
     currentUser: currentUser?.email,
-    authLoading,
-    IS_MAINTENANCE_MODE
+    authLoading
   });
 
   useEffect(() => {
@@ -139,12 +138,6 @@ function AppContent() {
 
     return () => clearInterval(interval);
   }, []);
-
-  // 🛑 MODO DE MANUTENÇÃO - Exibir apenas em PRODUÇÃO
-  if (IS_MAINTENANCE_MODE) {
-    console.log('🛑 Modo de manutenção ativo');
-    return <MaintenancePage />;
-  }
 
   // ⏳ Aguardar autenticação
   if (authLoading) {
@@ -296,6 +289,18 @@ function AppContent() {
 }
 
 export default function App() {
+  // 🛑 VERIFICAR MANUTENÇÃO ANTES DE TUDO
+  if (IS_MAINTENANCE_MODE) {
+    console.log('🛑 Modo de manutenção ativo - Bloqueando acesso ao app');
+    return (
+      <ErrorBoundary>
+        <ThemeProvider>
+          <MaintenancePage />
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
