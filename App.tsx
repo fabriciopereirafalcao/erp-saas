@@ -57,6 +57,11 @@ const AccountsPayableReceivable = lazy(() =>
     default: m.AccountsPayableReceivable,
   })),
 );
+const FinancialTransactions = lazy(() =>
+  import("./components/FinancialTransactions").then((m) => ({
+    default: m.FinancialTransactions,
+  })),
+);
 const Reports = lazy(() =>
   import("./components/Reports").then((m) => ({
     default: m.Reports,
@@ -80,6 +85,11 @@ const TaxInvoicing = lazy(() =>
 const CompanySettings = lazy(() =>
   import("./components/CompanySettings").then((m) => ({
     default: m.CompanySettings,
+  })),
+);
+const PriceTables = lazy(() =>
+  import("./components/PriceTables").then((m) => ({
+    default: m.PriceTables,
   })),
 );
 const UsersPermissions = lazy(() =>
@@ -224,7 +234,7 @@ function AppContent() {
       case "financialTransactions":
         return (
           <PlanAccessGuard feature="financial">
-            <AccountsPayableReceivable />
+            <FinancialTransactions />
           </PlanAccessGuard>
         );
       case "accountsPayableReceivable":
@@ -312,6 +322,12 @@ function AppContent() {
       
       // ===== CADASTROS AUXILIARES =====
       case "priceTables":
+        return (
+          <PlanAccessGuard feature="settings">
+            <PriceTables />
+          </PlanAccessGuard>
+        );
+      
       case "productCategories":
       case "stockLocations":
       case "manufacturingBatches":
