@@ -101,7 +101,8 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
       {/* Overlay para mobile - clique fora fecha a sidebar */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed bg-black/50 z-30 md:hidden"
+          style={{ top: '64px', left: 0, right: 0, bottom: 0 }}
           onClick={onClose}
         />
       )}
@@ -109,13 +110,13 @@ export const Sidebar = memo(function Sidebar({ currentView, onNavigate, isOpen, 
       {/* Sidebar */}
       <aside 
         className={`
-          fixed md:static inset-y-0 left-0 z-50
+          fixed md:static inset-y-0 left-0 z-40
           w-64 border-r flex flex-col
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           ${isDarkMode ? 'dark bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}
         `}
-        style={{ top: '64px' }}
+        style={{ top: '64px', height: 'calc(100vh - 64px)' }}
       >
         {/* Botão fechar para mobile */}
         <div className="md:hidden flex justify-end p-4 border-b border-gray-200 dark:border-gray-700">

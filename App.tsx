@@ -340,7 +340,11 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background pt-16">
+      <TopBar 
+        onNavigate={setCurrentView} 
+        onToggleSidebar={() => setIsSidebarOpen(true)} 
+      />
       <Sidebar 
         currentView={currentView} 
         onNavigate={setCurrentView} 
@@ -348,10 +352,6 @@ function AppContent() {
         onClose={() => setIsSidebarOpen(false)} 
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar 
-          onNavigate={setCurrentView} 
-          onToggleSidebar={() => setIsSidebarOpen(true)} 
-        />
         <SubscriptionAlerts />
         <main className="flex-1 overflow-y-auto p-6">
           <ErrorBoundary>
