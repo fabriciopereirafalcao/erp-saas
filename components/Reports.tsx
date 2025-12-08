@@ -213,22 +213,17 @@ export function Reports() {
     
     const report = safeInventory
       .map(item => {
-        // 🔍 LOG DETALHADO DO OBJETO
-        console.log('🔍 OBJETO COMPLETO:', JSON.stringify(item, null, 2));
-        console.log('🔍 Campos disponíveis:', Object.keys(item));
+        // ✅ CORRIGIDO: Usar currentStock e costPrice
+        const quantity = item.currentStock || item.quantity || 0;
+        const costPerUnit = item.costPrice || item.costPerUnit || item.cost || item.unitCost || 0;
+        const minStock = item.reorderLevel || item.minStockLevel || 0;
         
-        const quantity = item.quantity || 0;
-        const costPerUnit = item.costPerUnit || item.cost || item.unitCost || 0;
-        const minStock = item.minStockLevel || 0;
-        
-        console.log(`🔍 Produto: ${item.productName}`, {
+        console.log(`✅ Produto: ${item.productName}`, {
           quantity,
           costPerUnit,
-          'item.costPerUnit': item.costPerUnit,
-          'item.cost': item.cost,
-          'item.unitCost': item.unitCost,
           value: quantity * costPerUnit,
-          item: item
+          'CORRETO - currentStock': item.currentStock,
+          'CORRETO - costPrice': item.costPrice
         });
         
         return {
@@ -241,8 +236,8 @@ export function Reports() {
       })
       .sort((a, b) => b.value - a.value);
     
-    console.log('🔍 Inventory Report final:', report);
-    console.log('🔍 Valor total do estoque:', report.reduce((sum, item) => sum + item.value, 0));
+    console.log('✅ Inventory Report final:', report);
+    console.log('✅ VALOR TOTAL DO ESTOQUE:', report.reduce((sum, item) => sum + item.value, 0));
     
     return report;
   }, [safeInventory]);
