@@ -83,7 +83,8 @@ export async function getCustomers(companyId: string) {
 
   // Mapear do schema SQL para o formato do código
   return data?.map((row: any) => ({
-    id: row.id,
+    id: row.sku || row.id, // ✅ Usar SKU como ID (CLI-001), fallback para UUID
+    sku: row.sku, // ✅ Incluir SKU
     documentType: row.document_type || 'PJ',
     document: row.document,
     name: row.name,
@@ -203,10 +204,22 @@ export async function saveCustomers(companyId: string, customers: any[]) {
 
   console.log(`[SQL_SERVICE] ✅ ${customersToUpdate.length} clientes atualizados`);
 
-  // ETAPA 4: INSERT clientes novos
-  if (customersToInsert.length > 0) {
-    const rows = customersToInsert.map((customer: any) => ({
+  // ETAPA 4: Gerar SKUs para clientes novos
+  const customersToInsertWithSku = await Promise.all(customersToInsert.map(async (customer: any) => {
+    if (customer.sku) {
+      // SKU customizado já definido
+      return { ...customer, sku: customer.sku };
+    }
+    // Gerar novo SKU sequencial
+    const newSku = await generateNextCustomerSku(companyId);
+    return { ...customer, sku: newSku };
+  }));
+
+  // ETAPA 5: INSERT clientes novos (com SKUs gerados)
+  if (customersToInsertWithSku.length > 0) {
+    const rows = customersToInsertWithSku.map((customer: any) => ({
       company_id: companyId,
+      sku: customer.sku, // ✅ SKU gerado automaticamente
       type: customer.documentType === 'PF' ? 'individual' : 'company',
       document_type: customer.documentType || 'PJ',
       document: customer.document,
@@ -243,10 +256,10 @@ export async function saveCustomers(companyId: string, customers: any[]) {
       throw new Error(insertError.message);
     }
 
-    console.log(`[SQL_SERVICE] ✅ ${customersToInsert.length} clientes inseridos`);
+    console.log(`[SQL_SERVICE] ✅ ${customersToInsertWithSku.length} clientes inseridos`);
   }
 
-  // ETAPA 5: DELETE clientes removidos (que estão no banco mas não foram enviados)
+  // ETAPA 6: DELETE clientes removidos (que estão no banco mas não foram enviados)
   const docsToDelete: string[] = [];
   existingDocMap.forEach((uuid, doc) => {
     if (!incomingDocs.has(doc)) {
@@ -269,13 +282,13 @@ export async function saveCustomers(companyId: string, customers: any[]) {
     console.log(`[SQL_SERVICE] 🗑️  ${docsToDelete.length} clientes removidos: ${docsToDelete.join(', ')}`);
   }
 
-  const totalOperations = customersToUpdate.length + customersToInsert.length + docsToDelete.length;
+  const totalOperations = customersToUpdate.length + customersToInsertWithSku.length + docsToDelete.length;
   console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
   
   return { 
     success: true, 
     updated: customersToUpdate.length,
-    inserted: customersToInsert.length,
+    inserted: customersToInsertWithSku.length,
     deleted: docsToDelete.length
   };
 }
@@ -298,7 +311,8 @@ export async function getSuppliers(companyId: string) {
 
   // Mapear do schema SQL para o formato do código
   return data?.map((row: any) => ({
-    id: row.id,
+    id: row.sku || row.id, // ✅ Usar SKU como ID (FOR-001), fallback para UUID
+    sku: row.sku, // ✅ Incluir SKU
     documentType: row.document_type || 'PJ',
     document: row.document,
     name: row.name,
@@ -415,10 +429,22 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
 
   console.log(`[SQL_SERVICE] ✅ ${suppliersToUpdate.length} fornecedores atualizados`);
 
-  // ETAPA 4: INSERT fornecedores novos
-  if (suppliersToInsert.length > 0) {
-    const rows = suppliersToInsert.map((supplier: any) => ({
+  // ETAPA 4: Gerar SKUs para fornecedores novos
+  const suppliersToInsertWithSku = await Promise.all(suppliersToInsert.map(async (supplier: any) => {
+    if (supplier.sku) {
+      // SKU customizado já definido
+      return { ...supplier, sku: supplier.sku };
+    }
+    // Gerar novo SKU sequencial
+    const newSku = await generateNextSupplierSku(companyId);
+    return { ...supplier, sku: newSku };
+  }));
+
+  // ETAPA 5: INSERT fornecedores novos (com SKUs gerados)
+  if (suppliersToInsertWithSku.length > 0) {
+    const rows = suppliersToInsertWithSku.map((supplier: any) => ({
       company_id: companyId,
+      sku: supplier.sku, // ✅ SKU gerado automaticamente
       document_type: supplier.documentType || 'PJ',
       document: supplier.document,
       name: supplier.name,
@@ -453,10 +479,10 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
       throw new Error(insertError.message);
     }
 
-    console.log(`[SQL_SERVICE] ✅ ${suppliersToInsert.length} fornecedores inseridos`);
+    console.log(`[SQL_SERVICE] ✅ ${suppliersToInsertWithSku.length} fornecedores inseridos`);
   }
 
-  // ETAPA 5: DELETE fornecedores removidos (que estão no banco mas não foram enviados)
+  // ETAPA 6: DELETE fornecedores removidos (que estão no banco mas não foram enviados)
   const docsToDelete: string[] = [];
   existingDocMap.forEach((uuid, doc) => {
     if (!incomingDocs.has(doc)) {
@@ -479,13 +505,13 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
     console.log(`[SQL_SERVICE] 🗑️  ${docsToDelete.length} fornecedores removidos: ${docsToDelete.join(', ')}`);
   }
 
-  const totalOperations = suppliersToUpdate.length + suppliersToInsert.length + docsToDelete.length;
+  const totalOperations = suppliersToUpdate.length + suppliersToInsertWithSku.length + docsToDelete.length;
   console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
   
   return { 
     success: true, 
     updated: suppliersToUpdate.length,
-    inserted: suppliersToInsert.length,
+    inserted: suppliersToInsertWithSku.length,
     deleted: docsToDelete.length
   };
 }
@@ -530,6 +556,78 @@ async function generateNextSku(companyId: string): Promise<string> {
   
   // Formatar com zero padding (3 dígitos: 001, 002, ... 999)
   return `PROD-${String(nextNumber).padStart(3, '0')}`;
+}
+
+/**
+ * Gera o próximo SKU sequencial para clientes
+ * Formato: CLI-001, CLI-002, ..., CLI-999
+ */
+async function generateNextCustomerSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('customers')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'CLI-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de clientes, gerando SKU padrão:', error);
+    return 'CLI-001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku.match(/^CLI-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  return `CLI-${String(nextNumber).padStart(3, '0')}`;
+}
+
+/**
+ * Gera o próximo SKU sequencial para fornecedores
+ * Formato: FOR-001, FOR-002, ..., FOR-999
+ */
+async function generateNextSupplierSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'FOR-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de fornecedores, gerando SKU padrão:', error);
+    return 'FOR-001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku.match(/^FOR-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  return `FOR-${String(nextNumber).padStart(3, '0')}`;
 }
 
 export async function getProducts(companyId: string) {
