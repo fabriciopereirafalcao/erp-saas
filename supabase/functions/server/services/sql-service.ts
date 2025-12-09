@@ -293,20 +293,25 @@ export async function getProducts(companyId: string) {
   // Mapear do schema SQL para o formato do código (InventoryItem)
   return data?.map((row: any) => ({
     id: row.id,
-    name: row.name,
+    productName: row.name, // Frontend usa productName
+    name: row.name, // Manter compatibilidade
     sku: row.sku,
     category: row.category,
     unit: row.unit,
     purchasePrice: parseFloat(row.purchase_price || 0),
     costPrice: parseFloat(row.cost_price || 0),
-    salePrice: parseFloat(row.sale_price || 0),
+    pricePerUnit: parseFloat(row.sale_price || 0), // Frontend usa pricePerUnit
+    sellPrice: parseFloat(row.sale_price || 0), // Frontend usa sellPrice também
+    salePrice: parseFloat(row.sale_price || 0), // Manter compatibilidade
     markup: parseFloat(row.markup || 0),
-    stockQuantity: parseFloat(row.stock_quantity || 0),
+    currentStock: parseFloat(row.stock_quantity || 0), // Frontend usa currentStock
+    stockQuantity: parseFloat(row.stock_quantity || 0), // Manter compatibilidade
     minStock: parseFloat(row.min_stock || 0),
     maxStock: parseFloat(row.max_stock || 0),
     reorderLevel: parseFloat(row.reorder_level || 0),
     status: row.status || 'Em Estoque',
     lastRestocked: row.last_restocked || null,
+    active: row.active !== false, // Soft delete - true se NULL ou true
     // Dados fiscais
     ncm: row.ncm || '',
     cest: row.cest || '',
@@ -347,20 +352,21 @@ export async function saveProducts(companyId: string, products: any[]) {
     const rows = products.map((product: any) => ({
       // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
-      name: product.name,
+      name: product.productName || product.name, // Frontend usa productName
       sku: product.sku,
       category: product.category,
       unit: product.unit,
       purchase_price: product.purchasePrice || 0,
       cost_price: product.costPrice || 0,
-      sale_price: product.salePrice || 0,
+      sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0, // Frontend usa sellPrice e pricePerUnit
       markup: product.markup || 0,
-      stock_quantity: product.stockQuantity || 0,
+      stock_quantity: product.currentStock || product.stockQuantity || 0, // Frontend usa currentStock
       min_stock: product.minStock || 0,
       max_stock: product.maxStock || 0,
       reorder_level: product.reorderLevel || 0,
       status: product.status || 'Em Estoque',
       last_restocked: product.lastRestocked || null,
+      active: product.active !== undefined ? product.active : true, // Soft delete (default true)
       // Dados fiscais
       ncm: product.ncm || null,
       cest: product.cest || null,
