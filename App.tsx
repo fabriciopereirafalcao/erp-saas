@@ -122,6 +122,46 @@ const ProfileView = lazy(() =>
     default: m.ProfileView,
   })),
 );
+const ChartOfAccounts = lazy(() =>
+  import("./components/ChartOfAccounts").then((m) => ({
+    default: m.ChartOfAccounts,
+  })),
+);
+const CostCenters = lazy(() =>
+  import("./components/CostCenters").then((m) => ({
+    default: m.CostCenters,
+  })),
+);
+const DigitalCertificate = lazy(() =>
+  import("./components/DigitalCertificate").then((m) => ({
+    default: m.DigitalCertificate,
+  })),
+);
+const Salespeople = lazy(() =>
+  import("./components/Salespeople").then((m) => ({
+    default: m.Salespeople,
+  })),
+);
+const Buyers = lazy(() =>
+  import("./components/Buyers").then((m) => ({
+    default: m.Buyers,
+  })),
+);
+const ProductCategories = lazy(() =>
+  import("./components/ProductCategories").then((m) => ({
+    default: m.ProductCategories,
+  })),
+);
+const StockLocations = lazy(() =>
+  import("./components/StockLocations").then((m) => ({
+    default: m.StockLocations,
+  })),
+);
+const ManufacturingBatches = lazy(() =>
+  import("./components/ManufacturingBatches").then((m) => ({
+    default: m.ManufacturingBatches,
+  })),
+);
 
 // 🔒 VERIFICAÇÃO DE AMBIENTE - Manutenção apenas em PRODUÇÃO
 // IMPORTANTE: Só ativa manutenção quando VITE_VERCEL_ENV for explicitamente 'production'
@@ -328,14 +368,62 @@ function AppContent() {
           </PlanAccessGuard>
         );
       
-      case "productCategories":
-      case "stockLocations":
-      case "manufacturingBatches":
-      case "salespeople":
-      case "buyers":
       case "chartOfAccounts":
+        return (
+          <PlanAccessGuard feature="settings">
+            <ChartOfAccounts />
+          </PlanAccessGuard>
+        );
+      
       case "costCenters":
+        return (
+          <PlanAccessGuard feature="settings">
+            <CostCenters />
+          </PlanAccessGuard>
+        );
+      
       case "digitalCertificate":
+        return (
+          <PlanAccessGuard feature="settings">
+            <DigitalCertificate />
+          </PlanAccessGuard>
+        );
+      
+      case "salespeople":
+        return (
+          <PlanAccessGuard feature="settings">
+            <Salespeople />
+          </PlanAccessGuard>
+        );
+      
+      case "buyers":
+        return (
+          <PlanAccessGuard feature="settings">
+            <Buyers />
+          </PlanAccessGuard>
+        );
+      
+      case "productCategories":
+        return (
+          <PlanAccessGuard feature="settings">
+            <ProductCategories />
+          </PlanAccessGuard>
+        );
+      
+      case "stockLocations":
+        return (
+          <PlanAccessGuard feature="settings">
+            <StockLocations />
+          </PlanAccessGuard>
+        );
+      
+      case "manufacturingBatches":
+        return (
+          <PlanAccessGuard feature="settings">
+            <ManufacturingBatches />
+          </PlanAccessGuard>
+        );
+      
       case "emailSettings":
       case "testePersistencia":
         // Por ora, redireciona para company settings
