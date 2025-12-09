@@ -162,6 +162,11 @@ const ManufacturingBatches = lazy(() =>
     default: m.ManufacturingBatches,
   })),
 );
+const ChangePlan = lazy(() =>
+  import("./components/subscription/ChangePlan").then((m) => ({
+    default: m.ChangePlan,
+  })),
+);
 
 // 🔒 VERIFICAÇÃO DE AMBIENTE - Manutenção apenas em PRODUÇÃO
 // IMPORTANTE: Só ativa manutenção quando VITE_VERCEL_ENV for explicitamente 'production'
@@ -353,10 +358,15 @@ function AppContent() {
           </PlanAccessGuard>
         );
       case "myPlan":
-      case "changePlan":
         return (
           <PlanAccessGuard feature="billing">
             <BillingSettings />
+          </PlanAccessGuard>
+        );
+      case "changePlan":
+        return (
+          <PlanAccessGuard feature="billing">
+            <ChangePlan />
           </PlanAccessGuard>
         );
       

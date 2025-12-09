@@ -227,15 +227,16 @@ certificado.get('/info', async (c) => {
     return c.json({
       success: true,
       data: {
-        ativo: certInfo.ativo !== false && isValido, // Ativo se não expirado
+        ...certInfo,
+        // Sobrescrever com valores recalculados (sempre atualizados)
+        ativo: certInfo.ativo !== false && isValido,
         titular: certInfo.titular || certInfo.razaoSocial,
         cnpj: certInfo.cnpj,
         validade: certInfo.validade || certInfo.validoAte,
         vencido,
-        diasRestantes,
+        diasRestantes, // ✅ Recalculado em tempo real
         isValido,
-        avisoVencimento,
-        ...certInfo
+        avisoVencimento
       }
     });
     
