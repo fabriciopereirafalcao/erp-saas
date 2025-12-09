@@ -2103,9 +2103,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // ✅ CORRIGIDO: Gerar ID sequencial seguro baseado no MAX do banco (igual ao padrão de clientes/fornecedores)
+    const maxId = salesOrders.reduce((max, order) => {
+      const idNum = parseInt(order.orderNumber?.replace('PV-', '') || '0');
+      return Math.max(max, idNum);
+    }, 1045); // Base: 1045, primeiro será PV-1046
+
     const newOrder: SalesOrder = {
       ...orderData,
-      id: `PV-${1046 + salesOrders.length}`,
+      id: `PV-${maxId + 1}`,
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},
@@ -4419,9 +4425,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ==================== PURCHASE ORDER ACTIONS ====================
 
   const addPurchaseOrder = (orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
+    // ✅ CORRIGIDO: Gerar ID sequencial seguro baseado no MAX do banco (igual ao padrão de clientes/fornecedores)
+    const maxId = purchaseOrders.reduce((max, order) => {
+      const idNum = parseInt(order.orderNumber?.replace('PC-', '') || '0');
+      return Math.max(max, idNum);
+    }, 0); // Base: 0, primeiro será PC-001
+
     const newOrder: PurchaseOrder = {
       ...orderData,
-      id: `PC-${String(purchaseOrders.length + 1).padStart(3, '0')}`,
+      id: `PC-${String(maxId + 1).padStart(3, '0')}`,
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},
