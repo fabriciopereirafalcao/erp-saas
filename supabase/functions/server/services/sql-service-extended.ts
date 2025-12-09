@@ -110,7 +110,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
       const { data: insertedOrder, error: orderError } = await supabase
         .from('sales_orders')
         .insert({
-          id: order.id,
+          // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_number: order.orderNumber,
           customer_id: order.customerId,
@@ -153,7 +153,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
       // Inserir items (se houver)
       if (order.items && order.items.length > 0) {
         const itemsToInsert = order.items.map((item: any) => ({
-          id: item.id,
+          // ❌ REMOVIDO: id: item.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_id: insertedOrder.id,
           product_id: item.productId,
@@ -274,7 +274,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
       const { data: insertedOrder, error: orderError } = await supabase
         .from('purchase_orders')
         .insert({
-          id: order.id,
+          // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_number: order.orderNumber,
           supplier_id: order.supplierId,
@@ -317,7 +317,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
       // Inserir items (se houver)
       if (order.items && order.items.length > 0) {
         const itemsToInsert = order.items.map((item: any) => ({
-          id: item.id,
+          // ❌ REMOVIDO: id: item.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_id: insertedOrder.id,
           product_id: item.productId,
@@ -398,7 +398,7 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
   // Inserir novos movimentos
   if (movements.length > 0) {
     const rows = movements.map((movement: any) => ({
-      id: movement.id,
+      // ❌ REMOVIDO: id: movement.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       product_id: movement.productId,
       type: movement.type,
@@ -490,7 +490,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
   // Inserir novas transações
   if (transactions.length > 0) {
     const rows = transactions.map((transaction: any) => ({
-      id: transaction.id,
+      // ❌ REMOVIDO: id: transaction.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       type: transaction.type,
       category: transaction.category,
@@ -588,7 +588,7 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
   // Inserir novas contas
   if (accounts.length > 0) {
     const rows = accounts.map((account: any) => ({
-      id: account.id,
+      // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       customer_id: account.customerId,
       order_id: account.orderId,
@@ -668,7 +668,7 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
   // Inserir novas contas
   if (accounts.length > 0) {
     const rows = accounts.map((account: any) => ({
-      id: account.id,
+      // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       supplier_id: account.supplierId,
       order_id: account.orderId,

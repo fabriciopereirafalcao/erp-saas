@@ -128,7 +128,7 @@ export async function saveCustomers(companyId: string, customers: any[]) {
   // Inserir novos customers
   if (customers.length > 0) {
     const rows = customers.map((customer: any) => ({
-      id: customer.id,
+      // ❌ REMOVIDO: id: customer.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       document_type: customer.documentType || 'PJ',
       document: customer.document,
@@ -232,7 +232,7 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
   // Inserir novos suppliers
   if (suppliers.length > 0) {
     const rows = suppliers.map((supplier: any) => ({
-      id: supplier.id,
+      // ❌ REMOVIDO: id: supplier.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       document_type: supplier.documentType || 'PJ',
       document: supplier.document,
@@ -344,7 +344,7 @@ export async function saveProducts(companyId: string, products: any[]) {
   // Inserir novos products
   if (products.length > 0) {
     const rows = products.map((product: any) => ({
-      id: product.id,
+      // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       name: product.name,
       sku: product.sku,
