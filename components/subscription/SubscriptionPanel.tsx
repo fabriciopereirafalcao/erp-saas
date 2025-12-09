@@ -187,10 +187,10 @@ export function SubscriptionPanel() {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">Meu Plano</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Meu Plano</h1>
         <p className="text-gray-600">
           Gerencie sua assinatura e acompanhe o uso dos recursos
         </p>

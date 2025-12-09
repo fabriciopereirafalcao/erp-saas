@@ -332,11 +332,11 @@ export function CashFlow() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-gray-900 mb-2">Fluxo de Caixa</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Fluxo de Caixa</h1>
             <p className="text-gray-600">Acompanhe e projete o fluxo de caixa da sua empresa</p>
           </div>
           <Button onClick={() => setShowAddDialog(true)} className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">

@@ -404,11 +404,11 @@ export function Reports() {
   };
 
   return (
-    <div className="p-8">
-      <div id="reports-content" className="mb-8">
+    <div className="p-6">
+      <div id="reports-content" className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Relatórios e Análises</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Relatórios e Análises</h1>
             <p className="text-gray-600">Análise completa integrada de todos os módulos do sistema</p>
           </div>
           <div className="flex items-center gap-3">

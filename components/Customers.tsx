@@ -520,11 +520,11 @@ export function Customers() {
   const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0);
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Gestão de Clientes</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Gestão de Clientes</h1>
             <p className="text-gray-600">Gerencie sua base de clientes</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

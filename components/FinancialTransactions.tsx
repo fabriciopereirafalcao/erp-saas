@@ -778,11 +778,11 @@ export function FinancialTransactions() {
   };
 
   return (
-    <div className="p-4">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-gray-900 mb-2">Transações Financeiras</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Transações Financeiras</h1>
             <p className="text-gray-600">Gerencie receitas e despesas do seu negócio</p>
             <p className="text-sm text-blue-600 mt-1">
               💡 As transações de pedidos são criadas automaticamente na entrega e baixadas manualmente ao receber o pagamento

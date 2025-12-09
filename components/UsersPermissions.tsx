@@ -765,11 +765,11 @@ export function UsersPermissions() {
   };
 
   return (
-    <div className="p-4">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-gray-900 mb-2">Usuários e Permissões</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Usuários e Permissões</h1>
             <p className="text-gray-600">Gerencie usuários, perfis de acesso e permissões do sistema</p>
           </div>
         </div>

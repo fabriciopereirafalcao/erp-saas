@@ -444,12 +444,12 @@ export function SystemAudit() {
   const healthColor = healthScore >= 80 ? "text-green-600" : healthScore >= 60 ? "text-yellow-600" : "text-red-600";
 
   return (
-    <div className="p-4">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-gray-900 mb-2">Auditoria Técnica do Sistema ERP</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">Auditoria Técnica do Sistema ERP</h1>
               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                 {ENVIRONMENT.toUpperCase()}
               </Badge>

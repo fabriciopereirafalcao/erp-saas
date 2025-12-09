@@ -237,9 +237,9 @@ export function AccountsPayableReceivable() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">Contas a Pagar e Receber</h1>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Contas a Pagar e Receber</h1>
         <p className="text-gray-600">Controle financeiro completo do seu negócio</p>
         <p className="text-sm text-blue-600 mt-1">
           💡 Liquidação de transações de pedidos - receba e pague suas contas diretamente aqui
