@@ -114,23 +114,100 @@ export async function getCustomers(companyId: string) {
 export async function saveCustomers(companyId: string, customers: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar todos os customers antigos da empresa
-  const { error: deleteError } = await supabase
+  // ==================== ARQUITETURA UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todos os clientes (protege contra perda de dados)
+  // ✅ UPDATE clientes com document existente (preserva UUID, histórico, referências)
+  // ✅ INSERT apenas clientes novos (document não encontrado)
+  // ✅ DELETE apenas clientes que foram removidos pelo usuário
+  
+  console.log(`[SQL_SERVICE] 🔄 Iniciando UPSERT de ${customers.length} clientes`);
+
+  // ETAPA 1: Buscar todos os clientes existentes no banco
+  const { data: existingCustomers, error: fetchError } = await supabase
     .from('customers')
-    .delete()
+    .select('id, document')
     .eq('company_id', companyId);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar customers:', deleteError);
-    throw new Error(deleteError.message);
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar clientes existentes:', fetchError);
+    throw new Error(fetchError.message);
   }
 
-  // Inserir novos customers
-  if (customers.length > 0) {
-    const rows = customers.map((customer: any) => ({
-      // ❌ REMOVIDO: id: customer.id (UUID gerado automaticamente pelo banco)
+  const existingDocMap = new Map<string, string>(); // document → uuid
+  existingCustomers?.forEach((c: any) => {
+    if (c.document) existingDocMap.set(c.document, c.id);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Clientes no banco: ${existingDocMap.size}`);
+
+  // ETAPA 2: Classificar clientes do frontend
+  const customersToUpdate: any[] = []; // Clientes com document existente → UPDATE
+  const customersToInsert: any[] = []; // Clientes novos → INSERT
+  const incomingDocs = new Set<string>(); // Documents enviados pelo frontend
+
+  for (const customer of customers) {
+    // Se tem document e existe no banco → UPDATE
+    if (customer.document && existingDocMap.has(customer.document)) {
+      customersToUpdate.push(customer);
+      incomingDocs.add(customer.document);
+    } 
+    // Se não tem document ou document não existe → INSERT
+    else {
+      customersToInsert.push(customer);
+      if (customer.document) incomingDocs.add(customer.document);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${customersToUpdate.length} | INSERT: ${customersToInsert.length}`);
+
+  // ETAPA 3: UPDATE clientes existentes (preserva UUID)
+  for (const customer of customersToUpdate) {
+    const uuid = existingDocMap.get(customer.document);
+    
+    const { error: updateError } = await supabase
+      .from('customers')
+      .update({
+        type: customer.documentType === 'PF' ? 'individual' : 'company',
+        document_type: customer.documentType || 'PJ',
+        document: customer.document,
+        name: customer.name,
+        company_name: customer.company || customer.name,
+        trade_name: customer.tradeName || '',
+        segment: customer.segment || '',
+        contact_person: customer.contactPerson || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: customer.address || '',
+        street: customer.street || '',
+        number: customer.number || '',
+        complement: customer.complement || '',
+        neighborhood: customer.neighborhood || '',
+        city: customer.city || '',
+        state: customer.state || '',
+        zip_code: customer.zipCode || '',
+        state_registration: customer.stateRegistration || '',
+        city_registration: customer.cityRegistration || '',
+        icms_contributor: customer.icmsContributor || false,
+        total_orders: customer.totalOrders || 0,
+        total_spent: customer.totalSpent || 0,
+        status: customer.status || 'Ativo',
+        price_table_id: customer.priceTableId || null
+      })
+      .eq('id', uuid);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar cliente ${customer.document}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${customersToUpdate.length} clientes atualizados`);
+
+  // ETAPA 4: INSERT clientes novos
+  if (customersToInsert.length > 0) {
+    const rows = customersToInsert.map((customer: any) => ({
       company_id: companyId,
-      type: customer.documentType === 'PF' ? 'individual' : 'company', // ✅ Campo obrigatório
+      type: customer.documentType === 'PF' ? 'individual' : 'company',
       document_type: customer.documentType || 'PJ',
       document: customer.document,
       name: customer.name,
@@ -162,13 +239,45 @@ export async function saveCustomers(companyId: string, customers: any[]) {
       .insert(rows);
 
     if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir customers:', insertError);
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir clientes:', insertError);
       throw new Error(insertError.message);
     }
+
+    console.log(`[SQL_SERVICE] ✅ ${customersToInsert.length} clientes inseridos`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${customers.length} customers salvos`);
-  return { success: true, count: customers.length };
+  // ETAPA 5: DELETE clientes removidos (que estão no banco mas não foram enviados)
+  const docsToDelete: string[] = [];
+  existingDocMap.forEach((uuid, doc) => {
+    if (!incomingDocs.has(doc)) {
+      docsToDelete.push(doc);
+    }
+  });
+
+  if (docsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('customers')
+      .delete()
+      .eq('company_id', companyId)
+      .in('document', docsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar clientes removidos:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${docsToDelete.length} clientes removidos: ${docsToDelete.join(', ')}`);
+  }
+
+  const totalOperations = customersToUpdate.length + customersToInsert.length + docsToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: customersToUpdate.length,
+    inserted: customersToInsert.length,
+    deleted: docsToDelete.length
+  };
 }
 
 // ==================== SUPPLIERS ====================
@@ -219,21 +328,96 @@ export async function getSuppliers(companyId: string) {
 export async function saveSuppliers(companyId: string, suppliers: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar todos os suppliers antigos da empresa
-  const { error: deleteError } = await supabase
+  // ==================== ARQUITETURA UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todos os fornecedores (protege contra perda de dados)
+  // ✅ UPDATE fornecedores com document existente (preserva UUID, histórico, referências)
+  // ✅ INSERT apenas fornecedores novos (document não encontrado)
+  // ✅ DELETE apenas fornecedores que foram removidos pelo usuário
+  
+  console.log(`[SQL_SERVICE] 🔄 Iniciando UPSERT de ${suppliers.length} fornecedores`);
+
+  // ETAPA 1: Buscar todos os fornecedores existentes no banco
+  const { data: existingSuppliers, error: fetchError } = await supabase
     .from('suppliers')
-    .delete()
+    .select('id, document')
     .eq('company_id', companyId);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar suppliers:', deleteError);
-    throw new Error(deleteError.message);
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar fornecedores existentes:', fetchError);
+    throw new Error(fetchError.message);
   }
 
-  // Inserir novos suppliers
-  if (suppliers.length > 0) {
-    const rows = suppliers.map((supplier: any) => ({
-      // ❌ REMOVIDO: id: supplier.id (UUID gerado automaticamente pelo banco)
+  const existingDocMap = new Map<string, string>(); // document → uuid
+  existingSuppliers?.forEach((s: any) => {
+    if (s.document) existingDocMap.set(s.document, s.id);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Fornecedores no banco: ${existingDocMap.size}`);
+
+  // ETAPA 2: Classificar fornecedores do frontend
+  const suppliersToUpdate: any[] = []; // Fornecedores com document existente → UPDATE
+  const suppliersToInsert: any[] = []; // Fornecedores novos → INSERT
+  const incomingDocs = new Set<string>(); // Documents enviados pelo frontend
+
+  for (const supplier of suppliers) {
+    // Se tem document e existe no banco → UPDATE
+    if (supplier.document && existingDocMap.has(supplier.document)) {
+      suppliersToUpdate.push(supplier);
+      incomingDocs.add(supplier.document);
+    } 
+    // Se não tem document ou document não existe → INSERT
+    else {
+      suppliersToInsert.push(supplier);
+      if (supplier.document) incomingDocs.add(supplier.document);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${suppliersToUpdate.length} | INSERT: ${suppliersToInsert.length}`);
+
+  // ETAPA 3: UPDATE fornecedores existentes (preserva UUID)
+  for (const supplier of suppliersToUpdate) {
+    const uuid = existingDocMap.get(supplier.document);
+    
+    const { error: updateError } = await supabase
+      .from('suppliers')
+      .update({
+        document_type: supplier.documentType || 'PJ',
+        document: supplier.document,
+        name: supplier.name,
+        company_name: supplier.company || supplier.name,
+        trade_name: supplier.tradeName || '',
+        segment: supplier.segment || '',
+        contact_person: supplier.contactPerson || '',
+        email: supplier.email || '',
+        phone: supplier.phone || '',
+        address: supplier.address || '',
+        street: supplier.street || '',
+        number: supplier.number || '',
+        complement: supplier.complement || '',
+        neighborhood: supplier.neighborhood || '',
+        city: supplier.city || '',
+        state: supplier.state || '',
+        zip_code: supplier.zipCode || '',
+        state_registration: supplier.stateRegistration || '',
+        city_registration: supplier.cityRegistration || '',
+        icms_contributor: supplier.icmsContributor || false,
+        total_purchases: supplier.totalPurchases || 0,
+        total_spent: supplier.totalSpent || 0,
+        status: supplier.status || 'Ativo'
+      })
+      .eq('id', uuid);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar fornecedor ${supplier.document}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${suppliersToUpdate.length} fornecedores atualizados`);
+
+  // ETAPA 4: INSERT fornecedores novos
+  if (suppliersToInsert.length > 0) {
+    const rows = suppliersToInsert.map((supplier: any) => ({
       company_id: companyId,
       document_type: supplier.documentType || 'PJ',
       document: supplier.document,
@@ -265,13 +449,45 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
       .insert(rows);
 
     if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir suppliers:', insertError);
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir fornecedores:', insertError);
       throw new Error(insertError.message);
     }
+
+    console.log(`[SQL_SERVICE] ✅ ${suppliersToInsert.length} fornecedores inseridos`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${suppliers.length} suppliers salvos`);
-  return { success: true, count: suppliers.length };
+  // ETAPA 5: DELETE fornecedores removidos (que estão no banco mas não foram enviados)
+  const docsToDelete: string[] = [];
+  existingDocMap.forEach((uuid, doc) => {
+    if (!incomingDocs.has(doc)) {
+      docsToDelete.push(doc);
+    }
+  });
+
+  if (docsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('suppliers')
+      .delete()
+      .eq('company_id', companyId)
+      .in('document', docsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar fornecedores removidos:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${docsToDelete.length} fornecedores removidos: ${docsToDelete.join(', ')}`);
+  }
+
+  const totalOperations = suppliersToUpdate.length + suppliersToInsert.length + docsToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: suppliersToUpdate.length,
+    inserted: suppliersToInsert.length,
+    deleted: docsToDelete.length
+  };
 }
 
 // ==================== PRODUCTS (INVENTORY) ====================
