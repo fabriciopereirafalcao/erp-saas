@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
-import { Plus, Search, Users, Mail, Phone, SearchIcon, Loader2, Building2, MoreVertical, Edit, History, Calendar, User, Package, Tag, DollarSign, Eye } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, SearchIcon, Loader2, Building2, MoreVertical, Edit, History, Calendar, User, Package, Tag, DollarSign, Eye, EyeOff, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useERP } from "../contexts/ERPContext";
 import { validateCustomer, validateEmail, formatCPF, formatCNPJ, formatCEP, formatPhone, type ValidationResult } from "../utils/fieldValidation";
@@ -77,6 +77,7 @@ export function Customers() {
     { id: "5", name: "Indústria" },
   ]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -134,11 +135,17 @@ export function Customers() {
     priceTableId: ""
   });
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCustomers = customers.filter(customer => {
+    // Filtro de status
+    if (!showInactive && customer.status === "Inativo") {
+      return false;
+    }
+    
+    // Filtro de busca
+    return customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleEditClick = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -514,6 +521,12 @@ export function Customers() {
     });
     setIsDialogOpen(false);
     // Toast já é exibido pela função addCustomer do contexto
+  };
+
+  const handleToggleStatus = (customer: Customer) => {
+    const newStatus = customer.status === "Ativo" ? "Inativo" : "Ativo";
+    updateCustomer(customer.id, { ...customer, status: newStatus });
+    toast.success(`Cliente ${newStatus === "Ativo" ? "ativado" : "desativado"} com sucesso!`);
   };
 
   const activeCustomers = customers.filter(c => c.status === "Ativo").length;
@@ -971,15 +984,25 @@ export function Customers() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder="Pesquisar clientes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Filters */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Pesquisar clientes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showInactive ? "default" : "outline"}
+            onClick={() => setShowInactive(!showInactive)}
+            className="whitespace-nowrap"
+          >
+            {showInactive ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+            {showInactive ? "Ocultar Inativos" : "Mostrar Inativos"}
+          </Button>
         </div>
       </div>
 
@@ -1002,7 +1025,10 @@ export function Customers() {
           </TableHeader>
           <TableBody>
             {filteredCustomers.map((customer) => (
-              <TableRow key={customer.id}>
+              <TableRow 
+                key={customer.id}
+                className={customer.status === "Inativo" ? "opacity-60" : ""}
+              >
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1032,6 +1058,23 @@ export function Customers() {
                           </DropdownMenuItem>
                         </>
                       )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleStatus(customer)}
+                        className={customer.status === "Ativo" ? "text-orange-600" : "text-green-600"}
+                      >
+                        {customer.status === "Ativo" ? (
+                          <>
+                            <UserX className="mr-2 h-4 w-4" />
+                            Desativar Cliente
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Ativar Cliente
+                          </>
+                        )}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -1068,11 +1111,13 @@ export function Customers() {
                 <TableCell>{customer.totalOrders}</TableCell>
                 <TableCell>R$ {customer.totalSpent.toLocaleString('pt-BR')}</TableCell>
                 <TableCell>
-                  <span className={`inline-block px-2 py-1 rounded text-xs ${
-                    customer.status === "Ativo" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                  }`}>
+                  <Badge variant={customer.status === "Ativo" ? "default" : "secondary"} className={
+                    customer.status === "Ativo" 
+                      ? "bg-green-100 text-green-700 hover:bg-green-200" 
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
+                  }>
                     {customer.status}
-                  </span>
+                  </Badge>
                 </TableCell>
               </TableRow>
             ))}
