@@ -3211,6 +3211,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     updateDefaultPriceTable(newItem.productName, newItem.sellPrice);
     
     toast.success(`Produto ${newItem.productName} adicionado ao estoque!`);
+    
+    // ✅ REFRESH: Aguardar 1.5s para o backend processar e recarregar do banco
+    setTimeout(async () => {
+      try {
+        const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+        if (refreshedInventory && refreshedInventory.length > 0) {
+          setInventory(refreshedInventory);
+          console.log('[INVENTORY] ✅ Dados atualizados do backend (SKU sincronizado)');
+        }
+      } catch (error) {
+        console.error('[INVENTORY] ⚠️ Erro ao atualizar dados:', error);
+      }
+    }, 1500);
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
@@ -3239,6 +3252,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return item;
     }));
     toast.success("Produto atualizado com sucesso!");
+    
+    // ✅ REFRESH: Aguardar 1.5s para o backend processar e recarregar do banco
+    setTimeout(async () => {
+      try {
+        const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+        if (refreshedInventory && refreshedInventory.length > 0) {
+          setInventory(refreshedInventory);
+          console.log('[INVENTORY] ✅ Dados atualizados do backend (SKU sincronizado)');
+        }
+      } catch (error) {
+        console.error('[INVENTORY] ⚠️ Erro ao atualizar dados:', error);
+      }
+    }, 1500);
   };
 
   const addStockMovement = (productId: string, quantity: number, reason: string, description?: string) => {
