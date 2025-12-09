@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "./ui/dropdown-menu";
-import { Plus, Search, Truck, Mail, Phone, SearchIcon, Loader2, Building2, MoreVertical, Edit, History, Calendar, User, Package } from "lucide-react";
+import { Plus, Search, Truck, Mail, Phone, SearchIcon, Loader2, Building2, MoreVertical, Edit, History, Calendar, User, Package, Eye, EyeOff, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useERP } from "../contexts/ERPContext";
 import { validateEmail } from "../utils/fieldValidation";
@@ -60,6 +60,7 @@ export function Suppliers() {
     { id: "5", name: "Distribuição" },
   ]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -112,11 +113,17 @@ export function Suppliers() {
     icmsContributor: true
   });
 
-  const filteredSuppliers = suppliers.filter(supplier =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSuppliers = suppliers.filter(supplier => {
+    // Filtro de status
+    if (!showInactive && supplier.status === "Inativo") {
+      return false;
+    }
+    
+    // Filtro de busca
+    return supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.email.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleEditClick = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
@@ -439,6 +446,12 @@ export function Suppliers() {
     });
     setIsDialogOpen(false);
     // Toast já é exibido pela função addSupplier do contexto
+  };
+
+  const handleToggleStatus = (supplier: Supplier) => {
+    const newStatus = supplier.status === "Ativo" ? "Inativo" : "Ativo";
+    updateSupplier(supplier.id, { ...supplier, status: newStatus });
+    toast.success(`Fornecedor ${newStatus === "Ativo" ? "ativado" : "desativado"} com sucesso!`);
   };
 
   const activeSuppliers = suppliers.filter(s => s.status === "Ativo").length;
@@ -828,15 +841,25 @@ export function Suppliers() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder="Pesquisar fornecedores..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Filters */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Pesquisar fornecedores..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showInactive ? "default" : "outline"}
+            onClick={() => setShowInactive(!showInactive)}
+            className="whitespace-nowrap"
+          >
+            {showInactive ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+            {showInactive ? "Ocultar Inativos" : "Mostrar Inativos"}
+          </Button>
         </div>
       </div>
 
@@ -858,7 +881,10 @@ export function Suppliers() {
           </TableHeader>
           <TableBody>
             {filteredSuppliers.map((supplier) => (
-              <TableRow key={supplier.id}>
+              <TableRow 
+                key={supplier.id}
+                className={supplier.status === "Inativo" ? "opacity-60" : ""}
+              >
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -875,6 +901,23 @@ export function Suppliers() {
                       <DropdownMenuItem onClick={() => handleHistoryClick(supplier)}>
                         <History className="mr-2 h-4 w-4" />
                         Histórico de Pedidos
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleStatus(supplier)}
+                        className={supplier.status === "Ativo" ? "text-orange-600" : "text-green-600"}
+                      >
+                        {supplier.status === "Ativo" ? (
+                          <>
+                            <UserX className="mr-2 h-4 w-4" />
+                            Desativar Fornecedor
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Ativar Fornecedor
+                          </>
+                        )}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -897,11 +940,13 @@ export function Suppliers() {
                 <TableCell>{supplier.totalPurchases}</TableCell>
                 <TableCell>R$ {supplier.totalSpent.toLocaleString('pt-BR')}</TableCell>
                 <TableCell>
-                  <span className={`inline-block px-2 py-1 rounded text-xs ${
-                    supplier.status === "Ativo" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                  }`}>
+                  <Badge variant={supplier.status === "Ativo" ? "default" : "secondary"} className={
+                    supplier.status === "Ativo" 
+                      ? "bg-green-100 text-green-700 hover:bg-green-200" 
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
+                  }>
                     {supplier.status}
-                  </span>
+                  </Badge>
                 </TableCell>
               </TableRow>
             ))}

@@ -10,7 +10,7 @@ import { Badge } from "./ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
-import { Search, Package, AlertTriangle, TrendingUp, TrendingDown, Box, Plus, Edit, ArrowLeftRight, MoreVertical, History, Clock, Info, Receipt } from "lucide-react";
+import { Search, Package, AlertTriangle, TrendingUp, TrendingDown, Box, Plus, Edit, ArrowLeftRight, MoreVertical, History, Clock, Info, Receipt, Eye, EyeOff } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { toast } from "sonner";
 import { usePagination } from "../hooks/usePagination";
@@ -23,6 +23,7 @@ export function Inventory() {
   const { inventory, addInventoryItem, updateInventoryItem, addStockMovement, getStockMovementsByProduct, companySettings, productCategories, addProductCategory, deleteProductCategory } = useERP();
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isMovementDialogOpen, setIsMovementDialogOpen] = useState(false);
@@ -83,10 +84,16 @@ export function Inventory() {
     sellPrice: ""
   });
 
-  const filteredInventory = inventory.filter(item =>
-    item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInventory = inventory.filter(item => {
+    // Filtro de produtos inativos (soft delete)
+    if (!showOutOfStock && item.active === false) {
+      return false;
+    }
+    
+    // Filtro de busca
+    return item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Paginação
   const { paginatedData, pagination, controls } = usePagination(filteredInventory, 25);
@@ -304,6 +311,12 @@ export function Inventory() {
     setMovement({ quantity: "", reason: "", costPrice: "", sellPrice: "" });
     setIsMovementDialogOpen(false);
     setSelectedProduct(null);
+  };
+
+  const handleToggleActive = (product: any) => {
+    const newActiveState = !product.active;
+    updateInventoryItem(product.id, { active: newActiveState });
+    toast.success(`Produto ${newActiveState ? "ativado" : "desativado"} com sucesso!`);
   };
 
   const openEditDialog = (product: any) => {
@@ -956,15 +969,25 @@ export function Inventory() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder="Pesquisar produtos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Filters */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Pesquisar produtos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showOutOfStock ? "default" : "outline"}
+            onClick={() => setShowOutOfStock(!showOutOfStock)}
+            className="whitespace-nowrap"
+          >
+            {showOutOfStock ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+            {showOutOfStock ? "Ocultar Inativos" : "Mostrar Inativos"}
+          </Button>
         </div>
       </div>
 
@@ -983,12 +1006,16 @@ export function Inventory() {
               <TableHead>Markup %</TableHead>
               <TableHead>Valor Total Estoque</TableHead>
               <TableHead>Última Atualização</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Status Estoque</TableHead>
+              <TableHead>Situação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((item) => (
-              <TableRow key={item.id}>
+              <TableRow 
+                key={item.id}
+                className={item.active === false ? "opacity-60" : ""}
+              >
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1008,6 +1035,22 @@ export function Inventory() {
                       <DropdownMenuItem onClick={() => openHistoryDialog(item)}>
                         <History className="w-4 h-4 mr-2" />
                         Histórico de Movimentações
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleActive(item)}
+                        className={item.active !== false ? "text-orange-600" : "text-green-600"}
+                      >
+                        {item.active !== false ? (
+                          <>
+                            <Box className="mr-2 h-4 w-4" />
+                            Desativar Produto
+                          </>
+                        ) : (
+                          <>
+                            <Package className="mr-2 h-4 w-4" />
+                            Ativar Produto
+                          </>
+                        )}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1052,6 +1095,15 @@ export function Inventory() {
                 <TableCell>
                   <Badge className={getStatusColor(item.status)}>
                     {item.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={item.active !== false ? "default" : "secondary"} className={
+                    item.active !== false
+                      ? "bg-green-100 text-green-700 hover:bg-green-200" 
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
+                  }>
+                    {item.active !== false ? "Ativo" : "Inativo"}
                   </Badge>
                 </TableCell>
               </TableRow>
