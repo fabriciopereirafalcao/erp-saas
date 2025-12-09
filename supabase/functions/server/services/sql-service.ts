@@ -349,43 +349,48 @@ export async function saveProducts(companyId: string, products: any[]) {
 
   // Inserir novos products
   if (products.length > 0) {
-    const rows = products.map((product: any) => ({
-      // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
-      company_id: companyId,
-      name: product.productName || product.name, // Frontend usa productName
-      sku: product.sku,
-      category: product.category,
-      unit: product.unit,
-      purchase_price: product.purchasePrice || 0,
-      cost_price: product.costPrice || 0,
-      sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0, // Frontend usa sellPrice e pricePerUnit
-      markup: product.markup || 0,
-      stock_quantity: product.currentStock || product.stockQuantity || 0, // Frontend usa currentStock
-      min_stock: product.minStock || 0,
-      max_stock: product.maxStock || 0,
-      reorder_level: product.reorderLevel || 0,
-      status: product.status || 'Em Estoque',
-      last_restocked: product.lastRestocked || null,
-      active: product.active !== undefined ? product.active : true, // Soft delete (default true)
-      // Dados fiscais
-      ncm: product.ncm || null,
-      cest: product.cest || null,
-      origin: product.origin || null,
-      service_code: product.serviceCode || null,
-      csosn: product.csosn || null,
-      cst: product.cst || null,
-      icms_rate: product.icmsRate || null,
-      pis_rate: product.pisRate || null,
-      cofins_rate: product.cofinsRate || null,
-      ipi_rate: product.ipiRate || null,
-      cfop: product.cfop || null,
-      tax_customized: product.taxCustomized || false,
-      // Rastreabilidade
-      requires_batch_control: product.requiresBatchControl || false,
-      requires_expiry_date: product.requiresExpiryDate || false,
-      default_location: product.defaultLocation || null,
-      shelf_life: product.shelfLife || null
-    }));
+    const rows = products.map((product: any) => {
+      // Auto-gerar SKU se não fornecido (campo obrigatório no banco)
+      const sku = product.sku || `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      return {
+        // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
+        company_id: companyId,
+        name: product.productName || product.name, // Frontend usa productName
+        sku: sku, // Auto-gerado se vazio
+        category: product.category || 'Geral', // Default se vazio
+        unit: product.unit || 'un',
+        purchase_price: product.purchasePrice || 0,
+        cost_price: product.costPrice || 0,
+        sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0, // Frontend usa sellPrice e pricePerUnit
+        markup: product.markup || 0,
+        stock_quantity: product.currentStock || product.stockQuantity || 0, // Frontend usa currentStock
+        min_stock: product.minStock || 0,
+        max_stock: product.maxStock || 0,
+        reorder_level: product.reorderLevel || 0,
+        status: product.status || 'Em Estoque',
+        last_restocked: product.lastRestocked || null,
+        active: product.active !== undefined ? product.active : true, // Soft delete (default true)
+        // Dados fiscais
+        ncm: product.ncm || null,
+        cest: product.cest || null,
+        origin: product.origin || null,
+        service_code: product.serviceCode || null,
+        csosn: product.csosn || null,
+        cst: product.cst || null,
+        icms_rate: product.icmsRate || null,
+        pis_rate: product.pisRate || null,
+        cofins_rate: product.cofinsRate || null,
+        ipi_rate: product.ipiRate || null,
+        cfop: product.cfop || null,
+        tax_customized: product.taxCustomized || false,
+        // Rastreabilidade
+        requires_batch_control: product.requiresBatchControl || false,
+        requires_expiry_date: product.requiresExpiryDate || false,
+        default_location: product.defaultLocation || null,
+        shelf_life: product.shelfLife || null
+      };
+    });
 
     const { error: insertError } = await supabase
       .from('products')
