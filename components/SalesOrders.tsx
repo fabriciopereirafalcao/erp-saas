@@ -1642,7 +1642,13 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                 <TableCell className="py-4">
                                   <div>
                                     <p className="text-gray-900">{item.productName}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">ID: {item.productId}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      {/* Buscar SKU do produto ao invés de mostrar UUID */}
+                                      {(() => {
+                                        const product = safeInventory.find(p => p.id === item.productId);
+                                        return product?.sku || item.productId;
+                                      })()}
+                                    </p>
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right py-4">
