@@ -490,6 +490,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
       issueDate: orderHeader.issueDate,
       billingDate: orderHeader.billingDate || undefined,
       deliveryDate: orderHeader.deliveryDate,
+      dueDate: installments.length > 0 ? installments[0].dueDate : orderHeader.issueDate, // Usar data da primeira parcela ou data de emissão
       paymentMethod: orderHeader.paymentMethod,
       paymentCondition: orderHeader.paymentCondition,
       priceTableId: orderHeader.priceTableId || undefined,
