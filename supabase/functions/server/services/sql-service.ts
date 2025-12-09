@@ -376,51 +376,84 @@ export async function getProducts(companyId: string) {
 export async function saveProducts(companyId: string, products: any[]) {
   const supabase = getSupabaseClient();
 
-  // ✅ ETAPA 1: Gerar SKUs para produtos novos ANTES do DELETE
-  // Isso garante que generateNextSku() vê o banco populado
-  const productsWithSku = await Promise.all(products.map(async (product: any) => {
-    // Se o produto JÁ TEM SKU, preservar o SKU original
+  // ==================== NOVA ARQUITETURA: UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todos os produtos (protege contra perda de dados)
+  // ✅ UPDATE produtos com SKU existente (preserva UUID, histórico, referências)
+  // ✅ INSERT apenas produtos novos (sem SKU ou SKU não encontrado)
+  // ✅ DELETE apenas produtos que foram removidos pelo usuário
+  
+  console.log(`[SQL_SERVICE] 🔄 Iniciando UPSERT de ${products.length} produtos`);
+
+  // ETAPA 1: Buscar todos os produtos existentes no banco
+  const { data: existingProducts, error: fetchError } = await supabase
+    .from('products')
+    .select('id, sku')
+    .eq('company_id', companyId);
+
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar produtos existentes:', fetchError);
+    throw new Error(fetchError.message);
+  }
+
+  const existingSkuMap = new Map<string, string>(); // sku → uuid
+  existingProducts?.forEach((p: any) => {
+    if (p.sku) existingSkuMap.set(p.sku, p.id);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Produtos no banco: ${existingSkuMap.size}`);
+
+  // ETAPA 2: Classificar produtos do frontend
+  const productsToUpdate: any[] = []; // Produtos com SKU existente → UPDATE
+  const productsToInsert: any[] = []; // Produtos novos → INSERT
+  const incomingSkus = new Set<string>(); // SKUs enviados pelo frontend
+
+  for (const product of products) {
+    // Se tem SKU e existe no banco → UPDATE
+    if (product.sku && existingSkuMap.has(product.sku)) {
+      productsToUpdate.push(product);
+      incomingSkus.add(product.sku);
+    } 
+    // Se não tem SKU ou SKU não existe → INSERT (gerar novo SKU)
+    else {
+      productsToInsert.push(product);
+      if (product.sku) incomingSkus.add(product.sku); // SKU customizado
+    }
+  }
+
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${productsToUpdate.length} | INSERT: ${productsToInsert.length}`);
+
+  // ETAPA 3: Gerar SKUs para produtos novos
+  const productsToInsertWithSku = await Promise.all(productsToInsert.map(async (product: any) => {
     if (product.sku) {
+      // SKU customizado já definido
       return { ...product, sku: product.sku };
     }
-    
-    // Se não tem SKU, gerar novo sequencial
+    // Gerar novo SKU sequencial
     const newSku = await generateNextSku(companyId);
     return { ...product, sku: newSku };
   }));
 
-  // ✅ ETAPA 2: Deletar todos os products antigos da empresa
-  const { error: deleteError } = await supabase
-    .from('products')
-    .delete()
-    .eq('company_id', companyId);
-
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar products:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // ✅ ETAPA 3: Inserir novos products (com SKUs já gerados)
-  if (productsWithSku.length > 0) {
-    const rows = productsWithSku.map((product: any) => {
-      return {
-        // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
-        company_id: companyId,
-        name: product.productName || product.name, // Frontend usa productName
-        sku: product.sku, // ✅ Já foi gerado ou preservado na ETAPA 1
-        category: product.category || 'Geral', // Default se vazio
+  // ETAPA 4: UPDATE produtos existentes (preserva UUID)
+  for (const product of productsToUpdate) {
+    const uuid = existingSkuMap.get(product.sku);
+    
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({
+        name: product.productName || product.name,
+        category: product.category || 'Geral',
         unit: product.unit || 'un',
         purchase_price: product.purchasePrice || 0,
         cost_price: product.costPrice || 0,
-        sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0, // Frontend usa sellPrice e pricePerUnit
+        sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0,
         markup: product.markup || 0,
-        stock_quantity: product.currentStock || product.stockQuantity || 0, // Frontend usa currentStock
+        stock_quantity: product.currentStock || product.stockQuantity || 0,
         min_stock: product.minStock || 0,
         max_stock: product.maxStock || 0,
         reorder_level: product.reorderLevel || 0,
         status: product.status || 'Em Estoque',
         last_restocked: product.lastRestocked || null,
-        active: product.active !== undefined ? product.active : true, // Soft delete (default true)
+        active: product.active !== undefined ? product.active : true,
         // Dados fiscais
         ncm: product.ncm || null,
         cest: product.cest || null,
@@ -439,21 +472,100 @@ export async function saveProducts(companyId: string, products: any[]) {
         requires_expiry_date: product.requiresExpiryDate || false,
         default_location: product.defaultLocation || null,
         shelf_life: product.shelfLife || null
-      };
-    });
+      })
+      .eq('id', uuid);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar produto ${product.sku}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${productsToUpdate.length} produtos atualizados`);
+
+  // ETAPA 5: INSERT produtos novos
+  if (productsToInsertWithSku.length > 0) {
+    const rows = productsToInsertWithSku.map((product: any) => ({
+      company_id: companyId,
+      name: product.productName || product.name,
+      sku: product.sku,
+      category: product.category || 'Geral',
+      unit: product.unit || 'un',
+      purchase_price: product.purchasePrice || 0,
+      cost_price: product.costPrice || 0,
+      sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0,
+      markup: product.markup || 0,
+      stock_quantity: product.currentStock || product.stockQuantity || 0,
+      min_stock: product.minStock || 0,
+      max_stock: product.maxStock || 0,
+      reorder_level: product.reorderLevel || 0,
+      status: product.status || 'Em Estoque',
+      last_restocked: product.lastRestocked || null,
+      active: product.active !== undefined ? product.active : true,
+      // Dados fiscais
+      ncm: product.ncm || null,
+      cest: product.cest || null,
+      origin: product.origin || null,
+      service_code: product.serviceCode || null,
+      csosn: product.csosn || null,
+      cst: product.cst || null,
+      icms_rate: product.icmsRate || null,
+      pis_rate: product.pisRate || null,
+      cofins_rate: product.cofinsRate || null,
+      ipi_rate: product.ipiRate || null,
+      cfop: product.cfop || null,
+      tax_customized: product.taxCustomized || false,
+      // Rastreabilidade
+      requires_batch_control: product.requiresBatchControl || false,
+      requires_expiry_date: product.requiresExpiryDate || false,
+      default_location: product.defaultLocation || null,
+      shelf_life: product.shelfLife || null
+    }));
 
     const { error: insertError } = await supabase
       .from('products')
       .insert(rows);
 
     if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir products:', insertError);
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir produtos:', insertError);
       throw new Error(insertError.message);
     }
+
+    console.log(`[SQL_SERVICE] ✅ ${productsToInsertWithSku.length} produtos inseridos`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${productsWithSku.length} products salvos`);
-  return { success: true, count: productsWithSku.length };
+  // ETAPA 6: DELETE produtos removidos (que estão no banco mas não foram enviados)
+  const skusToDelete: string[] = [];
+  existingSkuMap.forEach((uuid, sku) => {
+    if (!incomingSkus.has(sku)) {
+      skusToDelete.push(sku);
+    }
+  });
+
+  if (skusToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('products')
+      .delete()
+      .eq('company_id', companyId)
+      .in('sku', skusToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar produtos removidos:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${skusToDelete.length} produtos removidos: ${skusToDelete.join(', ')}`);
+  }
+
+  const totalOperations = productsToUpdate.length + productsToInsertWithSku.length + skusToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: productsToUpdate.length,
+    inserted: productsToInsertWithSku.length,
+    deleted: skusToDelete.length
+  };
 }
 
 // ==================== EXPORT ====================
