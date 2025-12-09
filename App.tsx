@@ -78,8 +78,8 @@ const BalanceReconciliation = lazy(() =>
   })),
 );
 const TaxInvoicing = lazy(() =>
-  import("./components/TaxInvoicing").then((m) => ({
-    default: m.TaxInvoicing,
+  import("./components/TaxInvoicingModern").then((m) => ({
+    default: m.TaxInvoicingModern,
   })),
 );
 const CompanySettings = lazy(() =>
