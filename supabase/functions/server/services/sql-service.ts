@@ -276,6 +276,46 @@ export async function saveSuppliers(companyId: string, suppliers: any[]) {
 
 // ==================== PRODUCTS (INVENTORY) ====================
 
+/**
+ * Gera o próximo SKU sequencial para a empresa
+ * Formato: PROD-001, PROD-002, ..., PROD-999
+ */
+async function generateNextSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  // Buscar todos os SKUs que seguem o padrão PROD-###
+  const { data, error } = await supabase
+    .from('products')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'PROD-%')
+    .order('sku', { ascending: false })
+    .limit(100); // Buscar últimos 100 para performance
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs, gerando SKU padrão:', error);
+    return 'PROD-001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    // Extrair o maior número dos SKUs existentes
+    data.forEach((row: any) => {
+      const match = row.sku.match(/^PROD-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  
+  // Formatar com zero padding (3 dígitos: 001, 002, ... 999)
+  return `PROD-${String(nextNumber).padStart(3, '0')}`;
+}
+
 export async function getProducts(companyId: string) {
   const supabase = getSupabaseClient();
   
@@ -349,15 +389,18 @@ export async function saveProducts(companyId: string, products: any[]) {
 
   // Inserir novos products
   if (products.length > 0) {
-    const rows = products.map((product: any) => {
-      // Auto-gerar SKU se não fornecido (campo obrigatório no banco)
-      const sku = product.sku || `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const rows = await Promise.all(products.map(async (product: any) => {
+      // Auto-gerar SKU sequencial se não fornecido (campo obrigatório no banco)
+      let sku = product.sku;
+      if (!sku) {
+        sku = await generateNextSku(companyId);
+      }
       
       return {
         // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
         company_id: companyId,
         name: product.productName || product.name, // Frontend usa productName
-        sku: sku, // Auto-gerado se vazio
+        sku: sku, // Auto-gerado sequencialmente (PROD-001, PROD-002, etc)
         category: product.category || 'Geral', // Default se vazio
         unit: product.unit || 'un',
         purchase_price: product.purchasePrice || 0,
@@ -390,7 +433,7 @@ export async function saveProducts(companyId: string, products: any[]) {
         default_location: product.defaultLocation || null,
         shelf_life: product.shelfLife || null
       };
-    });
+    }));
 
     const { error: insertError } = await supabase
       .from('products')

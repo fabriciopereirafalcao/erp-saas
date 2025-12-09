@@ -997,7 +997,7 @@ export function Inventory() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">Ações</TableHead>
-              <TableHead>ID</TableHead>
+              <TableHead>SKU</TableHead>
               <TableHead>Produto</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Estoque Atual</TableHead>
@@ -1055,7 +1055,11 @@ export function Inventory() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
-                <TableCell>{item.id}</TableCell>
+                <TableCell>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {item.sku}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-gray-400" />
