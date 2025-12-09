@@ -376,7 +376,20 @@ export async function getProducts(companyId: string) {
 export async function saveProducts(companyId: string, products: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar todos os products antigos da empresa
+  // ✅ ETAPA 1: Gerar SKUs para produtos novos ANTES do DELETE
+  // Isso garante que generateNextSku() vê o banco populado
+  const productsWithSku = await Promise.all(products.map(async (product: any) => {
+    // Se o produto JÁ TEM SKU, preservar o SKU original
+    if (product.sku) {
+      return { ...product, sku: product.sku };
+    }
+    
+    // Se não tem SKU, gerar novo sequencial
+    const newSku = await generateNextSku(companyId);
+    return { ...product, sku: newSku };
+  }));
+
+  // ✅ ETAPA 2: Deletar todos os products antigos da empresa
   const { error: deleteError } = await supabase
     .from('products')
     .delete()
@@ -387,20 +400,14 @@ export async function saveProducts(companyId: string, products: any[]) {
     throw new Error(deleteError.message);
   }
 
-  // Inserir novos products
-  if (products.length > 0) {
-    const rows = await Promise.all(products.map(async (product: any) => {
-      // Auto-gerar SKU sequencial se não fornecido (campo obrigatório no banco)
-      let sku = product.sku;
-      if (!sku) {
-        sku = await generateNextSku(companyId);
-      }
-      
+  // ✅ ETAPA 3: Inserir novos products (com SKUs já gerados)
+  if (productsWithSku.length > 0) {
+    const rows = productsWithSku.map((product: any) => {
       return {
         // ❌ REMOVIDO: id: product.id (UUID gerado automaticamente pelo banco)
         company_id: companyId,
         name: product.productName || product.name, // Frontend usa productName
-        sku: sku, // Auto-gerado sequencialmente (PROD-001, PROD-002, etc)
+        sku: product.sku, // ✅ Já foi gerado ou preservado na ETAPA 1
         category: product.category || 'Geral', // Default se vazio
         unit: product.unit || 'un',
         purchase_price: product.purchasePrice || 0,
@@ -433,7 +440,7 @@ export async function saveProducts(companyId: string, products: any[]) {
         default_location: product.defaultLocation || null,
         shelf_life: product.shelfLife || null
       };
-    }));
+    });
 
     const { error: insertError } = await supabase
       .from('products')
@@ -445,8 +452,8 @@ export async function saveProducts(companyId: string, products: any[]) {
     }
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${products.length} products salvos`);
-  return { success: true, count: products.length };
+  console.log(`[SQL_SERVICE] ✅ ${productsWithSku.length} products salvos`);
+  return { success: true, count: productsWithSku.length };
 }
 
 // ==================== EXPORT ====================
