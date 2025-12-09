@@ -213,7 +213,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
         .insert({
           // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
-          order_number: order.orderNumber,
+          order_number: order.id, // ✅ CORRIGIDO: usar order.id (PV-1046, PV-1047, etc) como order_number
           customer_id: await resolveCustomerId(companyId, order.customerId),
           customer_name: order.customerName || '',
           product_name: order.productName || '',
@@ -379,7 +379,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
         .insert({
           // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
-          order_number: order.orderNumber,
+          order_number: order.id, // ✅ CORRIGIDO: usar order.id (PC-XXX) como order_number
           supplier_id: await resolveSupplierId(companyId, order.supplierId),
           supplier_name: order.supplierName || '',
           product_name: order.productName || '',
