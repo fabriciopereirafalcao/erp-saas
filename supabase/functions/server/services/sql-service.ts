@@ -130,6 +130,7 @@ export async function saveCustomers(companyId: string, customers: any[]) {
     const rows = customers.map((customer: any) => ({
       // ❌ REMOVIDO: id: customer.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
+      type: customer.documentType === 'PF' ? 'individual' : 'company', // ✅ Campo obrigatório
       document_type: customer.documentType || 'PJ',
       document: customer.document,
       name: customer.name,
