@@ -15,6 +15,107 @@ function getSupabaseClient() {
   );
 }
 
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Converte SKU de cliente para UUID
+ * Se já for UUID, retorna o mesmo valor
+ */
+async function resolveCustomerId(companyId: string, customerIdOrSku: string): Promise<string> {
+  // Se parece com UUID, retornar diretamente
+  if (customerIdOrSku && customerIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    return customerIdOrSku;
+  }
+
+  // Se parece com SKU (CLI-XXX), buscar UUID
+  if (customerIdOrSku && customerIdOrSku.startsWith('CLI-')) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('sku', customerIdOrSku)
+      .single();
+
+    if (error || !data) {
+      console.error(`[SQL_SERVICE] ⚠️ Cliente não encontrado para SKU ${customerIdOrSku}`);
+      return customerIdOrSku; // Retornar original e deixar banco rejeitar
+    }
+
+    console.log(`[SQL_SERVICE] 🔄 SKU ${customerIdOrSku} → UUID ${data.id}`);
+    return data.id;
+  }
+
+  // Retornar original
+  return customerIdOrSku;
+}
+
+/**
+ * Converte SKU de fornecedor para UUID
+ * Se já for UUID, retorna o mesmo valor
+ */
+async function resolveSupplierId(companyId: string, supplierIdOrSku: string): Promise<string> {
+  // Se parece com UUID, retornar diretamente
+  if (supplierIdOrSku && supplierIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    return supplierIdOrSku;
+  }
+
+  // Se parece com SKU (FOR-XXX), buscar UUID
+  if (supplierIdOrSku && supplierIdOrSku.startsWith('FOR-')) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('sku', supplierIdOrSku)
+      .single();
+
+    if (error || !data) {
+      console.error(`[SQL_SERVICE] ⚠️ Fornecedor não encontrado para SKU ${supplierIdOrSku}`);
+      return supplierIdOrSku; // Retornar original e deixar banco rejeitar
+    }
+
+    console.log(`[SQL_SERVICE] 🔄 SKU ${supplierIdOrSku} → UUID ${data.id}`);
+    return data.id;
+  }
+
+  // Retornar original
+  return supplierIdOrSku;
+}
+
+/**
+ * Converte SKU de produto para UUID
+ * Se já for UUID, retorna o mesmo valor
+ */
+async function resolveProductId(companyId: string, productIdOrSku: string): Promise<string> {
+  // Se parece com UUID, retornar diretamente
+  if (productIdOrSku && productIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    return productIdOrSku;
+  }
+
+  // Se parece com SKU (PROD-XXX), buscar UUID
+  if (productIdOrSku && productIdOrSku.startsWith('PROD-')) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('products')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('sku', productIdOrSku)
+      .single();
+
+    if (error || !data) {
+      console.error(`[SQL_SERVICE] ⚠️ Produto não encontrado para SKU ${productIdOrSku}`);
+      return productIdOrSku; // Retornar original e deixar banco rejeitar
+    }
+
+    console.log(`[SQL_SERVICE] 🔄 SKU ${productIdOrSku} → UUID ${data.id}`);
+    return data.id;
+  }
+
+  // Retornar original
+  return productIdOrSku;
+}
+
 // ==================== SALES ORDERS + ITEMS ====================
 
 export async function getSalesOrders(companyId: string) {
@@ -113,7 +214,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
           // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_number: order.orderNumber,
-          customer_id: order.customerId,
+          customer_id: await resolveCustomerId(companyId, order.customerId),
           customer_name: order.customerName || '',
           product_name: order.productName || '',
           quantity: order.quantity || 0,
@@ -152,20 +253,22 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
 
       // Inserir items (se houver)
       if (order.items && order.items.length > 0) {
-        const itemsToInsert = order.items.map((item: any) => ({
-          // ❌ REMOVIDO: id: item.id (UUID gerado automaticamente pelo banco)
-          company_id: companyId,
-          order_id: insertedOrder.id,
-          product_id: item.productId,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          discount: item.discount || 0,
-          total: item.total
-        }));
+        // Resolver product_id de todos os items
+        const itemsWithResolvedIds = await Promise.all(
+          order.items.map(async (item: any) => ({
+            company_id: companyId,
+            order_id: insertedOrder.id,
+            product_id: await resolveProductId(companyId, item.productId),
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            discount: item.discount || 0,
+            total: item.total
+          }))
+        );
 
         const { error: itemsError } = await supabase
           .from('sales_order_items')
-          .insert(itemsToInsert);
+          .insert(itemsWithResolvedIds);
 
         if (itemsError) {
           console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
@@ -277,7 +380,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
           // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
           company_id: companyId,
           order_number: order.orderNumber,
-          supplier_id: order.supplierId,
+          supplier_id: await resolveSupplierId(companyId, order.supplierId),
           supplier_name: order.supplierName || '',
           product_name: order.productName || '',
           quantity: order.quantity || 0,
@@ -316,20 +419,22 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
 
       // Inserir items (se houver)
       if (order.items && order.items.length > 0) {
-        const itemsToInsert = order.items.map((item: any) => ({
-          // ❌ REMOVIDO: id: item.id (UUID gerado automaticamente pelo banco)
-          company_id: companyId,
-          order_id: insertedOrder.id,
-          product_id: item.productId,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          discount: item.discount || 0,
-          total: item.total
-        }));
+        // Resolver product_id de todos os items
+        const itemsWithResolvedIds = await Promise.all(
+          order.items.map(async (item: any) => ({
+            company_id: companyId,
+            order_id: insertedOrder.id,
+            product_id: await resolveProductId(companyId, item.productId),
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            discount: item.discount || 0,
+            total: item.total
+          }))
+        );
 
         const { error: itemsError } = await supabase
           .from('purchase_order_items')
-          .insert(itemsToInsert);
+          .insert(itemsWithResolvedIds);
 
         if (itemsError) {
           console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
@@ -397,16 +502,17 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
 
   // Inserir novos movimentos
   if (movements.length > 0) {
-    const rows = movements.map((movement: any) => ({
-      // ❌ REMOVIDO: id: movement.id (UUID gerado automaticamente pelo banco)
-      company_id: companyId,
-      product_id: movement.productId,
-      type: movement.type,
-      quantity: movement.quantity,
-      reference_id: movement.referenceId,
-      reference_type: movement.referenceType,
-      notes: movement.notes || ''
-    }));
+    const rows = await Promise.all(
+      movements.map(async (movement: any) => ({
+        company_id: companyId,
+        product_id: await resolveProductId(companyId, movement.productId),
+        type: movement.type,
+        quantity: movement.quantity,
+        reference_id: movement.referenceId,
+        reference_type: movement.referenceType,
+        notes: movement.notes || ''
+      }))
+    );
 
     const { error: insertError } = await supabase
       .from('stock_movements')
