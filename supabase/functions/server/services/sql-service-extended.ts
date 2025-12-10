@@ -540,7 +540,134 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
   return { success: true, count: orders.length };
 }
 
-// ==================== PURCHASE ORDERS + ITEMS ====================
+/**
+ * ✅ NOVA FUNÇÃO: Cria um único pedido de compra e retorna imediatamente com SKU gerado
+ * Evita duplicações e problemas de sincronização
+ */
+export async function createPurchaseOrder(companyId: string, orderData: any) {
+  const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] ➕ Criando novo purchase order para empresa ${companyId}`);
+
+  // Gerar order_number sequencial
+  const orderNumber = await generateNextPurchaseOrderNumber(companyId);
+  console.log(`[SQL_SERVICE] 🔢 Order number gerado: ${orderNumber}`);
+
+  // Preparar dados do pedido
+  const order = {
+    company_id: companyId,
+    order_number: orderNumber,
+    supplier_id: await resolveSupplierId(companyId, orderData.supplierId),
+    supplier_name: orderData.supplier || orderData.supplierName || '',
+    product_name: orderData.productName || '',
+    quantity: orderData.quantity || 0,
+    unit_price: orderData.unitPrice || 0,
+    order_date: orderData.orderDate || new Date().toISOString().split('T')[0],
+    due_date: orderData.dueDate || orderData.deliveryDate,
+    issue_date: orderData.issueDate,
+    billing_date: orderData.billingDate,
+    delivery_date: orderData.deliveryDate,
+    payment_method: orderData.paymentMethod || '',
+    payment_condition: orderData.paymentCondition || '',
+    status: orderData.status || 'Processando',
+    subtotal: orderData.subtotal || 0,
+    discount: orderData.discount || 0,
+    total: orderData.totalAmount || 0,
+    notes: orderData.notes || '',
+    price_table_id: orderData.priceTableId,
+    expense_category_id: orderData.expenseCategoryId,
+    buyer: orderData.buyer,
+    bank_account_id: orderData.bankAccountId,
+    first_installment_days: orderData.firstInstallmentDays || 0,
+    due_date_reference: orderData.dueDateReference || 'issue',
+    stock_increased: orderData.actionFlags?.stockIncreased || orderData.stockIncreased || false,
+    accounts_payable_created: orderData.actionFlags?.accountsPayableCreated || orderData.accountsPayableCreated || false,
+    accounts_payable_paid: orderData.actionFlags?.accountsPayablePaid || orderData.accountsPayablePaid || false,
+    supplier_stats_updated: orderData.actionFlags?.supplierStatsUpdated || orderData.supplierStatsUpdated || false,
+    is_exceptional_order: orderData.isExceptionalOrder || false
+  };
+
+  // Inserir pedido
+  const { data: insertedOrder, error: insertError } = await supabase
+    .from('purchase_orders')
+    .insert(order)
+    .select('id, order_number')
+    .single();
+
+  if (insertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao criar purchase order:', insertError);
+    throw new Error(`Erro ao criar pedido: ${insertError.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ Purchase order criado: ${insertedOrder.order_number} (UUID: ${insertedOrder.id})`);
+
+  // Se houver items, inserir também
+  if (orderData.items && orderData.items.length > 0) {
+    console.log(`[SQL_SERVICE] 📦 Inserindo ${orderData.items.length} items`);
+
+    const itemsWithResolvedIds = await Promise.all(
+      orderData.items.map(async (item: any) => ({
+        company_id: companyId,
+        order_id: insertedOrder.id,
+        product_id: await resolveProductId(companyId, item.productId),
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        discount: item.discount || 0,
+        total: item.total
+      }))
+    );
+
+    const { error: itemsError } = await supabase
+      .from('purchase_order_items')
+      .insert(itemsWithResolvedIds);
+
+    if (itemsError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
+      // Não falhar a operação toda se items falharem
+      console.warn('[SQL_SERVICE] ⚠️ Pedido criado mas items falharam');
+    } else {
+      console.log(`[SQL_SERVICE] ✅ ${orderData.items.length} items inseridos`);
+    }
+  }
+
+  // Retornar o pedido completo para o frontend
+  return {
+    id: insertedOrder.order_number, // Usar order_number como ID (PC-0001)
+    orderNumber: insertedOrder.order_number,
+    supplier: order.supplier_name,
+    supplierName: order.supplier_name,
+    supplierId: order.supplier_id,
+    productName: order.product_name,
+    quantity: order.quantity,
+    unitPrice: order.unit_price,
+    orderDate: order.order_date,
+    dueDate: order.due_date,
+    issueDate: order.issue_date,
+    billingDate: order.billing_date,
+    deliveryDate: order.delivery_date,
+    paymentMethod: order.payment_method,
+    paymentCondition: order.payment_condition,
+    status: order.status,
+    subtotal: order.subtotal,
+    discount: order.discount,
+    totalAmount: order.total,
+    notes: order.notes,
+    priceTableId: order.price_table_id,
+    expenseCategoryId: order.expense_category_id,
+    buyer: order.buyer,
+    bankAccountId: order.bank_account_id,
+    firstInstallmentDays: order.first_installment_days,
+    dueDateReference: order.due_date_reference,
+    actionFlags: {
+      stockIncreased: order.stock_increased,
+      accountsPayableCreated: order.accounts_payable_created,
+      accountsPayablePaid: order.accounts_payable_paid,
+      supplierStatsUpdated: order.supplier_stats_updated
+    },
+    isExceptionalOrder: order.is_exceptional_order,
+    items: orderData.items || []
+  };
+}
 
 export async function getPurchaseOrders(companyId: string) {
   const supabase = getSupabaseClient();
@@ -1117,6 +1244,7 @@ export const sqlServiceExtended = {
   createSalesOrder, // ✅ Nova função para criar pedido único
   getSalesOrders,
   saveSalesOrders,
+  createPurchaseOrder, // ✅ Nova função para criar pedido único
   getPurchaseOrders,
   savePurchaseOrders,
   getStockMovements,

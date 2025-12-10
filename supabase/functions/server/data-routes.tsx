@@ -219,6 +219,42 @@ app.post('/create-sales-order', async (c) => {
   }
 });
 
+// ✅ NOVA ROTA: Criar pedido de compra único com SKU gerado imediatamente
+app.post('/create-purchase-order', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { orderData, isExceptional } = body;
+    
+    if (!orderData || typeof orderData !== 'object') {
+      console.error('[CREATE PURCHASE ORDER] ❌ Dados inválidos recebidos:', body);
+      return c.json({ error: 'orderData deve ser um objeto' }, 400);
+    }
+
+    console.log(`[CREATE PURCHASE ORDER] ➕ Criando novo purchase order para empresa ${auth.companyId}`);
+    console.log(`[CREATE PURCHASE ORDER] 📦 Is Exceptional: ${isExceptional}`);
+    
+    // Adicionar flag isExceptional aos dados do pedido
+    const dataWithFlags = {
+      ...orderData,
+      isExceptionalOrder: isExceptional || false
+    };
+    
+    const createdOrder = await sqlServiceExtended.createPurchaseOrder(auth.companyId, dataWithFlags);
+    
+    console.log(`[CREATE PURCHASE ORDER] ✅ Purchase order criado: ${createdOrder.id}`);
+    return c.json(createdOrder);
+
+  } catch (error) {
+    console.error('[CREATE PURCHASE ORDER] ❌ Erro ao criar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/sales-orders', async (c) => {
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));

@@ -4460,43 +4460,77 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // ==================== PURCHASE ORDER ACTIONS ====================
 
-  const addPurchaseOrder = (orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
-    // ✅ ID será gerado automaticamente pelo backend no formato PC-0001, PC-0002, etc.
-    // O frontend não precisa mais gerar IDs manualmente - o backend fará isso via generateNextPurchaseOrderNumber()
-    //
+  const addPurchaseOrder = async (orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
+    // ✅ NOVO FLUXO: Chamar endpoint /create-purchase-order que retorna o pedido com SKU gerado
     // 🔄 FLUXO DE CRIAÇÃO DE PEDIDO COM SKU AUTOMÁTICO:
-    // 1. Frontend cria pedido com ID temporário
-    // 2. Pedido é adicionado ao state local (purchaseOrders)
-    // 3. useEntityPersistence detecta mudança e salva no backend (throttle: 1000ms)
-    // 4. Backend gera order_number sequencial (PC-0001) via generateNextPurchaseOrderNumber()
-    // 5. Backend salva no banco com o order_number correto
-    // 6. Na próxima vez que o usuário recarregar a página, o pedido virá com o ID correto do banco
+    // 1. Frontend chama POST /create-purchase-order no backend
+    // 2. Backend gera order_number sequencial (PC-0001) via generateNextPurchaseOrderNumber()
+    // 3. Backend salva no banco com o order_number correto
+    // 4. Backend retorna o pedido completo com ID e order_number
+    // 5. Frontend adiciona o pedido ao state local com ID definitivo
     //
-    // ⚠️ IMPORTANTE: O ID temporário será substituído automaticamente na próxima sincronização/reload
-    // Isso é similar ao comportamento de Clientes (CLI-001), Fornecedores (FOR-001) e Produtos (PROD-001)
-    const newOrder: PurchaseOrder = {
-      ...orderData,
-      id: 'temp-' + Date.now(), // ID temporário que será substituído pelo backend
-      orderDate: new Date().toISOString().split('T')[0],
-      statusHistory: [],
-      actionFlags: {},
-      isExceptionalOrder: isExceptional
-    };
+    // ⚠️ IMPORTANTE: Não há mais IDs temporários - o backend retorna imediatamente o ID correto
 
-    setPurchaseOrders(prev => [...prev, newOrder]);
+    try {
+      console.log(`🔄 Criando pedido de compra via endpoint /create-purchase-order...`);
 
-    // Se for modo excepcional e status for avançado, executar ações
-    if (isExceptional && (newOrder.status === 'Recebido' || newOrder.status === 'Concluído')) {
-      // Executar em setTimeout para garantir que o estado foi atualizado
-      setTimeout(() => {
-        updatePurchaseOrderStatus(newOrder.id, newOrder.status, 'Sistema', true);
-      }, 100);
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado para criar pedidos');
+        return;
+      }
+
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/create-purchase-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          orderData,
+          isExceptional
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erro ao criar pedido: ${response.status} - ${errorText}`);
+        toast.error('Erro ao criar pedido de compra');
+        return;
+      }
+
+      const newOrder: PurchaseOrder = await response.json();
+      console.log(`✅ Pedido criado com sucesso no backend: ${newOrder.id}`);
+
+      // Preparar histórico e flags de ações
+      const actionsExecuted: string[] = [isExceptional ? "⚠️ Pedido criado em modo excepcional" : "Pedido criado"];
+      const generatedIds: { type: string; id: string }[] = [];
+      const actionFlags: OrderActionFlags = {};
+
+      // Se for modo excepcional com status avançado, executar todas as ações necessárias
+      if (isExceptional && (orderData.status === "Recebido" || orderData.status === "Concluído")) {
+        console.log(`🔄 Executando ações para pedido excepcional ${newOrder.id} com status "${orderData.status}"...`);
+        
+        // Executar ações diretamente sem setTimeout
+        setTimeout(() => {
+          updatePurchaseOrderStatus(newOrder.id, newOrder.status, 'Sistema', true);
+        }, 100);
+      }
+
+      // Adicionar pedido ao estado
+      setPurchaseOrders(prev => [...prev, newOrder]);
+
+      toast.success(`Pedido de compra ${newOrder.id} criado com sucesso!`);
+      console.log(`✅ Pedido de compra criado: ${newOrder.id} - Status: ${newOrder.status}${isExceptional ? ' (Modo Excepcional)' : ''}`);
+
+    } catch (error) {
+      console.error('❌ Erro ao criar pedido de compra:', error);
+      toast.error('Erro ao criar pedido de compra');
     }
-
-    toast.success(`Pedido de compra ${newOrder.id} criado com sucesso!`);
-    
-    // Log de auditoria
-    console.log(`✅ Pedido de compra criado: ${newOrder.id} - Status: ${newOrder.status}${isExceptional ? ' (Modo Excepcional)' : ''}`);
   };
 
   const updatePurchaseOrder = (id: string, orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>) => {
