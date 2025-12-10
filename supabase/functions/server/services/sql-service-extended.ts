@@ -1002,14 +1002,10 @@ export async function getFinancialTransactions(companyId: string) {
     costCenterId: row.cost_center_id,
     costCenterName: row.cost_center_name,
     status: row.status || 'Pago',
-    bankAccountId: row.bank_account_id,
+    // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
+    bankAccountId: row.bank_account_id || null,
     bankAccountName: row.bank_account_name,
-    installmentNumber: row.installment_number,
-    totalInstallments: row.total_installments,
-    parentTransactionId: row.parent_transaction_id,
-    isTransfer: row.is_transfer || false,
-    transferPairId: row.transfer_pair_id,
-    transferDirection: row.transfer_direction
+    installmentNumber: row.installment_number
   })) || [];
 }
 
@@ -1054,14 +1050,10 @@ export async function saveFinancialTransactions(companyId: string, transactions:
       cost_center_id: transaction.costCenterId,
       cost_center_name: transaction.costCenterName,
       status: transaction.status || 'Pago',
-      bank_account_id: transaction.bankAccountId,
+      // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
+      bank_account_id: transaction.bankAccountId || null,
       bank_account_name: transaction.bankAccountName,
-      installment_number: transaction.installmentNumber,
-      total_installments: transaction.totalInstallments,
-      parent_transaction_id: transaction.parentTransactionId,
-      is_transfer: transaction.isTransfer || false,
-      transfer_pair_id: transaction.transferPairId,
-      transfer_direction: transaction.transferDirection
+      installment_number: transaction.installmentNumber
     }));
 
     const { error: insertError } = await supabase
