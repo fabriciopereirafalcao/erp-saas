@@ -1953,7 +1953,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       partyName,
       categoryId: category?.id || '',
       categoryName: category?.name || (type === "Receita" ? "Vendas de Produtos" : "Custos com Produtos"),
-      bankAccountId: bank?.id || '',
+      // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
+      bankAccountId: (bank?.id && isValidUUID(bank.id)) ? bank.id : '',
       bankAccountName: bank?.bankName || '',
       paymentMethodId: paymentMethod?.id || '',
       paymentMethodName: paymentMethod?.name || '',
@@ -2589,6 +2590,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ Helper para validar se string é UUID válido
+  const isValidUUID = (str: string): boolean => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   // Calcular data de vencimento baseada nas configurações do pedido
   const calculateDueDate = (order: SalesOrder): string => {
     // Determinar data base conforme referência escolhida
@@ -2659,6 +2667,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         : bankAccounts.find(b => b.isPrimary) || bankAccounts[0];
       const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
       
+      // ✅ CORREÇÃO: BankAccount pode usar SKU (BANK-001), mas BD precisa de UUID ou NULL
+      console.log(`🏦 Bank Account selecionada:`, { 
+        orderBankAccountId: order.bankAccountId, 
+        foundBank: bank?.id,
+        bankName: bank?.bankName 
+      });
+      
       // CORREÇÃO: Usar issueDate do pedido como data da transação
       const transactionDate = order.issueDate || order.orderDate;
       
@@ -2705,7 +2720,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyName: order.customer,
           categoryId: category?.id || '',
           categoryName: category?.name || "Vendas de Produtos",
-          bankAccountId: bank?.id || '',
+          // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
+          bankAccountId: (bank?.id && isValidUUID(bank.id)) ? bank.id : '',
           bankAccountName: bank?.bankName || '',
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || '',
@@ -2931,7 +2947,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyName: order.customer,
           categoryId: category?.id || '',
           categoryName: category?.name || "Vendas de Produtos",
-          bankAccountId: bank?.id || '',
+          // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
+          bankAccountId: (bank?.id && isValidUUID(bank.id)) ? bank.id : '',
           bankAccountName: bank?.bankName || '',
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || '',
@@ -4877,7 +4894,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyName: order.supplier,
           categoryId: category.id,
           categoryName: category.name,
-          bankAccountId: bank.id,
+          // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
+          bankAccountId: (bank.id && isValidUUID(bank.id)) ? bank.id : '',
           bankAccountName: bank.bankName,
           paymentMethodId: paymentMethod.id,
           paymentMethodName: paymentMethod.name,
