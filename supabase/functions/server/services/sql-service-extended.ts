@@ -271,7 +271,7 @@ export async function createSalesOrder(companyId: string, orderData: any) {
         quantity: item.quantity,
         unit_price: item.unitPrice,
         discount: item.discount || 0,
-        total: item.total
+        total: item.total || (item.quantity * item.unitPrice - (item.discount || 0))
       }))
     );
 
@@ -516,7 +516,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
             quantity: item.quantity,
             unit_price: item.unitPrice,
             discount: item.discount || 0,
-            total: item.total
+            total: item.total || (item.quantity * item.unitPrice - (item.discount || 0))
           }))
         );
 
@@ -613,7 +613,7 @@ export async function createPurchaseOrder(companyId: string, orderData: any) {
         quantity: item.quantity,
         unit_price: item.unitPrice,
         discount: item.discount || 0,
-        total: item.total
+        total: item.total || (item.quantity * item.unitPrice - (item.discount || 0))
       }))
     );
 
@@ -858,7 +858,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
             quantity: item.quantity,
             unit_price: item.unitPrice,
             discount: item.discount || 0,
-            total: item.total
+            total: item.total || (item.quantity * item.unitPrice - (item.discount || 0))
           }))
         );
 
