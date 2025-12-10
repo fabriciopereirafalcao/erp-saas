@@ -1029,9 +1029,11 @@ export async function saveFinancialTransactions(companyId: string, transactions:
       // ❌ REMOVIDO: id: transaction.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
       type: transaction.type,
-      category: transaction.category,
+      // ✅ CORREÇÃO: Usar categoryName como fallback (frontend não envia 'category')
+      category: transaction.category || transaction.categoryName || 'Geral',
       category_id: transaction.categoryId,
-      category_name: transaction.category,
+      // ✅ CORREÇÃO: Usar categoryName como fallback
+      category_name: transaction.categoryName || transaction.category || 'Geral',
       description: transaction.description,
       amount: transaction.amount,
       transaction_date: transaction.date || transaction.transactionDate,
@@ -1040,7 +1042,8 @@ export async function saveFinancialTransactions(companyId: string, transactions:
       account: transaction.account || '',
       payment_method: transaction.paymentMethod || '',
       payment_method_id: transaction.paymentMethodId,
-      payment_method_name: transaction.paymentMethod,
+      // ✅ CORREÇÃO: Garantir valor padrão se paymentMethod for undefined
+      payment_method_name: transaction.paymentMethod || transaction.paymentMethodName || '',
       reference: transaction.reference || '',
       notes: transaction.notes || '',
       origin: transaction.origin || 'Manual',
