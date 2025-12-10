@@ -2107,11 +2107,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const maxId = salesOrders.reduce((max, order) => {
       const idNum = parseInt(order.orderNumber?.replace('PV-', '') || '0');
       return Math.max(max, idNum);
-    }, 1045); // Base: 1045, primeiro será PV-1046
+    }, 0); // Base: 0, primeiro será PV-0001
 
     const newOrder: SalesOrder = {
       ...orderData,
-      id: `PV-${maxId + 1}`,
+      id: `PV-${String(maxId + 1).padStart(4, '0')}`, // 4 dígitos: PV-0001, PV-0002, ..., PV-9999, PV-10000...
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},
@@ -4429,11 +4429,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const maxId = purchaseOrders.reduce((max, order) => {
       const idNum = parseInt(order.orderNumber?.replace('PC-', '') || '0');
       return Math.max(max, idNum);
-    }, 0); // Base: 0, primeiro será PC-001
+    }, 0); // Base: 0, primeiro será PC-0001
 
     const newOrder: PurchaseOrder = {
       ...orderData,
-      id: `PC-${String(maxId + 1).padStart(3, '0')}`,
+      id: `PC-${String(maxId + 1).padStart(4, '0')}`, // 4 dígitos: PC-0001, PC-0002, ..., PC-9999, PC-10000...
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},
