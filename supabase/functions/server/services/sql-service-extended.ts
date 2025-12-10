@@ -213,6 +213,124 @@ async function generateNextPurchaseOrderNumber(companyId: string): Promise<strin
 }
 
 /**
+ * Gera o próximo SKU de Financial Transaction
+ * Formato: FT-0001, FT-0002, ..., FT-9999, FT-10000...
+ */
+async function generateNextFinancialTransactionSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  // Buscar todos os SKUs que seguem o padrão FT-####
+  const { data, error } = await supabase
+    .from('financial_transactions')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'FT-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de financial transactions, gerando padrão:', error);
+    return 'FT-0001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku?.match(/^FT-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  const sku = `FT-${String(nextNumber).padStart(4, '0')}`;
+  
+  console.log(`[SQL_SERVICE] 🔢 Gerado SKU financial transaction: ${sku} (maxNumber: ${maxNumber})`);
+  return sku;
+}
+
+/**
+ * Gera o próximo SKU de Accounts Receivable
+ * Formato: AR-0001, AR-0002, ..., AR-9999, AR-10000...
+ */
+async function generateNextAccountsReceivableSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('accounts_receivable')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'AR-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de accounts receivable, gerando padrão:', error);
+    return 'AR-0001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku?.match(/^AR-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  const sku = `AR-${String(nextNumber).padStart(4, '0')}`;
+  
+  console.log(`[SQL_SERVICE] 🔢 Gerado SKU accounts receivable: ${sku} (maxNumber: ${maxNumber})`);
+  return sku;
+}
+
+/**
+ * Gera o próximo SKU de Accounts Payable
+ * Formato: AP-0001, AP-0002, ..., AP-9999, AP-10000...
+ */
+async function generateNextAccountsPayableSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('accounts_payable')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'AP-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de accounts payable, gerando padrão:', error);
+    return 'AP-0001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku?.match(/^AP-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  const sku = `AP-${String(nextNumber).padStart(4, '0')}`;
+  
+  console.log(`[SQL_SERVICE] 🔢 Gerado SKU accounts payable: ${sku} (maxNumber: ${maxNumber})`);
+  return sku;
+}
+
+/**
  * ✅ NOVA FUNÇÃO: Cria um único pedido de venda e retorna imediatamente com SKU gerado
  * Evita duplicações e problemas de sincronização
  */
@@ -993,8 +1111,8 @@ export async function getFinancialTransactions(companyId: string) {
   }
 
   return data?.map((row: any) => ({
-    id: row.id,
-    type: row.type, // 'income' ou 'expense'
+    id: row.sku || row.id, // ✅ PRIORIZAR SKU (FT-0001) sobre UUID
+    type: row.type === 'income' ? 'Receita' : 'Despesa', // ✅ CONVERTER PARA PT-BR
     category: row.category_name || row.category,
     categoryId: row.category_id,
     description: row.description,
@@ -1016,45 +1134,56 @@ export async function getFinancialTransactions(companyId: string) {
     costCenterId: row.cost_center_id,
     costCenterName: row.cost_center_name,
     status: row.status || 'Pago',
-    // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
     bankAccountId: row.bank_account_id || null,
     bankAccountName: row.bank_account_name,
-    installmentNumber: row.installment_number
+    installmentNumber: row.installment_number,
+    totalInstallments: row.total_installments
   })) || [];
 }
 
 export async function saveFinancialTransactions(companyId: string, transactions: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar transações antigas
-  const { error: deleteError } = await supabase
-    .from('financial_transactions')
-    .delete()
-    .eq('company_id', companyId);
+  // ✅ UPSERT INTELIGENTE: Não deletar tudo, usar upsert por SKU
+  console.log(`[SQL_SERVICE] 💾 Iniciando UPSERT de ${transactions.length} financial transactions para empresa ${companyId}`);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar financial transactions:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // Inserir novas transações
+  // Processar cada transação individualmente
   if (transactions.length > 0) {
-    const rows = transactions.map((transaction: any) => {
+    for (const transaction of transactions) {
+      let sku = transaction.id;
+      
+      // Verificar se já existe (por SKU se começar com FT-)
+      let existingTransaction = null;
+      
+      if (sku && sku.startsWith('FT-')) {
+        const { data } = await supabase
+          .from('financial_transactions')
+          .select('id, sku')
+          .eq('company_id', companyId)
+          .eq('sku', sku)
+          .single();
+        existingTransaction = data;
+      }
+      
+      // Gerar SKU automaticamente se for INSERT novo
+      if (!existingTransaction && (!sku || !sku.startsWith('FT-'))) {
+        sku = await generateNextFinancialTransactionSku(companyId);
+        console.log(`[SQL_SERVICE] 🔢 Gerado novo SKU: ${sku}`);
+      }
+
       // ✅ LOG: Depuração de tipo de transação
-      console.log(`[SQL_SERVICE] 🔍 Processando transação:`, {
+      console.log(`[SQL_SERVICE] 🔍 Processando transação ${sku}:`, {
         originalType: transaction.type,
         normalizedType: normalizeTransactionType(transaction.type),
         category: transaction.categoryName || transaction.category
       });
 
-      return {
-        // ❌ REMOVIDO: id: transaction.id (UUID gerado automaticamente pelo banco)
+      const transactionData = {
         company_id: companyId,
+        sku: sku, // ✅ SKU legível (FT-0001)
         type: normalizeTransactionType(transaction.type),
-        // ✅ CORREÇÃO: Usar categoryName como fallback (frontend não envia 'category')
         category: transaction.category || transaction.categoryName || 'Geral',
         category_id: transaction.categoryId,
-        // ✅ CORREÇÃO: Usar categoryName como fallback
         category_name: transaction.categoryName || transaction.category || 'Geral',
         description: transaction.description,
         amount: transaction.amount,
@@ -1064,7 +1193,6 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         account: transaction.account || '',
         payment_method: transaction.paymentMethod || '',
         payment_method_id: transaction.paymentMethodId,
-        // ✅ CORREÇÃO: Garantir valor padrão se paymentMethod for undefined
         payment_method_name: transaction.paymentMethod || transaction.paymentMethodName || '',
         reference: transaction.reference || '',
         notes: transaction.notes || '',
@@ -1075,20 +1203,42 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         cost_center_id: transaction.costCenterId,
         cost_center_name: transaction.costCenterName,
         status: transaction.status || 'Pago',
-        // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
         bank_account_id: transaction.bankAccountId || null,
         bank_account_name: transaction.bankAccountName,
-        installment_number: transaction.installmentNumber
+        installment_number: transaction.installmentNumber,
+        total_installments: transaction.totalInstallments,
+        parent_transaction_id: transaction.parentTransactionId,
+        is_transfer: transaction.isTransfer || false,
+        transfer_pair_id: transaction.transferPairId,
+        transfer_direction: transaction.transferDirection
       };
-    });
 
-    const { error: insertError } = await supabase
-      .from('financial_transactions')
-      .insert(rows);
+      if (existingTransaction) {
+        // ✅ UPDATE
+        console.log(`[SQL_SERVICE] 🔄 Atualizando transação existente ${sku} (UUID: ${existingTransaction.id})`);
+        const { error: updateError } = await supabase
+          .from('financial_transactions')
+          .update(transactionData)
+          .eq('id', existingTransaction.id);
 
-    if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir financial transactions:', insertError);
-      throw new Error(insertError.message);
+        if (updateError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao atualizar financial transaction:', updateError);
+          throw new Error(`Erro ao atualizar transação ${sku}: ${updateError.message}`);
+        }
+      } else {
+        // ✅ INSERT
+        console.log(`[SQL_SERVICE] ➕ Criando nova transação ${sku}`);
+        const { error: insertError } = await supabase
+          .from('financial_transactions')
+          .insert(transactionData);
+
+        if (insertError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao inserir financial transaction:', insertError);
+          throw new Error(`Erro ao inserir transação ${sku}: ${insertError.message}`);
+        }
+      }
+
+      console.log(`[SQL_SERVICE] ✅ Transação ${sku} processada com sucesso`);
     }
   }
 
