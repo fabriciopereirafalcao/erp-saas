@@ -2024,7 +2024,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // ==================== SALES ORDER ACTIONS ====================
 
-  const addSalesOrder = (orderData: Omit<SalesOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
+  const addSalesOrder = async (orderData: Omit<SalesOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
     // VALIDAR ESTOQUE ANTES DE CRIAR PEDIDO (exceto se for excepcional)
     const isMultiItemOrder = orderData.items && orderData.items.length > 1;
     
@@ -2103,32 +2103,46 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // ✅ ID será gerado automaticamente pelo backend no formato PV-0001, PV-0002, etc.
-    // O frontend não precisa mais gerar IDs manualmente - o backend fará isso via generateNextSalesOrderNumber()
-    // 
+    // ✅ NOVO FLUXO: Chamar endpoint /create-sales-order que retorna o pedido com SKU gerado
     // 🔄 FLUXO DE CRIAÇÃO DE PEDIDO COM SKU AUTOMÁTICO:
-    // 1. Frontend cria pedido com ID temporário
-    // 2. Pedido é adicionado ao state local (salesOrders)
-    // 3. useEntityPersistence detecta mudança e salva no backend (throttle: 500ms)
-    // 4. Backend gera order_number sequencial (PV-0001) via generateNextSalesOrderNumber()
-    // 5. Backend salva no banco com o order_number correto
-    // 6. Na próxima vez que o usuário recarregar a página, o pedido virá com o ID correto do banco
+    // 1. Frontend valida estoque (acima)
+    // 2. Frontend chama POST /create-sales-order no backend
+    // 3. Backend gera order_number sequencial (PV-0001) via generateNextSalesOrderNumber()
+    // 4. Backend salva no banco com o order_number correto
+    // 5. Backend retorna o pedido completo com ID e order_number
+    // 6. Frontend adiciona o pedido ao state local com ID definitivo
     //
-    // ⚠️ IMPORTANTE: O ID temporário será substituído automaticamente na próxima sincronização/reload
-    // Isso é similar ao comportamento de Clientes (CLI-001), Fornecedores (FOR-001) e Produtos (PROD-001)
-    const newOrder: SalesOrder = {
-      ...orderData,
-      id: 'temp-' + Date.now(), // ID temporário que será substituído pelo backend
-      orderDate: new Date().toISOString().split('T')[0],
-      statusHistory: [],
-      actionFlags: {},
-      isExceptionalOrder: isExceptional
-    };
+    // ⚠️ IMPORTANTE: Não há mais IDs temporários - o backend retorna imediatamente o ID correto
 
-    // Preparar histórico e flags de ações
-    const actionsExecuted: string[] = [isExceptional ? "⚠️ Pedido criado em modo excepcional" : "Pedido criado"];
-    const generatedIds: { type: string; id: string }[] = [];
-    const actionFlags: OrderActionFlags = {};
+    try {
+      console.log(`🔄 Criando pedido de venda via endpoint /create-sales-order...`);
+
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/create-sales-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          orderData,
+          isExceptional
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erro ao criar pedido: ${response.status} - ${errorText}`);
+        toast.error('Erro ao criar pedido de venda');
+        return;
+      }
+
+      const newOrder: SalesOrder = await response.json();
+      console.log(`✅ Pedido criado com sucesso no backend: ${newOrder.id}`);
+
+      // Preparar histórico e flags de ações
+      const actionsExecuted: string[] = [isExceptional ? "⚠️ Pedido criado em modo excepcional" : "Pedido criado"];
+      const generatedIds: { type: string; id: string }[] = [];
+      const actionFlags: OrderActionFlags = {};
 
     // Se for modo excepcional com status avançado, executar todas as ações necessárias
     if (isExceptional && (orderData.status === "Enviado" || orderData.status === "Entregue" || orderData.status === "Pago")) {
@@ -2225,17 +2239,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       entityId: newOrder.id
     });
     
-    if (isExceptional && (orderData.status === "Entregue" || orderData.status === "Pago")) {
-      toast.success(`Pedido de venda ${newOrder.id} criado em modo excepcional com status "${orderData.status}"!`, {
-        description: actionsExecuted.length > 1 ? `${actionsExecuted.length} ações executadas` : undefined
-      });
-      
-      // Log das ações executadas
-      if (actionsExecuted.length > 1) {
-        console.log(`✅ Ações executadas para pedido ${newOrder.id}:`, actionsExecuted);
+      if (isExceptional && (orderData.status === "Entregue" || orderData.status === "Pago")) {
+        toast.success(`Pedido de venda ${newOrder.id} criado em modo excepcional com status "${orderData.status}"!`, {
+          description: actionsExecuted.length > 1 ? `${actionsExecuted.length} ações executadas` : undefined
+        });
+        
+        // Log das ações executadas
+        if (actionsExecuted.length > 1) {
+          console.log(`✅ Ações executadas para pedido ${newOrder.id}:`, actionsExecuted);
+        }
+      } else {
+        toast.success(`Pedido de venda ${newOrder.id} criado com sucesso!`);
       }
-    } else {
-      toast.success(`Pedido de venda ${newOrder.id} criado com sucesso!`);
+
+    } catch (error) {
+      console.error('❌ Erro ao criar pedido de venda:', error);
+      toast.error('Erro ao criar pedido de venda');
     }
   };
 
