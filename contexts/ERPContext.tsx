@@ -2695,6 +2695,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       // Criar transações (parcelas)
       const createdTransactions: FinancialTransaction[] = [];
+      const createdAccountsReceivable: AccountReceivable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
       for (let i = 0; i < numberOfInstallments; i++) {
@@ -2736,6 +2737,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         createdTransactions.push(newTransaction);
         
+        // ✅ NOVO: Criar também AccountReceivable (entidade separada para Contas a Receber)
+        const accountReceivable: AccountReceivable = {
+          id: `AR-${String(accountsReceivable.length + i + 1).padStart(4, '0')}`,
+          customerId: order.customerId,
+          customerName: order.customer,
+          invoiceNumber: order.id,
+          issueDate: transactionDate,
+          dueDate: dueDate,
+          amount: installmentAmount,
+          paidAmount: 0,
+          remainingAmount: installmentAmount,
+          status: "A Vencer",
+          installmentNumber: i + 1,
+          totalInstallments: numberOfInstallments,
+          description,
+          reference: order.id
+        };
+        
+        createdAccountsReceivable.push(accountReceivable);
+        
         console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments}:`, {
           id: newTransaction.id,
           status: newTransaction.status,
@@ -2749,6 +2770,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       setFinancialTransactions(prev => {
         const updated = [...createdTransactions, ...prev];
         console.log(`📊 ${createdTransactions.length} transação(ões) financeira(s) criada(s). Total: ${updated.length}`);
+        return updated;
+      });
+      
+      // ✅ NOVO: Adicionar todas as contas a receber
+      setAccountsReceivable(prev => {
+        const updated = [...createdAccountsReceivable, ...prev];
+        console.log(`📊 ${createdAccountsReceivable.length} conta(s) a receber criada(s). Total: ${updated.length}`);
         return updated;
       });
       
@@ -4869,6 +4897,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       // Criar transações (parcelas)
       const createdTransactions: FinancialTransaction[] = [];
+      const createdAccountsPayable: AccountPayable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
       for (let i = 0; i < numberOfInstallments; i++) {
@@ -4910,6 +4939,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         createdTransactions.push(newTransaction);
         
+        // ✅ NOVO: Criar também AccountPayable (entidade separada para Contas a Pagar)
+        const accountPayable: AccountPayable = {
+          id: `AP-${String(accountsPayable.length + i + 1).padStart(4, '0')}`,
+          supplierId: order.supplierId,
+          supplierName: order.supplier,
+          invoiceNumber: order.id,
+          issueDate: transactionDate,
+          dueDate: dueDate,
+          amount: installmentAmount,
+          paidAmount: 0,
+          remainingAmount: installmentAmount,
+          status: "A Vencer",
+          installmentNumber: i + 1,
+          totalInstallments: numberOfInstallments,
+          description,
+          reference: order.id
+        };
+        
+        createdAccountsPayable.push(accountPayable);
+        
         console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments}:`, {
           id: newTransaction.id,
           status: newTransaction.status,
@@ -4923,6 +4972,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       setFinancialTransactions(prev => {
         const updated = [...createdTransactions, ...prev];
         console.log(`📊 ${createdTransactions.length} transação(ões) financeira(s) criada(s). Total: ${updated.length}`);
+        return updated;
+      });
+      
+      // ✅ NOVO: Adicionar todas as contas a pagar
+      setAccountsPayable(prev => {
+        const updated = [...createdAccountsPayable, ...prev];
+        console.log(`📊 ${createdAccountsPayable.length} conta(s) a pagar criada(s). Total: ${updated.length}`);
         return updated;
       });
       
