@@ -2117,7 +2117,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`🔄 Criando pedido de venda via endpoint /create-sales-order...`);
 
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/create-sales-order`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/create-sales-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
