@@ -2103,15 +2103,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // ✅ CORRIGIDO: Gerar ID sequencial seguro baseado no MAX do banco (igual ao padrão de clientes/fornecedores)
-    const maxId = salesOrders.reduce((max, order) => {
-      const idNum = parseInt(order.orderNumber?.replace('PV-', '') || '0');
-      return Math.max(max, idNum);
-    }, 0); // Base: 0, primeiro será PV-0001
-
+    // ✅ ID será gerado automaticamente pelo backend no formato PV-0001, PV-0002, etc.
+    // O frontend não precisa mais gerar IDs manualmente - o backend fará isso via generateNextSalesOrderNumber()
+    // 
+    // 🔄 FLUXO DE CRIAÇÃO DE PEDIDO COM SKU AUTOMÁTICO:
+    // 1. Frontend cria pedido com ID temporário
+    // 2. Pedido é adicionado ao state local (salesOrders)
+    // 3. useEntityPersistence detecta mudança e salva no backend (throttle: 500ms)
+    // 4. Backend gera order_number sequencial (PV-0001) via generateNextSalesOrderNumber()
+    // 5. Backend salva no banco com o order_number correto
+    // 6. Na próxima vez que o usuário recarregar a página, o pedido virá com o ID correto do banco
+    //
+    // ⚠️ IMPORTANTE: O ID temporário será substituído automaticamente na próxima sincronização/reload
+    // Isso é similar ao comportamento de Clientes (CLI-001), Fornecedores (FOR-001) e Produtos (PROD-001)
     const newOrder: SalesOrder = {
       ...orderData,
-      id: `PV-${String(maxId + 1).padStart(4, '0')}`, // 4 dígitos: PV-0001, PV-0002, ..., PV-9999, PV-10000...
+      id: 'temp-' + Date.now(), // ID temporário que será substituído pelo backend
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},
@@ -4425,15 +4432,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ==================== PURCHASE ORDER ACTIONS ====================
 
   const addPurchaseOrder = (orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional: boolean = false) => {
-    // ✅ CORRIGIDO: Gerar ID sequencial seguro baseado no MAX do banco (igual ao padrão de clientes/fornecedores)
-    const maxId = purchaseOrders.reduce((max, order) => {
-      const idNum = parseInt(order.orderNumber?.replace('PC-', '') || '0');
-      return Math.max(max, idNum);
-    }, 0); // Base: 0, primeiro será PC-0001
-
+    // ✅ ID será gerado automaticamente pelo backend no formato PC-0001, PC-0002, etc.
+    // O frontend não precisa mais gerar IDs manualmente - o backend fará isso via generateNextPurchaseOrderNumber()
+    //
+    // 🔄 FLUXO DE CRIAÇÃO DE PEDIDO COM SKU AUTOMÁTICO:
+    // 1. Frontend cria pedido com ID temporário
+    // 2. Pedido é adicionado ao state local (purchaseOrders)
+    // 3. useEntityPersistence detecta mudança e salva no backend (throttle: 1000ms)
+    // 4. Backend gera order_number sequencial (PC-0001) via generateNextPurchaseOrderNumber()
+    // 5. Backend salva no banco com o order_number correto
+    // 6. Na próxima vez que o usuário recarregar a página, o pedido virá com o ID correto do banco
+    //
+    // ⚠️ IMPORTANTE: O ID temporário será substituído automaticamente na próxima sincronização/reload
+    // Isso é similar ao comportamento de Clientes (CLI-001), Fornecedores (FOR-001) e Produtos (PROD-001)
     const newOrder: PurchaseOrder = {
       ...orderData,
-      id: `PC-${String(maxId + 1).padStart(4, '0')}`, // 4 dígitos: PC-0001, PC-0002, ..., PC-9999, PC-10000...
+      id: 'temp-' + Date.now(), // ID temporário que será substituído pelo backend
       orderDate: new Date().toISOString().split('T')[0],
       statusHistory: [],
       actionFlags: {},

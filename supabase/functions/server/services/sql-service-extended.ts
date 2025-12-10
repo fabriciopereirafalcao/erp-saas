@@ -116,6 +116,86 @@ async function resolveProductId(companyId: string, productIdOrSku: string): Prom
   return productIdOrSku;
 }
 
+/**
+ * Gera o próximo número de pedido de venda
+ * Formato: PV-0001, PV-0002, ..., PV-9999, PV-10000...
+ */
+async function generateNextSalesOrderNumber(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  // Buscar todos os order_numbers que seguem o padrão PV-####
+  const { data, error } = await supabase
+    .from('sales_orders')
+    .select('order_number')
+    .eq('company_id', companyId)
+    .like('order_number', 'PV-%')
+    .order('order_number', { ascending: false })
+    .limit(100); // Buscar últimos 100 para performance
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar order numbers de vendas, gerando padrão:', error);
+    return 'PV-0001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    // Extrair o maior número dos order_numbers existentes
+    data.forEach((row: any) => {
+      const match = row.order_number.match(/^PV-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  
+  // Formatar com zero padding (4 dígitos: 0001, 0002, ... 9999, depois 10000)
+  return `PV-${String(nextNumber).padStart(4, '0')}`;
+}
+
+/**
+ * Gera o próximo número de pedido de compra
+ * Formato: PC-0001, PC-0002, ..., PC-9999, PC-10000...
+ */
+async function generateNextPurchaseOrderNumber(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  // Buscar todos os order_numbers que seguem o padrão PC-####
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('order_number')
+    .eq('company_id', companyId)
+    .like('order_number', 'PC-%')
+    .order('order_number', { ascending: false })
+    .limit(100); // Buscar últimos 100 para performance
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar order numbers de compras, gerando padrão:', error);
+    return 'PC-0001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    // Extrair o maior número dos order_numbers existentes
+    data.forEach((row: any) => {
+      const match = row.order_number.match(/^PC-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  
+  // Formatar com zero padding (4 dígitos: 0001, 0002, ... 9999, depois 10000)
+  return `PC-${String(nextNumber).padStart(4, '0')}`;
+}
+
 // ==================== SALES ORDERS + ITEMS ====================
 
 export async function getSalesOrders(companyId: string) {
@@ -142,8 +222,8 @@ export async function getSalesOrders(companyId: string) {
         .eq('order_id', order.id);
 
       return {
-        id: order.id,
-        orderNumber: order.order_number,
+        id: order.order_number, // ✅ CORRIGIDO: id deve ser o código legível (PV-0001)
+        customer: order.customer_name || '',
         customerName: order.customer_name || '',
         productName: order.product_name || '',
         quantity: parseFloat(order.quantity || 0),
@@ -193,71 +273,116 @@ export async function getSalesOrders(companyId: string) {
 export async function saveSalesOrders(companyId: string, orders: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar orders antigos (CASCADE vai deletar items automaticamente)
-  const { error: deleteError } = await supabase
-    .from('sales_orders')
-    .delete()
-    .eq('company_id', companyId);
+  console.log(`[SQL_SERVICE] 💾 Iniciando UPSERT de ${orders.length} sales orders para empresa ${companyId}`);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar sales orders:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // Inserir novos orders
+  // ✅ UPSERT inteligente - Processar cada order individualmente
   if (orders.length > 0) {
     for (const order of orders) {
-      // Inserir order
-      const { data: insertedOrder, error: orderError } = await supabase
-        .from('sales_orders')
-        .insert({
-          // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
-          company_id: companyId,
-          order_number: order.id, // ✅ CORRIGIDO: usar order.id (PV-1046, PV-1047, etc) como order_number
-          customer_id: await resolveCustomerId(companyId, order.customerId),
-          customer_name: order.customerName || '',
-          product_name: order.productName || '',
-          quantity: order.quantity || 0,
-          unit_price: order.unitPrice || 0,
-          order_date: order.orderDate,
-          due_date: order.dueDate,
-          issue_date: order.issueDate,
-          billing_date: order.billingDate,
-          delivery_date: order.deliveryDate,
-          payment_method: order.paymentMethod || '',
-          payment_condition: order.paymentCondition || '',
-          status: order.status || 'Processando',
-          subtotal: order.subtotal || 0,
-          discount: order.discount || 0,
-          total: order.totalAmount || 0,
-          notes: order.notes || '',
-          price_table_id: order.priceTableId,
-          revenue_category_id: order.revenueCategoryId,
-          sales_person: order.salesPerson,
-          bank_account_id: order.bankAccountId,
-          first_installment_days: order.firstInstallmentDays || 0,
-          due_date_reference: order.dueDateReference || 'issue',
-          stock_reduced: order.stockReduced || false,
-          accounts_receivable_created: order.accountsReceivableCreated || false,
-          accounts_receivable_paid: order.accountsReceivablePaid || false,
-          customer_stats_updated: order.customerStatsUpdated || false,
-          is_exceptional_order: order.isExceptionalOrder || false
-        })
-        .select()
-        .single();
+      console.log(`[SQL_SERVICE] 🔄 Processando order ${order.id}...`);
 
-      if (orderError) {
-        console.error('[SQL_SERVICE] ❌ Erro ao inserir sales order:', orderError);
-        throw new Error(orderError.message);
+      // Verificar se o order já existe (por order_number ou UUID)
+      let existingOrder = null;
+      
+      if (order.id && order.id.startsWith('PV-')) {
+        // Buscar por order_number se já tem formato PV-####
+        const { data } = await supabase
+          .from('sales_orders')
+          .select('id, order_number')
+          .eq('company_id', companyId)
+          .eq('order_number', order.id)
+          .single();
+        existingOrder = data;
       }
 
-      // Inserir items (se houver)
+      // ✅ Gerar order_number automaticamente se for INSERT novo
+      let orderNumber = order.id;
+      if (!existingOrder && (!orderNumber || !orderNumber.startsWith('PV-'))) {
+        orderNumber = await generateNextSalesOrderNumber(companyId);
+        console.log(`[SQL_SERVICE] 🔢 Gerado novo order_number: ${orderNumber}`);
+      }
+
+      const orderData = {
+        company_id: companyId,
+        order_number: orderNumber, // PV-0001, PV-0002, etc (gerado automaticamente ou preservado)
+        customer_id: await resolveCustomerId(companyId, order.customerId),
+        customer_name: order.customer || order.customerName || '',
+        product_name: order.productName || '',
+        quantity: order.quantity || 0,
+        unit_price: order.unitPrice || 0,
+        order_date: order.orderDate,
+        due_date: order.dueDate || order.deliveryDate,
+        issue_date: order.issueDate,
+        billing_date: order.billingDate,
+        delivery_date: order.deliveryDate,
+        payment_method: order.paymentMethod || '',
+        payment_condition: order.paymentCondition || '',
+        status: order.status || 'Processando',
+        subtotal: order.subtotal || 0,
+        discount: order.discount || 0,
+        total: order.totalAmount || 0,
+        notes: order.notes || '',
+        price_table_id: order.priceTableId,
+        revenue_category_id: order.revenueCategoryId,
+        sales_person: order.salesPerson,
+        bank_account_id: order.bankAccountId,
+        first_installment_days: order.firstInstallmentDays || 0,
+        due_date_reference: order.dueDateReference || 'issue',
+        stock_reduced: order.actionFlags?.stockReduced || order.stockReduced || false,
+        accounts_receivable_created: order.actionFlags?.accountsReceivableCreated || order.accountsReceivableCreated || false,
+        accounts_receivable_paid: order.actionFlags?.accountsReceivablePaid || order.accountsReceivablePaid || false,
+        customer_stats_updated: order.actionFlags?.customerStatsUpdated || order.customerStatsUpdated || false,
+        is_exceptional_order: order.isExceptionalOrder || false
+      };
+
+      let savedOrderId: string;
+
+      if (existingOrder) {
+        // ✅ UPDATE - Pedido já existe
+        console.log(`[SQL_SERVICE] 🔄 Atualizando order existente ${orderNumber} (UUID: ${existingOrder.id})`);
+        const { error: updateError } = await supabase
+          .from('sales_orders')
+          .update(orderData)
+          .eq('id', existingOrder.id);
+
+        if (updateError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao atualizar sales order:', updateError);
+          throw new Error(`Erro ao atualizar order ${orderNumber}: ${updateError.message}`);
+        }
+
+        savedOrderId = existingOrder.id;
+      } else {
+        // ✅ INSERT - Pedido novo com order_number gerado automaticamente
+        console.log(`[SQL_SERVICE] ➕ Criando novo order ${orderNumber}`);
+        const { data: insertedOrder, error: insertError } = await supabase
+          .from('sales_orders')
+          .insert(orderData)
+          .select('id, order_number')
+          .single();
+
+        if (insertError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao inserir sales order:', insertError);
+          throw new Error(`Erro ao inserir order ${orderNumber}: ${insertError.message}`);
+        }
+
+        savedOrderId = insertedOrder.id;
+        orderNumber = insertedOrder.order_number; // Usar o order_number confirmado pelo banco
+      }
+
+      // ✅ Gerenciar items (deletar antigos e inserir novos)
       if (order.items && order.items.length > 0) {
-        // Resolver product_id de todos os items
+        console.log(`[SQL_SERVICE] 📦 Gerenciando ${order.items.length} items do order ${orderNumber}`);
+
+        // Deletar items antigos
+        await supabase
+          .from('sales_order_items')
+          .delete()
+          .eq('order_id', savedOrderId);
+
+        // Inserir novos items
         const itemsWithResolvedIds = await Promise.all(
           order.items.map(async (item: any) => ({
             company_id: companyId,
-            order_id: insertedOrder.id,
+            order_id: savedOrderId,
             product_id: await resolveProductId(companyId, item.productId),
             quantity: item.quantity,
             unit_price: item.unitPrice,
@@ -272,13 +397,17 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
 
         if (itemsError) {
           console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
-          throw new Error(itemsError.message);
+          throw new Error(`Erro ao inserir items do order ${orderNumber}: ${itemsError.message}`);
         }
+
+        console.log(`[SQL_SERVICE] ✅ ${order.items.length} items salvos para order ${orderNumber}`);
       }
+
+      console.log(`[SQL_SERVICE] ✅ Order ${orderNumber} processado com sucesso`);
     }
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${orders.length} sales orders salvos`);
+  console.log(`[SQL_SERVICE] ✅ ${orders.length} sales orders processados com sucesso`);
   return { success: true, count: orders.length };
 }
 
@@ -308,8 +437,8 @@ export async function getPurchaseOrders(companyId: string) {
         .eq('order_id', order.id);
 
       return {
-        id: order.id,
-        orderNumber: order.order_number,
+        id: order.order_number, // ✅ CORRIGIDO: id deve ser o código legível (PC-0001)
+        supplier: order.supplier_name || '',
         supplierName: order.supplier_name || '',
         productName: order.product_name || '',
         quantity: parseFloat(order.quantity || 0),
@@ -359,71 +488,116 @@ export async function getPurchaseOrders(companyId: string) {
 export async function savePurchaseOrders(companyId: string, orders: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar orders antigos (CASCADE vai deletar items automaticamente)
-  const { error: deleteError } = await supabase
-    .from('purchase_orders')
-    .delete()
-    .eq('company_id', companyId);
+  console.log(`[SQL_SERVICE] 💾 Iniciando UPSERT de ${orders.length} purchase orders para empresa ${companyId}`);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar purchase orders:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // Inserir novos orders
+  // ✅ UPSERT inteligente - Processar cada order individualmente
   if (orders.length > 0) {
     for (const order of orders) {
-      // Inserir order
-      const { data: insertedOrder, error: orderError } = await supabase
-        .from('purchase_orders')
-        .insert({
-          // ❌ REMOVIDO: id: order.id (UUID gerado automaticamente pelo banco)
-          company_id: companyId,
-          order_number: order.id, // ✅ CORRIGIDO: usar order.id (PC-XXX) como order_number
-          supplier_id: await resolveSupplierId(companyId, order.supplierId),
-          supplier_name: order.supplierName || '',
-          product_name: order.productName || '',
-          quantity: order.quantity || 0,
-          unit_price: order.unitPrice || 0,
-          order_date: order.orderDate,
-          due_date: order.dueDate,
-          issue_date: order.issueDate,
-          billing_date: order.billingDate,
-          delivery_date: order.deliveryDate,
-          payment_method: order.paymentMethod || '',
-          payment_condition: order.paymentCondition || '',
-          status: order.status || 'Processando',
-          subtotal: order.subtotal || 0,
-          discount: order.discount || 0,
-          total: order.totalAmount || 0,
-          notes: order.notes || '',
-          price_table_id: order.priceTableId,
-          expense_category_id: order.expenseCategoryId,
-          buyer: order.buyer,
-          bank_account_id: order.bankAccountId,
-          first_installment_days: order.firstInstallmentDays || 0,
-          due_date_reference: order.dueDateReference || 'issue',
-          stock_increased: order.stockIncreased || false,
-          accounts_payable_created: order.accountsPayableCreated || false,
-          accounts_payable_paid: order.accountsPayablePaid || false,
-          supplier_stats_updated: order.supplierStatsUpdated || false,
-          is_exceptional_order: order.isExceptionalOrder || false
-        })
-        .select()
-        .single();
+      console.log(`[SQL_SERVICE] 🔄 Processando order ${order.id}...`);
 
-      if (orderError) {
-        console.error('[SQL_SERVICE] ❌ Erro ao inserir purchase order:', orderError);
-        throw new Error(orderError.message);
+      // Verificar se o order já existe (por order_number ou UUID)
+      let existingOrder = null;
+      
+      if (order.id && order.id.startsWith('PC-')) {
+        // Buscar por order_number se já tem formato PC-####
+        const { data } = await supabase
+          .from('purchase_orders')
+          .select('id, order_number')
+          .eq('company_id', companyId)
+          .eq('order_number', order.id)
+          .single();
+        existingOrder = data;
       }
 
-      // Inserir items (se houver)
+      // ✅ Gerar order_number automaticamente se for INSERT novo
+      let orderNumber = order.id;
+      if (!existingOrder && (!orderNumber || !orderNumber.startsWith('PC-'))) {
+        orderNumber = await generateNextPurchaseOrderNumber(companyId);
+        console.log(`[SQL_SERVICE] 🔢 Gerado novo order_number: ${orderNumber}`);
+      }
+
+      const orderData = {
+        company_id: companyId,
+        order_number: orderNumber, // PC-0001, PC-0002, etc (gerado automaticamente ou preservado)
+        supplier_id: await resolveSupplierId(companyId, order.supplierId),
+        supplier_name: order.supplier || order.supplierName || '',
+        product_name: order.productName || '',
+        quantity: order.quantity || 0,
+        unit_price: order.unitPrice || 0,
+        order_date: order.orderDate,
+        due_date: order.dueDate || order.deliveryDate,
+        issue_date: order.issueDate,
+        billing_date: order.billingDate,
+        delivery_date: order.deliveryDate,
+        payment_method: order.paymentMethod || '',
+        payment_condition: order.paymentCondition || '',
+        status: order.status || 'Processando',
+        subtotal: order.subtotal || 0,
+        discount: order.discount || 0,
+        total: order.totalAmount || 0,
+        notes: order.notes || '',
+        price_table_id: order.priceTableId,
+        expense_category_id: order.expenseCategoryId,
+        buyer: order.buyer,
+        bank_account_id: order.bankAccountId,
+        first_installment_days: order.firstInstallmentDays || 0,
+        due_date_reference: order.dueDateReference || 'issue',
+        stock_increased: order.actionFlags?.stockIncreased || order.stockIncreased || false,
+        accounts_payable_created: order.actionFlags?.accountsPayableCreated || order.accountsPayableCreated || false,
+        accounts_payable_paid: order.actionFlags?.accountsPayablePaid || order.accountsPayablePaid || false,
+        supplier_stats_updated: order.actionFlags?.supplierStatsUpdated || order.supplierStatsUpdated || false,
+        is_exceptional_order: order.isExceptionalOrder || false
+      };
+
+      let savedOrderId: string;
+
+      if (existingOrder) {
+        // ✅ UPDATE - Pedido já existe
+        console.log(`[SQL_SERVICE] 🔄 Atualizando order existente ${orderNumber} (UUID: ${existingOrder.id})`);
+        const { error: updateError } = await supabase
+          .from('purchase_orders')
+          .update(orderData)
+          .eq('id', existingOrder.id);
+
+        if (updateError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao atualizar purchase order:', updateError);
+          throw new Error(`Erro ao atualizar order ${orderNumber}: ${updateError.message}`);
+        }
+
+        savedOrderId = existingOrder.id;
+      } else {
+        // ✅ INSERT - Pedido novo com order_number gerado automaticamente
+        console.log(`[SQL_SERVICE] ➕ Criando novo order ${orderNumber}`);
+        const { data: insertedOrder, error: insertError } = await supabase
+          .from('purchase_orders')
+          .insert(orderData)
+          .select('id, order_number')
+          .single();
+
+        if (insertError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao inserir purchase order:', insertError);
+          throw new Error(`Erro ao inserir order ${orderNumber}: ${insertError.message}`);
+        }
+
+        savedOrderId = insertedOrder.id;
+        orderNumber = insertedOrder.order_number; // Usar o order_number confirmado pelo banco
+      }
+
+      // ✅ Gerenciar items (deletar antigos e inserir novos)
       if (order.items && order.items.length > 0) {
-        // Resolver product_id de todos os items
+        console.log(`[SQL_SERVICE] 📦 Gerenciando ${order.items.length} items do order ${orderNumber}`);
+
+        // Deletar items antigos
+        await supabase
+          .from('purchase_order_items')
+          .delete()
+          .eq('order_id', savedOrderId);
+
+        // Inserir novos items
         const itemsWithResolvedIds = await Promise.all(
           order.items.map(async (item: any) => ({
             company_id: companyId,
-            order_id: insertedOrder.id,
+            order_id: savedOrderId,
             product_id: await resolveProductId(companyId, item.productId),
             quantity: item.quantity,
             unit_price: item.unitPrice,
@@ -438,13 +612,17 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
 
         if (itemsError) {
           console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
-          throw new Error(itemsError.message);
+          throw new Error(`Erro ao inserir items do order ${orderNumber}: ${itemsError.message}`);
         }
+
+        console.log(`[SQL_SERVICE] ✅ ${order.items.length} items salvos para order ${orderNumber}`);
       }
+
+      console.log(`[SQL_SERVICE] ✅ Order ${orderNumber} processado com sucesso`);
     }
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${orders.length} purchase orders salvos`);
+  console.log(`[SQL_SERVICE] ✅ ${orders.length} purchase orders processados com sucesso`);
   return { success: true, count: orders.length };
 }
 
