@@ -191,20 +191,27 @@ app.post('/create-sales-order', async (c) => {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
-    const { data } = await c.req.json();
+    const body = await c.req.json();
+    const { orderData, isExceptional } = body;
     
-    if (!data || typeof data !== 'object') {
-      return c.json({ error: 'Dados devem ser um objeto' }, 400);
+    if (!orderData || typeof orderData !== 'object') {
+      console.error('[CREATE SALES ORDER] ❌ Dados inválidos recebidos:', body);
+      return c.json({ error: 'orderData deve ser um objeto' }, 400);
     }
 
     console.log(`[CREATE SALES ORDER] ➕ Criando novo sales order para empresa ${auth.companyId}`);
-    const createdOrder = await sqlServiceExtended.createSalesOrder(auth.companyId, data);
+    console.log(`[CREATE SALES ORDER] 📦 Is Exceptional: ${isExceptional}`);
+    
+    // Adicionar flag isExceptional aos dados do pedido
+    const dataWithFlags = {
+      ...orderData,
+      isExceptionalOrder: isExceptional || false
+    };
+    
+    const createdOrder = await sqlServiceExtended.createSalesOrder(auth.companyId, dataWithFlags);
     
     console.log(`[CREATE SALES ORDER] ✅ Sales order criado: ${createdOrder.id}`);
-    return c.json({
-      success: true,
-      data: createdOrder
-    });
+    return c.json(createdOrder);
 
   } catch (error) {
     console.error('[CREATE SALES ORDER] ❌ Erro ao criar:', error);

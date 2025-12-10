@@ -290,9 +290,40 @@ export async function createSalesOrder(companyId: string, orderData: any) {
 
   // Retornar o pedido completo para o frontend
   return {
-    ...orderData,
     id: insertedOrder.order_number, // Usar order_number como ID (PV-0001)
-    orderDate: order.order_date
+    orderNumber: insertedOrder.order_number,
+    customer: order.customer_name,
+    customerName: order.customer_name,
+    customerId: order.customer_id,
+    productName: order.product_name,
+    quantity: order.quantity,
+    unitPrice: order.unit_price,
+    orderDate: order.order_date,
+    dueDate: order.due_date,
+    issueDate: order.issue_date,
+    billingDate: order.billing_date,
+    deliveryDate: order.delivery_date,
+    paymentMethod: order.payment_method,
+    paymentCondition: order.payment_condition,
+    status: order.status,
+    subtotal: order.subtotal,
+    discount: order.discount,
+    totalAmount: order.total,
+    notes: order.notes,
+    priceTableId: order.price_table_id,
+    revenueCategoryId: order.revenue_category_id,
+    salesPerson: order.sales_person,
+    bankAccountId: order.bank_account_id,
+    firstInstallmentDays: order.first_installment_days,
+    dueDateReference: order.due_date_reference,
+    actionFlags: {
+      stockReduced: order.stock_reduced,
+      accountsReceivableCreated: order.accounts_receivable_created,
+      accountsReceivablePaid: order.accounts_receivable_paid,
+      customerStatsUpdated: order.customer_stats_updated
+    },
+    isExceptionalOrder: order.is_exceptional_order,
+    items: orderData.items || []
   };
 }
 
