@@ -399,7 +399,7 @@ export interface StockMovement {
   productName: string;
   date: string;
   time: string;
-  type: "Entrada" | "Saída";
+  type: "purchase" | "sale" | "adjustment" | "return" | "transfer"; // ✅ CORRIGIDO: valores aceitos pelo banco
   quantity: number;
   previousStock: number;
   newStock: number;
@@ -3326,7 +3326,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       productName: product.productName,
       date: now.toISOString().split('T')[0],
       time: now.toTimeString().split(' ')[0],
-      type: quantity > 0 ? "Entrada" : "Saída",
+      type: quantity > 0 ? "purchase" : "sale", // ✅ CORRIGIDO: usar valores aceitos pelo banco (purchase/sale)
       quantity: Math.abs(quantity),
       previousStock,
       newStock,
@@ -3356,7 +3356,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return item;
     }));
     
-    const movementType = quantity > 0 ? "Entrada" : "Saída";
+    const movementType = quantity > 0 ? "Entrada" : "Saída"; // Label para toast em português
     toast.success(`${movementType} de ${Math.abs(quantity)} unidades registrada - ${reason}`);
   };
 
@@ -3377,7 +3377,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       productName: product.productName,
       date: now.toISOString().split('T')[0],
       time: now.toTimeString().split(' ')[0],
-      type: quantityChange > 0 ? "Entrada" : "Saída",
+      type: quantityChange > 0 ? "purchase" : "sale", // ✅ CORRIGIDO: usar valores aceitos pelo banco (purchase/sale)
       quantity: Math.abs(quantityChange),
       previousStock,
       newStock,

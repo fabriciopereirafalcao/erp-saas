@@ -19,6 +19,23 @@ import { formatDateLocal } from "../utils/dateUtils";
 import { formatNCM, validateNCM } from "../utils/ncmValidation";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 
+// ✅ Helper para mapear tipos do banco (inglês) para labels em português
+const getMovementTypeLabel = (type: string): string => {
+  const labels: Record<string, string> = {
+    'purchase': 'Entrada',
+    'sale': 'Saída',
+    'adjustment': 'Ajuste',
+    'return': 'Devolução',
+    'transfer': 'Transferência'
+  };
+  return labels[type] || type;
+};
+
+// ✅ Helper para verificar se é entrada (purchase, return)
+const isInboundMovement = (type: string): boolean => {
+  return ['purchase', 'return'].includes(type);
+};
+
 export function Inventory() {
   const { inventory, addInventoryItem, updateInventoryItem, addStockMovement, getStockMovementsByProduct, companySettings, productCategories, addProductCategory, deleteProductCategory } = useERP();
   
@@ -1804,21 +1821,21 @@ export function Inventory() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={movement.type === "Entrada" 
+                            <Badge className={isInboundMovement(movement.type)
                               ? "bg-green-100 text-green-700 border-green-200" 
                               : "bg-red-100 text-red-700 border-red-200"
                             }>
-                              {movement.type === "Entrada" ? (
+                              {isInboundMovement(movement.type) ? (
                                 <TrendingUp className="w-3 h-3 mr-1" />
                               ) : (
                                 <TrendingDown className="w-3 h-3 mr-1" />
                               )}
-                              {movement.type}
+                              {getMovementTypeLabel(movement.type)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className={movement.type === "Entrada" ? "text-green-600" : "text-red-600"}>
-                              {movement.type === "Entrada" ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
+                            <span className={isInboundMovement(movement.type) ? "text-green-600" : "text-red-600"}>
+                              {isInboundMovement(movement.type) ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-gray-600">
