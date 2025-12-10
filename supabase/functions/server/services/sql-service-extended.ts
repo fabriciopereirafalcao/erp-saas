@@ -18,6 +18,20 @@ function getSupabaseClient() {
 // ==================== HELPER FUNCTIONS ====================
 
 /**
+ * ✅ HELPER: Converter tipo de transação de PT para EN
+ * Frontend envia: "Receita" | "Despesa"
+ * Backend precisa: "income" | "expense"
+ */
+function normalizeTransactionType(type: string): 'income' | 'expense' {
+  if (type === 'Receita' || type === 'income') return 'income';
+  if (type === 'Despesa' || type === 'expense') return 'expense';
+  
+  // Fallback: tentar detectar pelo contexto
+  console.warn(`[SQL_SERVICE] ⚠️ Tipo de transação desconhecido: "${type}", usando "income" como fallback`);
+  return 'income';
+}
+
+/**
  * Converte SKU de cliente para UUID
  * Se já for UUID, retorna o mesmo valor
  */
@@ -1025,39 +1039,48 @@ export async function saveFinancialTransactions(companyId: string, transactions:
 
   // Inserir novas transações
   if (transactions.length > 0) {
-    const rows = transactions.map((transaction: any) => ({
-      // ❌ REMOVIDO: id: transaction.id (UUID gerado automaticamente pelo banco)
-      company_id: companyId,
-      type: transaction.type,
-      // ✅ CORREÇÃO: Usar categoryName como fallback (frontend não envia 'category')
-      category: transaction.category || transaction.categoryName || 'Geral',
-      category_id: transaction.categoryId,
-      // ✅ CORREÇÃO: Usar categoryName como fallback
-      category_name: transaction.categoryName || transaction.category || 'Geral',
-      description: transaction.description,
-      amount: transaction.amount,
-      transaction_date: transaction.date || transaction.transactionDate,
-      due_date: transaction.dueDate,
-      effective_date: transaction.effectiveDate,
-      account: transaction.account || '',
-      payment_method: transaction.paymentMethod || '',
-      payment_method_id: transaction.paymentMethodId,
-      // ✅ CORREÇÃO: Garantir valor padrão se paymentMethod for undefined
-      payment_method_name: transaction.paymentMethod || transaction.paymentMethodName || '',
-      reference: transaction.reference || '',
-      notes: transaction.notes || '',
-      origin: transaction.origin || 'Manual',
-      party_type: transaction.partyType,
-      party_id: transaction.partyId,
-      party_name: transaction.partyName,
-      cost_center_id: transaction.costCenterId,
-      cost_center_name: transaction.costCenterName,
-      status: transaction.status || 'Pago',
-      // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
-      bank_account_id: transaction.bankAccountId || null,
-      bank_account_name: transaction.bankAccountName,
-      installment_number: transaction.installmentNumber
-    }));
+    const rows = transactions.map((transaction: any) => {
+      // ✅ LOG: Depuração de tipo de transação
+      console.log(`[SQL_SERVICE] 🔍 Processando transação:`, {
+        originalType: transaction.type,
+        normalizedType: normalizeTransactionType(transaction.type),
+        category: transaction.categoryName || transaction.category
+      });
+
+      return {
+        // ❌ REMOVIDO: id: transaction.id (UUID gerado automaticamente pelo banco)
+        company_id: companyId,
+        type: normalizeTransactionType(transaction.type),
+        // ✅ CORREÇÃO: Usar categoryName como fallback (frontend não envia 'category')
+        category: transaction.category || transaction.categoryName || 'Geral',
+        category_id: transaction.categoryId,
+        // ✅ CORREÇÃO: Usar categoryName como fallback
+        category_name: transaction.categoryName || transaction.category || 'Geral',
+        description: transaction.description,
+        amount: transaction.amount,
+        transaction_date: transaction.date || transaction.transactionDate,
+        due_date: transaction.dueDate,
+        effective_date: transaction.effectiveDate,
+        account: transaction.account || '',
+        payment_method: transaction.paymentMethod || '',
+        payment_method_id: transaction.paymentMethodId,
+        // ✅ CORREÇÃO: Garantir valor padrão se paymentMethod for undefined
+        payment_method_name: transaction.paymentMethod || transaction.paymentMethodName || '',
+        reference: transaction.reference || '',
+        notes: transaction.notes || '',
+        origin: transaction.origin || 'Manual',
+        party_type: transaction.partyType,
+        party_id: transaction.partyId,
+        party_name: transaction.partyName,
+        cost_center_id: transaction.costCenterId,
+        cost_center_name: transaction.costCenterName,
+        status: transaction.status || 'Pago',
+        // ✅ CORREÇÃO: Converter string vazia para null (PostgreSQL UUID não aceita '')
+        bank_account_id: transaction.bankAccountId || null,
+        bank_account_name: transaction.bankAccountName,
+        installment_number: transaction.installmentNumber
+      };
+    });
 
     const { error: insertError } = await supabase
       .from('financial_transactions')
