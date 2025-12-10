@@ -24,7 +24,7 @@ import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
 import { authGet, authPatch } from '../utils/authFetch';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
 import { useEntityPersistence, loadEntity } from '../hooks/useEntityPersistence';
@@ -2117,11 +2117,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`🔄 Criando pedido de venda via endpoint /create-sales-order...`);
 
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado para criar pedidos');
+        return;
+      }
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/create-sales-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           orderData,
