@@ -24,6 +24,7 @@
 
 import { Hono } from 'npm:hono@4.6.14';
 import { sqlService } from './services/sql-service.ts';
+import { sqlServiceExtended } from './services/sql-service-extended.ts';
 
 const app = new Hono();
 
@@ -181,6 +182,35 @@ app.post('/inventory', async (c) => {
 });
 
 // ==================== ROTAS - SALES ORDERS ====================
+
+// ✅ NOVA ROTA: Criar pedido único com SKU gerado imediatamente
+app.post('/create-sales-order', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { data } = await c.req.json();
+    
+    if (!data || typeof data !== 'object') {
+      return c.json({ error: 'Dados devem ser um objeto' }, 400);
+    }
+
+    console.log(`[CREATE SALES ORDER] ➕ Criando novo sales order para empresa ${auth.companyId}`);
+    const createdOrder = await sqlServiceExtended.createSalesOrder(auth.companyId, data);
+    
+    console.log(`[CREATE SALES ORDER] ✅ Sales order criado: ${createdOrder.id}`);
+    return c.json({
+      success: true,
+      data: createdOrder
+    });
+
+  } catch (error) {
+    console.error('[CREATE SALES ORDER] ❌ Erro ao criar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
 
 app.get('/sales-orders', async (c) => {
   try {

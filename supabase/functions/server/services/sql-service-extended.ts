@@ -151,9 +151,10 @@ async function generateNextSalesOrderNumber(companyId: string): Promise<string> 
   }
   
   const nextNumber = maxNumber + 1;
+  const orderNumber = `PV-${String(nextNumber).padStart(4, '0')}`;
   
-  // Formatar com zero padding (4 dígitos: 0001, 0002, ... 9999, depois 10000)
-  return `PV-${String(nextNumber).padStart(4, '0')}`;
+  console.log(`[SQL_SERVICE] 🔢 Gerado order_number: ${orderNumber} (maxNumber: ${maxNumber})`);
+  return orderNumber;
 }
 
 /**
@@ -191,12 +192,109 @@ async function generateNextPurchaseOrderNumber(companyId: string): Promise<strin
   }
   
   const nextNumber = maxNumber + 1;
+  const orderNumber = `PC-${String(nextNumber).padStart(4, '0')}`;
   
-  // Formatar com zero padding (4 dígitos: 0001, 0002, ... 9999, depois 10000)
-  return `PC-${String(nextNumber).padStart(4, '0')}`;
+  console.log(`[SQL_SERVICE] 🔢 Gerado order_number: ${orderNumber} (maxNumber: ${maxNumber})`);
+  return orderNumber;
 }
 
-// ==================== SALES ORDERS + ITEMS ====================
+/**
+ * ✅ NOVA FUNÇÃO: Cria um único pedido de venda e retorna imediatamente com SKU gerado
+ * Evita duplicações e problemas de sincronização
+ */
+export async function createSalesOrder(companyId: string, orderData: any) {
+  const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] ➕ Criando novo sales order para empresa ${companyId}`);
+
+  // Gerar order_number sequencial
+  const orderNumber = await generateNextSalesOrderNumber(companyId);
+  console.log(`[SQL_SERVICE] 🔢 Order number gerado: ${orderNumber}`);
+
+  // Preparar dados do pedido
+  const order = {
+    company_id: companyId,
+    order_number: orderNumber,
+    customer_id: await resolveCustomerId(companyId, orderData.customerId),
+    customer_name: orderData.customer || orderData.customerName || '',
+    product_name: orderData.productName || '',
+    quantity: orderData.quantity || 0,
+    unit_price: orderData.unitPrice || 0,
+    order_date: orderData.orderDate || new Date().toISOString().split('T')[0],
+    due_date: orderData.dueDate || orderData.deliveryDate,
+    issue_date: orderData.issueDate,
+    billing_date: orderData.billingDate,
+    delivery_date: orderData.deliveryDate,
+    payment_method: orderData.paymentMethod || '',
+    payment_condition: orderData.paymentCondition || '',
+    status: orderData.status || 'Processando',
+    subtotal: orderData.subtotal || 0,
+    discount: orderData.discount || 0,
+    total: orderData.totalAmount || 0,
+    notes: orderData.notes || '',
+    price_table_id: orderData.priceTableId,
+    revenue_category_id: orderData.revenueCategoryId,
+    sales_person: orderData.salesPerson,
+    bank_account_id: orderData.bankAccountId,
+    first_installment_days: orderData.firstInstallmentDays || 0,
+    due_date_reference: orderData.dueDateReference || 'issue',
+    stock_reduced: orderData.actionFlags?.stockReduced || orderData.stockReduced || false,
+    accounts_receivable_created: orderData.actionFlags?.accountsReceivableCreated || orderData.accountsReceivableCreated || false,
+    accounts_receivable_paid: orderData.actionFlags?.accountsReceivablePaid || orderData.accountsReceivablePaid || false,
+    customer_stats_updated: orderData.actionFlags?.customerStatsUpdated || orderData.customerStatsUpdated || false,
+    is_exceptional_order: orderData.isExceptionalOrder || false
+  };
+
+  // Inserir pedido
+  const { data: insertedOrder, error: insertError } = await supabase
+    .from('sales_orders')
+    .insert(order)
+    .select('id, order_number')
+    .single();
+
+  if (insertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao criar sales order:', insertError);
+    throw new Error(`Erro ao criar pedido: ${insertError.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ Sales order criado: ${insertedOrder.order_number} (UUID: ${insertedOrder.id})`);
+
+  // Se houver items, inserir também
+  if (orderData.items && orderData.items.length > 0) {
+    console.log(`[SQL_SERVICE] 📦 Inserindo ${orderData.items.length} items`);
+
+    const itemsWithResolvedIds = await Promise.all(
+      orderData.items.map(async (item: any) => ({
+        company_id: companyId,
+        order_id: insertedOrder.id,
+        product_id: await resolveProductId(companyId, item.productId),
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        discount: item.discount || 0,
+        total: item.total
+      }))
+    );
+
+    const { error: itemsError } = await supabase
+      .from('sales_order_items')
+      .insert(itemsWithResolvedIds);
+
+    if (itemsError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
+      // Não falhar a operação toda se items falharem
+      console.warn('[SQL_SERVICE] ⚠️ Pedido criado mas items falharam');
+    } else {
+      console.log(`[SQL_SERVICE] ✅ ${orderData.items.length} items inseridos`);
+    }
+  }
+
+  // Retornar o pedido completo para o frontend
+  return {
+    ...orderData,
+    id: insertedOrder.order_number, // Usar order_number como ID (PV-0001)
+    orderDate: order.order_date
+  };
+}
 
 export async function getSalesOrders(companyId: string) {
   const supabase = getSupabaseClient();
@@ -985,6 +1083,7 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
 // ==================== EXPORT ====================
 
 export const sqlServiceExtended = {
+  createSalesOrder, // ✅ Nova função para criar pedido único
   getSalesOrders,
   saveSalesOrders,
   getPurchaseOrders,
