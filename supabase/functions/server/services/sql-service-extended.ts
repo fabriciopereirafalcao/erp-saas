@@ -1360,20 +1360,21 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
       console.log(`[SQL_SERVICE] 📝 Conta a receber: Status "${account.status}" → "${normalizedStatus}", Customer ID: ${account.customerId} → ${resolvedCustomerId}`);
       
       return {
-      // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
-      company_id: companyId,
-      customer_id: await resolveCustomerId(companyId, account.customerId), // ✅ CORRIGIDO: Resolver SKU → UUID
-      order_id: account.orderId,
-      installment_number: account.installmentNumber,
-      total_installments: account.totalInstallments,
-      description: account.description,
-      amount: account.amount,
-      due_date: account.dueDate,
-      status: normalizeAccountStatus(account.status), // ✅ CORRIGIDO: Normalizar PT → EN
-      payment_date: account.paymentDate,
-      payment_amount: account.paymentAmount,
-      payment_method: account.paymentMethod || '',
-      notes: account.notes || ''
+        // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
+        company_id: companyId,
+        customer_id: resolvedCustomerId, // ✅ CORRIGIDO: Usar variável já resolvida
+        order_id: account.orderId,
+        installment_number: account.installmentNumber,
+        total_installments: account.totalInstallments,
+        description: account.description,
+        amount: account.amount,
+        due_date: account.dueDate,
+        status: normalizedStatus, // ✅ CORRIGIDO: Usar variável já normalizada
+        payment_date: account.paymentDate,
+        payment_amount: account.paymentAmount,
+        payment_method: account.paymentMethod || '',
+        notes: account.notes || ''
+      };
     });
 
     const rows = await Promise.all(rowsPromises);
@@ -1465,7 +1466,8 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
       payment_amount: account.paymentAmount,
       payment_method: account.paymentMethod || '',
       notes: account.notes || ''
-    }});
+      };
+    });
 
     const rows = await Promise.all(rowsPromises);
 
