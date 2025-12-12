@@ -263,7 +263,7 @@ app.get('/sales-orders', async (c) => {
     }
 
     console.log(`[SALES ORDERS] 📥 Carregando sales orders da empresa ${auth.companyId}`);
-    const salesOrders = await sqlService.getSalesOrders(auth.companyId);
+    const salesOrders = await sqlServiceExtended.getSalesOrders(auth.companyId);
     
     console.log(`[SALES ORDERS] ✅ ${salesOrders.length} sales orders carregados`);
     return c.json({
@@ -291,7 +291,7 @@ app.post('/sales-orders', async (c) => {
     }
 
     console.log(`[SALES ORDERS] 💾 Salvando ${data.length} sales orders para empresa ${auth.companyId}`);
-    const result = await sqlService.saveSalesOrders(auth.companyId, data);
+    const result = await sqlServiceExtended.saveSalesOrders(auth.companyId, data);
     
     return c.json({
       success: true,

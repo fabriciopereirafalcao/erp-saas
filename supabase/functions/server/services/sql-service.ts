@@ -884,6 +884,9 @@ export async function saveProducts(companyId: string, products: any[]) {
 
 // ==================== EXPORT ====================
 
+// Import extended functions
+import * as extendedService from './sql-service-extended.ts';
+
 export const sqlService = {
   authenticate,
   getCustomers,
@@ -892,6 +895,21 @@ export const sqlService = {
   saveSuppliers,
   getProducts,
   saveProducts,
+  // Entidades SQL (extended)
+  createSalesOrder: extendedService.createSalesOrder,
+  getSalesOrders: extendedService.getSalesOrders,
+  saveSalesOrders: extendedService.saveSalesOrders,
+  createPurchaseOrder: extendedService.createPurchaseOrder,
+  getPurchaseOrders: extendedService.getPurchaseOrders,
+  savePurchaseOrders: extendedService.savePurchaseOrders,
+  getStockMovements: extendedService.getStockMovements,
+  saveStockMovements: extendedService.saveStockMovements,
+  getFinancialTransactions: extendedService.getFinancialTransactions,
+  saveFinancialTransactions: extendedService.saveFinancialTransactions,
+  getAccountsReceivable: extendedService.getAccountsReceivable,
+  saveAccountsReceivable: extendedService.saveAccountsReceivable,
+  getAccountsPayable: extendedService.getAccountsPayable,
+  saveAccountsPayable: extendedService.saveAccountsPayable,
   // Entidades JSONB (via companies.settings)
   getSalespeople,
   saveSalespeople,
@@ -912,7 +930,11 @@ export const sqlService = {
   getAuditIssues,
   saveAuditIssues,
   getCompanyHistory,
-  saveCompanyHistory
+  saveCompanyHistory,
+  getReconciliationStatus,
+  saveReconciliationStatus,
+  getLastAnalysisDate,
+  saveLastAnalysisDate
 };
 
 // ==================== ENTIDADES JSONB ====================
@@ -1077,4 +1099,30 @@ async function saveCompanyHistory(companyId: string, history: any[]) {
   settings.history = history;
   await saveCompanySettings(companyId, settings);
   return { success: true, count: history.length };
+}
+
+// RECONCILIATION STATUS
+async function getReconciliationStatus(companyId: string) {
+  const settings = await getCompanySettings(companyId);
+  return settings.reconciliationStatus || [];
+}
+
+async function saveReconciliationStatus(companyId: string, reconciliationStatus: any[]) {
+  const settings = await getCompanySettings(companyId);
+  settings.reconciliationStatus = reconciliationStatus;
+  await saveCompanySettings(companyId, settings);
+  return { success: true, count: reconciliationStatus.length };
+}
+
+// LAST ANALYSIS DATE
+async function getLastAnalysisDate(companyId: string) {
+  const settings = await getCompanySettings(companyId);
+  return settings.lastAnalysisDate || [];
+}
+
+async function saveLastAnalysisDate(companyId: string, lastAnalysisDate: any[]) {
+  const settings = await getCompanySettings(companyId);
+  settings.lastAnalysisDate = lastAnalysisDate;
+  await saveCompanySettings(companyId, settings);
+  return { success: true, count: lastAnalysisDate.length };
 }
