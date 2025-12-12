@@ -1216,17 +1216,20 @@ export async function saveFinancialTransactions(companyId: string, transactions:
       let existingTransaction = null;
       
       if (sku && sku.startsWith('FT-')) {
-        const { data } = await supabase
+        const { data, error: checkError } = await supabase
           .from('financial_transactions')
           .select('id, sku')
           .eq('company_id', companyId)
           .eq('sku', sku)
-          .single();
-        existingTransaction = data;
+          .maybeSingle();
+        
+        if (!checkError) {
+          existingTransaction = data;
+        }
       }
       
-      // Gerar SKU automaticamente se for INSERT novo
-      if (!existingTransaction && (!sku || !sku.startsWith('FT-'))) {
+      // Gerar SKU automaticamente APENAS se não veio com SKU válido
+      if (!sku || !sku.startsWith('FT-')) {
         sku = await generateNextFinancialTransactionSku(companyId);
         console.log(`[SQL_SERVICE] 🔢 Gerado novo SKU: ${sku}`);
       }

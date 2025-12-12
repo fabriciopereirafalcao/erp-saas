@@ -1,15 +1,20 @@
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Badge } from "./ui/badge";
-import { Search, DollarSign, AlertTriangle, Clock, ArrowDownCircle, ArrowUpCircle, FileText, Package } from "lucide-react";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Search, DollarSign, AlertTriangle, Clock, ArrowDownCircle, ArrowUpCircle, FileText, Package, Calendar as CalendarIcon, CheckCircle2 } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { formatDateLocal } from "../utils/dateUtils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function AccountsPayableReceivable() {
   const {
@@ -37,6 +42,7 @@ export function AccountsPayableReceivable() {
   const [effectiveDate, setEffectiveDate] = useState<Date>(new Date());
   const [receiveBankAccountId, setReceiveBankAccountId] = useState<string>("");
   const [receivePaymentMethodId, setReceivePaymentMethodId] = useState<string>("");
+  const [showCalendarPopover, setShowCalendarPopover] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -705,76 +711,164 @@ export function AccountsPayableReceivable() {
         </TabsContent>
       </Tabs>
 
-      {/* Receive/Pay Dialog */}
+      {/* Receive/Pay Dialog - VERSÃO COMPLETA */}
       <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
-                ? "Confirmar Recebimento" 
-                : "Confirmar Pagamento"}
-            </DialogTitle>
+            <DialogTitle>Confirmar Recebimento/Pagamento</DialogTitle>
             <DialogDescription>
-              Confirme os detalhes da transação financeira
+              Informe a data efetiva do recebimento ou pagamento
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm">
-                Data de {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
-              </label>
-              <Input
-                type="date"
-                value={effectiveDate.toISOString().split('T')[0]}
-                onChange={(e) => setEffectiveDate(new Date(e.target.value))}
-              />
-            </div>
+          {receivingTransaction && (() => {
+            const txn = safeFinancialTransactions.find(t => t.id === receivingTransaction);
+            const linkedOrder = txn ? getLinkedOrder(txn) : null;
+            
+            return txn ? (
+              <div className="space-y-4">
+                {/* Informações da Transação */}
+                <Card className="p-4 bg-gray-50">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ID:</span>
+                      <span>{txn.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Tipo:</span>
+                      <Badge className={txn.type === "Receita" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
+                        {txn.type}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Parceiro:</span>
+                      <span>{txn.partyName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Valor:</span>
+                      <span className={txn.type === "Receita" ? "text-green-700" : "text-red-700"}>
+                        R$ {txn.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {txn.installmentNumber && txn.totalInstallments && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Parcela:</span>
+                        <span>{txn.installmentNumber}/{txn.totalInstallments}</span>
+                      </div>
+                    )}
+                    {linkedOrder && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Pedido:</span>
+                        <span>{linkedOrder.id}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
 
-            <div>
-              <label className="text-sm">Conta Bancária</label>
-              <Select value={receiveBankAccountId} onValueChange={setReceiveBankAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a conta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {safeBankAccounts.map(bank => (
-                    <SelectItem key={bank.id} value={bank.id}>
-                      {bank.bankName} - {bank.accountNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Data Efetiva */}
+                <div>
+                  <Label>Data Efetiva de {txn.type === "Receita" ? "Recebimento" : "Pagamento"} *</Label>
+                  <Popover open={showCalendarPopover} onOpenChange={setShowCalendarPopover}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start mt-2">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(effectiveDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={effectiveDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setEffectiveDate(date);
+                            setShowCalendarPopover(false);
+                          }
+                        }}
+                        locale={ptBR}
+                        disabled={(date) => {
+                          // Desabilitar datas futuras
+                          const today = new Date();
+                          today.setHours(23, 59, 59, 999);
+                          return date > today;
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-gray-500 mt-1">
+                    ⓘ A data de liquidação não pode ser futura. Máximo: hoje.
+                  </p>
+                </div>
 
-            <div>
-              <label className="text-sm">Forma de Pagamento</label>
-              <Select value={receivePaymentMethodId} onValueChange={setReceivePaymentMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a forma" />
-                </SelectTrigger>
-                <SelectContent>
-                  {safePaymentMethods.filter(pm => pm.isActive).map(pm => (
-                    <SelectItem key={pm.id} value={pm.id}>
-                      {pm.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                {/* Conta Bancária */}
+                <div>
+                  <Label>Conta de {txn.type === "Receita" ? "Recebimento" : "Pagamento"} *</Label>
+                  <Select 
+                    value={receiveBankAccountId} 
+                    onValueChange={(value) => setReceiveBankAccountId(value)}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {safeBankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.bankName} - {account.accountType} ({account.agency}/{account.accountNumber})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {safeBankAccounts.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Nenhuma conta cadastrada. Cadastre em Minha Empresa.
+                    </p>
+                  )}
+                </div>
+
+                {/* Forma de Pagamento */}
+                <div>
+                  <Label>Forma de Pagamento *</Label>
+                  <Select 
+                    value={receivePaymentMethodId} 
+                    onValueChange={(value) => setReceivePaymentMethodId(value)}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Selecione a forma de pagamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {safePaymentMethods.filter(pm => pm.isActive).map((method) => (
+                        <SelectItem key={method.id} value={method.id}>
+                          {method.name} {method.type && `(${method.type})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {safePaymentMethods.filter(pm => pm.isActive).length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Nenhuma forma de pagamento ativa. Cadastre em Minha Empresa.
+                    </p>
+                  )}
+                </div>
+
+                {/* Alerta de Impacto */}
+                {linkedOrder && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                    <p className="text-blue-800">
+                      ℹ️ Esta ação atualizará automaticamente o status do pedido {linkedOrder.id}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null;
+          })()}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowReceiveDialog(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={handleMarkAsReceived}
-              className={receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" 
-                ? "bg-green-600 hover:bg-green-700" 
-                : "bg-blue-600 hover:bg-blue-700"}
-            >
-              Confirmar {receivingTransaction && safeFinancialTransactions.find(t => t.id === receivingTransaction)?.type === "Receita" ? "Recebimento" : "Pagamento"}
+            <Button onClick={handleMarkAsReceived} className="bg-green-600 hover:bg-green-700">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>

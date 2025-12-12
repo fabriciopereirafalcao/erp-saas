@@ -1762,6 +1762,119 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   }, [profile?.company_id, companySettingsLoaded]);
 
   /**
+   * Carregar dados SQL do backend quando usuário faz login
+   */
+  useEffect(() => {
+    const loadDataFromBackend = async () => {
+      if (!profile?.company_id || !companySettingsLoaded) {
+        return;
+      }
+
+      try {
+        console.log('🔄 [BACKEND SYNC] Carregando dados do SQL...');
+
+        // Carregar entidades SQL em paralelo
+        const [
+          customersRes,
+          suppliersRes,
+          productsRes,
+          salesOrdersRes,
+          purchaseOrdersRes,
+          stockMovementsRes,
+          financialTransactionsRes,
+          accountsReceivableRes,
+          accountsPayableRes,
+          bankAccountsRes
+        ] = await Promise.all([
+          makeAuthenticatedRequest('/data/customers', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/suppliers', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/inventory', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/sales-orders', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/purchase-orders', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/stock-movements', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/financial-transactions', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/accounts-receivable', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/accounts-payable', 'GET').catch(e => ({ success: false, error: e.message })),
+          makeAuthenticatedRequest('/data/bank-accounts', 'GET').catch(e => ({ success: false, error: e.message }))
+        ]);
+
+        // Atualizar states com dados do backend
+        if (customersRes.success && customersRes.data) {
+          setCustomers(customersRes.data);
+          console.log(`✅ [BACKEND SYNC] Customers: ${customersRes.data.length} registros`);
+        }
+
+        if (suppliersRes.success && suppliersRes.data) {
+          setSuppliers(suppliersRes.data);
+          console.log(`✅ [BACKEND SYNC] Suppliers: ${suppliersRes.data.length} registros`);
+        }
+
+        if (productsRes.success && productsRes.data) {
+          setInventory(productsRes.data);
+          console.log(`✅ [BACKEND SYNC] Products: ${productsRes.data.length} registros`);
+        }
+
+        if (salesOrdersRes.success && salesOrdersRes.data) {
+          setSalesOrders(salesOrdersRes.data);
+          console.log(`✅ [BACKEND SYNC] Sales Orders: ${salesOrdersRes.data.length} registros`);
+        }
+
+        if (purchaseOrdersRes.success && purchaseOrdersRes.data) {
+          setPurchaseOrders(purchaseOrdersRes.data);
+          console.log(`✅ [BACKEND SYNC] Purchase Orders: ${purchaseOrdersRes.data.length} registros`);
+        }
+
+        if (stockMovementsRes.success && stockMovementsRes.data) {
+          setStockMovements(stockMovementsRes.data);
+          console.log(`✅ [BACKEND SYNC] Stock Movements: ${stockMovementsRes.data.length} registros`);
+        }
+
+        if (financialTransactionsRes.success && financialTransactionsRes.data) {
+          setFinancialTransactions(financialTransactionsRes.data);
+          console.log(`✅ [BACKEND SYNC] Financial Transactions: ${financialTransactionsRes.data.length} registros`);
+        }
+
+        if (accountsReceivableRes.success && accountsReceivableRes.data) {
+          setAccountsReceivable(accountsReceivableRes.data);
+          console.log(`✅ [BACKEND SYNC] Accounts Receivable: ${accountsReceivableRes.data.length} registros`);
+        }
+
+        if (accountsPayableRes.success && accountsPayableRes.data) {
+          setAccountsPayable(accountsPayableRes.data);
+          console.log(`✅ [BACKEND SYNC] Accounts Payable: ${accountsPayableRes.data.length} registros`);
+        }
+
+        if (bankAccountsRes.success && bankAccountsRes.data) {
+          // Mapear dados SQL para formato do frontend
+          const mappedAccounts = bankAccountsRes.data.map((acc: any) => ({
+            id: acc.sku,
+            bankName: acc.bank_name,
+            accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
+                         acc.account_type === 'Poupança' ? 'Poupança' : 
+                         acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+            agency: acc.agency || '',
+            accountNumber: acc.account_number || '',
+            balance: parseFloat(acc.current_balance) || 0,
+            isPrimary: false
+          }));
+
+          setCompanySettings(prev => ({
+            ...prev,
+            bankAccounts: mappedAccounts
+          }));
+          console.log(`✅ [BACKEND SYNC] Bank Accounts: ${mappedAccounts.length} registros`);
+        }
+
+        console.log('✅ [BACKEND SYNC] Sincronização concluída!');
+      } catch (error) {
+        console.error('❌ [BACKEND SYNC] Erro ao carregar dados:', error);
+      }
+    };
+
+    loadDataFromBackend();
+  }, [profile?.company_id, companySettingsLoaded]);
+
+  /**
    * Migrar dados do localStorage para o backend
    */
   const migrateLocalStorageToBackend = async (settings: CompanySettings) => {
@@ -3639,44 +3752,155 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Bank Accounts
-  const addBankAccount = (accountData: Omit<BankAccount, 'id'>) => {
-    // Gerar ID baseado no maior ID existente + 1, não no length do array
-    const maxId = (companySettings?.bankAccounts || []).reduce((max, account) => {
-      const idNum = parseInt(account.id.replace('BANK-', ''));
-      return Math.max(max, idNum);
-    }, 0);
-    
-    const newAccount: BankAccount = {
-      ...accountData,
-      id: `BANK-${String(maxId + 1).padStart(3, '0')}`
-    };
-    
-    const updatedSettings = {
-      ...companySettings,
-      bankAccounts: [...(companySettings?.bankAccounts || []), newAccount]
-    };
-    
-    // Atualizar estado local e sincronizar com backend
-    updateCompanySettings({ bankAccounts: updatedSettings.bankAccounts }, false);
-    toast.success("Conta bancária adicionada!");
+  const addBankAccount = async (accountData: Omit<BankAccount, 'id'>) => {
+    try {
+      const accountTypeMap: Record<string, string> = {
+        'Conta Corrente': 'Corrente',
+        'Poupança': 'Poupança',
+        'Investimentos': 'Corrente',
+        'Caixa': 'Caixa'
+      };
+
+      const newAccount = {
+        id: '',
+        bankName: accountData.bankName,
+        bankCode: null,
+        agency: accountData.agency,
+        accountNumber: accountData.accountNumber,
+        accountType: accountTypeMap[accountData.accountType] || 'Corrente',
+        initialBalance: accountData.balance || 0,
+        currentBalance: accountData.balance || 0,
+        isActive: true
+      };
+
+      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [newAccount] });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Erro ao adicionar conta');
+      }
+
+      // Recarregar do backend
+      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      if (reloadRes.success && reloadRes.data) {
+        const mappedAccounts = reloadRes.data.map((acc: any) => ({
+          id: acc.sku,
+          bankName: acc.bank_name,
+          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
+                       acc.account_type === 'Poupança' ? 'Poupança' : 
+                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+          agency: acc.agency || '',
+          accountNumber: acc.account_number || '',
+          balance: parseFloat(acc.current_balance) || 0,
+          isPrimary: false
+        }));
+        setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
+      }
+
+      toast.success("Conta bancária adicionada!");
+    } catch (error) {
+      console.error('[ERPContext] Erro ao adicionar bank account:', error);
+      toast.error(`Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   };
 
-  const updateBankAccount = (id: string, updates: Partial<BankAccount>) => {
-    const updatedBankAccounts = (companySettings?.bankAccounts || []).map(acc => 
-      acc.id === id ? { ...acc, ...updates } : acc
-    );
-    
-    // Atualizar estado local e sincronizar com backend
-    updateCompanySettings({ bankAccounts: updatedBankAccounts }, false);
-    toast.success("Conta bancária atualizada!");
+  const updateBankAccount = async (id: string, updates: Partial<BankAccount>) => {
+    try {
+      const existingAccount = companySettings?.bankAccounts?.find(acc => acc.id === id);
+      if (!existingAccount) throw new Error('Conta não encontrada');
+
+      const accountTypeMap: Record<string, string> = {
+        'Conta Corrente': 'Corrente',
+        'Poupança': 'Poupança',
+        'Investimentos': 'Corrente',
+        'Caixa': 'Caixa'
+      };
+
+      const updatedAccount = {
+        id: existingAccount.id,
+        bankName: updates.bankName || existingAccount.bankName,
+        bankCode: null,
+        agency: updates.agency || existingAccount.agency,
+        accountNumber: updates.accountNumber || existingAccount.accountNumber,
+        accountType: accountTypeMap[updates.accountType || existingAccount.accountType] || 'Corrente',
+        initialBalance: updates.balance !== undefined ? updates.balance : existingAccount.balance,
+        currentBalance: updates.balance !== undefined ? updates.balance : existingAccount.balance,
+        isActive: true
+      };
+
+      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [updatedAccount] });
+      if (!response.success) throw new Error(response.error || 'Erro ao atualizar');
+
+      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      if (reloadRes.success && reloadRes.data) {
+        const mappedAccounts = reloadRes.data.map((acc: any) => ({
+          id: acc.sku,
+          bankName: acc.bank_name,
+          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
+                       acc.account_type === 'Poupança' ? 'Poupança' : 
+                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+          agency: acc.agency || '',
+          accountNumber: acc.account_number || '',
+          balance: parseFloat(acc.current_balance) || 0,
+          isPrimary: false
+        }));
+        setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
+      }
+
+      toast.success("Conta bancária atualizada!");
+    } catch (error) {
+      console.error('[ERPContext] Erro ao atualizar bank account:', error);
+      toast.error(`Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   };
 
-  const deleteBankAccount = (id: string) => {
-    const updatedBankAccounts = (companySettings?.bankAccounts || []).filter(acc => acc.id !== id);
-    
-    // Atualizar estado local e sincronizar com backend
-    updateCompanySettings({ bankAccounts: updatedBankAccounts }, false);
-    toast.success("Conta bancária removida!");
+  const deleteBankAccount = async (id: string) => {
+    try {
+      const existingAccount = companySettings?.bankAccounts?.find(acc => acc.id === id);
+      if (!existingAccount) throw new Error('Conta não encontrada');
+
+      const accountTypeMap: Record<string, string> = {
+        'Conta Corrente': 'Corrente',
+        'Poupança': 'Poupança',
+        'Investimentos': 'Corrente',
+        'Caixa': 'Caixa'
+      };
+
+      const deletedAccount = {
+        id: existingAccount.id,
+        bankName: existingAccount.bankName,
+        bankCode: null,
+        agency: existingAccount.agency,
+        accountNumber: existingAccount.accountNumber,
+        accountType: accountTypeMap[existingAccount.accountType] || 'Corrente',
+        initialBalance: existingAccount.balance,
+        currentBalance: existingAccount.balance,
+        isActive: false
+      };
+
+      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [deletedAccount] });
+      if (!response.success) throw new Error(response.error || 'Erro ao remover');
+
+      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      if (reloadRes.success && reloadRes.data) {
+        const mappedAccounts = reloadRes.data.map((acc: any) => ({
+          id: acc.sku,
+          bankName: acc.bank_name,
+          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
+                       acc.account_type === 'Poupança' ? 'Poupança' : 
+                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+          agency: acc.agency || '',
+          accountNumber: acc.account_number || '',
+          balance: parseFloat(acc.current_balance) || 0,
+          isPrimary: false
+        }));
+        setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
+      }
+
+      toast.success("Conta bancária removida!");
+    } catch (error) {
+      console.error('[ERPContext] Erro ao deletar bank account:', error);
+      toast.error(`Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   };
 
   // Revenue Groups
