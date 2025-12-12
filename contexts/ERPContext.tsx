@@ -23,7 +23,7 @@ import {
 import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
-import { authGet, authPatch } from '../utils/authFetch';
+import { authGet, authPost, authPatch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
@@ -1773,7 +1773,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       try {
         console.log('🔄 [BACKEND SYNC] Carregando dados do SQL...');
 
-        // Carregar entidades SQL em paralelo
+        // Carregar entidades SQL em paralelo usando authGet
         const [
           customersRes,
           suppliersRes,
@@ -1786,16 +1786,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           accountsPayableRes,
           bankAccountsRes
         ] = await Promise.all([
-          makeAuthenticatedRequest('/data/customers', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/suppliers', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/inventory', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/sales-orders', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/purchase-orders', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/stock-movements', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/financial-transactions', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/accounts-receivable', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/accounts-payable', 'GET').catch(e => ({ success: false, error: e.message })),
-          makeAuthenticatedRequest('/data/bank-accounts', 'GET').catch(e => ({ success: false, error: e.message }))
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/customers`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/suppliers`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/inventory`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/sales-orders`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/purchase-orders`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/financial-transactions`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/accounts-receivable`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/accounts-payable`).catch(e => ({ success: false, error: e.message })),
+          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`).catch(e => ({ success: false, error: e.message }))
         ]);
 
         // Atualizar states com dados do backend
@@ -3773,14 +3773,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         isActive: true
       };
 
-      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [newAccount] });
+      const response = await authPost(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`,
+        { data: [newAccount] }
+      );
 
       if (!response.success) {
         throw new Error(response.error || 'Erro ao adicionar conta');
       }
 
       // Recarregar do backend
-      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      const reloadRes = await authGet(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
+      );
       if (reloadRes.success && reloadRes.data) {
         const mappedAccounts = reloadRes.data.map((acc: any) => ({
           id: acc.sku,
@@ -3827,10 +3832,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         isActive: true
       };
 
-      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [updatedAccount] });
+      const response = await authPost(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`,
+        { data: [updatedAccount] }
+      );
       if (!response.success) throw new Error(response.error || 'Erro ao atualizar');
 
-      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      const reloadRes = await authGet(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
+      );
       if (reloadRes.success && reloadRes.data) {
         const mappedAccounts = reloadRes.data.map((acc: any) => ({
           id: acc.sku,
@@ -3877,10 +3887,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         isActive: false
       };
 
-      const response = await makeAuthenticatedRequest('/data/bank-accounts', 'POST', { data: [deletedAccount] });
+      const response = await authPost(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`,
+        { data: [deletedAccount] }
+      );
       if (!response.success) throw new Error(response.error || 'Erro ao remover');
 
-      const reloadRes = await makeAuthenticatedRequest('/data/bank-accounts', 'GET');
+      const reloadRes = await authGet(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
+      );
       if (reloadRes.success && reloadRes.data) {
         const mappedAccounts = reloadRes.data.map((acc: any) => ({
           id: acc.sku,
