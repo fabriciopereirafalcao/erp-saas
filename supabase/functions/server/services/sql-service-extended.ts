@@ -32,6 +32,59 @@ function normalizeTransactionType(type: string): 'income' | 'expense' {
 }
 
 /**
+ * ✅ HELPER: Normalizar status de Accounts Receivable/Payable (PT → EN)
+ * Frontend envia: "A Vencer" | "A Receber" | "Vencido" | "Recebido" | "Parcial" | "Cancelado"
+ * Backend precisa: "pending" | "paid" | "overdue" | "cancelled"
+ */
+function normalizeAccountStatus(status: string): 'pending' | 'paid' | 'overdue' | 'cancelled' {
+  // Normalizar para minúsculas e remover acentos para comparação
+  const normalized = status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // Mapeamento PT → EN
+  if (normalized === 'a vencer' || normalized === 'a receber' || normalized === 'pending') return 'pending';
+  if (normalized === 'recebido' || normalized === 'pago' || normalized === 'paid') return 'paid';
+  if (normalized === 'vencido' || normalized === 'overdue') return 'overdue';
+  if (normalized === 'cancelado' || normalized === 'cancelled') return 'cancelled';
+  if (normalized === 'parcial') return 'pending'; // Parcial = pendente parcialmente
+  
+  // Fallback
+  console.warn(`[SQL_SERVICE] ⚠️ Status de conta desconhecido: "${status}", usando "pending" como fallback`);
+  return 'pending';
+}
+
+/**
+ * ✅ HELPER: Desnormalizar status de Accounts Receivable (EN → PT)
+ * Backend retorna: "pending" | "paid" | "overdue" | "cancelled"
+ * Frontend precisa: "A Vencer" | "Vencido" | "Recebido" | "Cancelado"
+ */
+function denormalizeAccountReceivableStatus(status: string): string {
+  if (status === 'pending') return 'A Vencer';
+  if (status === 'paid') return 'Recebido';
+  if (status === 'overdue') return 'Vencido';
+  if (status === 'cancelled') return 'Cancelado';
+  
+  // Fallback: retornar o status original
+  console.warn(`[SQL_SERVICE] ⚠️ Status de conta a receber desconhecido: "${status}", retornando original`);
+  return status;
+}
+
+/**
+ * ✅ HELPER: Desnormalizar status de Accounts Payable (EN → PT)
+ * Backend retorna: "pending" | "paid" | "overdue" | "cancelled"
+ * Frontend precisa: "A Pagar" | "Vencido" | "Pago" | "Cancelado"
+ */
+function denormalizeAccountPayableStatus(status: string): string {
+  if (status === 'pending') return 'A Pagar';
+  if (status === 'paid') return 'Pago';
+  if (status === 'overdue') return 'Vencido';
+  if (status === 'cancelled') return 'Cancelado';
+  
+  // Fallback: retornar o status original
+  console.warn(`[SQL_SERVICE] ⚠️ Status de conta a pagar desconhecido: "${status}", retornando original`);
+  return status;
+}
+
+/**
  * Converte SKU de cliente para UUID
  * Se já for UUID, retorna o mesmo valor
  */
@@ -940,7 +993,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
       let savedOrderId: string;
 
       if (existingOrder) {
-        // ✅ UPDATE - Pedido já existe
+        // ✅ UPDATE
         console.log(`[SQL_SERVICE] 🔄 Atualizando order existente ${orderNumber} (UUID: ${existingOrder.id})`);
         const { error: updateError } = await supabase
           .from('purchase_orders')
@@ -954,7 +1007,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
 
         savedOrderId = existingOrder.id;
       } else {
-        // ✅ INSERT - Pedido novo com order_number gerado automaticamente
+        // ✅ INSERT
         console.log(`[SQL_SERVICE] ➕ Criando novo order ${orderNumber}`);
         const { data: insertedOrder, error: insertError } = await supabase
           .from('purchase_orders')
@@ -1271,7 +1324,7 @@ export async function getAccountsReceivable(companyId: string) {
     description: row.description,
     amount: parseFloat(row.amount),
     dueDate: row.due_date,
-    status: row.status,
+    status: denormalizeAccountReceivableStatus(row.status),
     paymentDate: row.payment_date,
     paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
     paymentMethod: row.payment_method || '',
@@ -1281,6 +1334,8 @@ export async function getAccountsReceivable(companyId: string) {
 
 export async function saveAccountsReceivable(companyId: string, accounts: any[]) {
   const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] 💾 Salvando ${accounts.length} accounts receivable para empresa ${companyId}`);
 
   // Deletar contas antigas
   const { error: deleteError } = await supabase
@@ -1295,22 +1350,33 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
 
   // Inserir novas contas
   if (accounts.length > 0) {
-    const rows = accounts.map((account: any) => ({
+    // ✅ CORREÇÃO: Resolver customer_id de SKU → UUID antes de inserir
+    console.log(`[SQL_SERVICE] 🔄 Processando ${accounts.length} contas a receber...`);
+    
+    const rowsPromises = accounts.map(async (account: any) => {
+      const resolvedCustomerId = await resolveCustomerId(companyId, account.customerId);
+      const normalizedStatus = normalizeAccountStatus(account.status);
+      
+      console.log(`[SQL_SERVICE] 📝 Conta a receber: Status "${account.status}" → "${normalizedStatus}", Customer ID: ${account.customerId} → ${resolvedCustomerId}`);
+      
+      return {
       // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
-      customer_id: account.customerId,
+      customer_id: await resolveCustomerId(companyId, account.customerId), // ✅ CORRIGIDO: Resolver SKU → UUID
       order_id: account.orderId,
       installment_number: account.installmentNumber,
       total_installments: account.totalInstallments,
       description: account.description,
       amount: account.amount,
       due_date: account.dueDate,
-      status: account.status,
+      status: normalizeAccountStatus(account.status), // ✅ CORRIGIDO: Normalizar PT → EN
       payment_date: account.paymentDate,
       payment_amount: account.paymentAmount,
       payment_method: account.paymentMethod || '',
       notes: account.notes || ''
     }));
+
+    const rows = await Promise.all(rowsPromises);
 
     const { error: insertError } = await supabase
       .from('accounts_receivable')
@@ -1351,7 +1417,7 @@ export async function getAccountsPayable(companyId: string) {
     description: row.description,
     amount: parseFloat(row.amount),
     dueDate: row.due_date,
-    status: row.status,
+    status: denormalizeAccountPayableStatus(row.status),
     paymentDate: row.payment_date,
     paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
     paymentMethod: row.payment_method || '',
@@ -1375,22 +1441,33 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
 
   // Inserir novas contas
   if (accounts.length > 0) {
-    const rows = accounts.map((account: any) => ({
+    // ✅ CORREÇÃO: Resolver supplier_id de SKU → UUID antes de inserir
+    console.log(`[SQL_SERVICE] 🔄 Processando ${accounts.length} contas a pagar...`);
+    
+    const rowsPromises = accounts.map(async (account: any) => {
+      const resolvedSupplierId = await resolveSupplierId(companyId, account.supplierId);
+      const normalizedStatus = normalizeAccountStatus(account.status);
+      
+      console.log(`[SQL_SERVICE] 📝 Conta a pagar: Status "${account.status}" → "${normalizedStatus}", Supplier ID: ${account.supplierId} → ${resolvedSupplierId}`);
+      
+      return {
       // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
       company_id: companyId,
-      supplier_id: account.supplierId,
+      supplier_id: resolvedSupplierId, // ✅ CORRIGIDO: Resolver SKU → UUID
       order_id: account.orderId,
       installment_number: account.installmentNumber,
       total_installments: account.totalInstallments,
       description: account.description,
       amount: account.amount,
       due_date: account.dueDate,
-      status: account.status,
+      status: normalizedStatus, // ✅ CORRIGIDO: Normalizar PT → EN
       payment_date: account.paymentDate,
       payment_amount: account.paymentAmount,
       payment_method: account.paymentMethod || '',
       notes: account.notes || ''
-    }));
+    }});
+
+    const rows = await Promise.all(rowsPromises);
 
     const { error: insertError } = await supabase
       .from('accounts_payable')
