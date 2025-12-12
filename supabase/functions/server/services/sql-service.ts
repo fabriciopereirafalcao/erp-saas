@@ -884,9 +884,6 @@ export async function saveProducts(companyId: string, products: any[]) {
 
 // ==================== EXPORT ====================
 
-// Importar funções estendidas
-import { sqlServiceExtended } from './sql-service-extended.ts';
-
 export const sqlService = {
   authenticate,
   getCustomers,
@@ -895,8 +892,6 @@ export const sqlService = {
   saveSuppliers,
   getProducts,
   saveProducts,
-  // Entidades estendidas
-  ...sqlServiceExtended,
   // Entidades JSONB (via companies.settings)
   getSalespeople,
   saveSalespeople,
@@ -917,11 +912,7 @@ export const sqlService = {
   getAuditIssues,
   saveAuditIssues,
   getCompanyHistory,
-  saveCompanyHistory,
-  getReconciliationStatus,
-  saveReconciliationStatus,
-  getLastAnalysisDate,
-  saveLastAnalysisDate
+  saveCompanyHistory
 };
 
 // ==================== ENTIDADES JSONB ====================
@@ -1086,30 +1077,4 @@ async function saveCompanyHistory(companyId: string, history: any[]) {
   settings.history = history;
   await saveCompanySettings(companyId, settings);
   return { success: true, count: history.length };
-}
-
-// RECONCILIATION STATUS
-async function getReconciliationStatus(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.reconciliation || [];
-}
-
-async function saveReconciliationStatus(companyId: string, status: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.reconciliation = status;
-  await saveCompanySettings(companyId, settings);
-  return { success: true, count: status.length };
-}
-
-// LAST ANALYSIS DATE
-async function getLastAnalysisDate(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.lastAnalysisDate || [];
-}
-
-async function saveLastAnalysisDate(companyId: string, date: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.lastAnalysisDate = date;
-  await saveCompanySettings(companyId, settings);
-  return { success: true, count: date.length };
 }
