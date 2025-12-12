@@ -865,6 +865,57 @@ app.post('/accounts-payable', async (c) => {
   }
 });
 
+// ==================== ROTAS - BANK ACCOUNTS ====================
+
+app.get('/bank-accounts', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[BANK ACCOUNTS] 📥 Carregando bank accounts da empresa ${auth.companyId}`);
+    const bankAccounts = await sqlServiceExtended.getBankAccounts(auth.companyId);
+    
+    console.log(`[BANK ACCOUNTS] ✅ ${bankAccounts.length} bank accounts carregados`);
+    return c.json({
+      success: true,
+      data: bankAccounts
+    });
+
+  } catch (error) {
+    console.error('[BANK ACCOUNTS] ❌ Erro ao carregar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/bank-accounts', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { data } = await c.req.json();
+    
+    if (!Array.isArray(data)) {
+      return c.json({ error: 'Dados devem ser um array' }, 400);
+    }
+
+    console.log(`[BANK ACCOUNTS] 💾 Salvando ${data.length} bank accounts para empresa ${auth.companyId}`);
+    const result = await sqlServiceExtended.saveBankAccounts(auth.companyId, data);
+    
+    return c.json({
+      success: true,
+      message: `${result.count} bank accounts salvos com sucesso`
+    });
+
+  } catch (error) {
+    console.error('[BANK ACCOUNTS] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - BANK MOVEMENTS ====================
 
 app.get('/bank-movements', async (c) => {
@@ -1182,7 +1233,7 @@ app.get('/health', (c) => {
       'customers', 'suppliers', 'inventory', 'sales-orders', 'purchase-orders',
       'stock-movements', 'price-tables', 'product-categories', 'salespeople',
       'buyers', 'payment-methods', 'account-categories', 'financial-transactions',
-      'accounts-receivable', 'accounts-payable', 'bank-movements',
+      'accounts-receivable', 'accounts-payable', 'bank-accounts', 'bank-movements',
       'cash-flow-entries', 'audit-issues', 'company-history',
       'reconciliation-status', 'last-analysis-date'
     ]

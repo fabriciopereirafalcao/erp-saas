@@ -420,7 +420,7 @@ export async function createSalesOrder(companyId: string, orderData: any) {
     price_table_id: orderData.priceTableId,
     revenue_category_id: orderData.revenueCategoryId,
     sales_person: orderData.salesPerson,
-    bank_account_id: orderData.bankAccountId,
+    bank_account_id: isValidUUID(orderData.bankAccountId) ? orderData.bankAccountId : null,
     first_installment_days: orderData.firstInstallmentDays || 0,
     due_date_reference: orderData.dueDateReference || 'issue',
     stock_reduced: orderData.actionFlags?.stockReduced || orderData.stockReduced || false,
@@ -638,7 +638,7 @@ export async function saveSalesOrders(companyId: string, orders: any[]) {
         price_table_id: order.priceTableId,
         revenue_category_id: order.revenueCategoryId,
         sales_person: order.salesPerson,
-        bank_account_id: order.bankAccountId,
+        bank_account_id: isValidUUID(order.bankAccountId) ? order.bankAccountId : null,
         first_installment_days: order.firstInstallmentDays || 0,
         due_date_reference: order.dueDateReference || 'issue',
         stock_reduced: order.actionFlags?.stockReduced || order.stockReduced || false,
@@ -762,7 +762,7 @@ export async function createPurchaseOrder(companyId: string, orderData: any) {
     price_table_id: orderData.priceTableId,
     expense_category_id: orderData.expenseCategoryId,
     buyer: orderData.buyer,
-    bank_account_id: orderData.bankAccountId,
+    bank_account_id: isValidUUID(orderData.bankAccountId) ? orderData.bankAccountId : null,
     first_installment_days: orderData.firstInstallmentDays || 0,
     due_date_reference: orderData.dueDateReference || 'issue',
     stock_increased: orderData.actionFlags?.stockIncreased || orderData.stockIncreased || false,
@@ -980,7 +980,7 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
         price_table_id: order.priceTableId,
         expense_category_id: order.expenseCategoryId,
         buyer: order.buyer,
-        bank_account_id: order.bankAccountId,
+        bank_account_id: isValidUUID(order.bankAccountId) ? order.bankAccountId : null,
         first_installment_days: order.firstInstallmentDays || 0,
         due_date_reference: order.dueDateReference || 'issue',
         stock_increased: order.actionFlags?.stockIncreased || order.stockIncreased || false,
@@ -1149,6 +1149,13 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
 
 // ==================== FINANCIAL TRANSACTIONS ====================
 
+// Helper: Validar se é UUID válido
+function isValidUUID(value: any): boolean {
+  if (!value || typeof value !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
 export async function getFinancialTransactions(companyId: string) {
   const supabase = getSupabaseClient();
   
@@ -1256,7 +1263,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         cost_center_id: transaction.costCenterId,
         cost_center_name: transaction.costCenterName,
         status: transaction.status || 'Pago',
-        bank_account_id: transaction.bankAccountId || null,
+        bank_account_id: isValidUUID(transaction.bankAccountId) ? transaction.bankAccountId : null,
         bank_account_name: transaction.bankAccountName,
         installment_number: transaction.installmentNumber,
         total_installments: transaction.totalInstallments,
@@ -1485,6 +1492,180 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
   return { success: true, count: accounts.length };
 }
 
+// ==================== BANK ACCOUNTS ====================
+
+/**
+ * Gera o próximo SKU de Bank Account
+ * Formato: BANK-001, BANK-002, ..., BANK-999, BANK-1000...
+ */
+async function generateNextBankAccountSku(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('sku')
+    .eq('company_id', companyId)
+    .like('sku', 'BANK-%')
+    .order('sku', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de bank accounts, gerando padrão:', error);
+    return 'BANK-001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.sku?.match(/^BANK-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  const sku = `BANK-${String(nextNumber).padStart(3, '0')}`;
+  
+  console.log(`[SQL_SERVICE] 🔢 Gerado SKU bank account: ${sku} (maxNumber: ${maxNumber})`);
+  return sku;
+}
+
+/**
+ * Resolver Bank Account ID (SKU → UUID)
+ * Se receber "BANK-001", busca o UUID correspondente
+ * Se receber UUID, retorna direto
+ */
+async function resolveBankAccountId(companyId: string, bankAccountId: string): Promise<string | null> {
+  if (!bankAccountId) return null;
+  
+  // Se já for UUID, retornar direto
+  if (isValidUUID(bankAccountId)) return bankAccountId;
+  
+  // Se for SKU (BANK-001), buscar UUID
+  const supabase = getSupabaseClient();
+  const { data } = await supabase
+    .from('bank_accounts')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('sku', bankAccountId)
+    .is('deleted_at', null)
+    .single();
+  
+  if (!data) {
+    console.warn(`[SQL_SERVICE] ⚠️ Bank account não encontrado: ${bankAccountId}`);
+    return null;
+  }
+  
+  return data.id;
+}
+
+export async function getBankAccounts(companyId: string) {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .eq('company_id', companyId)
+    .is('deleted_at', null) // ✅ Filtrar apenas ativos (soft delete)
+    .order('sku', { ascending: true });
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar bank accounts:', error);
+    throw new Error(error.message);
+  }
+
+  return data?.map((row: any) => ({
+    id: row.sku || row.id, // ✅ PRIORIZAR SKU (BANK-001) sobre UUID
+    bankName: row.bank_name,
+    bankCode: row.bank_code,
+    agency: row.agency,
+    accountNumber: row.account_number,
+    accountType: row.account_type,
+    initialBalance: row.initial_balance ? parseFloat(row.initial_balance) : 0,
+    currentBalance: row.current_balance ? parseFloat(row.current_balance) : 0,
+    isActive: row.is_active
+  })) || [];
+}
+
+export async function saveBankAccounts(companyId: string, accounts: any[]) {
+  const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] 💾 Iniciando UPSERT de ${accounts.length} bank accounts para empresa ${companyId}`);
+
+  // Processar cada conta individualmente
+  if (accounts.length > 0) {
+    for (const account of accounts) {
+      let sku = account.id;
+      
+      // Verificar se já existe (por SKU se começar com BANK-)
+      let existingAccount = null;
+      
+      if (sku && sku.startsWith('BANK-')) {
+        const { data } = await supabase
+          .from('bank_accounts')
+          .select('id, sku')
+          .eq('company_id', companyId)
+          .eq('sku', sku)
+          .is('deleted_at', null)
+          .single();
+        existingAccount = data;
+      }
+      
+      // Gerar SKU automaticamente se for INSERT novo
+      if (!existingAccount && (!sku || !sku.startsWith('BANK-'))) {
+        sku = await generateNextBankAccountSku(companyId);
+        console.log(`[SQL_SERVICE] 🔢 Gerado novo SKU: ${sku}`);
+      }
+
+      const accountData = {
+        company_id: companyId,
+        sku: sku, // ✅ SKU legível (BANK-001)
+        bank_name: account.bankName,
+        bank_code: account.bankCode || null,
+        agency: account.agency || null,
+        account_number: account.accountNumber || null,
+        account_type: account.accountType || 'Corrente',
+        initial_balance: account.initialBalance || 0,
+        current_balance: account.currentBalance || 0,
+        is_active: account.isActive !== undefined ? account.isActive : true
+      };
+
+      if (existingAccount) {
+        // ✅ UPDATE
+        console.log(`[SQL_SERVICE] 🔄 Atualizando bank account existente ${sku} (UUID: ${existingAccount.id})`);
+        const { error: updateError } = await supabase
+          .from('bank_accounts')
+          .update(accountData)
+          .eq('id', existingAccount.id);
+
+        if (updateError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao atualizar bank account:', updateError);
+          throw new Error(`Erro ao atualizar conta ${sku}: ${updateError.message}`);
+        }
+      } else {
+        // ✅ INSERT
+        console.log(`[SQL_SERVICE] ➕ Criando nova bank account ${sku}`);
+        const { error: insertError } = await supabase
+          .from('bank_accounts')
+          .insert(accountData);
+
+        if (insertError) {
+          console.error('[SQL_SERVICE] ❌ Erro ao inserir bank account:', insertError);
+          throw new Error(`Erro ao inserir conta ${sku}: ${insertError.message}`);
+        }
+      }
+
+      console.log(`[SQL_SERVICE] ✅ Bank account ${sku} processada com sucesso`);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${accounts.length} bank accounts salvos`);
+  return { success: true, count: accounts.length };
+}
+
 // ==================== EXPORT ====================
 
 export const sqlServiceExtended = {
@@ -1501,5 +1682,8 @@ export const sqlServiceExtended = {
   getAccountsReceivable,
   saveAccountsReceivable,
   getAccountsPayable,
-  saveAccountsPayable
+  saveAccountsPayable,
+  getBankAccounts,
+  saveBankAccounts,
+  resolveBankAccountId
 };
