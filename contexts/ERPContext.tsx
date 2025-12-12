@@ -1762,6 +1762,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   }, [profile?.company_id, companySettingsLoaded]);
 
   /**
+   * Helper: Mapear bank accounts do backend para formato do frontend
+   */
+  const mapBankAccountFromBackend = (acc: any) => ({
+    id: acc.id, // ✅ Backend já retorna em camelCase
+    bankName: acc.bankName,
+    accountType: acc.accountType === 'Corrente' ? 'Conta Corrente' : 
+                 acc.accountType === 'Poupança' ? 'Poupança' : 
+                 acc.accountType === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+    agency: acc.agency || '',
+    accountNumber: acc.accountNumber || '',
+    balance: parseFloat(acc.currentBalance) || 0,
+    isPrimary: false
+  });
+
+  /**
    * Carregar dados SQL do backend quando usuário faz login
    */
   useEffect(() => {
@@ -1846,17 +1861,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         if (bankAccountsRes.success && bankAccountsRes.data) {
           // Mapear dados SQL para formato do frontend
-          const mappedAccounts = bankAccountsRes.data.map((acc: any) => ({
-            id: acc.sku,
-            bankName: acc.bank_name,
-            accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
-                         acc.account_type === 'Poupança' ? 'Poupança' : 
-                         acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
-            agency: acc.agency || '',
-            accountNumber: acc.account_number || '',
-            balance: parseFloat(acc.current_balance) || 0,
-            isPrimary: false
-          }));
+          const mappedAccounts = bankAccountsRes.data.map(mapBankAccountFromBackend);
 
           setCompanySettings(prev => ({
             ...prev,
@@ -3787,17 +3792,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
       );
       if (reloadRes.success && reloadRes.data) {
-        const mappedAccounts = reloadRes.data.map((acc: any) => ({
-          id: acc.sku,
-          bankName: acc.bank_name,
-          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
-                       acc.account_type === 'Poupança' ? 'Poupança' : 
-                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
-          agency: acc.agency || '',
-          accountNumber: acc.account_number || '',
-          balance: parseFloat(acc.current_balance) || 0,
-          isPrimary: false
-        }));
+        const mappedAccounts = reloadRes.data.map(mapBankAccountFromBackend);
         setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
       }
 
@@ -3842,17 +3837,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
       );
       if (reloadRes.success && reloadRes.data) {
-        const mappedAccounts = reloadRes.data.map((acc: any) => ({
-          id: acc.sku,
-          bankName: acc.bank_name,
-          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
-                       acc.account_type === 'Poupança' ? 'Poupança' : 
-                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
-          agency: acc.agency || '',
-          accountNumber: acc.account_number || '',
-          balance: parseFloat(acc.current_balance) || 0,
-          isPrimary: false
-        }));
+        const mappedAccounts = reloadRes.data.map(mapBankAccountFromBackend);
         setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
       }
 
@@ -3897,17 +3882,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`
       );
       if (reloadRes.success && reloadRes.data) {
-        const mappedAccounts = reloadRes.data.map((acc: any) => ({
-          id: acc.sku,
-          bankName: acc.bank_name,
-          accountType: acc.account_type === 'Corrente' ? 'Conta Corrente' : 
-                       acc.account_type === 'Poupança' ? 'Poupança' : 
-                       acc.account_type === 'Caixa' ? 'Caixa' : 'Conta Corrente',
-          agency: acc.agency || '',
-          accountNumber: acc.account_number || '',
-          balance: parseFloat(acc.current_balance) || 0,
-          isPrimary: false
-        }));
+        const mappedAccounts = reloadRes.data.map(mapBankAccountFromBackend);
         setCompanySettings(prev => ({ ...prev, bankAccounts: mappedAccounts }));
       }
 

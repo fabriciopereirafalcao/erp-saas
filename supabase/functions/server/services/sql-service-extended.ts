@@ -168,10 +168,11 @@ async function resolveProductId(companyId: string, productIdOrSku: string): Prom
       .select('id')
       .eq('company_id', companyId)
       .eq('sku', productIdOrSku)
-      .single();
+      .is('deleted_at', null) // ✅ Filtrar apenas produtos ativos
+      .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro se não encontrar
 
     if (error || !data) {
-      console.error(`[SQL_SERVICE] ⚠️ Produto não encontrado para SKU ${productIdOrSku}`);
+      console.error(`[SQL_SERVICE] ⚠️ Produto não encontrado para SKU ${productIdOrSku}`, error);
       return productIdOrSku; // Retornar original e deixar banco rejeitar
     }
 
