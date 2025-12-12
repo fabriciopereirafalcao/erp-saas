@@ -1374,7 +1374,7 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
       payment_amount: account.paymentAmount,
       payment_method: account.paymentMethod || '',
       notes: account.notes || ''
-    }));
+    });
 
     const rows = await Promise.all(rowsPromises);
 
