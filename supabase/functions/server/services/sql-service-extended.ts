@@ -863,6 +863,101 @@ export async function createPurchaseOrder(companyId: string, orderData: any) {
   };
 }
 
+/**
+ * ✅ NOVA FUNÇÃO: Cria uma única transação financeira e retorna imediatamente com SKU gerado
+ * Evita duplicações e problemas de sincronização
+ */
+export async function createFinancialTransaction(companyId: string, transactionData: any) {
+  const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] ➕ Criando nova transação financeira para empresa ${companyId}`);
+
+  // Gerar SKU sequencial
+  const sku = await generateNextFinancialTransactionSKU(companyId);
+  console.log(`[SQL_SERVICE] 🔢 SKU gerado: ${sku}`);
+
+  // Normalizar tipo (frontend usa português, backend usa inglês)
+  let transactionType = transactionData.type || '';
+  if (transactionType === 'Receita') transactionType = 'income';
+  if (transactionType === 'Despesa') transactionType = 'expense';
+  
+  // Normalizar status
+  let status = transactionData.status || '';
+  if (status === 'A Receber') status = 'pending';
+  if (status === 'A Pagar') status = 'pending';
+  if (status === 'Pago') status = 'paid';
+  if (status === 'Recebido') status = 'paid';
+  if (status === 'Vencido') status = 'overdue';
+  if (status === 'Cancelado') status = 'cancelled';
+
+  // Preparar dados da transação
+  const transaction = {
+    company_id: companyId,
+    sku,
+    transaction_type: transactionType,
+    date: transactionData.date || new Date().toISOString().split('T')[0],
+    due_date: transactionData.dueDate,
+    payment_date: transactionData.paymentDate,
+    effective_date: transactionData.effectiveDate,
+    party_type: transactionData.partyType,
+    party_id: transactionData.partyId,
+    party_name: transactionData.partyName,
+    category_id: transactionData.categoryId,
+    category_name: transactionData.categoryName,
+    bank_account_id: isValidUUID(transactionData.bankAccountId) ? transactionData.bankAccountId : null,
+    bank_account_name: transactionData.bankAccountName,
+    payment_method_id: transactionData.paymentMethodId,
+    payment_method_name: transactionData.paymentMethodName,
+    amount: transactionData.amount || 0,
+    status,
+    description: transactionData.description || '',
+    origin: transactionData.origin,
+    reference: transactionData.reference,
+    installment_number: transactionData.installmentNumber,
+    total_installments: transactionData.totalInstallments
+  };
+
+  // Inserir transação
+  const { data: insertedTransaction, error: insertError } = await supabase
+    .from('financial_transactions')
+    .insert(transaction)
+    .select('id, sku')
+    .single();
+
+  if (insertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao criar transação financeira:', insertError);
+    throw new Error(`Erro ao criar transação: ${insertError.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ Transação criada: ${insertedTransaction.sku} (UUID: ${insertedTransaction.id})`);
+
+  // Retornar a transação completa para o frontend (com nomes em português)
+  return {
+    id: insertedTransaction.sku, // Usar SKU como ID (FT-0001)
+    type: transactionData.type, // Manter português para frontend
+    date: transaction.date,
+    dueDate: transaction.due_date,
+    paymentDate: transaction.payment_date,
+    effectiveDate: transaction.effective_date,
+    partyType: transaction.party_type,
+    partyId: transaction.party_id,
+    partyName: transaction.party_name,
+    categoryId: transaction.category_id,
+    categoryName: transaction.category_name,
+    bankAccountId: transaction.bank_account_id,
+    bankAccountName: transaction.bank_account_name,
+    paymentMethodId: transaction.payment_method_id,
+    paymentMethodName: transaction.payment_method_name,
+    amount: transaction.amount,
+    status: transactionData.status, // Manter português para frontend
+    description: transaction.description,
+    origin: transaction.origin,
+    reference: transaction.reference,
+    installmentNumber: transaction.installment_number,
+    totalInstallments: transaction.total_installments
+  };
+}
+
 export async function getPurchaseOrders(companyId: string) {
   const supabase = getSupabaseClient();
   
@@ -1723,6 +1818,7 @@ export const sqlServiceExtended = {
   createPurchaseOrder, // ✅ Nova função para criar pedido único
   getPurchaseOrders,
   savePurchaseOrders,
+  createFinancialTransaction, // ✅ Nova função para criar transação única
   getStockMovements,
   saveStockMovements,
   getFinancialTransactions,

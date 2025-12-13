@@ -2816,13 +2816,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const createdAccountsReceivable: AccountReceivable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
+      // ✅ NOVO: Criar transações via API em paralelo
+      const transactionPromises = [];
+      
       for (let i = 0; i < numberOfInstallments; i++) {
-        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
-        // const transactionId = generateNextFinancialTransactionId();
-        
-        // ✅ NOVO: Deixar backend gerar SKU automaticamente
-        const transactionId = `TEMP-${Date.now()}-${i}`; // ID temporário até backend gerar SKU real
-        
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
         const firstDueDateBase = calculateDueDate(order);
         const dueDate = addDaysToDate(firstDueDateBase, i * 30); // Adiciona 30 dias para cada parcela
@@ -2831,8 +2828,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           ? `Pedido de venda ${order.id} - Parcela única`
           : `Pedido de venda ${order.id} - Parcela ${i + 1}/${numberOfInstallments}`;
         
-        const newTransaction: FinancialTransaction = {
-          id: transactionId,
+        const transactionData = {
           type: "Receita",
           date: transactionDate,
           dueDate: dueDate,
@@ -2857,7 +2853,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           totalInstallments: numberOfInstallments
         };
         
-        createdTransactions.push(newTransaction);
+        // Chamar API para criar transação com SKU gerado pelo backend
+        transactionPromises.push(addFinancialTransaction(transactionData));
         
         // ✅ NOVO: Criar também AccountReceivable (entidade separada para Contas a Receber)
         const accountReceivable: AccountReceivable = {
@@ -2879,21 +2876,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         createdAccountsReceivable.push(accountReceivable);
         
-        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments}:`, {
-          id: newTransaction.id,
-          status: newTransaction.status,
-          amount: newTransaction.amount,
-          dueDate: newTransaction.dueDate,
-          installment: `${i + 1}/${numberOfInstallments}`
-        });
+        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API`);
       }
       
-      // Adicionar todas as transações de uma vez
-      setFinancialTransactions(prev => {
-        const updated = [...createdTransactions, ...prev];
-        console.log(`📊 ${createdTransactions.length} transação(ões) financeira(s) criada(s). Total: ${updated.length}`);
-        return updated;
-      });
+      // Aguardar criação de todas as transações
+      const createdTransactionsResults = await Promise.all(transactionPromises);
+      const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
+      
+      console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
       // ✅ NOVO: Adicionar todas as contas a receber
       setAccountsReceivable(prev => {
@@ -3067,11 +3057,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       if (isNewTransaction) {
         const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
         const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
-        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
-        // const newTransactionId = generateNextFinancialTransactionId();
-        
-        // ✅ NOVO: Deixar backend gerar SKU automaticamente
-        const newTransactionId = `TEMP-${Date.now()}`; // ID temporário até backend gerar SKU real
+        // ✅ NOVO: Criar transação via API com SKU gerado pelo backend
         
         // CORREÇÃO: Usar issueDate do pedido como data da transação
         const transactionDate = order.issueDate || order.orderDate;
@@ -3090,8 +3076,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           firstInstallmentDays: order.firstInstallmentDays
         });
         
-        const newTransaction: FinancialTransaction = {
-          id: newTransactionId,
+        const transactionData = {
           type: "Receita",
           date: transactionDate,
           dueDate: dueDate,
@@ -3113,21 +3098,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           reference: order.id
         };
         
-        console.log(`💾 Criando nova transação (modo Pago):`, {
-          id: newTransaction.id,
-          status: newTransaction.status,
-          amount: newTransaction.amount,
-          reference: newTransaction.reference
-        });
+        console.log(`💾 Criando nova transação (modo Pago) via API`);
         
-        setFinancialTransactions(prev => {
-          const updated = [newTransaction, ...prev];
-          console.log(`📊 Array de transações atualizado (Pago). Total: ${updated.length}`);
-          return updated;
-        });
+        // Criar transação via API e aguardar retorno com SKU real
+        const newTransaction = await addFinancialTransaction(transactionData);
         
-        transactionId = newTransaction.id;
-        console.log(`✅ Nova transação criada: ${transactionId} para pedido ${order.id}`);
+        if (newTransaction) {
+          transactionId = newTransaction.id;
+          console.log(`✅ Nova transação criada via API: ${transactionId} para pedido ${order.id}`);
+        } else {
+          console.error(`❌ Falha ao criar transação via API`);
+          toast.error('Erro ao criar transação financeira');
+          return;
+        }
       }
       
       // Atualizar saldo bancário
@@ -4125,38 +4108,72 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Financial Transactions
-  const addFinancialTransaction = (transactionData: Omit<FinancialTransaction, 'id'>) => {
-    // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
-    // const newId = generateNextFinancialTransactionId();
-    
-    // ✅ NOVO: Deixar backend gerar SKU automaticamente
-    const newId = `TEMP-${Date.now()}`; // ID temporário até backend gerar SKU real
-    
-    // Validação de segurança: garantir que o ID não existe
-    const isDuplicate = financialTransactions.some(t => t.id === newId);
-    if (isDuplicate) {
-      console.error(`🚨 ERRO CRÍTICO: Tentativa de adicionar transação com ID duplicado: ${newId}`);
-      toast.error('Erro ao criar transação', {
-        description: 'ID duplicado detectado. Por favor, tente novamente.'
+  const addFinancialTransaction = async (transactionData: Omit<FinancialTransaction, 'id'>) => {
+    // ✅ NOVO FLUXO: Chamar endpoint /create-financial-transaction que retorna a transação com SKU gerado
+    // 🔄 FLUXO DE CRIAÇÃO DE TRANSAÇÃO COM SKU AUTOMÁTICO:
+    // 1. Frontend chama POST /create-financial-transaction no backend
+    // 2. Backend gera SKU sequencial (FT-0001) via generateNextFinancialTransactionSKU()
+    // 3. Backend salva no banco com o SKU correto
+    // 4. Backend retorna a transação completa com ID e SKU
+    // 5. Frontend adiciona a transação ao state local com ID definitivo
+    //
+    // ⚠️ IMPORTANTE: Não há mais IDs temporários - o backend retorna imediatamente o ID correto
+
+    try {
+      console.log(`🔄 Criando transação financeira via endpoint /create-financial-transaction...`);
+
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado para criar transações');
+        return;
+      }
+
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/create-financial-transaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          transactionData
+        })
       });
-      return;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erro ao criar transação: ${response.status} - ${errorText}`);
+        toast.error('Erro ao criar transação financeira');
+        return;
+      }
+
+      const newTransaction: FinancialTransaction = await response.json();
+      console.log(`✅ Transação criada com sucesso no backend: ${newTransaction.id}`);
+
+      // Adicionar transação ao state local
+      setFinancialTransactions(prev => [newTransaction, ...prev]);
+      
+      // Atualizar saldo bancário se pago/recebido
+      if (transactionData.paymentDate && transactionData.bankAccountId) {
+        const bankAccount = companySettings.bankAccounts.find(b => b.id === transactionData.bankAccountId);
+        if (bankAccount) {
+          updateBankAccount(transactionData.bankAccountId, {
+            balance: bankAccount.balance + 
+              (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
+          });
+        }
+      }
+      
+      toast.success("Transação financeira registrada!");
+      return newTransaction;
+
+    } catch (error) {
+      console.error('❌ Erro ao criar transação financeira:', error);
+      toast.error('Erro ao criar transação financeira');
     }
-    
-    const newTransaction: FinancialTransaction = {
-      ...transactionData,
-      id: newId
-    };
-    setFinancialTransactions(prev => [...prev, newTransaction]);
-    
-    // Atualizar saldo bancário se pago/recebido
-    if (transactionData.paymentDate) {
-      updateBankAccount(transactionData.bankAccountId, {
-        balance: companySettings.bankAccounts.find(b => b.id === transactionData.bankAccountId)!.balance + 
-          (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
-      });
-    }
-    
-    toast.success("Transação financeira registrada!");
   };
 
   const updateFinancialTransaction = (id: string, updates: Partial<FinancialTransaction>) => {
@@ -5121,18 +5138,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         totalAmount: order.totalAmount
       });
 
-      // Criar transações (parcelas)
-      const createdTransactions: FinancialTransaction[] = [];
+      // ✅ NOVO: Criar transações via API em paralelo
       const createdAccountsPayable: AccountPayable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
+      const transactionPromises = [];
 
       for (let i = 0; i < numberOfInstallments; i++) {
-        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
-        // const transactionId = generateNextFinancialTransactionId();
-        
-        // ✅ NOVO: Deixar backend gerar SKU automaticamente
-        const transactionId = `TEMP-${Date.now()}-${i}`; // ID temporário até backend gerar SKU real
-        
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
         const firstDueDateBase = calculateDueDatePurchase(order);
         const dueDate = addDaysToDate(firstDueDateBase, i * 30); // Adiciona 30 dias para cada parcela
@@ -5141,8 +5152,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           ? `Pedido de compra ${order.id} - Parcela única`
           : `Pedido de compra ${order.id} - Parcela ${i + 1}/${numberOfInstallments}`;
         
-        const newTransaction: FinancialTransaction = {
-          id: transactionId,
+        const transactionData = {
           type: "Despesa",
           date: transactionDate,
           dueDate: dueDate,
@@ -5167,7 +5177,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           totalInstallments: numberOfInstallments
         };
         
-        createdTransactions.push(newTransaction);
+        // Chamar API para criar transação com SKU gerado pelo backend
+        transactionPromises.push(addFinancialTransaction(transactionData));
         
         // ✅ NOVO: Criar também AccountPayable (entidade separada para Contas a Pagar)
         const accountPayable: AccountPayable = {
@@ -5189,21 +5200,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         createdAccountsPayable.push(accountPayable);
         
-        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments}:`, {
-          id: newTransaction.id,
-          status: newTransaction.status,
-          amount: newTransaction.amount,
-          dueDate: newTransaction.dueDate,
-          installment: `${i + 1}/${numberOfInstallments}`
-        });
+        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API`);
       }
       
-      // Adicionar todas as transações de uma vez
-      setFinancialTransactions(prev => {
-        const updated = [...createdTransactions, ...prev];
-        console.log(`📊 ${createdTransactions.length} transação(ões) financeira(s) criada(s). Total: ${updated.length}`);
-        return updated;
-      });
+      // Aguardar criação de todas as transações
+      const createdTransactionsResults = await Promise.all(transactionPromises);
+      const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
+      
+      console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
       // ✅ NOVO: Adicionar todas as contas a pagar
       setAccountsPayable(prev => {

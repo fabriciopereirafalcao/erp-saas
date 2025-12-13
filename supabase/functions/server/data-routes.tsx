@@ -255,6 +255,35 @@ app.post('/create-purchase-order', async (c) => {
   }
 });
 
+// ✅ NOVA ROTA: Criar transação financeira única com SKU gerado imediatamente
+app.post('/create-financial-transaction', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { transactionData } = body;
+    
+    if (!transactionData || typeof transactionData !== 'object') {
+      console.error('[CREATE FINANCIAL TRANSACTION] ❌ Dados inválidos recebidos:', body);
+      return c.json({ error: 'transactionData deve ser um objeto' }, 400);
+    }
+
+    console.log(`[CREATE FINANCIAL TRANSACTION] ➕ Criando nova transação financeira para empresa ${auth.companyId}`);
+    
+    const createdTransaction = await sqlServiceExtended.createFinancialTransaction(auth.companyId, transactionData);
+    
+    console.log(`[CREATE FINANCIAL TRANSACTION] ✅ Transação criada: ${createdTransaction.id} (SKU: ${createdTransaction.sku})`);
+    return c.json(createdTransaction);
+
+  } catch (error) {
+    console.error('[CREATE FINANCIAL TRANSACTION] ❌ Erro ao criar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/sales-orders', async (c) => {
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
