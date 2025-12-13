@@ -1381,6 +1381,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (isSubscribed && paymentMethodsData && paymentMethodsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${paymentMethodsData.length} formas de pagamento carregadas`);
           setPaymentMethods(paymentMethodsData);
+        } else if (isSubscribed && (!paymentMethodsData || paymentMethodsData.length === 0)) {
+          // ✅ SEED: Criar formas de pagamento padrão se não existirem
+          console.log('[SEED] 🌱 Criando formas de pagamento padrão...');
+          try {
+            const response = await authPost(
+              `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/payment-methods`,
+              { data: initialPaymentMethods }
+            );
+            if (response.success) {
+              console.log('[SEED] ✅ Formas de pagamento padrão criadas');
+              setPaymentMethods(initialPaymentMethods);
+            }
+          } catch (error) {
+            console.error('[SEED] ❌ Erro ao criar formas de pagamento padrão:', error);
+          }
         }
         
         // Carregar categorias de contas
@@ -1388,6 +1403,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (isSubscribed && accountCategoriesData && accountCategoriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
           setAccountCategories(accountCategoriesData);
+        } else if (isSubscribed && (!accountCategoriesData || accountCategoriesData.length === 0)) {
+          // ✅ SEED: Criar categorias de contas padrão se não existirem
+          console.log('[SEED] 🌱 Criando categorias de contas padrão...');
+          try {
+            const response = await authPost(
+              `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories`,
+              { data: initialAccountCategories }
+            );
+            if (response.success) {
+              console.log('[SEED] ✅ Categorias de contas padrão criadas');
+              setAccountCategories(initialAccountCategories);
+            }
+          } catch (error) {
+            console.error('[SEED] ❌ Erro ao criar categorias de contas padrão:', error);
+          }
         }
         
         // Carregar transações financeiras
