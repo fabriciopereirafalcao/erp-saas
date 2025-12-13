@@ -1378,20 +1378,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         // Carregar formas de pagamento
         const paymentMethodsData = await loadEntity<PaymentMethod[]>('payment-methods');
+        console.log('[DEBUG] paymentMethodsData:', paymentMethodsData, 'length:', paymentMethodsData?.length);
+        
         if (isSubscribed && paymentMethodsData && paymentMethodsData.length > 0) {
           console.log(`[SUPABASE] ✅ ${paymentMethodsData.length} formas de pagamento carregadas`);
           setPaymentMethods(paymentMethodsData);
-        } else if (isSubscribed && (!paymentMethodsData || paymentMethodsData.length === 0)) {
+        } else if (isSubscribed) {
           // ✅ SEED: Criar formas de pagamento padrão se não existirem
-          console.log('[SEED] 🌱 Criando formas de pagamento padrão...');
+          console.log('[SEED] 🌱 Criando formas de pagamento padrão no banco...');
+          console.log('[SEED] 📊 Formas de pagamento a serem criadas:', initialPaymentMethods);
           try {
             const response = await authPost(
               `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/payment-methods`,
               { data: initialPaymentMethods }
             );
+            console.log('[SEED] 📡 Resposta do servidor:', response);
             if (response.success) {
-              console.log('[SEED] ✅ Formas de pagamento padrão criadas');
+              console.log('[SEED] ✅ Formas de pagamento padrão criadas no banco');
               setPaymentMethods(initialPaymentMethods);
+            } else {
+              console.error('[SEED] ❌ Erro na resposta do servidor:', response.error);
             }
           } catch (error) {
             console.error('[SEED] ❌ Erro ao criar formas de pagamento padrão:', error);
@@ -1400,20 +1406,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         // Carregar categorias de contas
         const accountCategoriesData = await loadEntity<AccountCategory[]>('account-categories');
+        console.log('[DEBUG] accountCategoriesData:', accountCategoriesData, 'length:', accountCategoriesData?.length);
+        
         if (isSubscribed && accountCategoriesData && accountCategoriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
           setAccountCategories(accountCategoriesData);
-        } else if (isSubscribed && (!accountCategoriesData || accountCategoriesData.length === 0)) {
+        } else if (isSubscribed) {
           // ✅ SEED: Criar categorias de contas padrão se não existirem
-          console.log('[SEED] 🌱 Criando categorias de contas padrão...');
+          console.log('[SEED] 🌱 Criando categorias de contas padrão no banco...');
+          console.log('[SEED] 📊 Categorias a serem criadas:', initialAccountCategories);
           try {
             const response = await authPost(
               `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories`,
               { data: initialAccountCategories }
             );
+            console.log('[SEED] 📡 Resposta do servidor:', response);
             if (response.success) {
-              console.log('[SEED] ✅ Categorias de contas padrão criadas');
+              console.log('[SEED] ✅ Categorias de contas padrão criadas no banco');
               setAccountCategories(initialAccountCategories);
+            } else {
+              console.error('[SEED] ❌ Erro na resposta do servidor:', response.error);
             }
           } catch (error) {
             console.error('[SEED] ❌ Erro ao criar categorias de contas padrão:', error);
