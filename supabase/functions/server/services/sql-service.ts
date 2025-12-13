@@ -1005,34 +1005,141 @@ async function saveBuyers(companyId: string, buyers: any[]) {
 
 // PAYMENT METHODS (temporário - depois migrar para tabela)
 async function getPaymentMethods(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.paymentMethods || [];
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 📥 getPaymentMethods - companyId: ${companyId}`);
+  
+  // ✅ MIGRADO: Buscar da tabela SQL payment_methods
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar payment methods:', error);
+    throw new Error(`Erro ao buscar payment methods: ${error.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${data?.length || 0} payment methods carregados da tabela SQL`);
+  
+  // Mapear para o formato esperado pelo frontend
+  return (data || []).map(pm => ({
+    id: pm.id,
+    name: pm.name,
+    type: pm.type,
+    installmentsAllowed: pm.installments_allowed,
+    isActive: pm.is_active
+  }));
 }
 
 async function savePaymentMethods(companyId: string, paymentMethods: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.paymentMethods = paymentMethods;
-  await saveCompanySettings(companyId, settings);
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 💾 savePaymentMethods - companyId: ${companyId}, count: ${paymentMethods.length}`);
+  
+  // ✅ MIGRADO: Salvar na tabela SQL payment_methods
+  
+  // 1️⃣ Deletar todos os registros existentes da empresa
+  const { error: deleteError } = await supabase
+    .from('payment_methods')
+    .delete()
+    .eq('company_id', companyId);
+
+  if (deleteError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao deletar payment methods:', deleteError);
+    throw new Error(`Erro ao deletar payment methods: ${deleteError.message}`);
+  }
+
+  // 2️⃣ Inserir novos registros
+  const recordsToInsert = paymentMethods.map(pm => ({
+    id: pm.id, // Manter o ID do frontend (PM-001, PM-002, etc.)
+    company_id: companyId,
+    name: pm.name,
+    type: pm.type,
+    installments_allowed: pm.installmentsAllowed,
+    is_active: pm.isActive ?? true
+  }));
+
+  const { error: insertError } = await supabase
+    .from('payment_methods')
+    .insert(recordsToInsert);
+
+  if (insertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao inserir payment methods:', insertError);
+    throw new Error(`Erro ao inserir payment methods: ${insertError.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${paymentMethods.length} payment methods salvos na tabela SQL`);
   return { success: true, count: paymentMethods.length };
 }
 
 // ACCOUNT CATEGORIES (temporário - depois migrar para tabela)
 async function getAccountCategories(companyId: string) {
+  const supabase = getSupabaseClient();
   console.log(`[SQL_SERVICE] 📥 getAccountCategories - companyId: ${companyId}`);
-  const settings = await getCompanySettings(companyId);
-  console.log(`[SQL_SERVICE] 📊 settings.accountCategories:`, settings.accountCategories);
-  console.log(`[SQL_SERVICE] 📊 length:`, settings.accountCategories?.length || 0);
-  return settings.accountCategories || [];
+  
+  // ✅ MIGRADO: Buscar da tabela SQL account_categories
+  const { data, error } = await supabase
+    .from('account_categories')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('code', { ascending: true });
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar account categories:', error);
+    throw new Error(`Erro ao buscar account categories: ${error.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${data?.length || 0} account categories carregados da tabela SQL`);
+  
+  // Mapear para o formato esperado pelo frontend
+  return (data || []).map(ac => ({
+    id: ac.id,
+    type: ac.type,
+    code: ac.code,
+    name: ac.name,
+    description: ac.description,
+    isActive: ac.is_active
+  }));
 }
 
 async function saveAccountCategories(companyId: string, categories: any[]) {
-  console.log(`[SQL_SERVICE] 💾 saveAccountCategories - companyId: ${companyId}`);
-  console.log(`[SQL_SERVICE] 📊 categories to save:`, categories);
-  console.log(`[SQL_SERVICE] 📊 count:`, categories.length);
-  const settings = await getCompanySettings(companyId);
-  settings.accountCategories = categories;
-  await saveCompanySettings(companyId, settings);
-  console.log(`[SQL_SERVICE] ✅ Account categories saved to companies.settings`);
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 💾 saveAccountCategories - companyId: ${companyId}, count: ${categories.length}`);
+  
+  // ✅ MIGRADO: Salvar na tabela SQL account_categories
+  
+  // 1️⃣ Deletar todos os registros existentes da empresa
+  const { error: deleteError } = await supabase
+    .from('account_categories')
+    .delete()
+    .eq('company_id', companyId);
+
+  if (deleteError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao deletar account categories:', deleteError);
+    throw new Error(`Erro ao deletar account categories: ${deleteError.message}`);
+  }
+
+  // 2️⃣ Inserir novos registros
+  const recordsToInsert = categories.map(ac => ({
+    id: ac.id, // Manter o ID do frontend (AC-001, AC-002, etc.)
+    company_id: companyId,
+    type: ac.type,
+    code: ac.code,
+    name: ac.name,
+    description: ac.description || '',
+    is_active: ac.isActive ?? true
+  }));
+
+  const { error: insertError } = await supabase
+    .from('account_categories')
+    .insert(recordsToInsert);
+
+  if (insertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao inserir account categories:', insertError);
+    throw new Error(`Erro ao inserir account categories: ${insertError.message}`);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${categories.length} account categories salvos na tabela SQL`);
   return { success: true, count: categories.length };
 }
 
