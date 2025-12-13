@@ -894,10 +894,17 @@ export async function createFinancialTransaction(companyId: string, transactionD
   const transaction = {
     company_id: companyId,
     sku,
-    transaction_type: transactionType,
-    date: transactionData.date || new Date().toISOString().split('T')[0],
+    type: transactionType, // ✅ CORRIGIDO: usar 'type' (nome da coluna real)
+    transaction_date: transactionData.date || new Date().toISOString().split('T')[0], // ✅ CORRIGIDO: usar 'transaction_date'
+    category: transactionData.categoryName || transactionData.category || '', // ✅ Campo obrigatório
+    description: transactionData.description || '',
+    amount: transactionData.amount || 0,
+    account: transactionData.account || 'Geral', // ✅ Campo obrigatório
+    payment_method: transactionData.paymentMethodName || transactionData.paymentMethod,
+    reference: transactionData.reference,
+    notes: transactionData.notes || '',
+    // Campos adicionais expandidos
     due_date: transactionData.dueDate,
-    payment_date: transactionData.paymentDate,
     effective_date: transactionData.effectiveDate,
     party_type: transactionData.partyType,
     party_id: transactionData.partyId,
@@ -908,13 +915,11 @@ export async function createFinancialTransaction(companyId: string, transactionD
     bank_account_name: transactionData.bankAccountName,
     payment_method_id: transactionData.paymentMethodId,
     payment_method_name: transactionData.paymentMethodName,
-    amount: transactionData.amount || 0,
     status,
-    description: transactionData.description || '',
     origin: transactionData.origin,
-    reference: transactionData.reference,
     installment_number: transactionData.installmentNumber,
-    total_installments: transactionData.totalInstallments
+    total_installments: transactionData.totalInstallments,
+    payment_date: transactionData.paymentDate
   };
 
   // Inserir transação
@@ -935,17 +940,21 @@ export async function createFinancialTransaction(companyId: string, transactionD
   return {
     id: insertedTransaction.sku, // Usar SKU como ID (FT-0001)
     type: transactionData.type, // Manter português para frontend
-    date: transaction.date,
+    date: transaction.transaction_date, // ✅ CORRIGIDO
+    transactionDate: transaction.transaction_date,
     dueDate: transaction.due_date,
     paymentDate: transaction.payment_date,
     effectiveDate: transaction.effective_date,
     partyType: transaction.party_type,
     partyId: transaction.party_id,
     partyName: transaction.party_name,
+    category: transaction.category,
     categoryId: transaction.category_id,
     categoryName: transaction.category_name,
+    account: transaction.account,
     bankAccountId: transaction.bank_account_id,
     bankAccountName: transaction.bank_account_name,
+    paymentMethod: transaction.payment_method,
     paymentMethodId: transaction.payment_method_id,
     paymentMethodName: transaction.payment_method_name,
     amount: transaction.amount,
@@ -953,6 +962,7 @@ export async function createFinancialTransaction(companyId: string, transactionD
     description: transaction.description,
     origin: transaction.origin,
     reference: transaction.reference,
+    notes: transaction.notes,
     installmentNumber: transaction.installment_number,
     totalInstallments: transaction.total_installments
   };
