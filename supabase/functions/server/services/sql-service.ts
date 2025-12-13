@@ -1049,9 +1049,9 @@ async function savePaymentMethods(companyId: string, paymentMethods: any[]) {
     throw new Error(`Erro ao deletar payment methods: ${deleteError.message}`);
   }
 
-  // 2️⃣ Inserir novos registros
+  // 2️⃣ Inserir novos registros (sem id - deixar PostgreSQL gerar UUID)
   const recordsToInsert = paymentMethods.map(pm => ({
-    id: pm.id, // Manter o ID do frontend (PM-001, PM-002, etc.)
+    // ❌ NÃO incluir id - deixar PostgreSQL gerar UUID automaticamente
     company_id: companyId,
     name: pm.name,
     type: pm.type,
@@ -1119,12 +1119,12 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
     throw new Error(`Erro ao deletar account categories: ${deleteError.message}`);
   }
 
-  // 2️⃣ Inserir novos registros
+  // 2️⃣ Inserir novos registros (sem id - deixar PostgreSQL gerar UUID)
   const recordsToInsert = categories.map(ac => ({
-    id: ac.id, // Manter o ID do frontend (AC-001, AC-002, etc.)
+    // ❌ NÃO incluir id - deixar PostgreSQL gerar UUID automaticamente
     company_id: companyId,
     type: ac.type,
-    code: ac.code,
+    code: ac.code, // ✅ Salvar "AC-001" no campo code
     name: ac.name,
     description: ac.description || '',
     is_active: ac.isActive ?? true
