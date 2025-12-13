@@ -3509,6 +3509,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return item;
     }));
     
+    // ✅ SALVAR NO BACKEND
+    (async () => {
+      try {
+        const response = await authPost(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
+          { data: [movement] }
+        );
+        
+        if (!response.success) {
+          console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', response.error);
+        } else {
+          console.log('[STOCK MOVEMENT] ✅ Movimentação salva no backend');
+        }
+      } catch (error) {
+        console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', error);
+      }
+    })();
+    
     const movementType = quantity > 0 ? "Entrada" : "Saída"; // Label para toast em português
     toast.success(`${movementType} de ${Math.abs(quantity)} unidades registrada - ${reason}`);
   };
@@ -3560,6 +3578,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
       return item;
     }));
+    
+    // ✅ SALVAR NO BACKEND
+    (async () => {
+      try {
+        const response = await authPost(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
+          { data: [movement] }
+        );
+        
+        if (!response.success) {
+          console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', response.error);
+        } else {
+          console.log('[STOCK MOVEMENT] ✅ Movimentação salva no backend');
+        }
+      } catch (error) {
+        console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', error);
+      }
+    })();
   };
 
   // ==================== QUERIES ====================
