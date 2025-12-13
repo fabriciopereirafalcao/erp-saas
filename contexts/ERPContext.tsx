@@ -2307,7 +2307,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         if (status === "Entregue") {
           // Gerar contas a receber
-          const arResult = executeAccountsReceivableCreation(newOrder);
+          const arResult = await executeAccountsReceivableCreation(newOrder);
           if (arResult.success && arResult.transactionId) {
             actionsExecuted.push(arResult.message);
             generatedIds.push({ type: "Transação Financeira", id: arResult.transactionId });
@@ -2320,7 +2320,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         if (status === "Pago") {
           // Quitar contas a receber
-          const paymentResult = executeAccountsReceivablePayment(newOrder);
+          const paymentResult = await executeAccountsReceivablePayment(newOrder);
           if (paymentResult.success && paymentResult.transactionId) {
             actionsExecuted.push(paymentResult.message);
             generatedIds.push({ type: "Transação Financeira (Pago)", id: paymentResult.transactionId });
@@ -2746,7 +2746,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Executar criação de contas a receber (idempotente com proteção atômica)
-  const executeAccountsReceivableCreation = (order: SalesOrder): { success: boolean; transactionId?: string; transaction?: FinancialTransaction; message: string } => {
+  const executeAccountsReceivableCreation = async (order: SalesOrder): Promise<{ success: boolean; transactionId?: string; transaction?: FinancialTransaction; message: string }> => {
     // VALIDAÇÃO ATÔMICA
     const validation = validateAccountsCreation(order);
     if (!validation.canProceed) {
@@ -2812,7 +2812,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       });
 
       // Criar transações (parcelas)
-      const createdTransactions: FinancialTransaction[] = [];
       const createdAccountsReceivable: AccountReceivable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
@@ -2909,7 +2908,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Executar quitação de contas a receber (idempotente com proteção atômica)
-  const executeAccountsReceivablePayment = (order: SalesOrder, existingTransactionFromContext?: FinancialTransaction): { success: boolean; transactionId?: string; message: string } => {
+  const executeAccountsReceivablePayment = async (order: SalesOrder, existingTransactionFromContext?: FinancialTransaction): Promise<{ success: boolean; transactionId?: string; message: string }> => {
     // VALIDAÇÃO ATÔMICA
     const validation = validatePayment(order);
     if (!validation.canProceed) {
@@ -3188,7 +3187,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  const updateSalesOrderStatus = (id: string, newStatus: SalesOrder['status'], userName: string = "Sistema", isExceptional: boolean = false) => {
+  const updateSalesOrderStatus = async (id: string, newStatus: SalesOrder['status'], userName: string = "Sistema", isExceptional: boolean = false) => {
     const order = salesOrders.find(o => o.id === id);
     if (!order) {
       toast.error("Pedido não encontrado!");
@@ -3269,7 +3268,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         case "Entregue":
           // Gerar contas a receber
-          const arResult = executeAccountsReceivableCreation(orderWithUpdatedContext);
+          const arResult = await executeAccountsReceivableCreation(orderWithUpdatedContext);
           if (arResult.success) {
             actionsExecuted.push(`✅ ${arResult.message}`);
             if (arResult.transactionId) {
@@ -5057,7 +5056,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Criar contas a pagar quando pedido é recebido (idempotente com proteção atômica)
-  const executeAccountsPayableCreation = (order: PurchaseOrder): { success: boolean; message: string; transactionId?: string; transaction?: FinancialTransaction } => {
+  const executeAccountsPayableCreation = async (order: PurchaseOrder): Promise<{ success: boolean; message: string; transactionId?: string; transaction?: FinancialTransaction }> => {
     // VALIDAÇÃO: Verificar se já foi criada
     if (order.actionFlags?.accountsReceivableCreated) {
       console.warn(`⚠️ Transações financeiras já foram criadas para pedido ${order.id}`);
@@ -5232,7 +5231,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updatePurchaseOrderStatus = (id: string, newStatus: PurchaseOrder['status'], userName: string = 'Sistema', isExceptional: boolean = false) => {
+  const updatePurchaseOrderStatus = async (id: string, newStatus: PurchaseOrder['status'], userName: string = 'Sistema', isExceptional: boolean = false) => {
     const order = purchaseOrders.find(o => o.id === id);
     if (!order) {
       toast.error('Pedido de compra não encontrado!');
@@ -5265,7 +5264,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
 
       // Criar contas a pagar
-      const apResult = executeAccountsPayableCreation(orderWithUpdatedContext);
+      const apResult = await executeAccountsPayableCreation(orderWithUpdatedContext);
       if (apResult.success) {
         actionsExecuted.push(`✅ ${apResult.message}`);
         if (apResult.transactionId) {
