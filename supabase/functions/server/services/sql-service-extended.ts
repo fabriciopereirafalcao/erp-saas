@@ -270,7 +270,7 @@ async function generateNextPurchaseOrderNumber(companyId: string): Promise<strin
  * Gera o próximo SKU de Financial Transaction
  * Formato: FT-0001, FT-0002, ..., FT-9999, FT-10000...
  */
-async function generateNextFinancialTransactionSku(companyId: string): Promise<string> {
+export async function generateNextFinancialTransactionSKU(companyId: string): Promise<string> {
   const supabase = getSupabaseClient();
   
   console.log(`[SQL_SERVICE] 🔢 Iniciando geração de SKU para empresa: ${companyId}`);
@@ -1334,7 +1334,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
       
       // Gerar SKU automaticamente APENAS se não veio com SKU válido
       if (!sku || !sku.startsWith('FT-')) {
-        sku = await generateNextFinancialTransactionSku(companyId);
+        sku = await generateNextFinancialTransactionSKU(companyId);
         console.log(`[SQL_SERVICE] 🔢 Gerado novo SKU: ${sku}`);
       }
 
@@ -1416,7 +1416,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
             console.error('[SQL_SERVICE] 🚨 Tentando gerar novo SKU como fallback...');
             
             // Gerar novo SKU como fallback
-            sku = await generateNextFinancialTransactionSku(companyId);
+            sku = await generateNextFinancialTransactionSKU(companyId);
             console.log(`[SQL_SERVICE] 🔢 SKU fallback gerado: ${sku}`);
             
             // Atualizar transactionData com novo SKU
