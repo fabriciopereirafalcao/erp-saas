@@ -630,6 +630,42 @@ async function generateNextSupplierSku(companyId: string): Promise<string> {
   return `FOR-${String(nextNumber).padStart(3, '0')}`;
 }
 
+/**
+ * Gera o próximo código sequencial para categorias de contas
+ * Formato: AC-001, AC-002, ..., AC-999
+ */
+async function generateNextAccountCategoryCode(companyId: string): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('account_categories')
+    .select('code')
+    .eq('company_id', companyId)
+    .like('code', 'AC-%')
+    .order('code', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('[SQL_SERVICE] ⚠️ Erro ao buscar códigos de categorias, gerando código padrão:', error);
+    return 'AC-001';
+  }
+
+  let maxNumber = 0;
+  
+  if (data && data.length > 0) {
+    data.forEach((row: any) => {
+      const match = row.code.match(/^AC-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+  }
+  
+  const nextNumber = maxNumber + 1;
+  return `AC-${String(nextNumber).padStart(3, '0')}`;
+}
+
 export async function getProducts(companyId: string) {
   const supabase = getSupabaseClient();
   
@@ -1119,12 +1155,24 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
     throw new Error(`Erro ao deletar account categories: ${deleteError.message}`);
   }
 
-  // 2️⃣ Inserir novos registros (sem id - deixar PostgreSQL gerar UUID)
-  const recordsToInsert = categories.map(ac => ({
+  // 2️⃣ Gerar códigos automáticos para categorias sem code
+  const categoriesWithCode = await Promise.all(categories.map(async (ac: any) => {
+    if (ac.code) {
+      // Já tem code definido
+      return { ...ac, code: ac.code };
+    }
+    // Gerar novo code sequencial automaticamente
+    const newCode = await generateNextAccountCategoryCode(companyId);
+    console.log(`[SQL_SERVICE] 🔢 Código gerado automaticamente: ${newCode} para categoria "${ac.name}"`);
+    return { ...ac, code: newCode };
+  }));
+
+  // 3️⃣ Inserir novos registros (sem id - deixar PostgreSQL gerar UUID)
+  const recordsToInsert = categoriesWithCode.map(ac => ({
     // ❌ NÃO incluir id - deixar PostgreSQL gerar UUID automaticamente
     company_id: companyId,
     type: ac.type,
-    code: ac.code, // ✅ Salvar "AC-001" no campo code
+    code: ac.code, // ✅ Agora sempre tem code (gerado ou customizado)
     name: ac.name,
     description: ac.description || '',
     is_active: ac.isActive ?? true
