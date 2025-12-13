@@ -2817,7 +2817,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
       for (let i = 0; i < numberOfInstallments; i++) {
-        const transactionId = generateNextFinancialTransactionId();
+        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
+        // const transactionId = generateNextFinancialTransactionId();
+        
+        // ✅ NOVO: Deixar backend gerar SKU automaticamente
+        const transactionId = `TEMP-${Date.now()}-${i}`; // ID temporário até backend gerar SKU real
         
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
         const firstDueDateBase = calculateDueDate(order);
@@ -3063,7 +3067,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       if (isNewTransaction) {
         const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
         const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
-        const newTransactionId = generateNextFinancialTransactionId();
+        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
+        // const newTransactionId = generateNextFinancialTransactionId();
+        
+        // ✅ NOVO: Deixar backend gerar SKU automaticamente
+        const newTransactionId = `TEMP-${Date.now()}`; // ID temporário até backend gerar SKU real
         
         // CORREÇÃO: Usar issueDate do pedido como data da transação
         const transactionDate = order.issueDate || order.orderDate;
@@ -4118,7 +4126,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Financial Transactions
   const addFinancialTransaction = (transactionData: Omit<FinancialTransaction, 'id'>) => {
-    const newId = generateNextFinancialTransactionId();
+    // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
+    // const newId = generateNextFinancialTransactionId();
+    
+    // ✅ NOVO: Deixar backend gerar SKU automaticamente
+    const newId = `TEMP-${Date.now()}`; // ID temporário até backend gerar SKU real
     
     // Validação de segurança: garantir que o ID não existe
     const isDuplicate = financialTransactions.some(t => t.id === newId);
@@ -5115,7 +5127,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
       for (let i = 0; i < numberOfInstallments; i++) {
-        const transactionId = generateNextFinancialTransactionId();
+        // ❌ REMOVIDO: Geração local de SKU (causa bug multi-tenant)
+        // const transactionId = generateNextFinancialTransactionId();
+        
+        // ✅ NOVO: Deixar backend gerar SKU automaticamente
+        const transactionId = `TEMP-${Date.now()}-${i}`; // ID temporário até backend gerar SKU real
         
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
         const firstDueDateBase = calculateDueDatePurchase(order);
