@@ -273,6 +273,8 @@ async function generateNextPurchaseOrderNumber(companyId: string): Promise<strin
 async function generateNextFinancialTransactionSku(companyId: string): Promise<string> {
   const supabase = getSupabaseClient();
   
+  console.log(`[SQL_SERVICE] 🔢 Iniciando geração de SKU para empresa: ${companyId}`);
+  
   // Buscar todos os SKUs que seguem o padrão FT-####
   const { data, error } = await supabase
     .from('financial_transactions')
@@ -284,7 +286,13 @@ async function generateNextFinancialTransactionSku(companyId: string): Promise<s
 
   if (error) {
     console.error('[SQL_SERVICE] ⚠️ Erro ao buscar SKUs de financial transactions, gerando padrão:', error);
+    console.error('[SQL_SERVICE] 🔍 Company ID usado na query:', companyId);
     return 'FT-0001';
+  }
+
+  console.log(`[SQL_SERVICE] 🔍 Encontrados ${data?.length || 0} SKUs existentes para empresa ${companyId}`);
+  if (data && data.length > 0) {
+    console.log(`[SQL_SERVICE] 📋 Primeiros SKUs encontrados:`, data.slice(0, 5).map(r => r.sku));
   }
 
   let maxNumber = 0;
@@ -302,7 +310,7 @@ async function generateNextFinancialTransactionSku(companyId: string): Promise<s
   const nextNumber = maxNumber + 1;
   const sku = `FT-${String(nextNumber).padStart(4, '0')}`;
   
-  console.log(`[SQL_SERVICE] 🔢 Gerado SKU financial transaction: ${sku} (maxNumber: ${maxNumber})`);
+  console.log(`[SQL_SERVICE] 🔢 Gerado SKU financial transaction: ${sku} (maxNumber: ${maxNumber}, empresa: ${companyId})`);
   return sku;
 }
 
@@ -1291,14 +1299,50 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         }
       } else {
         // ✅ INSERT
-        console.log(`[SQL_SERVICE] ➕ Criando nova transação ${sku}`);
+        console.log(`[SQL_SERVICE] ➕ Criando nova transação ${sku} para empresa ${companyId}`);
         const { error: insertError } = await supabase
           .from('financial_transactions')
           .insert(transactionData);
 
         if (insertError) {
           console.error('[SQL_SERVICE] ❌ Erro ao inserir financial transaction:', insertError);
-          throw new Error(`Erro ao inserir transação ${sku}: ${insertError.message}`);
+          console.error('[SQL_SERVICE] 🔍 Detalhes do erro:', {
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            sku: sku,
+            companyId: companyId
+          });
+          
+          // Se for erro de UNIQUE constraint, pode ser constraint global ainda ativo
+          if (insertError.code === '23505') {
+            console.error('[SQL_SERVICE] 🚨 ERRO DE UNIQUE CONSTRAINT - Migration 022 pode não ter sido aplicada!');
+            console.error('[SQL_SERVICE] 🚨 Tentando gerar novo SKU como fallback...');
+            
+            // Gerar novo SKU como fallback
+            sku = await generateNextFinancialTransactionSku(companyId);
+            console.log(`[SQL_SERVICE] 🔢 SKU fallback gerado: ${sku}`);
+            
+            // Atualizar transactionData com novo SKU
+            transactionData.sku = sku;
+            
+            // Tentar inserir novamente
+            const { error: retryError } = await supabase
+              .from('financial_transactions')
+              .insert(transactionData);
+            
+            if (retryError) {
+              console.error('[SQL_SERVICE] ❌ Erro ao inserir com SKU fallback:', retryError);
+              throw new Error(`Erro ao inserir transação ${sku}: ${retryError.message}`);
+            }
+            
+            console.log(`[SQL_SERVICE] ✅ Transação inserida com SKU fallback ${sku}`);
+          } else {
+            throw new Error(`Erro ao inserir transação ${sku}: ${insertError.message}`);
+          }
+        } else {
+          console.log(`[SQL_SERVICE] ✅ Transação ${sku} criada com sucesso para empresa ${companyId}`);
         }
       }
 
