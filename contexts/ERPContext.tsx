@@ -5093,30 +5093,32 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         : (accountCategories || []).find(cat => cat.type === "Despesa" && cat.isActive);
       
       if (!category) {
-        console.error(`❌ Categoria de despesa não encontrada`);
-        return { success: false, message: 'Categoria de despesa não encontrada' };
+        console.warn(`⚠️ Categoria de despesa não encontrada, usando valores padrão`);
       }
 
-      // Obter fornecedor
+      // Obter fornecedor (opcional - se não encontrar, usa dados do pedido)
       const supplier = (suppliers || []).find(s => s.id === order.supplierId);
       if (!supplier) {
-        console.error(`❌ Fornecedor não encontrado: ${order.supplierId}`);
-        return { success: false, message: 'Fornecedor não encontrado' };
+        console.warn(`⚠️ Fornecedor não encontrado no array local: ${order.supplierId}`);
+        console.log(`ℹ️ Usando dados do fornecedor do pedido: ${order.supplier}`);
       }
 
-      // Obter conta bancária
+      // Obter conta bancária (opcional - se não encontrar, usa dados padrão)
       const bankAccounts = companySettings?.bankAccounts || [];
       const bank = order.bankAccountId 
         ? bankAccounts.find(b => b.id === order.bankAccountId)
         : bankAccounts.find(b => b.isPrimary) || bankAccounts[0];
 
       if (!bank) {
-        console.error(`❌ Conta bancária não configurada`);
-        return { success: false, message: 'Conta bancária não configurada' };
+        console.warn(`⚠️ Conta bancária não configurada, usando valores padrão`);
       }
 
-      // Obter forma de pagamento
+      // Obter forma de pagamento (opcional - se não encontrar, usa valores padrão)
       const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
+      
+      if (!paymentMethod) {
+        console.warn(`⚠️ Forma de pagamento não configurada, usando valores padrão`);
+      }
 
       // CORREÇÃO: Usar issueDate do pedido como data da transação
       const transactionDate = order.issueDate || order.orderDate;
@@ -5160,13 +5162,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyType: "Fornecedor",
           partyId: order.supplierId,
           partyName: order.supplier,
-          categoryId: category.id,
-          categoryName: category.name,
+          categoryId: category?.id || '',
+          categoryName: category?.name || 'Despesas Gerais',
           // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
-          bankAccountId: (bank.id && isValidUUID(bank.id)) ? bank.id : '',
-          bankAccountName: bank.bankName,
-          paymentMethodId: paymentMethod.id,
-          paymentMethodName: paymentMethod.name,
+          bankAccountId: (bank?.id && isValidUUID(bank.id)) ? bank.id : '',
+          bankAccountName: bank?.bankName || 'Conta Padrão',
+          paymentMethodId: paymentMethod?.id || '',
+          paymentMethodName: paymentMethod?.name || 'Dinheiro',
           amount: installmentAmount,
           status: "A Pagar",
           description,
