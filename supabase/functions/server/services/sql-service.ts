@@ -943,6 +943,8 @@ export const sqlService = {
 async function getCompanySettings(companyId: string) {
   const supabase = getSupabaseClient();
   
+  console.log(`[SQL_SERVICE] 🔍 getCompanySettings - companyId: ${companyId}`);
+  
   const { data, error } = await supabase
     .from('companies')
     .select('settings')
@@ -953,6 +955,10 @@ async function getCompanySettings(companyId: string) {
     console.error('[SQL_SERVICE] ❌ Erro ao buscar company settings:', error);
     return {};
   }
+
+  console.log(`[SQL_SERVICE] 📊 Raw settings from DB:`, data?.settings);
+  console.log(`[SQL_SERVICE] 📊 Has accountCategories?`, !!data?.settings?.accountCategories);
+  console.log(`[SQL_SERVICE] 📊 Has paymentMethods?`, !!data?.settings?.paymentMethods);
 
   return data?.settings || {};
 }
@@ -1012,14 +1018,21 @@ async function savePaymentMethods(companyId: string, paymentMethods: any[]) {
 
 // ACCOUNT CATEGORIES (temporário - depois migrar para tabela)
 async function getAccountCategories(companyId: string) {
+  console.log(`[SQL_SERVICE] 📥 getAccountCategories - companyId: ${companyId}`);
   const settings = await getCompanySettings(companyId);
+  console.log(`[SQL_SERVICE] 📊 settings.accountCategories:`, settings.accountCategories);
+  console.log(`[SQL_SERVICE] 📊 length:`, settings.accountCategories?.length || 0);
   return settings.accountCategories || [];
 }
 
 async function saveAccountCategories(companyId: string, categories: any[]) {
+  console.log(`[SQL_SERVICE] 💾 saveAccountCategories - companyId: ${companyId}`);
+  console.log(`[SQL_SERVICE] 📊 categories to save:`, categories);
+  console.log(`[SQL_SERVICE] 📊 count:`, categories.length);
   const settings = await getCompanySettings(companyId);
   settings.accountCategories = categories;
   await saveCompanySettings(companyId, settings);
+  console.log(`[SQL_SERVICE] ✅ Account categories saved to companies.settings`);
   return { success: true, count: categories.length };
 }
 

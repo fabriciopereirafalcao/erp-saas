@@ -666,6 +666,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const [isLoadingCompanySettings, setIsLoadingCompanySettings] = useState(false);
   const [companySettingsLoaded, setCompanySettingsLoaded] = useState(false);
   
+  // ✅ NOVO: Flag para controlar se o carregamento inicial do Supabase foi concluído
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  
   // Estados inicializados vazios - serão carregados do localStorage/Supabase após login
   const [customers, setCustomers] = useState<Customer[]>(() => {
     // Inicialização vazia - dados serão carregados via useEffect após login
@@ -1503,6 +1506,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         
         console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
         
+        // ✅ Marcar que o carregamento inicial foi concluído
+        setInitialDataLoaded(true);
+        
       } catch (error) {
         console.error('[SUPABASE] ❌ Erro ao carregar dados iniciais:', error);
       }
@@ -1581,8 +1587,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   useEntityPersistence({ entityName: 'buyers', data: buyers, enabled: !!profile?.company_id, throttleMs: 1000 });
   
   // FASE 3: Entidades financeiras
-  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  // ✅ IMPORTANTE: Só salvar após carregamento inicial para evitar salvar dados padrão antes do seed
+  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: !!profile?.company_id && initialDataLoaded, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: !!profile?.company_id && initialDataLoaded, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: !!profile?.company_id, throttleMs: 500 });
   useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: !!profile?.company_id, throttleMs: 500 });
   useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: !!profile?.company_id, throttleMs: 500 });
