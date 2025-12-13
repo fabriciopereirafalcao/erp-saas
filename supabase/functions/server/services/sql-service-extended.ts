@@ -85,6 +85,58 @@ function denormalizeAccountPayableStatus(status: string): string {
 }
 
 /**
+ * ✅ HELPER: Normalizar status de Financial Transactions
+ * CHECK CONSTRAINT: status IN ('A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado')
+ */
+function normalizeFinancialTransactionStatus(
+  status: string | undefined,
+  transactionType: 'income' | 'expense'
+): 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado' {
+  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado'];
+  if (status && allowedStatuses.includes(status)) return status as any;
+  
+  if (status === 'pending') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
+  if (status === 'paid') return transactionType === 'income' ? 'Recebido' : 'Pago';
+  if (status === 'overdue') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
+  if (status === 'cancelled') return 'Cancelado';
+  
+  return 'Pago';
+}
+
+/**
+ * ✅ HELPER: Normalizar origin - CHECK: origin IN ('Manual', 'Pedido')
+ */
+function normalizeFinancialTransactionOrigin(origin: string | undefined): 'Manual' | 'Pedido' {
+  return (origin === 'Manual' || origin === 'Pedido') ? origin : 'Manual';
+}
+
+/**
+ * ✅ HELPER: Normalizar party_type - CHECK: ('Cliente', 'Fornecedor', 'Outro')
+ */
+function normalizeFinancialTransactionPartyType(
+  partyType: string | undefined
+): 'Cliente' | 'Fornecedor' | 'Outro' | null {
+  if (!partyType) return null;
+  
+  const allowedTypes = ['Cliente', 'Fornecedor', 'Outro'];
+  if (allowedTypes.includes(partyType)) return partyType as any;
+  
+  if (partyType === 'customer' || partyType === 'client') return 'Cliente';
+  if (partyType === 'supplier' || partyType === 'vendor') return 'Fornecedor';
+  
+  return 'Outro';
+}
+
+/**
+ * ✅ HELPER: Normalizar transfer_direction - CHECK: ('origem', 'destino')
+ */
+function normalizeFinancialTransactionTransferDirection(
+  direction: string | undefined
+): 'origem' | 'destino' | null {
+  return (direction === 'origem' || direction === 'destino') ? direction : null;
+}
+
+/**
  * Converte SKU de cliente para UUID
  * Se já for UUID, retorna o mesmo valor
  */
@@ -876,51 +928,76 @@ export async function createFinancialTransaction(companyId: string, transactionD
   const sku = await generateNextFinancialTransactionSKU(companyId);
   console.log(`[SQL_SERVICE] 🔢 SKU gerado: ${sku}`);
 
-  // Normalizar tipo (frontend usa português, backend usa inglês)
-  let transactionType = transactionData.type || '';
-  if (transactionType === 'Receita') transactionType = 'income';
-  if (transactionType === 'Despesa') transactionType = 'expense';
+  // =====================================================
+  // NORMALIZAÇÃO COMPLETA - ADERENTE AOS CHECK CONSTRAINTS
+  // =====================================================
   
-  // Normalizar status
-  let status = transactionData.status || '';
-  if (status === 'A Receber') status = 'pending';
-  if (status === 'A Pagar') status = 'pending';
-  if (status === 'Pago') status = 'paid';
-  if (status === 'Recebido') status = 'paid';
-  if (status === 'Vencido') status = 'overdue';
-  if (status === 'Cancelado') status = 'cancelled';
+  // 1. Normalizar TYPE: CHECK (type IN ('income', 'expense'))
+  const transactionType = normalizeTransactionType(transactionData.type || 'Receita');
+  
+  // 2. Normalizar STATUS usando função helper
+  const status = normalizeFinancialTransactionStatus(transactionData.status, transactionType);
+  
+  // 3. Normalizar ORIGIN usando função helper
+  const origin = normalizeFinancialTransactionOrigin(transactionData.origin);
+  
+  // 4. Normalizar PARTY_TYPE usando função helper
+  const partyType = normalizeFinancialTransactionPartyType(transactionData.partyType);
+  
+  // 5. Normalizar TRANSFER_DIRECTION usando função helper
+  const transferDirection = normalizeFinancialTransactionTransferDirection(transactionData.transferDirection);
 
-  // Preparar dados da transação
+  // Preparar dados da transação com TODOS os campos validados
   const transaction = {
     company_id: companyId,
     sku,
-    type: transactionType, // ✅ CORRIGIDO: usar 'type' (nome da coluna real)
-    transaction_date: transactionData.date || new Date().toISOString().split('T')[0], // ✅ CORRIGIDO: usar 'transaction_date'
-    category: transactionData.categoryName || transactionData.category || '', // ✅ Campo obrigatório
-    description: transactionData.description || '',
-    amount: transactionData.amount || 0,
-    account: transactionData.account || 'Geral', // ✅ Campo obrigatório
+    type: transactionType, // ✅ CHECK: 'income' | 'expense'
+    transaction_date: transactionData.date || new Date().toISOString().split('T')[0], // ✅ NOT NULL
+    category: transactionData.categoryName || transactionData.category || 'Geral', // ✅ NOT NULL
+    description: transactionData.description || `Transação ${transactionType === 'income' ? 'de receita' : 'de despesa'}`, // ✅ NOT NULL
+    amount: transactionData.amount || 0, // ✅ NOT NULL
+    account: transactionData.account || 'Geral', // ✅ NOT NULL
     payment_method: transactionData.paymentMethodName || transactionData.paymentMethod,
     reference: transactionData.reference,
     notes: transactionData.notes || '',
     // Campos adicionais expandidos
     due_date: transactionData.dueDate,
     effective_date: transactionData.effectiveDate,
-    party_type: transactionData.partyType,
+    party_type: partyType, // ✅ CHECK: 'Cliente' | 'Fornecedor' | 'Outro' | null
     party_id: transactionData.partyId,
     party_name: transactionData.partyName,
     category_id: transactionData.categoryId,
     category_name: transactionData.categoryName,
+    cost_center_id: transactionData.costCenterId,
+    cost_center_name: transactionData.costCenterName,
     bank_account_id: isValidUUID(transactionData.bankAccountId) ? transactionData.bankAccountId : null,
     bank_account_name: transactionData.bankAccountName,
     payment_method_id: transactionData.paymentMethodId,
     payment_method_name: transactionData.paymentMethodName,
-    status,
-    origin: transactionData.origin,
+    status, // ✅ CHECK: 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado'
+    origin, // ✅ CHECK: 'Manual' | 'Pedido'
     installment_number: transactionData.installmentNumber,
     total_installments: transactionData.totalInstallments,
-    payment_date: transactionData.paymentDate
+    payment_date: transactionData.paymentDate,
+    parent_transaction_id: transactionData.parentTransactionId,
+    is_transfer: transactionData.isTransfer || false,
+    transfer_pair_id: transactionData.transferPairId,
+    transfer_direction: transferDirection // ✅ CHECK: 'origem' | 'destino' | null
   };
+
+  // ✅ LOG DETALHADO: Dados que serão inseridos (para debug)
+  console.log('[SQL_SERVICE] 📋 Dados da transação a ser inserida:', {
+    sku: transaction.sku,
+    type: transaction.type,
+    status: transaction.status,
+    origin: transaction.origin,
+    party_type: transaction.party_type,
+    category: transaction.category,
+    description: transaction.description,
+    amount: transaction.amount,
+    transaction_date: transaction.transaction_date,
+    account: transaction.account
+  });
 
   // Inserir transação
   const { data: insertedTransaction, error: insertError } = await supabase
@@ -931,6 +1008,12 @@ export async function createFinancialTransaction(companyId: string, transactionD
 
   if (insertError) {
     console.error('[SQL_SERVICE] ❌ Erro ao criar transação financeira:', insertError);
+    console.error('[SQL_SERVICE] 🔍 Constraint violation details:', {
+      code: insertError.code,
+      message: insertError.message,
+      hint: insertError.hint,
+      details: insertError.details
+    });
     throw new Error(`Erro ao criar transação: ${insertError.message}`);
   }
 
@@ -1355,31 +1438,38 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         category: transaction.categoryName || transaction.category
       });
 
+      // Normalizar com funções helper (garantir aderência aos CHECK CONSTRAINTS)
+      const normalizedType = normalizeTransactionType(transaction.type);
+      const normalizedStatus = normalizeFinancialTransactionStatus(transaction.status, normalizedType);
+      const normalizedOrigin = normalizeFinancialTransactionOrigin(transaction.origin);
+      const normalizedPartyType = normalizeFinancialTransactionPartyType(transaction.partyType);
+      const normalizedTransferDirection = normalizeFinancialTransactionTransferDirection(transaction.transferDirection);
+
       const transactionData = {
         company_id: companyId,
         sku: sku, // ✅ SKU legível (FT-0001)
-        type: normalizeTransactionType(transaction.type),
+        type: normalizedType, // ✅ 'income' | 'expense'
         category: transaction.category || transaction.categoryName || 'Geral',
         category_id: transaction.categoryId,
         category_name: transaction.categoryName || transaction.category || 'Geral',
-        description: transaction.description,
+        description: transaction.description || `Transação de ${normalizedType === 'income' ? 'receita' : 'despesa'}`,
         amount: transaction.amount,
         transaction_date: transaction.date || transaction.transactionDate,
         due_date: transaction.dueDate,
         effective_date: transaction.effectiveDate,
-        account: transaction.account || '',
+        account: transaction.account || 'Geral',
         payment_method: transaction.paymentMethod || '',
         payment_method_id: transaction.paymentMethodId,
         payment_method_name: transaction.paymentMethod || transaction.paymentMethodName || '',
         reference: transaction.reference || '',
         notes: transaction.notes || '',
-        origin: transaction.origin || 'Manual',
-        party_type: transaction.partyType,
+        origin: normalizedOrigin, // ✅ 'Manual' | 'Pedido'
+        party_type: normalizedPartyType, // ✅ 'Cliente' | 'Fornecedor' | 'Outro' | null
         party_id: transaction.partyId,
         party_name: transaction.partyName,
         cost_center_id: transaction.costCenterId,
         cost_center_name: transaction.costCenterName,
-        status: transaction.status || 'Pago',
+        status: normalizedStatus, // ✅ 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado'
         bank_account_id: isValidUUID(transaction.bankAccountId) ? transaction.bankAccountId : null,
         bank_account_name: transaction.bankAccountName,
         installment_number: transaction.installmentNumber,
@@ -1387,7 +1477,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         parent_transaction_id: transaction.parentTransactionId,
         is_transfer: transaction.isTransfer || false,
         transfer_pair_id: transaction.transferPairId,
-        transfer_direction: transaction.transferDirection
+        transfer_direction: normalizedTransferDirection // ✅ 'origem' | 'destino' | null
       };
 
       if (existingTransaction) {
