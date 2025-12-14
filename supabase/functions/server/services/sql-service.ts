@@ -1131,10 +1131,17 @@ async function getAccountCategories(companyId: string) {
   const supabase = getSupabaseClient();
   console.log(`[SQL_SERVICE] 📥 getAccountCategories - companyId: ${companyId}`);
   
-  // ✅ MIGRADO: Buscar da tabela SQL account_categories
+  // ✅ MIGRADO: Buscar da tabela SQL account_categories COM JOIN em dre_lines
   const { data, error } = await supabase
     .from('account_categories')
-    .select('*')
+    .select(`
+      *,
+      dre_lines:dre_line_id (
+        id,
+        code,
+        name
+      )
+    `)
     .eq('company_id', companyId)
     .order('code', { ascending: true });
 
@@ -1155,7 +1162,10 @@ async function getAccountCategories(companyId: string) {
     parentId: ac.parent_id,
     level: ac.level,
     accountType: ac.account_type,
-    dreLineItem: ac.dre_line_item,
+    dreLineItem: ac.dre_line_item, // ⚠️ DEPRECATED
+    dreLineId: ac.dre_line_id, // ✅ NOVO: UUID da linha DRE
+    dreLineName: ac.dre_lines?.name || null, // ✅ NOVO: Nome da linha DRE
+    dreLineCode: ac.dre_lines?.code || null, // ✅ NOVO: Código da linha DRE
     sortOrder: ac.sort_order,
     isActive: ac.is_active
   }));

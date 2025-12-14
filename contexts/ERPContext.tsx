@@ -207,10 +207,25 @@ export interface AccountCategory {
   parentId?: string; // Para criar hierarquia
   level?: number; // Nível hierárquico: 1=raiz, 2=grupo, 3=subgrupo, 4=analítica
   accountType?: 'sintetica' | 'analitica'; // Sintética (grupo) ou Analítica (detalhada)
-  dreLineItem?: string; // Vínculo com linha da DRE (ex: receita_bruta, custos, despesas_operacionais)
+  dreLineItem?: string; // ⚠️ DEPRECATED: Vínculo com linha da DRE (ex: receita_bruta, custos)
+  dreLineId?: string; // ✅ NOVO: UUID da linha DRE (FK para dre_lines)
+  dreLineName?: string; // ✅ NOVO: Nome da linha DRE para exibição (ex: "Receita Bruta")
+  dreLineCode?: string; // ✅ NOVO: Código da linha DRE (ex: "RB", "CMV")
   sortOrder?: number; // Ordem de exibição
   description: string;
   isActive: boolean;
+}
+
+// Linha da DRE (estrutura retornada do backend)
+export interface DRELine {
+  id: string;
+  code: string; // Ex: RB, RL, CMV, DO, LB, LL
+  name: string; // Ex: Receita Bruta, Receita Líquida
+  type: 'RECEITA' | 'CUSTO' | 'DESPESA' | 'IMPOSTO' | 'RESULTADO';
+  isCalculated: boolean; // true para linhas calculadas
+  formula?: string; // Fórmula de cálculo
+  sortOrder: number;
+  regime?: string; // SIMPLES | PRESUMIDO | REAL
 }
 
 // Transação Financeira Manual

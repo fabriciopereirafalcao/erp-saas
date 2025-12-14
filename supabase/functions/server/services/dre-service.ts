@@ -6,9 +6,11 @@
  * Calcula DRE Gerencial baseada em:
  * - Regime tributário da empresa (SIMPLES, PRESUMIDO, REAL)
  * - Transações financeiras lançadas
- * - Plano de contas hierárquico
+ * - Plano de contas hierárquico com vínculo a linhas DRE
  * 
  * Foco: DRE Gerencial (não fiscal)
+ * 
+ * ✅ ATUALIZADO: Usa dre_line_id (UUID) em vez de dre_line_item (string)
  */
 
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
@@ -25,21 +27,31 @@ export interface DRECalculation {
   custos: number;
   lucro_bruto: number;
   despesas_operacionais: number;
+  despesas_pessoal: number;
+  despesas_comerciais: number;
+  despesas_administrativas: number;
+  despesas_financeiras: number;
+  receitas_financeiras: number;
   outras_receitas_despesas: number;
   resultado_operacional?: number; // Apenas PRESUMIDO e REAL
   irpj?: number; // Apenas PRESUMIDO e REAL
   csll?: number; // Apenas PRESUMIDO e REAL
   lucro_liquido: number;
-  // Detalhamento por linha da DRE
+  // Detalhamento por linha da DRE (code → valor)
   breakdown: Record<string, number>;
+  // Detalhamento por linha DRE (id → valor) - NOVO
+  breakdownById: Record<string, number>;
 }
 
 export interface DRELineItem {
-  lineCode: string;
-  lineName: string;
+  id: string;
+  code: string;
+  name: string;
   value: number;
-  isSubtotal: boolean;
+  isCalculated: boolean;
+  formula?: string;
   level: number;
+  type: string;
 }
 
 // ==================== SUPABASE CLIENT ====================
@@ -99,90 +111,151 @@ async function getFinancialTransactions(
 }
 
 /**
- * Agrupa transações por linha da DRE baseado no plano de contas
+ * ✅ NOVO: Busca todas as linhas DRE
+ */
+async function getDRELines(): Promise<Map<string, any>> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('dre_lines')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('[DRE_SERVICE] ❌ Erro ao buscar linhas DRE:', error);
+    return new Map();
+  }
+
+  const lineMap = new Map();
+  data?.forEach((line: any) => {
+    lineMap.set(line.id, line); // Mapear por ID
+    lineMap.set(`code:${line.code}`, line); // Mapear por código (para fallback)
+  });
+
+  return lineMap;
+}
+
+/**
+ * ✅ ATUALIZADO: Agrupa transações por linha da DRE usando dre_line_id
  */
 async function groupTransactionsByDRELine(
   companyId: string,
   transactions: any[]
-): Promise<Record<string, number>> {
+): Promise<{ breakdown: Record<string, number>; breakdownById: Record<string, number> }> {
   const supabase = getSupabaseClient();
   
-  // Buscar mapeamento de categorias → linhas DRE
+  // 1️⃣ Buscar mapeamento de categorias → linhas DRE COM JOIN
   const { data: categories, error } = await supabase
     .from('account_categories')
-    .select('id, code, dre_line_item, type')
+    .select(`
+      id,
+      code,
+      dre_line_id,
+      dre_lines:dre_line_id (
+        id,
+        code,
+        name
+      )
+    `)
     .eq('company_id', companyId)
     .eq('is_active', true);
 
   if (error) {
     console.error('[DRE_SERVICE] ❌ Erro ao buscar categorias:', error);
-    return {};
+    return { breakdown: {}, breakdownById: {} };
   }
 
-  // Criar mapa: category_id → dre_line_item
-  const categoryMap = new Map<string, string>();
+  // 2️⃣ Criar mapa: category_id → dre_line
+  const categoryMap = new Map<string, any>();
   categories?.forEach((cat: any) => {
-    if (cat.dre_line_item) {
-      categoryMap.set(cat.id, cat.dre_line_item);
+    if (cat.dre_line_id && cat.dre_lines) {
+      categoryMap.set(cat.id, cat.dre_lines);
     }
   });
 
-  // Agrupar transações
-  const dreLines: Record<string, number> = {
-    receita_bruta: 0,
-    deducoes_receita: 0,
-    custos: 0,
-    despesas_operacionais: 0,
-    outras_receitas_despesas: 0,
-    irpj: 0,
-    csll: 0,
-  };
+  // 3️⃣ Inicializar contadores
+  const breakdown: Record<string, number> = {}; // Por código (RB, DED, CMV, etc.)
+  const breakdownById: Record<string, number> = {}; // Por UUID
 
+  // 4️⃣ Agrupar transações
   transactions.forEach((tx: any) => {
-    const dreLineItem = categoryMap.get(tx.category_id);
+    const dreLine = categoryMap.get(tx.category_id);
     
-    if (!dreLineItem) {
-      // Se não tem mapeamento, usar fallback baseado no tipo
-      console.warn(`[DRE_SERVICE] ⚠️ Transação sem categoria mapeada: ${tx.id}`);
+    if (!dreLine) {
+      console.warn(`[DRE_SERVICE] ⚠️ Transação sem categoria mapeada: ${tx.id} (category: ${tx.category_id})`);
       return;
     }
 
     const amount = parseFloat(tx.amount || 0);
+    const lineCode = dreLine.code;
+    const lineId = dreLine.id;
 
-    // Receitas são positivas, despesas são negativas (mas somamos em módulo)
-    if (tx.type === 'Entrada') {
-      dreLines[dreLineItem] = (dreLines[dreLineItem] || 0) + amount;
+    // Inicializar se não existir
+    if (!breakdown[lineCode]) breakdown[lineCode] = 0;
+    if (!breakdownById[lineId]) breakdownById[lineId] = 0;
+
+    // ✅ Receitas são positivas, despesas são valores absolutos
+    if (tx.type === 'Receita' || tx.type === 'Entrada') {
+      breakdown[lineCode] += amount;
+      breakdownById[lineId] += amount;
     } else {
-      // Deduções de receita são valores negativos de receita
-      if (dreLineItem === 'deducoes_receita') {
-        dreLines[dreLineItem] = (dreLines[dreLineItem] || 0) + amount;
-      } else {
-        dreLines[dreLineItem] = (dreLines[dreLineItem] || 0) + amount;
-      }
+      // Despesas/Saídas são valores absolutos (positivos)
+      breakdown[lineCode] += Math.abs(amount);
+      breakdownById[lineId] += Math.abs(amount);
     }
   });
 
-  return dreLines;
+  console.log('[DRE_SERVICE] 📊 Breakdown by code:', breakdown);
+  console.log('[DRE_SERVICE] 📊 Breakdown by ID:', breakdownById);
+
+  return { breakdown, breakdownById };
 }
 
 /**
- * Calcula totais e subtotais da DRE baseado no regime
+ * ✅ ATUALIZADO: Calcula totais e subtotais da DRE baseado no regime
  */
 function calculateDRETotals(
   regime: string,
   breakdown: Record<string, number>
 ): DRECalculation {
-  const receita_bruta = breakdown.receita_bruta || 0;
-  const deducoes_receita = breakdown.deducoes_receita || 0;
-  const custos = breakdown.custos || 0;
-  const despesas_operacionais = breakdown.despesas_operacionais || 0;
-  const outras_receitas_despesas = breakdown.outras_receitas_despesas || 0;
-  const irpj = breakdown.irpj || 0;
-  const csll = breakdown.csll || 0;
+  // Valores base das linhas DRE
+  const receita_bruta = breakdown.RB || 0;
+  const deducoes_receita = breakdown.DED || 0;
+  const custos = breakdown.CMV || 0;
+  
+  // Despesas detalhadas
+  const despesas_operacionais_total = breakdown.DO || 0;
+  const despesas_pessoal = breakdown.DP || 0;
+  const despesas_comerciais = breakdown.DC || 0;
+  const despesas_administrativas = breakdown.DA || 0;
+  const despesas_financeiras = breakdown.DF || 0;
+  
+  // Receitas/Despesas não operacionais
+  const receitas_financeiras = breakdown.RF || 0;
+  const outras_receitas = breakdown.RO || 0;
+  
+  // Impostos sobre lucro
+  const irpj = breakdown.IRPJ || 0;
+  const csll = breakdown.CSLL || 0;
 
-  // Cálculos comuns a todos os regimes
+  // ==================== CÁLCULOS ====================
+
+  // Receita Líquida = Receita Bruta - Deduções
   const receita_liquida = receita_bruta - deducoes_receita;
+
+  // Lucro Bruto = Receita Líquida - CMV
   const lucro_bruto = receita_liquida - custos;
+
+  // Despesas Operacionais (soma de todas as categorias)
+  const despesas_operacionais = 
+    despesas_pessoal +
+    despesas_comerciais +
+    despesas_administrativas +
+    despesas_financeiras +
+    despesas_operacionais_total;
+
+  // Outras Receitas/Despesas (líquido)
+  const outras_receitas_despesas = receitas_financeiras + outras_receitas;
 
   let resultado_operacional: number | undefined;
   let lucro_liquido: number;
@@ -190,7 +263,7 @@ function calculateDRETotals(
   // 🎯 Lógica específica por regime
   switch (regime) {
     case 'SIMPLES':
-      // Simples: Lucro Líquido = Lucro Bruto - Despesas Operacionais (inclui DAS) + Outras
+      // Simples: Lucro Líquido = Lucro Bruto - Despesas Operacionais + Outras
       lucro_liquido = lucro_bruto - despesas_operacionais + outras_receitas_despesas;
       break;
 
@@ -215,19 +288,25 @@ function calculateDRETotals(
     custos,
     lucro_bruto,
     despesas_operacionais,
+    despesas_pessoal,
+    despesas_comerciais,
+    despesas_administrativas,
+    despesas_financeiras,
+    receitas_financeiras,
     outras_receitas_despesas,
     resultado_operacional,
     irpj: regime !== 'SIMPLES' ? irpj : undefined,
     csll: regime !== 'SIMPLES' ? csll : undefined,
     lucro_liquido,
     breakdown,
+    breakdownById: {}, // Será preenchido abaixo
   };
 }
 
 // ==================== API PÚBLICA ====================
 
 /**
- * Calcula DRE Gerencial para um período
+ * ✅ ATUALIZADO: Calcula DRE Gerencial para um período
  */
 export async function calculateDRE(
   companyId: string,
@@ -246,13 +325,13 @@ export async function calculateDRE(
     console.log(`[DRE_SERVICE] 💰 ${transactions.length} transações encontradas`);
 
     // 3️⃣ Agrupar por linha da DRE
-    const breakdown = await groupTransactionsByDRELine(companyId, transactions);
-    console.log('[DRE_SERVICE] 📈 Breakdown:', breakdown);
+    const { breakdown, breakdownById } = await groupTransactionsByDRELine(companyId, transactions);
 
     // 4️⃣ Calcular totais
     const dre = calculateDRETotals(regime, breakdown);
     dre.periodStart = startDate;
     dre.periodEnd = endDate;
+    dre.breakdownById = breakdownById;
 
     console.log('[DRE_SERVICE] ✅ DRE calculada com sucesso');
     return dre;
@@ -263,16 +342,14 @@ export async function calculateDRE(
 }
 
 /**
- * Busca estrutura da DRE baseada no regime (para exibir no frontend)
+ * ✅ NOVO: Busca estrutura completa da DRE (linhas com valores calculados)
  */
-export async function getDREStructure(regime: string): Promise<any[]> {
+export async function getDREStructure(): Promise<DRELineItem[]> {
   const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
-    .from('dre_line_items')
+    .from('dre_lines')
     .select('*')
-    .eq('tax_regime', regime)
-    .eq('show_in_dre', true)
     .order('sort_order', { ascending: true });
 
   if (error) {
@@ -280,7 +357,16 @@ export async function getDREStructure(regime: string): Promise<any[]> {
     return [];
   }
 
-  return data || [];
+  return (data || []).map((line: any) => ({
+    id: line.id,
+    code: line.code,
+    name: line.name,
+    value: 0,
+    isCalculated: line.is_calculated || false,
+    formula: line.formula,
+    level: line.sort_order,
+    type: line.type,
+  }));
 }
 
 /**

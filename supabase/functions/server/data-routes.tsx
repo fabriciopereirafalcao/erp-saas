@@ -721,22 +721,70 @@ app.post('/account-categories/init-default', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
     
-    // ==================== ETAPA 1: INSERT todas as contas SEM parent_id ====================
-    console.log('[INIT CHART] 📝 Etapa 1: Inserindo contas sem parent_id...');
+    // ==================== ETAPA 0: Buscar linhas DRE ====================
+    console.log('[INIT CHART] 🔍 Buscando linhas DRE...');
     
-    const rowsToInsert = accounts.map((account) => ({
-      company_id: auth.companyId,
-      type: account.type,
-      code: account.code,
-      name: account.name,
-      description: account.name,
-      parent_id: null, // Temporariamente null
-      level: account.level,
-      account_type: account.accountType.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), // Normaliza: 'Sintética' → 'sintetica'
-      dre_line_item: account.dreLineItem,
-      sort_order: account.sortOrder,
-      is_active: true,
-    }));
+    const { data: dreLines, error: dreError } = await supabase
+      .from('dre_lines')
+      .select('id, code');
+    
+    if (dreError) {
+      console.error('[INIT CHART] ❌ Erro ao buscar linhas DRE:', dreError);
+      throw new Error(dreError.message);
+    }
+    
+    // Criar mapa code → id
+    const dreLineMap = new Map<string, string>();
+    dreLines.forEach((line: any) => {
+      dreLineMap.set(line.code, line.id);
+    });
+    
+    console.log(`[INIT CHART] ✅ ${dreLines.length} linhas DRE carregadas`);
+    
+    // Mapear dreLineItem (string antiga) → dre_line_id (UUID)
+    const dreItemToLineCode: Record<string, string> = {
+      'RECEITA_BRUTA': 'RB',
+      'DEDUCOES': 'DED',
+      'IMPOSTOS_VENDAS': 'DED',
+      'CMV': 'CMV',
+      'DESPESAS_PESSOAL': 'DP',
+      'DESPESAS_COMERCIAIS': 'DC',
+      'DESPESAS_ADMINISTRATIVAS': 'DA',
+      'DESPESAS_FINANCEIRAS': 'DF',
+      'RECEITAS_FINANCEIRAS': 'RF',
+    };
+    
+    // ==================== ETAPA 1: INSERT todas as contas SEM parent_id ====================
+    console.log('[INIT CHART] 📝 Etapa 1: Inserindo contas com dre_line_id...');
+    
+    const rowsToInsert = accounts.map((account) => {
+      const accountTypeNormalized = account.accountType.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      
+      // Se for analítica, mapear para dre_line_id
+      let dreLineId = null;
+      if (accountTypeNormalized === 'analitica' && account.dreLineItem) {
+        const dreCode = dreItemToLineCode[account.dreLineItem];
+        dreLineId = dreCode ? dreLineMap.get(dreCode) : null;
+        
+        if (!dreLineId) {
+          console.warn(`[INIT CHART] ⚠️ Linha DRE não encontrada para ${account.dreLineItem} (conta ${account.code})`);
+        }
+      }
+      
+      return {
+        company_id: auth.companyId,
+        type: account.type,
+        code: account.code,
+        name: account.name,
+        description: account.name,
+        parent_id: null, // Temporariamente null
+        level: account.level,
+        account_type: accountTypeNormalized,
+        dre_line_id: dreLineId, // ✅ AGORA INCLUÍMOS O dre_line_id
+        sort_order: account.sortOrder,
+        is_active: true,
+      };
+    });
 
     const { data: insertedAccounts, error: insertError } = await supabase
       .from('account_categories')
@@ -748,7 +796,7 @@ app.post('/account-categories/init-default', async (c) => {
       throw new Error(insertError.message);
     }
 
-    console.log(`[INIT CHART] ✅ ${insertedAccounts.length} contas inseridas`);
+    console.log(`[INIT CHART] ✅ ${insertedAccounts.length} contas inseridas com dre_line_id`);
 
     // ==================== ETAPA 2: UPDATE parent_id mapeando código → UUID ====================
     console.log('[INIT CHART] 🔗 Etapa 2: Atualizando parent_id...');
@@ -1395,10 +1443,8 @@ app.get('/dre/structure', async (c) => {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
-    const regime = c.req.query('regime') || 'SIMPLES';
-
-    console.log(`[DRE STRUCTURE] 📋 Buscando estrutura DRE para regime ${regime}`);
-    const structure = await dreService.getDREStructure(regime);
+    console.log(`[DRE STRUCTURE] 📋 Buscando estrutura DRE`);
+    const structure = await dreService.getDREStructure();
     
     console.log(`[DRE STRUCTURE] ✅ ${structure.length} linhas encontradas`);
     return c.json({
