@@ -55,6 +55,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   company: Company | null;
   session: Session | null;
+  accessToken: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: Error }>;
   signUp: (email: string, password: string, name: string, companyName: string) => Promise<{ error?: Error }>;
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Carregar perfil do usuário
@@ -266,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(MOCK_PROFILE);
       setCompany(MOCK_COMPANY);
       setSession(MOCK_SESSION);
+      setAccessToken(MOCK_SESSION.access_token);
       setLoading(false);
       return; // Não executar lógica de autenticação real
     }
@@ -306,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 💾 Salvar token
           if (session.access_token) {
             localStorage.setItem('erp_system_auth_token', session.access_token);
+            setAccessToken(session.access_token);
           }
         }
       } catch (error) {
@@ -335,6 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // 💾 Salvar token
             if (session.access_token) {
               localStorage.setItem('erp_system_auth_token', session.access_token);
+              setAccessToken(session.access_token);
             }
           } else {
             setProfile(null);
@@ -402,6 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 💾 Salvar token no localStorage
       if (data?.session?.access_token) {
         localStorage.setItem('erp_system_auth_token', data.session.access_token);
+        setAccessToken(data.session.access_token);
       }
 
       return { error: undefined };
@@ -516,6 +522,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     company,
     session,
+    accessToken,
     loading,
     signIn,
     signUp,

@@ -35,7 +35,7 @@ interface HierarchicalAccount extends AccountCategory {
 
 export function ChartOfAccountsHierarchical() {
   const { accountCategories, addAccountCategory, updateAccountCategory, deleteAccountCategory } = useERP();
-  const { accessToken } = useAuth();
+  const { accessToken } from useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -216,10 +216,66 @@ export function ChartOfAccountsHierarchical() {
 
   // ==================== EFEITOS ====================
 
+  // Auto-criar plano de contas se estiver vazio
+  useEffect(() => {
+    const autoCreateChartIfEmpty = async () => {
+      // Se já tem contas, não fazer nada
+      if (accountCategories.length > 0) {
+        return;
+      }
+
+      // Se não tem contas E já tentou carregar (hasInitialized = false significa primeira vez)
+      if (accountCategories.length === 0 && !hasInitialized) {
+        console.log('[ChartOfAccounts] 🎯 Plano de contas vazio detectado. Criando automaticamente...');
+        
+        if (!accessToken) {
+          console.warn('[ChartOfAccounts] ⚠️ Sem token de autenticação. Aguardando...');
+          return;
+        }
+
+        try {
+          const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/chart-of-accounts/reset`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log('[ChartOfAccounts] ✅ Plano de contas criado automaticamente (46 contas)');
+            // Recarregar a página para buscar as novas contas
+            setTimeout(() => window.location.reload(), 500);
+          } else {
+            console.error('[ChartOfAccounts] ❌ Erro ao criar plano automático:', data.error);
+          }
+        } catch (error) {
+          console.error('[ChartOfAccounts] ❌ Erro ao criar plano automático:', error);
+        }
+      }
+    };
+
+    autoCreateChartIfEmpty();
+  }, [accountCategories, accessToken, hasInitialized]);
+
   // Expandir automaticamente todas as contas na primeira renderização
   useEffect(() => {
     if (!hasInitialized && hierarchicalAccounts.length > 0) {
-      expandAll();
+      // Expandir manualmente sem chamar a função
+      const allIds = new Set<string>();
+      const collectIds = (accounts: HierarchicalAccount[]) => {
+        accounts.forEach(acc => {
+          if (acc.children && acc.children.length > 0) {
+            allIds.add(acc.id);
+            collectIds(acc.children);
+          }
+        });
+      };
+      collectIds(hierarchicalAccounts);
+      setExpandedNodes(allIds);
       setHasInitialized(true);
     }
   }, [hierarchicalAccounts, hasInitialized]);
@@ -240,10 +296,9 @@ export function ChartOfAccountsHierarchical() {
             ${!account.isActive ? 'opacity-50 bg-gray-100' : ''}
             ${isSynthetic ? 'font-semibold' : ''}
           `}
-          style={{ paddingLeft: `${level * 32 + 16}px` }}
         >
           {/* Ícone de expansão */}
-          <div className="w-5 flex-shrink-0">
+          <div className="w-5 flex-shrink-0" style={{ marginLeft: `${level * 32}px` }}>
             {hasChildren && (
               <button
                 onClick={() => toggleNode(account.id)}
@@ -285,7 +340,7 @@ export function ChartOfAccountsHierarchical() {
           </div>
 
           {/* DRE Line */}
-          <div className="w-40 flex-shrink-0 text-xs text-gray-500 flex items-center">
+          <div className="w-40 flex-shrink-0 text-xs text-gray-500 flex items-center justify-center">
             {account.dreLineItem || '-'}
           </div>
 
@@ -387,7 +442,7 @@ export function ChartOfAccountsHierarchical() {
           <div className="flex-1 text-sm font-semibold">Nome</div>
           <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Tipo</div>
           <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Categoria</div>
-          <div className="w-40 flex-shrink-0 text-sm font-semibold">Linha DRE</div>
+          <div className="w-40 flex-shrink-0 text-sm font-semibold text-center">Linha DRE</div>
           <div className="flex gap-2 flex-shrink-0 text-sm font-semibold">Ações</div>
         </div>
 
