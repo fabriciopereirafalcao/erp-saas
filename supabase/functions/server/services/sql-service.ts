@@ -1231,7 +1231,7 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
         parent_id: category.parentId || null,
         level: category.level || 1,
         account_type: category.accountType || 'analitica',
-        dre_line_item: category.dreLineItem || null,
+        dre_line_id: category.dreLineId || null, // ✅ CORRIGIDO: Usar dre_line_id
         sort_order: category.sortOrder || 0,
         is_active: category.isActive ?? true
       })
@@ -1302,7 +1302,7 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
       parent_id: category.parentId || null,
       level: category.level || 1,
       account_type: category.accountType || 'analitica',
-      dre_line_item: category.dreLineItem || null,
+      dre_line_id: category.dreLineId || null, // ✅ CORRIGIDO: Usar dre_line_id
       sort_order: category.sortOrder || 0,
       is_active: category.isActive ?? true
     }));
