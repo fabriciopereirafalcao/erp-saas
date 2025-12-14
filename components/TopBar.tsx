@@ -21,7 +21,8 @@ import {
   PackageCheck,
   Crown,
   CreditCard,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -126,6 +127,11 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
               <DropdownMenuItem onClick={() => onNavigate('costCenters')}>
                 <Target className="w-4 h-4 mr-2" />
                 Centros de Custo
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => onNavigate('paymentMethods')}>
+                <Wallet className="w-4 h-4 mr-2" />
+                Formas de Pagamento
               </DropdownMenuItem>
               
               <DropdownMenuItem onClick={() => onNavigate('digitalCertificate')}>

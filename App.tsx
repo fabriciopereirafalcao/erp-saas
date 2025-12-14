@@ -132,6 +132,11 @@ const CostCenters = lazy(() =>
     default: m.CostCenters,
   })),
 );
+const PaymentMethods = lazy(() =>
+  import("./components/PaymentMethods").then((m) => ({
+    default: m.PaymentMethods,
+  })),
+);
 const DigitalCertificate = lazy(() =>
   import("./components/DigitalCertificate").then((m) => ({
     default: m.DigitalCertificate,
@@ -178,6 +183,9 @@ console.log('🔧 Environment Check:', {
   IS_MAINTENANCE_MODE,
   mode: import.meta.env?.MODE
 });
+
+// 🔗 TIPOS EXPORTADOS
+export type NavigationView = string;
 
 function AppContent() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -389,6 +397,13 @@ function AppContent() {
         return (
           <PlanAccessGuard feature="settings">
             <CostCenters />
+          </PlanAccessGuard>
+        );
+      
+      case "paymentMethods":
+        return (
+          <PlanAccessGuard feature="settings">
+            <PaymentMethods />
           </PlanAccessGuard>
         );
       
