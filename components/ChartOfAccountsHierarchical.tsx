@@ -127,7 +127,7 @@ export function ChartOfAccountsHierarchical() {
           console.log('🌱 Inicializando plano de contas padrão...');
           
           const response = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/account-categories/init-default`,
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories/init-default`,
             {
               method: 'POST',
               headers: {
