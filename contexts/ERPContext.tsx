@@ -202,9 +202,13 @@ export interface PaymentMethod {
 export interface AccountCategory {
   id: string;
   type: "Receita" | "Despesa";
-  code: string; // Código contábil (ex: 1.1.01)
+  code: string; // Código contábil (ex: 3.1.1.00)
   name: string;
   parentId?: string; // Para criar hierarquia
+  level?: number; // Nível hierárquico: 1=raiz, 2=grupo, 3=subgrupo, 4=analítica
+  accountType?: 'sintetica' | 'analitica'; // Sintética (grupo) ou Analítica (detalhada)
+  dreLineItem?: string; // Vínculo com linha da DRE (ex: receita_bruta, custos, despesas_operacionais)
+  sortOrder?: number; // Ordem de exibição
   description: string;
   isActive: boolean;
 }
@@ -449,7 +453,7 @@ export interface CompanySettings {
   expenseGroups: ExpenseGroup[];
   costCenters: CostCenter[];
   // Dados Fiscais e Tributários
-  taxRegime?: "Simples Nacional" | "Lucro Presumido" | "Lucro Real";
+  taxRegime?: "SIMPLES" | "PRESUMIDO" | "REAL" | "Simples Nacional" | "Lucro Presumido" | "Lucro Real";
   defaultCSOSN?: string; // CSOSN padrão (se Simples Nacional)
   defaultCST?: string; // CST padrão (se Lucro Real/Presumido)
   defaultICMSRate?: number; // Alíquota ICMS padrão
