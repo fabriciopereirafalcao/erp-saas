@@ -693,6 +693,53 @@ app.post('/payment-methods', async (c) => {
 
 // ==================== ROTAS - ACCOUNT CATEGORIES ====================
 
+// ⚠️ IMPORTANTE: Rota específica DEVE vir ANTES da rota genérica
+app.post('/account-categories/init-default', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { accounts } = await c.req.json();
+    
+    if (!Array.isArray(accounts)) {
+      return c.json({ error: 'Accounts devem ser um array' }, 400);
+    }
+
+    console.log(`[INIT CHART] 🌱 Inicializando plano de contas padrão para empresa ${auth.companyId} com ${accounts.length} contas`);
+    
+    // Transformar accounts do formato do frontend para o formato do banco
+    const accountsForDb = accounts.map((account, index) => ({
+      id: `AC-${String(index + 1).padStart(3, '0')}`, // Gerar ID sequencial
+      type: account.type,
+      code: account.code,
+      name: account.name,
+      description: account.name, // Usar nome como descrição
+      isActive: true,
+      parentId: account.parentId,
+      level: account.level,
+      accountType: account.accountType,
+      dreLineItem: account.dreLineItem,
+      sortOrder: account.sortOrder,
+    }));
+    
+    const result = await sqlService.saveAccountCategories(auth.companyId, accountsForDb);
+    
+    console.log(`[INIT CHART] ✅ ${result.count} contas criadas com sucesso`);
+    
+    return c.json({
+      success: true,
+      message: `${result.count} contas criadas com sucesso`,
+      count: result.count,
+    });
+
+  } catch (error) {
+    console.error('[INIT CHART] ❌ Erro ao criar plano de contas:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/account-categories', async (c) => {
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
@@ -738,54 +785,6 @@ app.post('/account-categories', async (c) => {
 
   } catch (error) {
     console.error('[ACCOUNT CATEGORIES] ❌ Erro ao salvar:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-// ==================== ENDPOINT - INIT DEFAULT CHART OF ACCOUNTS ====================
-
-app.post('/account-categories/init-default', async (c) => {
-  try {
-    const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth) {
-      return c.json({ error: 'Não autorizado' }, 401);
-    }
-
-    const { accounts } = await c.req.json();
-    
-    if (!Array.isArray(accounts)) {
-      return c.json({ error: 'Accounts devem ser um array' }, 400);
-    }
-
-    console.log(`[INIT CHART] 🌱 Inicializando plano de contas padrão para empresa ${auth.companyId} com ${accounts.length} contas`);
-    
-    // Transformar accounts do formato do frontend para o formato do banco
-    const accountsForDb = accounts.map((account, index) => ({
-      id: `AC-${String(index + 1).padStart(3, '0')}`, // Gerar ID sequencial
-      type: account.type,
-      code: account.code,
-      name: account.name,
-      description: account.name, // Usar nome como descrição
-      isActive: true,
-      parentId: account.parentId,
-      level: account.level,
-      accountType: account.accountType,
-      dreLineItem: account.dreLineItem,
-      sortOrder: account.sortOrder,
-    }));
-    
-    const result = await sqlService.saveAccountCategories(auth.companyId, accountsForDb);
-    
-    console.log(`[INIT CHART] ✅ ${result.count} contas criadas com sucesso`);
-    
-    return c.json({
-      success: true,
-      message: `${result.count} contas criadas com sucesso`,
-      count: result.count,
-    });
-
-  } catch (error) {
-    console.error('[INIT CHART] ❌ Erro ao criar plano de contas:', error);
     return c.json({ error: error.message }, 500);
   }
 });
