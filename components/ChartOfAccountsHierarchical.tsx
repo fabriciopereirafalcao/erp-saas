@@ -181,12 +181,12 @@ export function ChartOfAccountsHierarchical() {
   };
 
   const handleResetChartOfAccounts = async () => {
-    if (!confirm('⚠️ ATENÇÃO: Isso irá RECRIAR o plano de contas padrão.\n\nTodas as contas existentes serão mantidas, mas o plano padrão completo será adicionado.\n\nDeseja continuar?')) {
+    if (!confirm('⚠️ ATENÇÃO: Isso irá RECRIAR o plano de contas padrão.\n\nTodas as contas antigas (códigos 3.x e 4.x) serão REMOVIDAS e substituídas pelo plano padrão completo (46 contas).\n\n⚠️ IMPORTANTE: Esta ação é IRREVERSÍVEL!\n\nDeseja continuar?')) {
       return;
     }
 
     if (!accessToken) {
-      alert('Você precisa estar autenticado');
+      alert('Você precisa estar autenticado para executar esta ação.');
       return;
     }
 
@@ -203,14 +203,14 @@ export function ChartOfAccountsHierarchical() {
       const data = await response.json();
       
       if (data.success) {
-        alert('✅ Plano de contas padrão criado com sucesso!\n\nAguarde alguns segundos e recarregue a página.');
-        window.location.reload();
+        alert('✅ Plano de contas padrão criado com sucesso!\n\n46 contas foram criadas.\n\nRecarregando a página...');
+        setTimeout(() => window.location.reload(), 1000);
       } else {
-        alert('Erro ao criar plano de contas padrão');
+        alert(`❌ Erro ao criar plano de contas padrão:\n\n${data.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error('Erro ao resetar plano de contas:', error);
-      alert('Erro ao criar plano de contas. Verifique o console.');
+      alert(`❌ Erro ao criar plano de contas:\n\n${error.message}\n\nVerifique o console para mais detalhes.`);
     }
   };
 
@@ -385,8 +385,8 @@ export function ChartOfAccountsHierarchical() {
           <div className="w-5 flex-shrink-0" />
           <div className="w-32 flex-shrink-0 text-sm font-semibold">Código</div>
           <div className="flex-1 text-sm font-semibold">Nome</div>
-          <div className="w-24 flex-shrink-0 text-sm font-semibold">Tipo</div>
-          <div className="w-24 flex-shrink-0 text-sm font-semibold">Categoria</div>
+          <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Tipo</div>
+          <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Categoria</div>
           <div className="w-40 flex-shrink-0 text-sm font-semibold">Linha DRE</div>
           <div className="flex gap-2 flex-shrink-0 text-sm font-semibold">Ações</div>
         </div>
