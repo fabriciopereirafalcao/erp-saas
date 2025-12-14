@@ -632,38 +632,56 @@ async function generateNextSupplierSku(companyId: string): Promise<string> {
 
 /**
  * Gera o próximo código sequencial para categorias de contas
- * Formato: AC-001, AC-002, ..., AC-999
+ * Formato numérico contábil:
+ * - Receitas: 3.X.YY (ex: 3.1.01, 3.1.02, 3.2.01)
+ * - Despesas: 4.X.YY (ex: 4.1.01, 4.1.02, 4.2.01)
  */
-async function generateNextAccountCategoryCode(companyId: string): Promise<string> {
+async function generateNextAccountCategoryCode(companyId: string, type: 'Receita' | 'Despesa'): Promise<string> {
   const supabase = getSupabaseClient();
+  
+  // Prefixo baseado no tipo: 3 para Receita, 4 para Despesa
+  const prefix = type === 'Receita' ? '3' : '4';
   
   const { data, error } = await supabase
     .from('account_categories')
     .select('code')
     .eq('company_id', companyId)
-    .like('code', 'AC-%')
+    .eq('type', type)
+    .like('code', `${prefix}.%`)
     .order('code', { ascending: false })
     .limit(100);
 
   if (error) {
     console.error('[SQL_SERVICE] ⚠️ Erro ao buscar códigos de categorias, gerando código padrão:', error);
-    return 'AC-001';
+    return `${prefix}.1.01`;
   }
 
-  let maxNumber = 0;
+  // Encontrar o maior código existente
+  let maxCode = `${prefix}.1.00`; // Default: primeira subcategoria, item 00
   
   if (data && data.length > 0) {
-    data.forEach((row: any) => {
-      const match = row.code.match(/^AC-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNumber) maxNumber = num;
-      }
-    });
+    // Pegar o primeiro resultado (já ordenado DESC)
+    const latestCode = data[0].code;
+    
+    // Parse do código (ex: "3.1.05" -> ["3", "1", "05"])
+    const match = latestCode.match(/^(\d+)\.(\d+)\.(\d+)$/);
+    
+    if (match) {
+      const [, major, minor, patch] = match;
+      const patchNum = parseInt(patch, 10);
+      
+      // Incrementar o último número
+      const nextPatch = String(patchNum + 1).padStart(2, '0');
+      maxCode = `${major}.${minor}.${nextPatch}`;
+    }
   }
-  
-  const nextNumber = maxNumber + 1;
-  return `AC-${String(nextNumber).padStart(3, '0')}`;
+
+  // Se não encontrou nenhum código existente, retornar padrão
+  if (maxCode === `${prefix}.1.00`) {
+    return `${prefix}.1.01`;
+  }
+
+  return maxCode;
 }
 
 export async function getProducts(companyId: string) {
@@ -1162,7 +1180,7 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
       return { ...ac, code: ac.code };
     }
     // Gerar novo code sequencial automaticamente
-    const newCode = await generateNextAccountCategoryCode(companyId);
+    const newCode = await generateNextAccountCategoryCode(companyId, ac.type);
     console.log(`[SQL_SERVICE] 🔢 Código gerado automaticamente: ${newCode} para categoria "${ac.name}"`);
     return { ...ac, code: newCode };
   }));

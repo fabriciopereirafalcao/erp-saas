@@ -115,7 +115,7 @@ export function ChartOfAccounts() {
             ) : (
               accountCategories.map((category) => (
                 <TableRow key={category.id}>
-                  <TableCell>{category.id}</TableCell>
+                  <TableCell>{category.code || category.id}</TableCell>
                   <TableCell>{category.name}</TableCell>
                   <TableCell>
                     <span
