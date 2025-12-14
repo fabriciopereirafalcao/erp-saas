@@ -182,25 +182,25 @@ export function DREGerencial() {
   // ==================== RENDER ====================
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-6 h-6" />
           <div>
-            <h2 className="text-2xl">DRE Gerencial</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-xl sm:text-2xl">DRE Gerencial</h2>
+            <p className="text-xs sm:text-sm text-gray-500">
               Demonstração do Resultado do Exercício - Foco Gerencial
             </p>
           </div>
         </div>
         {dreData && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleSaveSnapshot}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handleSaveSnapshot} className="text-xs sm:text-sm">
               <Download className="w-4 h-4 mr-2" />
               Salvar Snapshot
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="text-xs sm:text-sm">
               <Download className="w-4 h-4 mr-2" />
               Exportar PDF
             </Button>
@@ -211,16 +211,16 @@ export function DREGerencial() {
       {/* Filtros */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Calendar className="w-5 h-5" />
             Filtros
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Selecione o período e regime tributário
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {/* Data Início */}
             <div>
               <Label htmlFor="startDate">Data Início</Label>

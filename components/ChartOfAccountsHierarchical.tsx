@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, Eye, EyeOff, ListTree } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -37,6 +37,7 @@ export function ChartOfAccountsHierarchical() {
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [showInactive, setShowInactive] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -176,6 +177,16 @@ export function ChartOfAccountsHierarchical() {
     }
   };
 
+  // ==================== EFEITOS ====================
+
+  // Expandir automaticamente todas as contas na primeira renderização
+  useEffect(() => {
+    if (!hasInitialized && hierarchicalAccounts.length > 0) {
+      expandAll();
+      setHasInitialized(true);
+    }
+  }, [hierarchicalAccounts, hasInitialized]);
+
   // ==================== RENDERIZAÇÃO RECURSIVA ====================
 
   const renderAccountRow = (account: HierarchicalAccount, level: number = 0): React.ReactNode => {
@@ -293,28 +304,29 @@ export function ChartOfAccountsHierarchical() {
   // ==================== RENDER ====================
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <ListTree className="w-6 h-6" />
-          <h2 className="text-2xl">Plano de Contas</h2>
+          <h2 className="text-xl sm:text-2xl">Plano de Contas</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={expandAll}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={expandAll} className="text-xs sm:text-sm">
             Expandir Tudo
           </Button>
-          <Button variant="outline" size="sm" onClick={collapseAll}>
+          <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs sm:text-sm">
             Recolher Tudo
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowInactive(!showInactive)}
+            className="text-xs sm:text-sm"
           >
             {showInactive ? 'Ocultar Inativas' : 'Mostrar Inativas'}
           </Button>
-          <Button onClick={() => handleOpenDialog()}>
+          <Button onClick={() => handleOpenDialog()} className="text-xs sm:text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Nova Conta
           </Button>
@@ -322,9 +334,9 @@ export function ChartOfAccountsHierarchical() {
       </div>
 
       {/* Tabela Hierárquica */}
-      <div className="border rounded-lg overflow-hidden bg-white">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b">
+      <div className="border rounded-lg overflow-x-auto bg-white">
+        {/* Header - ocultar em mobile */}
+        <div className="hidden md:flex items-center gap-3 px-4 py-3 bg-gray-50 border-b">
           <div className="w-5 flex-shrink-0" />
           <div className="w-32 flex-shrink-0 text-sm font-semibold">Código</div>
           <div className="flex-1 text-sm font-semibold">Nome</div>
@@ -438,7 +450,7 @@ export function ChartOfAccountsHierarchical() {
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value="none">Nenhuma</SelectItem>
                   <SelectItem value="receita_bruta">Receita Bruta</SelectItem>
                   <SelectItem value="deducoes_receita">Deduções da Receita</SelectItem>
                   <SelectItem value="custos">Custos (CMV/CSP/CPV)</SelectItem>

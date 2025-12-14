@@ -119,7 +119,7 @@ export const TopBar = memo(function TopBar({ onNavigate, onToggleSidebar }: TopB
                 Minha Empresa
               </DropdownMenuItem>
               
-              <DropdownMenuItem onClick={() => onNavigate('chartOfAccounts')}>
+              <DropdownMenuItem onClick={() => onNavigate('chartOfAccountsHierarchical')}>
                 <ListTree className="w-4 h-4 mr-2" />
                 Plano de Contas
               </DropdownMenuItem>
