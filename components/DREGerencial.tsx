@@ -1,4 +1,17 @@
+import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useERP } from '../contexts/ERPContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Badge } from './ui/badge';
+import { Calendar, DollarSign, Target, TrendingUp, TrendingDown, BarChart3, Download, FileText, RefreshCw, ChevronDown, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { projectId } from '../utils/supabase/info';
 
 // ==================== TIPOS ====================
 
