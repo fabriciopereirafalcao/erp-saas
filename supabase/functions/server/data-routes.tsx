@@ -1368,6 +1368,36 @@ app.get('/dre/snapshots', async (c) => {
   }
 });
 
+// ==================== ROTAS - PLANO DE CONTAS ====================
+
+// Reset/criar plano de contas padrão
+app.post('/chart-of-accounts/reset', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[CHART OF ACCOUNTS] 🔄 Resetando plano de contas para empresa ${auth.companyId}`);
+    
+    // Chamar função SQL que recria o plano de contas
+    const result = await sqlService.query(
+      `SELECT seed_default_chart_of_accounts($1::uuid)`,
+      [auth.companyId]
+    );
+    
+    console.log(`[CHART OF ACCOUNTS] ✅ Plano de contas resetado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Plano de contas padrão criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[CHART OF ACCOUNTS] ❌ Erro ao resetar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTA DE SAÚDE ====================
 
 app.get('/health', (c) => {

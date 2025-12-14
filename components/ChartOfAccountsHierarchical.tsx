@@ -21,6 +21,8 @@ import {
 import { Badge } from './ui/badge';
 import { useERP } from '../contexts/ERPContext';
 import { AccountCategory } from '../contexts/ERPContext';
+import { projectId } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
 
 // ==================== TIPOS ====================
 
@@ -33,6 +35,7 @@ interface HierarchicalAccount extends AccountCategory {
 
 export function ChartOfAccountsHierarchical() {
   const { accountCategories, addAccountCategory, updateAccountCategory, deleteAccountCategory } = useERP();
+  const { accessToken } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -177,6 +180,40 @@ export function ChartOfAccountsHierarchical() {
     }
   };
 
+  const handleResetChartOfAccounts = async () => {
+    if (!confirm('⚠️ ATENÇÃO: Isso irá RECRIAR o plano de contas padrão.\n\nTodas as contas existentes serão mantidas, mas o plano padrão completo será adicionado.\n\nDeseja continuar?')) {
+      return;
+    }
+
+    if (!accessToken) {
+      alert('Você precisa estar autenticado');
+      return;
+    }
+
+    try {
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/chart-of-accounts/reset`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('✅ Plano de contas padrão criado com sucesso!\n\nAguarde alguns segundos e recarregue a página.');
+        window.location.reload();
+      } else {
+        alert('Erro ao criar plano de contas padrão');
+      }
+    } catch (error) {
+      console.error('Erro ao resetar plano de contas:', error);
+      alert('Erro ao criar plano de contas. Verifique o console.');
+    }
+  };
+
   // ==================== EFEITOS ====================
 
   // Expandir automaticamente todas as contas na primeira renderização
@@ -234,21 +271,21 @@ export function ChartOfAccountsHierarchical() {
           </div>
 
           {/* Tipo */}
-          <div className="w-24 flex-shrink-0">
+          <div className="w-24 flex-shrink-0 flex items-center justify-center">
             <Badge variant={account.type === 'Receita' ? 'default' : 'secondary'}>
               {account.type}
             </Badge>
           </div>
 
           {/* Tipo de Conta */}
-          <div className="w-24 flex-shrink-0">
+          <div className="w-24 flex-shrink-0 flex items-center justify-center">
             <Badge variant="outline">
               {isSynthetic ? 'Sintética' : 'Analítica'}
             </Badge>
           </div>
 
           {/* DRE Line */}
-          <div className="w-40 flex-shrink-0 text-xs text-gray-500">
+          <div className="w-40 flex-shrink-0 text-xs text-gray-500 flex items-center">
             {account.dreLineItem || '-'}
           </div>
 
@@ -329,6 +366,14 @@ export function ChartOfAccountsHierarchical() {
           <Button onClick={() => handleOpenDialog()} className="text-xs sm:text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Nova Conta
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetChartOfAccounts}
+            className="text-xs sm:text-sm"
+          >
+            Resetar Plano de Contas
           </Button>
         </div>
       </div>
