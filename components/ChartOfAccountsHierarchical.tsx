@@ -35,7 +35,7 @@ interface HierarchicalAccount extends AccountCategory {
 
 export function ChartOfAccountsHierarchical() {
   const { accountCategories, addAccountCategory, updateAccountCategory, deleteAccountCategory } = useERP();
-  const { accessToken } from useAuth();
+  const { accessToken } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -43,319 +43,319 @@ export function ChartOfAccountsHierarchical() {
   const [hasInitialized, setHasInitialized] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'Receita' as 'Receita' | 'Despesa',
     code: '',
+    name: '',
+    type: 'Receita' as 'Receita' | 'Despesa' | 'Ativo' | 'Passivo' | 'Patrimônio Líquido',
     description: '',
-    parentId: '',
-    accountType: 'analitica' as 'sintetica' | 'analitica',
-    dreLineItem: '',
+    parentId: null as string | null,
+    accountType: 'Analítica' as 'Sintética' | 'Analítica',
+    dreLineItem: null as string | null,
   });
 
-  // ==================== HIERARQUIA ====================
+  // ==================== PLANO DE CONTAS PADRÃO ====================
 
-  const hierarchicalAccounts = useMemo(() => {
-    // Filtrar contas ativas/inativas
-    const filtered = showInactive 
-      ? accountCategories 
-      : accountCategories.filter(cat => cat.isActive);
+  const DEFAULT_CHART_OF_ACCOUNTS = [
+    // ===== RECEITAS =====
+    { code: '3.0.00.00', name: 'RECEITAS', type: 'Receita', accountType: 'Sintética', dreLineItem: 'RECEITA_BRUTA', parentId: null, level: 0, sortOrder: 0 },
+    { code: '3.1.00.00', name: 'Receita Bruta de Vendas', type: 'Receita', accountType: 'Sintética', dreLineItem: 'RECEITA_BRUTA', parentId: '3.0.00.00', level: 1, sortOrder: 1 },
+    { code: '3.1.01.00', name: 'Venda de Produtos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 2 },
+    { code: '3.1.02.00', name: 'Venda de Serviços', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 3 },
+    { code: '3.1.03.00', name: 'Venda de Mercadorias', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 4 },
+    
+    { code: '3.2.00.00', name: 'Deduções da Receita Bruta', type: 'Receita', accountType: 'Sintética', dreLineItem: 'DEDUCOES', parentId: '3.0.00.00', level: 1, sortOrder: 5 },
+    { code: '3.2.01.00', name: 'Devoluções de Vendas', type: 'Receita', accountType: 'Analítica', dreLineItem: 'DEDUCOES', parentId: '3.2.00.00', level: 2, sortOrder: 6 },
+    { code: '3.2.02.00', name: 'Descontos Incondicionais', type: 'Receita', accountType: 'Analítica', dreLineItem: 'DEDUCOES', parentId: '3.2.00.00', level: 2, sortOrder: 7 },
+    { code: '3.2.03.00', name: 'Impostos sobre Vendas', type: 'Receita', accountType: 'Sintética', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.00.00', level: 2, sortOrder: 8 },
+    { code: '3.2.03.01', name: 'ICMS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 9 },
+    { code: '3.2.03.02', name: 'PIS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 10 },
+    { code: '3.2.03.03', name: 'COFINS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 11 },
+    { code: '3.2.03.04', name: 'ISS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 12 },
+    
+    // ===== CUSTOS =====
+    { code: '4.0.00.00', name: 'CUSTOS', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'CMV', parentId: null, level: 0, sortOrder: 13 },
+    { code: '4.1.00.00', name: 'Custo dos Produtos Vendidos (CPV)', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'CMV', parentId: '4.0.00.00', level: 1, sortOrder: 14 },
+    { code: '4.1.01.00', name: 'Matéria-Prima', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 15 },
+    { code: '4.1.02.00', name: 'Mão de Obra Direta', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 16 },
+    { code: '4.1.03.00', name: 'Custos Indiretos de Fabricação', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 17 },
+    
+    { code: '4.2.00.00', name: 'Custo das Mercadorias Vendidas (CMV)', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'CMV', parentId: '4.0.00.00', level: 1, sortOrder: 18 },
+    { code: '4.2.01.00', name: 'Compra de Mercadorias', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.2.00.00', level: 2, sortOrder: 19 },
+    { code: '4.2.02.00', name: 'Frete sobre Compras', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.2.00.00', level: 2, sortOrder: 20 },
+    
+    { code: '4.3.00.00', name: 'Custo dos Serviços Prestados (CSP)', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'CMV', parentId: '4.0.00.00', level: 1, sortOrder: 21 },
+    { code: '4.3.01.00', name: 'Mão de Obra Direta', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.3.00.00', level: 2, sortOrder: 22 },
+    { code: '4.3.02.00', name: 'Materiais Aplicados', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.3.00.00', level: 2, sortOrder: 23 },
+    
+    // ===== DESPESAS OPERACIONAIS =====
+    { code: '5.0.00.00', name: 'DESPESAS OPERACIONAIS', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'DESPESAS_VENDAS', parentId: null, level: 0, sortOrder: 24 },
+    
+    { code: '5.1.00.00', name: 'Despesas com Vendas', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.0.00.00', level: 1, sortOrder: 25 },
+    { code: '5.1.01.00', name: 'Comissões sobre Vendas', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 26 },
+    { code: '5.1.02.00', name: 'Propaganda e Marketing', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 27 },
+    { code: '5.1.03.00', name: 'Fretes sobre Vendas', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 28 },
+    
+    { code: '5.2.00.00', name: 'Despesas Administrativas', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.0.00.00', level: 1, sortOrder: 29 },
+    { code: '5.2.01.00', name: 'Salários e Encargos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 30 },
+    { code: '5.2.02.00', name: 'Aluguéis', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 31 },
+    { code: '5.2.03.00', name: 'Material de Escritório', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 32 },
+    { code: '5.2.04.00', name: 'Serviços de Terceiros', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 33 },
+    { code: '5.2.05.00', name: 'Despesas com Veículos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 34 },
+    { code: '5.2.06.00', name: 'Telefone e Internet', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 35 },
+    { code: '5.2.07.00', name: 'Água, Luz e Gás', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 36 },
+    { code: '5.2.08.00', name: 'Depreciação', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 37 },
+    
+    { code: '5.3.00.00', name: 'Despesas Financeiras', type: 'Despesa', accountType: 'Sintética', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.0.00.00', level: 1, sortOrder: 38 },
+    { code: '5.3.01.00', name: 'Juros Pagos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 39 },
+    { code: '5.3.02.00', name: 'Descontos Concedidos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 40 },
+    { code: '5.3.03.00', name: 'Tarifas Bancárias', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 41 },
+    { code: '5.3.04.00', name: 'IOF', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 42 },
+    
+    // ===== OUTRAS RECEITAS =====
+    { code: '6.0.00.00', name: 'OUTRAS RECEITAS E DESPESAS', type: 'Receita', accountType: 'Sintética', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: null, level: 0, sortOrder: 43 },
+    { code: '6.1.00.00', name: 'Receitas Financeiras', type: 'Receita', accountType: 'Sintética', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: '6.0.00.00', level: 1, sortOrder: 44 },
+    { code: '6.1.01.00', name: 'Juros Recebidos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: '6.1.00.00', level: 2, sortOrder: 45 },
+    { code: '6.1.02.00', name: 'Descontos Obtidos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: '6.1.00.00', level: 2, sortOrder: 46 },
+  ];
 
-    // Construir árvore hierárquica
+  // ==================== INICIALIZAÇÃO AUTOMÁTICA ====================
+
+  useEffect(() => {
+    const initializeChartOfAccounts = async () => {
+      // Só inicializa se não tiver nenhuma conta E ainda não inicializou
+      if (accountCategories.length === 0 && !hasInitialized && accessToken) {
+        try {
+          console.log('🌱 Inicializando plano de contas padrão...');
+          
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/account-categories/init-default`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ accounts: DEFAULT_CHART_OF_ACCOUNTS }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao criar plano de contas: ${errorText}`);
+          }
+
+          const result = await response.json();
+          console.log('✅ Plano de contas criado:', result);
+          
+          // Marca como inicializado
+          setHasInitialized(true);
+          
+          // Força reload do contexto
+          window.location.reload();
+        } catch (error) {
+          console.error('❌ Erro ao inicializar plano de contas:', error);
+          alert(`Erro ao criar plano de contas: ${(error as Error).message}`);
+        }
+      }
+    };
+
+    initializeChartOfAccounts();
+  }, [accountCategories.length, hasInitialized, accessToken]);
+
+  // ==================== CONSTRUIR HIERARQUIA ====================
+
+  const buildHierarchy = (accounts: AccountCategory[]): HierarchicalAccount[] => {
     const accountMap = new Map<string, HierarchicalAccount>();
     const rootAccounts: HierarchicalAccount[] = [];
 
-    // Primeiro passo: criar mapa
-    filtered.forEach(account => {
-      accountMap.set(account.id, { ...account, children: [] });
+    // Primeiro, criar mapa de todas as contas
+    accounts.forEach(account => {
+      accountMap.set(account.code, { ...account, children: [] });
     });
 
-    // Segundo passo: construir hierarquia
-    filtered.forEach(account => {
-      const node = accountMap.get(account.id)!;
+    // Depois, construir hierarquia
+    accounts.forEach(account => {
+      const currentAccount = accountMap.get(account.code)!;
+      
       if (account.parentId) {
         const parent = accountMap.get(account.parentId);
         if (parent) {
-          parent.children = parent.children || [];
-          parent.children.push(node);
+          parent.children!.push(currentAccount);
         } else {
-          rootAccounts.push(node);
+          rootAccounts.push(currentAccount);
         }
       } else {
-        rootAccounts.push(node);
+        rootAccounts.push(currentAccount);
       }
     });
 
-    // Ordenar por sortOrder ou code
+    // Ordenar por sortOrder
     const sortAccounts = (accounts: HierarchicalAccount[]) => {
-      accounts.sort((a, b) => {
-        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
-          return a.sortOrder - b.sortOrder;
-        }
-        return (a.code || '').localeCompare(b.code || '');
-      });
-      accounts.forEach(acc => {
-        if (acc.children && acc.children.length > 0) {
-          sortAccounts(acc.children);
+      accounts.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      accounts.forEach(account => {
+        if (account.children && account.children.length > 0) {
+          sortAccounts(account.children);
         }
       });
     };
 
     sortAccounts(rootAccounts);
     return rootAccounts;
+  };
+
+  const hierarchicalAccounts = useMemo(() => {
+    const activeAccounts = showInactive 
+      ? accountCategories 
+      : accountCategories.filter(cat => cat.isActive !== false);
+    return buildHierarchy(activeAccounts);
   }, [accountCategories, showInactive]);
 
-  // ==================== HANDLERS ====================
+  // ==================== CONTROLE DE EXPANSÃO ====================
 
-  const toggleNode = (id: string) => {
-    const newExpanded = new Set(expandedNodes);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedNodes(newExpanded);
+  const toggleNode = (code: string) => {
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(code)) {
+        newSet.delete(code);
+      } else {
+        newSet.add(code);
+      }
+      return newSet;
+    });
   };
 
   const expandAll = () => {
-    const allIds = new Set<string>();
-    const collectIds = (accounts: HierarchicalAccount[]) => {
-      accounts.forEach(acc => {
-        if (acc.children && acc.children.length > 0) {
-          allIds.add(acc.id);
-          collectIds(acc.children);
-        }
-      });
-    };
-    collectIds(hierarchicalAccounts);
-    setExpandedNodes(allIds);
+    const allCodes = accountCategories.map(cat => cat.code);
+    setExpandedNodes(new Set(allCodes));
   };
 
   const collapseAll = () => {
     setExpandedNodes(new Set());
   };
 
-  const handleOpenDialog = (category?: AccountCategory, parentId?: string) => {
+  // ==================== DIÁLOGO ====================
+
+  const handleOpenDialog = (category?: AccountCategory) => {
     if (category) {
       setEditingCategory(category);
       setFormData({
+        code: category.code,
         name: category.name,
         type: category.type,
-        code: category.code || '',
         description: category.description || '',
-        parentId: category.parentId || '',
-        accountType: category.accountType || 'analitica',
-        dreLineItem: category.dreLineItem || '',
+        parentId: category.parentId || null,
+        accountType: category.accountType || 'Analítica',
+        dreLineItem: category.dreLineItem || null,
       });
     } else {
       setEditingCategory(null);
       setFormData({
+        code: '',
         name: '',
         type: 'Receita',
-        code: '',
         description: '',
-        parentId: parentId || '',
-        accountType: 'analitica',
-        dreLineItem: '',
+        parentId: null,
+        accountType: 'Analítica',
+        dreLineItem: null,
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingCategory(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (editingCategory) {
       updateAccountCategory(editingCategory.id, formData);
     } else {
       addAccountCategory(formData);
     }
-    setIsDialogOpen(false);
+    
+    handleCloseDialog();
   };
 
-  const handleToggleActive = (category: AccountCategory) => {
-    updateAccountCategory(category.id, { isActive: !category.isActive });
+  const handleToggleActive = async (account: AccountCategory) => {
+    updateAccountCategory(account.id, { isActive: !account.isActive });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta conta?')) {
-      deleteAccountCategory(id);
-    }
-  };
+  // ==================== RENDERIZAÇÃO DE NÓ ====================
 
-  const handleResetChartOfAccounts = async () => {
-    if (!confirm('⚠️ ATENÇÃO: Isso irá RECRIAR o plano de contas padrão.\n\nTodas as contas antigas (códigos 3.x e 4.x) serão REMOVIDAS e substituídas pelo plano padrão completo (46 contas).\n\n⚠️ IMPORTANTE: Esta ação é IRREVERSÍVEL!\n\nDeseja continuar?')) {
-      return;
-    }
-
-    if (!accessToken) {
-      alert('Você precisa estar autenticado para executar esta ação.');
-      return;
-    }
-
-    try {
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/chart-of-accounts/reset`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        alert('✅ Plano de contas padrão criado com sucesso!\n\n46 contas foram criadas.\n\nRecarregando a página...');
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        alert(`❌ Erro ao criar plano de contas padrão:\n\n${data.error || 'Erro desconhecido'}`);
-      }
-    } catch (error) {
-      console.error('Erro ao resetar plano de contas:', error);
-      alert(`❌ Erro ao criar plano de contas:\n\n${(error as Error).message}\n\nVerifique o console para mais detalhes.`);
-    }
-  };
-
-  // ==================== EFEITOS ====================
-
-  // Auto-criar plano de contas se estiver vazio
-  useEffect(() => {
-    const autoCreateChartIfEmpty = async () => {
-      // Se já tem contas, não fazer nada
-      if (accountCategories.length > 0) {
-        return;
-      }
-
-      // Se não tem contas E já tentou carregar (hasInitialized = false significa primeira vez)
-      if (accountCategories.length === 0 && !hasInitialized) {
-        console.log('[ChartOfAccounts] 🎯 Plano de contas vazio detectado. Criando automaticamente...');
-        
-        if (!accessToken) {
-          console.warn('[ChartOfAccounts] ⚠️ Sem token de autenticação. Aguardando...');
-          return;
-        }
-
-        try {
-          const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/chart-of-accounts/reset`;
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-
-          const data = await response.json();
-          
-          if (data.success) {
-            console.log('[ChartOfAccounts] ✅ Plano de contas criado automaticamente (46 contas)');
-            // Recarregar a página para buscar as novas contas
-            setTimeout(() => window.location.reload(), 500);
-          } else {
-            console.error('[ChartOfAccounts] ❌ Erro ao criar plano automático:', data.error);
-          }
-        } catch (error) {
-          console.error('[ChartOfAccounts] ❌ Erro ao criar plano automático:', error);
-        }
-      }
-    };
-
-    autoCreateChartIfEmpty();
-  }, [accountCategories, accessToken, hasInitialized]);
-
-  // Expandir automaticamente todas as contas na primeira renderização
-  useEffect(() => {
-    if (!hasInitialized && hierarchicalAccounts.length > 0) {
-      // Expandir manualmente sem chamar a função
-      const allIds = new Set<string>();
-      const collectIds = (accounts: HierarchicalAccount[]) => {
-        accounts.forEach(acc => {
-          if (acc.children && acc.children.length > 0) {
-            allIds.add(acc.id);
-            collectIds(acc.children);
-          }
-        });
-      };
-      collectIds(hierarchicalAccounts);
-      setExpandedNodes(allIds);
-      setHasInitialized(true);
-    }
-  }, [hierarchicalAccounts, hasInitialized]);
-
-  // ==================== RENDERIZAÇÃO RECURSIVA ====================
-
-  const renderAccountRow = (account: HierarchicalAccount, level: number = 0): React.ReactNode => {
+  const renderNode = (account: HierarchicalAccount, depth: number = 0) => {
     const hasChildren = account.children && account.children.length > 0;
-    const isExpanded = expandedNodes.has(account.id);
-    const isSynthetic = account.accountType === 'sintetica';
+    const isExpanded = expandedNodes.has(account.code);
+    const isInactive = account.isActive === false;
 
     return (
-      <div key={account.id}>
-        {/* Linha da conta */}
+      <div key={account.code}>
         <div
-          className={`
-            flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors
-            ${!account.isActive ? 'opacity-50 bg-gray-100' : ''}
-            ${isSynthetic ? 'font-semibold' : ''}
-          `}
+          className={`flex items-center gap-2 py-2 px-3 hover:bg-gray-50 border-l-2 ${
+            isInactive ? 'opacity-50 bg-gray-50' : ''
+          }`}
+          style={{ 
+            paddingLeft: `${depth * 24 + 12}px`,
+            borderLeftColor: account.type === 'Receita' ? '#10b981' : '#ef4444',
+          }}
         >
           {/* Ícone de expansão */}
-          <div className="w-5 flex-shrink-0" style={{ marginLeft: `${level * 32}px` }}>
-            {hasChildren && (
-              <button
-                onClick={() => toggleNode(account.id)}
-                className="hover:bg-gray-200 rounded p-1 transition-colors"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
+          <button
+            onClick={() => hasChildren && toggleNode(account.code)}
+            className="w-5 h-5 flex items-center justify-center"
+          >
+            {hasChildren ? (
+              isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-gray-600" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-gray-600" />
+              )
+            ) : (
+              <span className="w-4 h-4"></span>
+            )}
+          </button>
+
+          {/* Código */}
+          <span className="font-mono text-sm text-gray-600 w-24">{account.code}</span>
+
+          {/* Nome */}
+          <span className={`flex-1 ${account.accountType === 'Sintética' ? 'font-semibold' : ''}`}>
+            {account.name}
+          </span>
+
+          {/* Badges */}
+          <div className="flex items-center gap-2">
+            <Badge variant={account.type === 'Receita' ? 'default' : 'destructive'}>
+              {account.type}
+            </Badge>
+            <Badge variant="outline">
+              {account.accountType}
+            </Badge>
+            {account.dreLineItem && (
+              <Badge variant="secondary" className="text-xs">
+                {account.dreLineItem}
+              </Badge>
+            )}
+            {isInactive && (
+              <Badge variant="outline" className="text-red-600">
+                Inativa
+              </Badge>
             )}
           </div>
 
-          {/* Código */}
-          <div className="w-32 flex-shrink-0">
-            <span className="font-mono text-sm">{account.code}</span>
-          </div>
-
-          {/* Nome */}
-          <div className="flex-1 min-w-0">
-            <span className={isSynthetic ? 'font-semibold' : ''}>
-              {account.name}
-            </span>
-          </div>
-
-          {/* Tipo */}
-          <div className="w-24 flex-shrink-0 flex items-center justify-center">
-            <Badge variant={account.type === 'Receita' ? 'default' : 'secondary'}>
-              {account.type}
-            </Badge>
-          </div>
-
-          {/* Tipo de Conta */}
-          <div className="w-24 flex-shrink-0 flex items-center justify-center">
-            <Badge variant="outline">
-              {isSynthetic ? 'Sintética' : 'Analítica'}
-            </Badge>
-          </div>
-
-          {/* DRE Line */}
-          <div className="w-40 flex-shrink-0 text-xs text-gray-500 flex items-center justify-center">
-            {account.dreLineItem || '-'}
-          </div>
-
           {/* Ações */}
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleToggleActive(account)}
-              title={account.isActive ? 'Desativar' : 'Ativar'}
+              title={isInactive ? 'Ativar' : 'Desativar'}
             >
-              {account.isActive ? (
-                <Eye className="w-4 h-4" />
+              {isInactive ? (
+                <EyeOff className="w-4 h-4 text-gray-500" />
               ) : (
-                <EyeOff className="w-4 h-4" />
+                <Eye className="w-4 h-4 text-gray-500" />
               )}
             </Button>
             <Button
@@ -363,102 +363,75 @@ export function ChartOfAccountsHierarchical() {
               size="sm"
               onClick={() => handleOpenDialog(account)}
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="w-4 h-4 text-blue-600" />
             </Button>
-            {!isSynthetic && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDelete(account.id)}
-              >
-                <Trash2 className="w-4 h-4 text-red-500" />
-              </Button>
-            )}
-            {isSynthetic && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleOpenDialog(undefined, account.id)}
-                title="Adicionar subconta"
-              >
-                <Plus className="w-4 h-4 text-green-600" />
-              </Button>
-            )}
           </div>
         </div>
 
-        {/* Renderizar filhos se expandido */}
-        {hasChildren && isExpanded && account.children?.map(child => renderAccountRow(child, level + 1))}
+        {/* Filhos */}
+        {hasChildren && isExpanded && (
+          <div>
+            {account.children!.map(child => renderNode(child, depth + 1))}
+          </div>
+        )}
       </div>
     );
   };
 
-  // ==================== RENDER ====================
+  // ==================== RENDER PRINCIPAL ====================
 
   return (
-    <div className="space-y-6 p-4 md:p-0">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <ListTree className="w-6 h-6" />
-          <h2 className="text-xl sm:text-2xl">Plano de Contas</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={expandAll} className="text-xs sm:text-sm">
-            Expandir Tudo
-          </Button>
-          <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs sm:text-sm">
-            Recolher Tudo
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowInactive(!showInactive)}
-            className="text-xs sm:text-sm"
-          >
-            {showInactive ? 'Ocultar Inativas' : 'Mostrar Inativas'}
-          </Button>
-          <Button onClick={() => handleOpenDialog()} className="text-xs sm:text-sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Conta
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetChartOfAccounts}
-            className="text-xs sm:text-sm"
-          >
-            Resetar Plano de Contas
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabela Hierárquica */}
-      <div className="border rounded-lg overflow-x-auto bg-white">
-        {/* Header - ocultar em mobile */}
-        <div className="hidden md:flex items-center gap-3 px-4 py-3 bg-gray-50 border-b">
-          <div className="w-5 flex-shrink-0" />
-          <div className="w-32 flex-shrink-0 text-sm font-semibold">Código</div>
-          <div className="flex-1 text-sm font-semibold">Nome</div>
-          <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Tipo</div>
-          <div className="w-24 flex-shrink-0 text-sm font-semibold text-center">Categoria</div>
-          <div className="w-40 flex-shrink-0 text-sm font-semibold text-center">Linha DRE</div>
-          <div className="flex gap-2 flex-shrink-0 text-sm font-semibold">Ações</div>
-        </div>
-
-        {/* Contas */}
-        <div>
-          {hierarchicalAccounts.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              Nenhuma conta encontrada. Clique em "Nova Conta" para começar.
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <ListTree className="w-8 h-8 text-green-600" />
+            <div>
+              <h1 className="text-gray-900">Plano de Contas Hierárquico</h1>
+              <p className="text-gray-500 text-sm">
+                {accountCategories.length} contas • {hierarchicalAccounts.length} raízes
+              </p>
             </div>
-          ) : (
-            hierarchicalAccounts.map(account => renderAccountRow(account, 0))
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={expandAll}>
+              Expandir Tudo
+            </Button>
+            <Button variant="outline" size="sm" onClick={collapseAll}>
+              Recolher Tudo
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowInactive(!showInactive)}>
+              {showInactive ? 'Ocultar Inativas' : 'Mostrar Inativas'}
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nova Conta
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Dialog de Edição */}
+      {/* Árvore */}
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        {hierarchicalAccounts.length > 0 ? (
+          <div className="divide-y">
+            {hierarchicalAccounts.map(account => renderNode(account, 0))}
+          </div>
+        ) : (
+          <div className="p-12 text-center text-gray-500">
+            <ListTree className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>Nenhuma conta encontrada</p>
+            <p className="text-sm mt-2">
+              {accountCategories.length === 0 
+                ? 'O plano de contas padrão será criado automaticamente.'
+                : 'Ajuste os filtros ou adicione novas contas.'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -466,125 +439,115 @@ export function ChartOfAccountsHierarchical() {
               {editingCategory ? 'Editar Conta' : 'Nova Conta'}
             </DialogTitle>
             <DialogDescription>
-              Configure os detalhes da conta contábil
+              Preencha os dados da conta contábil
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Código */}
-            <div>
-              <Label htmlFor="code">Código Contábil</Label>
-              <Input
-                id="code"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="Ex: 3.1.1.00"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Formato: X.Y.Z.WW (ex: 3.1.1.00 para Receitas, 4.2.1.00 para Despesas)
-              </p>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="code">Código *</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  placeholder="1.1.01.00"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="accountType">Tipo de Conta *</Label>
+                <Select
+                  value={formData.accountType}
+                  onValueChange={(value: 'Sintética' | 'Analítica') =>
+                    setFormData({ ...formData, accountType: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sintética">Sintética (Agrupadora)</SelectItem>
+                    <SelectItem value="Analítica">Analítica (Movimentação)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Nome */}
             <div>
               <Label htmlFor="name">Nome da Conta *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Receita de Vendas"
+                placeholder="Ex: Caixa, Bancos, Fornecedores..."
+                required
               />
             </div>
 
-            {/* Tipo */}
-            <div>
-              <Label htmlFor="type">Tipo *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value: 'Receita' | 'Despesa') =>
-                  setFormData({ ...formData, type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Receita">Receita</SelectItem>
-                  <SelectItem value="Despesa">Despesa</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="type">Natureza *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value: any) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Receita">Receita</SelectItem>
+                    <SelectItem value="Despesa">Despesa</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Passivo">Passivo</SelectItem>
+                    <SelectItem value="Patrimônio Líquido">Patrimônio Líquido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="parentId">Conta Pai</Label>
+                <Select
+                  value={formData.parentId || ''}
+                  onValueChange={(value) => setFormData({ ...formData, parentId: value || null })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nenhuma (Raiz)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhuma (Raiz)</SelectItem>
+                    {accountCategories
+                      .filter(cat => cat.accountType === 'Sintética')
+                      .map(cat => (
+                        <SelectItem key={cat.id} value={cat.code}>
+                          {cat.code} - {cat.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Tipo de Conta */}
-            <div>
-              <Label htmlFor="accountType">Tipo de Conta *</Label>
-              <Select
-                value={formData.accountType}
-                onValueChange={(value: 'sintetica' | 'analitica') =>
-                  setFormData({ ...formData, accountType: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sintetica">Sintética (Grupo)</SelectItem>
-                  <SelectItem value="analitica">Analítica (Detalhada)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                Sintética = Agrupadora (não recebe lançamentos). Analítica = Recebe lançamentos.
-              </p>
-            </div>
-
-            {/* Linha DRE */}
-            <div>
-              <Label htmlFor="dreLineItem">Linha da DRE</Label>
-              <Select
-                value={formData.dreLineItem}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, dreLineItem: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  <SelectItem value="receita_bruta">Receita Bruta</SelectItem>
-                  <SelectItem value="deducoes_receita">Deduções da Receita</SelectItem>
-                  <SelectItem value="custos">Custos (CMV/CSP/CPV)</SelectItem>
-                  <SelectItem value="despesas_operacionais">Despesas Operacionais</SelectItem>
-                  <SelectItem value="outras_receitas_despesas">Outras Receitas/Despesas</SelectItem>
-                  <SelectItem value="irpj">IRPJ</SelectItem>
-                  <SelectItem value="csll">CSLL</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                Vínculo direto com a DRE Gerencial
-              </p>
-            </div>
-
-            {/* Descrição */}
             <div>
               <Label htmlFor="description">Descrição</Label>
               <Input
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descrição opcional"
+                placeholder="Descrição opcional da conta"
               />
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              {editingCategory ? 'Salvar' : 'Criar'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                Cancelar
+              </Button>
+              <Button type="submit">
+                {editingCategory ? 'Salvar Alterações' : 'Criar Conta'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
