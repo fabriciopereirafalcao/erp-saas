@@ -732,7 +732,7 @@ app.post('/account-categories/init-default', async (c) => {
       description: account.name,
       parent_id: null, // Temporariamente null
       level: account.level,
-      account_type: account.accountType, // Preserva formato original (Analítica/Sintética)
+      account_type: account.accountType.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), // Normaliza: 'Sintética' → 'sintetica'
       dre_line_item: account.dreLineItem,
       sort_order: account.sortOrder,
       is_active: true,
