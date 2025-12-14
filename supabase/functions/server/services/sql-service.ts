@@ -1160,53 +1160,172 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
   const supabase = getSupabaseClient();
   console.log(`[SQL_SERVICE] 💾 saveAccountCategories - companyId: ${companyId}, count: ${categories.length}`);
   
-  // ✅ MIGRADO: Salvar na tabela SQL account_categories
+  // ==================== ARQUITETURA UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todas as categorias (protege contra perda de dados)
+  // ✅ UPDATE categorias existentes (preserva UUID e código)
+  // ✅ INSERT apenas categorias novas
+  // ✅ DELETE apenas categorias removidas pelo usuário
   
-  // 1️⃣ Deletar todos os registros existentes da empresa
-  const { error: deleteError } = await supabase
+  // ETAPA 1: Buscar todas as categorias existentes no banco
+  const { data: existingCategories, error: fetchError } = await supabase
     .from('account_categories')
-    .delete()
+    .select('id, code, type')
     .eq('company_id', companyId);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar account categories:', deleteError);
-    throw new Error(`Erro ao deletar account categories: ${deleteError.message}`);
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar categorias existentes:', fetchError);
+    throw new Error(fetchError.message);
   }
 
-  // 2️⃣ Gerar códigos automáticos para categorias sem code
-  const categoriesWithCode = await Promise.all(categories.map(async (ac: any) => {
-    if (ac.code) {
-      // Já tem code definido
-      return { ...ac, code: ac.code };
+  const existingIdMap = new Map<string, any>(); // id (UUID) → registro
+  existingCategories?.forEach((cat: any) => {
+    existingIdMap.set(cat.id, cat);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Categorias no banco: ${existingIdMap.size}`);
+
+  // ETAPA 2: Classificar categorias do frontend
+  const categoriesToUpdate: any[] = []; // Categorias com ID existente → UPDATE
+  const categoriesToInsert: any[] = []; // Categorias novas → INSERT
+  const incomingIds = new Set<string>(); // IDs enviados pelo frontend
+
+  for (const category of categories) {
+    // Se tem ID e existe no banco → UPDATE
+    if (category.id && existingIdMap.has(category.id)) {
+      categoriesToUpdate.push(category);
+      incomingIds.add(category.id);
+    } 
+    // Se não tem ID ou ID não existe → INSERT
+    else {
+      categoriesToInsert.push(category);
+      if (category.id) incomingIds.add(category.id);
     }
-    // Gerar novo code sequencial automaticamente
-    const newCode = await generateNextAccountCategoryCode(companyId, ac.type);
-    console.log(`[SQL_SERVICE] 🔢 Código gerado automaticamente: ${newCode} para categoria "${ac.name}"`);
-    return { ...ac, code: newCode };
-  }));
-
-  // 3️⃣ Inserir novos registros (sem id - deixar PostgreSQL gerar UUID)
-  const recordsToInsert = categoriesWithCode.map(ac => ({
-    // ❌ NÃO incluir id - deixar PostgreSQL gerar UUID automaticamente
-    company_id: companyId,
-    type: ac.type,
-    code: ac.code, // ✅ Agora sempre tem code (gerado ou customizado)
-    name: ac.name,
-    description: ac.description || '',
-    is_active: ac.isActive ?? true
-  }));
-
-  const { error: insertError } = await supabase
-    .from('account_categories')
-    .insert(recordsToInsert);
-
-  if (insertError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao inserir account categories:', insertError);
-    throw new Error(`Erro ao inserir account categories: ${insertError.message}`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${categories.length} account categories salvos na tabela SQL`);
-  return { success: true, count: categories.length };
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${categoriesToUpdate.length} | INSERT: ${categoriesToInsert.length}`);
+
+  // ETAPA 3: UPDATE categorias existentes (preserva UUID e código)
+  for (const category of categoriesToUpdate) {
+    const { error: updateError } = await supabase
+      .from('account_categories')
+      .update({
+        type: category.type,
+        code: category.code, // Preservar código customizado
+        name: category.name,
+        description: category.description || '',
+        is_active: category.isActive ?? true
+      })
+      .eq('id', category.id);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar categoria ${category.id}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${categoriesToUpdate.length} categorias atualizadas`);
+
+  // ETAPA 4: Gerar códigos para categorias novas (sequencial por tipo)
+  let receiptCodeCounter = 1;
+  let expenseCodeCounter = 1;
+
+  // Encontrar o maior código existente para cada tipo
+  existingCategories?.forEach((cat: any) => {
+    if (cat.code) {
+      const match = cat.code.match(/^(\d+)\.(\d+)\.(\d+)$/);
+      if (match) {
+        const [, major, minor, patch] = match;
+        const patchNum = parseInt(patch, 10);
+        
+        if (cat.type === 'Receita' && major === '3') {
+          if (patchNum >= receiptCodeCounter) {
+            receiptCodeCounter = patchNum + 1;
+          }
+        } else if (cat.type === 'Despesa' && major === '4') {
+          if (patchNum >= expenseCodeCounter) {
+            expenseCodeCounter = patchNum + 1;
+          }
+        }
+      }
+    }
+  });
+
+  // Gerar códigos para novas categorias
+  const categoriesToInsertWithCode = categoriesToInsert.map((category: any) => {
+    if (category.code) {
+      // Código customizado já definido
+      return { ...category, code: category.code };
+    }
+    
+    // Gerar código sequencial baseado no tipo
+    let newCode: string;
+    if (category.type === 'Receita') {
+      newCode = `3.1.${String(receiptCodeCounter).padStart(2, '0')}`;
+      receiptCodeCounter++;
+    } else {
+      newCode = `4.1.${String(expenseCodeCounter).padStart(2, '0')}`;
+      expenseCodeCounter++;
+    }
+    
+    console.log(`[SQL_SERVICE] 🔢 Código gerado: ${newCode} para "${category.name}"`);
+    return { ...category, code: newCode };
+  });
+
+  // ETAPA 5: INSERT categorias novas (com códigos gerados)
+  if (categoriesToInsertWithCode.length > 0) {
+    const rows = categoriesToInsertWithCode.map((category: any) => ({
+      company_id: companyId,
+      type: category.type,
+      code: category.code,
+      name: category.name,
+      description: category.description || '',
+      is_active: category.isActive ?? true
+    }));
+
+    const { error: insertError } = await supabase
+      .from('account_categories')
+      .insert(rows);
+
+    if (insertError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir categorias:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[SQL_SERVICE] ✅ ${categoriesToInsertWithCode.length} categorias inseridas`);
+  }
+
+  // ETAPA 6: DELETE categorias removidas
+  const idsToDelete: string[] = [];
+  existingIdMap.forEach((cat, id) => {
+    if (!incomingIds.has(id)) {
+      idsToDelete.push(id);
+    }
+  });
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('account_categories')
+      .delete()
+      .eq('company_id', companyId)
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar categorias removidas:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${idsToDelete.length} categorias removidas`);
+  }
+
+  const totalOperations = categoriesToUpdate.length + categoriesToInsertWithCode.length + idsToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: categoriesToUpdate.length,
+    inserted: categoriesToInsertWithCode.length,
+    deleted: idsToDelete.length
+  };
 }
 
 // PRODUCT CATEGORIES (temporário - depois migrar para tabela)
