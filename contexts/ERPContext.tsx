@@ -645,16 +645,9 @@ const initialPaymentMethods: PaymentMethod[] = [
   { id: "PM-003", name: "Dinheiro", type: "À Vista", installmentsAllowed: false, isActive: true }
 ];
 
-// Plano de Contas básico - mantido para funcionalidade essencial do sistema
-const initialAccountCategories: AccountCategory[] = [
-  // Receitas básicas
-  { id: "AC-001", type: "Receita", code: "3.1.01", name: "Vendas de Produtos", description: "Receita com venda de produtos", isActive: true },
-  { id: "AC-002", type: "Receita", code: "3.2.01", name: "Receitas Financeiras", description: "Juros, rendimentos de aplicações", isActive: true },
-  
-  // Despesas básicas
-  { id: "AC-003", type: "Despesa", code: "4.1.01", name: "Custos com Produtos", description: "Custo das mercadorias vendidas", isActive: true },
-  { id: "AC-004", type: "Despesa", code: "4.2.01", name: "Despesas Operacionais", description: "Despesas gerais do negócio", isActive: true }
-];
+// ❌ REMOVIDO: initialAccountCategories
+// O plano de contas completo (46 contas) é criado automaticamente
+// pelo componente ChartOfAccountsHierarchical ao acessar a tela pela primeira vez
 
 const initialAccountsReceivable: AccountReceivable[] = [];
 
@@ -863,8 +856,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   });
   
   const [accountCategories, setAccountCategories] = useState<AccountCategory[]>(() => {
-    // Inicialização com dados default - será sobrescrito se houver cache/Supabase
-    const loaded = initialAccountCategories;
+    // Inicialização vazia - o plano de contas será criado automaticamente pelo componente
+    const loaded: AccountCategory[] = [];
     
     // Limpar duplicados imediatamente ao carregar
     if (loaded.length > 0) {
@@ -1249,7 +1242,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     setPaymentMethods(cachedPaymentMethods);
     console.log(`[CACHE] 📋 Payment Methods: ${cachedPaymentMethods.length} items`);
     
-    const cachedAccountCategories = loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, initialAccountCategories);
+    const cachedAccountCategories = loadCached(STORAGE_KEYS.ACCOUNT_CATEGORIES, []);
     setAccountCategories(cachedAccountCategories);
     console.log(`[CACHE] 📋 Account Categories: ${cachedAccountCategories.length} items`);
     
@@ -1419,24 +1412,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           console.log(`[SUPABASE] ✅ ${accountCategoriesData.length} categorias de contas carregadas`);
           setAccountCategories(accountCategoriesData);
         } else if (isSubscribed) {
-          // ✅ SEED: Criar categorias de contas padrão se não existirem
-          console.log('[SEED] 🌱 Criando categorias de contas padrão no banco...');
-          console.log('[SEED] 📊 Categorias a serem criadas:', initialAccountCategories);
-          try {
-            const response = await authPost(
-              `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories`,
-              { data: initialAccountCategories }
-            );
-            console.log('[SEED] 📡 Resposta do servidor:', response);
-            if (response.success) {
-              console.log('[SEED] ✅ Categorias de contas padrão criadas no banco');
-              setAccountCategories(initialAccountCategories);
-            } else {
-              console.error('[SEED] ❌ Erro na resposta do servidor:', response.error);
-            }
-          } catch (error) {
-            console.error('[SEED] ❌ Erro ao criar categorias de contas padrão:', error);
-          }
+          // ❌ REMOVIDO: Antigo SEED de 4 contas básicas
+          // O plano de contas completo (46 contas) é criado automaticamente
+          // pelo componente ChartOfAccountsHierarchical ao acessar a tela pela primeira vez
+          console.log('[SEED] ℹ️ Plano de contas será criado automaticamente ao acessar a tela de Plano de Contas');
         }
         
         // Carregar transações financeiras
