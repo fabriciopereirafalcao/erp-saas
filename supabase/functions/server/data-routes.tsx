@@ -25,6 +25,7 @@
 import { Hono } from 'npm:hono@4.6.14';
 import { sqlService } from './services/sql-service.ts';
 import { sqlServiceExtended } from './services/sql-service-extended.ts';
+import * as dreService from './services/dre-service.ts';
 
 const app = new Hono();
 
@@ -1251,6 +1252,122 @@ app.post('/last-analysis-date', async (c) => {
   }
 });
 
+// ==================== ROTAS - DRE (Demonstração do Resultado do Exercício) ====================
+
+// Calcular DRE para um período
+app.get('/dre/calculate', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const startDate = c.req.query('startDate');
+    const endDate = c.req.query('endDate');
+
+    if (!startDate || !endDate) {
+      return c.json({ error: 'startDate e endDate são obrigatórios' }, 400);
+    }
+
+    console.log(`[DRE] 📊 Calculando DRE para empresa ${auth.companyId} (${startDate} até ${endDate})`);
+    const dre = await dreService.calculateDRE(auth.companyId, startDate, endDate);
+    
+    console.log(`[DRE] ✅ DRE calculada com sucesso`);
+    return c.json({
+      success: true,
+      data: dre
+    });
+
+  } catch (error) {
+    console.error('[DRE] ❌ Erro ao calcular:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Buscar estrutura da DRE baseada no regime
+app.get('/dre/structure', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const regime = c.req.query('regime') || 'SIMPLES';
+
+    console.log(`[DRE STRUCTURE] 📋 Buscando estrutura DRE para regime ${regime}`);
+    const structure = await dreService.getDREStructure(regime);
+    
+    console.log(`[DRE STRUCTURE] ✅ ${structure.length} linhas encontradas`);
+    return c.json({
+      success: true,
+      data: structure
+    });
+
+  } catch (error) {
+    console.error('[DRE STRUCTURE] ❌ Erro ao buscar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Salvar snapshot de DRE
+app.post('/dre/snapshot', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { dre } = await c.req.json();
+    
+    if (!dre) {
+      return c.json({ error: 'dre é obrigatório' }, 400);
+    }
+
+    console.log(`[DRE SNAPSHOT] 💾 Salvando snapshot para empresa ${auth.companyId}`);
+    const result = await dreService.saveDRESnapshot(auth.companyId, auth.userId, dre);
+    
+    if (result.success) {
+      console.log(`[DRE SNAPSHOT] ✅ Snapshot salvo: ${result.id}`);
+      return c.json({
+        success: true,
+        message: 'Snapshot salvo com sucesso',
+        id: result.id
+      });
+    } else {
+      return c.json({ error: 'Erro ao salvar snapshot' }, 500);
+    }
+
+  } catch (error) {
+    console.error('[DRE SNAPSHOT] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Buscar histórico de snapshots
+app.get('/dre/snapshots', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const limit = parseInt(c.req.query('limit') || '10', 10);
+
+    console.log(`[DRE SNAPSHOTS] 📥 Buscando snapshots da empresa ${auth.companyId}`);
+    const snapshots = await dreService.getDRESnapshots(auth.companyId, limit);
+    
+    console.log(`[DRE SNAPSHOTS] ✅ ${snapshots.length} snapshots encontrados`);
+    return c.json({
+      success: true,
+      data: snapshots
+    });
+
+  } catch (error) {
+    console.error('[DRE SNAPSHOTS] ❌ Erro ao buscar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTA DE SAÚDE ====================
 
 app.get('/health', (c) => {
@@ -1264,7 +1381,7 @@ app.get('/health', (c) => {
       'buyers', 'payment-methods', 'account-categories', 'financial-transactions',
       'accounts-receivable', 'accounts-payable', 'bank-accounts', 'bank-movements',
       'cash-flow-entries', 'audit-issues', 'company-history',
-      'reconciliation-status', 'last-analysis-date'
+      'reconciliation-status', 'last-analysis-date', 'dre'
     ]
   });
 });
