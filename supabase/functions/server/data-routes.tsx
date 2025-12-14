@@ -26,7 +26,7 @@ import { Hono } from 'npm:hono@4.6.14';
 import { sqlService } from './services/sql-service.ts';
 import { sqlServiceExtended } from './services/sql-service-extended.ts';
 import * as dreService from './services/dre-service.ts';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 console.log('🔧 [DATA-ROUTES] Módulo carregado - inicializando rotas...');
 
