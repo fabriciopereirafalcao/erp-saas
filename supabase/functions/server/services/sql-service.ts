@@ -1152,6 +1152,11 @@ async function getAccountCategories(companyId: string) {
     code: ac.code,
     name: ac.name,
     description: ac.description,
+    parentId: ac.parent_id,
+    level: ac.level,
+    accountType: ac.account_type,
+    dreLineItem: ac.dre_line_item,
+    sortOrder: ac.sort_order,
     isActive: ac.is_active
   }));
 }
@@ -1213,6 +1218,11 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
         code: category.code, // Preservar código customizado
         name: category.name,
         description: category.description || '',
+        parent_id: category.parentId || null,
+        level: category.level || 1,
+        account_type: category.accountType || 'analitica',
+        dre_line_item: category.dreLineItem || null,
+        sort_order: category.sortOrder || 0,
         is_active: category.isActive ?? true
       })
       .eq('id', category.id);
@@ -1279,6 +1289,11 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
       code: category.code,
       name: category.name,
       description: category.description || '',
+      parent_id: category.parentId || null,
+      level: category.level || 1,
+      account_type: category.accountType || 'analitica',
+      dre_line_item: category.dreLineItem || null,
+      sort_order: category.sortOrder || 0,
       is_active: category.isActive ?? true
     }));
 

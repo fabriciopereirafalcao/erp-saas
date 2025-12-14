@@ -210,7 +210,7 @@ export function ChartOfAccountsHierarchical() {
       }
     } catch (error) {
       console.error('Erro ao resetar plano de contas:', error);
-      alert(`❌ Erro ao criar plano de contas:\n\n${error.message}\n\nVerifique o console para mais detalhes.`);
+      alert(`❌ Erro ao criar plano de contas:\n\n${(error as Error).message}\n\nVerifique o console para mais detalhes.`);
     }
   };
 
