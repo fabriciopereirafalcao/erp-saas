@@ -13,7 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { useERP } from '../contexts/ERPContext';
-import { apiClient } from '../utils/apiClient';
+import { projectId } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
 
 // ==================== TIPOS ====================
 
@@ -47,6 +48,7 @@ interface DRELineItem {
 
 export function DREGerencial() {
   const { user, companySettings } = useERP();
+  const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [dreData, setDreData] = useState<DREData | null>(null);
   const [startDate, setStartDate] = useState(() => {
@@ -76,16 +78,28 @@ export function DREGerencial() {
       return;
     }
 
+    if (!accessToken) {
+      alert('Você precisa estar autenticado');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await apiClient.get(`/data/dre/calculate`, {
-        params: { startDate, endDate }
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/calculate?startDate=${startDate}&endDate=${endDate}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
       });
 
-      if (response.data.success) {
-        setDreData(response.data.data);
+      const data = await response.json();
+
+      if (data.success) {
+        setDreData(data.data);
       } else {
-        console.error('Erro ao calcular DRE:', response.data);
+        console.error('Erro ao calcular DRE:', data);
         alert('Erro ao calcular DRE');
       }
     } catch (error) {
@@ -99,10 +113,25 @@ export function DREGerencial() {
   const handleSaveSnapshot = async () => {
     if (!dreData) return;
 
+    if (!accessToken) {
+      alert('Você precisa estar autenticado');
+      return;
+    }
+
     try {
-      const response = await apiClient.post('/data/dre/snapshot', { dre: dreData });
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/snapshot`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ dre: dreData })
+      });
+
+      const data = await response.json();
       
-      if (response.data.success) {
+      if (data.success) {
         alert('Snapshot salvo com sucesso!');
       } else {
         alert('Erro ao salvar snapshot');
