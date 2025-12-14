@@ -35,20 +35,14 @@ export function PaymentMethods() {
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'Dinheiro' as 'Dinheiro' | 'Crédito' | 'Débito' | 'Pix' | 'Boleto' | 'Transferência' | 'Cheque' | 'Outro',
+    type: 'À Vista' as 'À Vista' | 'A Prazo',
     installmentsAllowed: false,
     isActive: true,
   });
 
   const paymentTypes = [
-    'Dinheiro',
-    'Crédito',
-    'Débito',
-    'Pix',
-    'Boleto',
-    'Transferência',
-    'Cheque',
-    'Outro'
+    'À Vista',
+    'A Prazo'
   ];
 
   const handleOpenDialog = (method?: PaymentMethod) => {
@@ -56,7 +50,7 @@ export function PaymentMethods() {
       setEditingMethod(method);
       setFormData({
         name: method.name,
-        type: method.type || 'Dinheiro',
+        type: method.type || 'À Vista',
         installmentsAllowed: method.installmentsAllowed || false,
         isActive: method.isActive !== false,
       });
@@ -64,7 +58,7 @@ export function PaymentMethods() {
       setEditingMethod(null);
       setFormData({
         name: '',
-        type: 'Dinheiro',
+        type: 'À Vista',
         installmentsAllowed: false,
         isActive: true,
       });
@@ -77,7 +71,7 @@ export function PaymentMethods() {
     setEditingMethod(null);
     setFormData({
       name: '',
-      type: 'Dinheiro',
+      type: 'À Vista',
       installmentsAllowed: false,
       isActive: true,
     });
@@ -213,13 +207,16 @@ export function PaymentMethods() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Cartão de Crédito Visa, Pix, Dinheiro"
+                  placeholder="Ex: Pix, Dinheiro, Cartão de Crédito, Boleto"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 No campo <strong>Nome</strong> você escolhe o método (Pix, Dinheiro, Cartão, etc.)
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="type">Tipo *</Label>
+                <Label htmlFor="type">Tipo de Pagamento *</Label>
                 <Select 
                   value={formData.type} 
                   onValueChange={(value: any) => setFormData({ ...formData, type: value })}
@@ -235,6 +232,9 @@ export function PaymentMethods() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 <strong>À Vista</strong> = pagamento imediato | <strong>A Prazo</strong> = parcelado/30-60 dias
+                </p>
               </div>
 
               <div className="flex items-center gap-2">
