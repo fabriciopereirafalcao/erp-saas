@@ -28,7 +28,11 @@ import { sqlServiceExtended } from './services/sql-service-extended.ts';
 import * as dreService from './services/dre-service.ts';
 import { createClient } from '@supabase/supabase-js';
 
+console.log('🔧 [DATA-ROUTES] Módulo carregado - inicializando rotas...');
+
 const app = new Hono();
+
+console.log('🔧 [DATA-ROUTES] Hono app criado com sucesso');
 
 // ==================== ROTAS - CUSTOMERS ====================
 
@@ -696,6 +700,8 @@ app.post('/payment-methods', async (c) => {
 
 // ⚠️ IMPORTANTE: Rota específica DEVE vir ANTES da rota genérica
 app.post('/account-categories/init-default', async (c) => {
+  console.log('[INIT CHART] 🎯 Rota /account-categories/init-default CHAMADA!');
+  
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
