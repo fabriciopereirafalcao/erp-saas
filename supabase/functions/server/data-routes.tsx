@@ -26,6 +26,7 @@ import { Hono } from 'npm:hono@4.6.14';
 import { sqlService } from './services/sql-service.ts';
 import { sqlServiceExtended } from './services/sql-service-extended.ts';
 import * as dreService from './services/dre-service.ts';
+import { createClient } from '@supabase/supabase-js';
 
 const app = new Hono();
 
@@ -709,29 +710,78 @@ app.post('/account-categories/init-default', async (c) => {
 
     console.log(`[INIT CHART] 🌱 Inicializando plano de contas padrão para empresa ${auth.companyId} com ${accounts.length} contas`);
     
-    // Transformar accounts do formato do frontend para o formato do banco
-    const accountsForDb = accounts.map((account, index) => ({
-      id: `AC-${String(index + 1).padStart(3, '0')}`, // Gerar ID sequencial
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // ==================== ETAPA 1: INSERT todas as contas SEM parent_id ====================
+    console.log('[INIT CHART] 📝 Etapa 1: Inserindo contas sem parent_id...');
+    
+    const rowsToInsert = accounts.map((account) => ({
+      company_id: auth.companyId,
       type: account.type,
       code: account.code,
       name: account.name,
-      description: account.name, // Usar nome como descrição
-      isActive: true,
-      parentId: account.parentId,
+      description: account.name,
+      parent_id: null, // Temporariamente null
       level: account.level,
-      accountType: account.accountType,
-      dreLineItem: account.dreLineItem,
-      sortOrder: account.sortOrder,
+      account_type: account.accountType, // Preserva formato original (Analítica/Sintética)
+      dre_line_item: account.dreLineItem,
+      sort_order: account.sortOrder,
+      is_active: true,
     }));
+
+    const { data: insertedAccounts, error: insertError } = await supabase
+      .from('account_categories')
+      .insert(rowsToInsert)
+      .select('id, code');
+
+    if (insertError) {
+      console.error('[INIT CHART] ❌ Erro ao inserir contas:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[INIT CHART] ✅ ${insertedAccounts.length} contas inseridas`);
+
+    // ==================== ETAPA 2: UPDATE parent_id mapeando código → UUID ====================
+    console.log('[INIT CHART] 🔗 Etapa 2: Atualizando parent_id...');
     
-    const result = await sqlService.saveAccountCategories(auth.companyId, accountsForDb);
-    
-    console.log(`[INIT CHART] ✅ ${result.count} contas criadas com sucesso`);
+    // Criar mapa código → UUID
+    const codeToIdMap = new Map<string, string>();
+    insertedAccounts.forEach((acc: any) => {
+      codeToIdMap.set(acc.code, acc.id);
+    });
+
+    // Atualizar parent_id para contas com parentId definido
+    let updateCount = 0;
+    for (const account of accounts) {
+      if (account.parentId) {
+        const parentUuid = codeToIdMap.get(account.parentId);
+        const childUuid = codeToIdMap.get(account.code);
+        
+        if (parentUuid && childUuid) {
+          const { error: updateError } = await supabase
+            .from('account_categories')
+            .update({ parent_id: parentUuid })
+            .eq('id', childUuid);
+
+          if (updateError) {
+            console.error(`[INIT CHART] ❌ Erro ao atualizar parent_id de ${account.code}:`, updateError);
+          } else {
+            updateCount++;
+          }
+        }
+      }
+    }
+
+    console.log(`[INIT CHART] ✅ ${updateCount} relações pai-filho configuradas`);
+    console.log(`[INIT CHART] 🎉 Plano de contas criado com sucesso!`);
     
     return c.json({
       success: true,
-      message: `${result.count} contas criadas com sucesso`,
-      count: result.count,
+      message: `${insertedAccounts.length} contas criadas com sucesso`,
+      count: insertedAccounts.length,
     });
 
   } catch (error) {
