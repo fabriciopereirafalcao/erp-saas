@@ -2009,6 +2009,7 @@ app.get('/salespeople', async (c) => {
       .select('*')
       .eq('company_id', auth.companyId)
       .eq('is_active', true)
+      .not('name', 'is', null)  // ⚠️ Ignorar registros com name NULL
       .order('code', { ascending: true });
 
     if (error) {
@@ -2016,10 +2017,17 @@ app.get('/salespeople', async (c) => {
       throw error;
     }
 
-    console.log(`[SALESPEOPLE] ✅ ${data.length} vendedores carregados`);
+    // Filtrar registros inválidos (segurança adicional)
+    const validData = (data || []).filter(item => item.name && item.code);
+    
+    if (validData.length < (data?.length || 0)) {
+      console.warn(`[SALESPEOPLE] ⚠️ ${(data?.length || 0) - validData.length} registros inválidos ignorados`);
+    }
+
+    console.log(`[SALESPEOPLE] ✅ ${validData.length} vendedores carregados`);
     return c.json({
       success: true,
-      data: data
+      data: validData
     });
   } catch (error) {
     console.error('[SALESPEOPLE] ❌ Erro:', error);
@@ -2041,6 +2049,12 @@ app.post('/salespeople', async (c) => {
     console.log('[SALESPEOPLE] 📦 Parseando body da requisição...');
     const body = await c.req.json();
     console.log('[SALESPEOPLE] 📝 Criando novo vendedor:', JSON.stringify(body, null, 2));
+
+    // ==================== VALIDAÇÃO ====================
+    if (!body.name || body.name.trim() === '') {
+      console.error('[SALESPEOPLE] ❌ Nome é obrigatório');
+      return c.json({ error: 'Nome é obrigatório' }, 400);
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -2211,6 +2225,7 @@ app.get('/buyers', async (c) => {
       .select('*')
       .eq('company_id', auth.companyId)
       .eq('is_active', true)
+      .not('name', 'is', null)  // ⚠️ Ignorar registros com name NULL
       .order('code', { ascending: true });
 
     if (error) {
@@ -2218,10 +2233,17 @@ app.get('/buyers', async (c) => {
       throw error;
     }
 
-    console.log(`[BUYERS] ✅ ${data.length} compradores carregados`);
+    // Filtrar registros inválidos (segurança adicional)
+    const validData = (data || []).filter(item => item.name && item.code);
+    
+    if (validData.length < (data?.length || 0)) {
+      console.warn(`[BUYERS] ⚠️ ${(data?.length || 0) - validData.length} registros inválidos ignorados`);
+    }
+
+    console.log(`[BUYERS] ✅ ${validData.length} compradores carregados`);
     return c.json({
       success: true,
-      data: data
+      data: validData
     });
   } catch (error) {
     console.error('[BUYERS] ❌ Erro:', error);
@@ -2238,6 +2260,12 @@ app.post('/buyers', async (c) => {
 
     const body = await c.req.json();
     console.log('[BUYERS] 📝 Criando novo comprador:', body);
+
+    // ==================== VALIDAÇÃO ====================
+    if (!body.name || body.name.trim() === '') {
+      console.error('[BUYERS] ❌ Nome é obrigatório');
+      return c.json({ error: 'Nome é obrigatório' }, 400);
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
