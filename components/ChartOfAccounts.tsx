@@ -161,13 +161,15 @@ export function ChartOfAccounts() {
   // ==================== BUSCAR LINHAS DRE ====================
   useEffect(() => {
     const fetchDRELines = async () => {
+      if (!accessToken) return; // Aguarda autenticação
+      
       setLoadingDreLines(true);
       try {
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/dre/structure`,
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/structure`,
           {
             headers: {
-              'Authorization': `Bearer ${publicAnonKey}`,
+              'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
           }
@@ -192,7 +194,7 @@ export function ChartOfAccounts() {
     };
 
     fetchDRELines();
-  }, []);
+  }, [accessToken]);
 
   // ==================== HANDLERS ====================
   const handleOpenDialog = (category?: AccountCategory) => {

@@ -747,6 +747,7 @@ app.post('/account-categories/init-default', async (c) => {
       'DEDUCOES': 'DED',
       'IMPOSTOS_VENDAS': 'DED',
       'CMV': 'CMV',
+      'DESPESAS_VENDAS': 'DV',
       'DESPESAS_PESSOAL': 'DP',
       'DESPESAS_COMERCIAIS': 'DC',
       'DESPESAS_ADMINISTRATIVAS': 'DA',
