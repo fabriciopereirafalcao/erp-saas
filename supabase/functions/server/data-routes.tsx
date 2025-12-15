@@ -34,6 +34,29 @@ const app = new Hono();
 
 console.log('🔧 [DATA-ROUTES] Hono app criado com sucesso');
 
+// ==================== MIDDLEWARE DE DEBUG ====================
+app.use('*', async (c, next) => {
+  const method = c.req.method;
+  const path = c.req.path;
+  console.log(`[DATA-ROUTES] 🔍 ${method} ${path} - Middleware executado`);
+  console.log(`[DATA-ROUTES] 📋 Content-Type:`, c.req.header('Content-Type'));
+  console.log(`[DATA-ROUTES] 📋 Authorization:`, c.req.header('Authorization') ? 'Presente' : 'Ausente');
+  
+  try {
+    await next();
+    console.log(`[DATA-ROUTES] ✅ ${method} ${path} - Handler concluído`);
+  } catch (error) {
+    console.error(`[DATA-ROUTES] ❌ ${method} ${path} - Erro no middleware:`, error);
+    throw error;
+  }
+});
+
+// ==================== ROTA DE TESTE ====================
+app.post('/salespeople-test', async (c) => {
+  console.log('[TEST] 🧪 Rota de teste chamada!');
+  return c.json({ success: true, message: 'Rota de teste funcionando!' });
+});
+
 // ==================== ROTAS - CUSTOMERS ====================
 
 app.get('/customers', async (c) => {
@@ -567,83 +590,8 @@ app.get('/salespeople', async (c) => {
   }
 });
 
-app.post('/salespeople', async (c) => {
-  try {
-    const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth) {
-      return c.json({ error: 'Não autorizado' }, 401);
-    }
-
-    const { data } = await c.req.json();
-    
-    if (!Array.isArray(data)) {
-      return c.json({ error: 'Dados devem ser um array' }, 400);
-    }
-
-    console.log(`[SALESPEOPLE] 💾 Salvando ${data.length} salespeople para empresa ${auth.companyId}`);
-    const result = await sqlService.saveSalespeople(auth.companyId, data);
-    
-    return c.json({
-      success: true,
-      message: `${result.count} salespeople salvos com sucesso`
-    });
-
-  } catch (error) {
-    console.error('[SALESPEOPLE] ❌ Erro ao salvar:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-// ==================== ROTAS - BUYERS ====================
-
-app.get('/buyers', async (c) => {
-  try {
-    const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth) {
-      return c.json({ error: 'Não autorizado' }, 401);
-    }
-
-    console.log(`[BUYERS] 📥 Carregando buyers da empresa ${auth.companyId}`);
-    const buyers = await sqlService.getBuyers(auth.companyId);
-    
-    console.log(`[BUYERS] ✅ ${buyers.length} buyers carregados`);
-    return c.json({
-      success: true,
-      data: buyers
-    });
-
-  } catch (error) {
-    console.error('[BUYERS] ❌ Erro ao carregar:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-app.post('/buyers', async (c) => {
-  try {
-    const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth) {
-      return c.json({ error: 'Não autorizado' }, 401);
-    }
-
-    const { data } = await c.req.json();
-    
-    if (!Array.isArray(data)) {
-      return c.json({ error: 'Dados devem ser um array' }, 400);
-    }
-
-    console.log(`[BUYERS] 💾 Salvando ${data.length} buyers para empresa ${auth.companyId}`);
-    const result = await sqlService.saveBuyers(auth.companyId, data);
-    
-    return c.json({
-      success: true,
-      message: `${result.count} buyers salvos com sucesso`
-    });
-
-  } catch (error) {
-    console.error('[BUYERS] ❌ Erro ao salvar:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
+// ATENÇÃO: Rotas antigas de SALESPEOPLE e BUYERS foram movidas para o final do arquivo
+// As novas rotas com CRUD completo estão nas linhas 2100+ (GET, POST, PUT, DELETE)
 
 // ==================== ROTAS - PAYMENT METHODS ====================
 
