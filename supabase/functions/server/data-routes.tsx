@@ -962,6 +962,175 @@ app.post('/account-categories/create-analytical', async (c) => {
   }
 });
 
+// ✅ NOVA ROTA: Sincronizar plano de contas (adicionar contas faltantes)
+app.post('/account-categories/sync-missing', async (c) => {
+  console.log('[SYNC MISSING] 🎯 Rota /account-categories/sync-missing CHAMADA!');
+  
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { defaultAccounts } = await c.req.json();
+    
+    if (!Array.isArray(defaultAccounts)) {
+      return c.json({ error: 'defaultAccounts deve ser um array' }, 400);
+    }
+
+    console.log(`[SYNC MISSING] 🔍 Verificando ${defaultAccounts.length} contas padrão...`);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // ==================== ETAPA 1: Buscar contas existentes ====================
+    const { data: existingAccounts, error: fetchError } = await supabase
+      .from('account_categories')
+      .select('code')
+      .eq('company_id', auth.companyId);
+    
+    if (fetchError) {
+      console.error('[SYNC MISSING] ❌ Erro ao buscar contas existentes:', fetchError);
+      throw new Error(fetchError.message);
+    }
+
+    const existingCodes = new Set(existingAccounts.map((acc: any) => acc.code));
+    console.log(`[SYNC MISSING] ✅ ${existingCodes.size} contas existentes encontradas`);
+
+    // ==================== ETAPA 2: Identificar contas faltantes ====================
+    const missingAccounts = defaultAccounts.filter(acc => !existingCodes.has(acc.code));
+    
+    if (missingAccounts.length === 0) {
+      console.log('[SYNC MISSING] ℹ️ Nenhuma conta faltante encontrada');
+      return c.json({
+        success: true,
+        message: 'Plano de contas já está atualizado',
+        added: 0,
+      });
+    }
+
+    console.log(`[SYNC MISSING] 📋 ${missingAccounts.length} contas faltantes identificadas:`, 
+                missingAccounts.map(a => `${a.code} - ${a.name}`).join(', '));
+
+    // ==================== ETAPA 3: Buscar linhas DRE ====================
+    const { data: dreLines, error: dreError } = await supabase
+      .from('dre_lines')
+      .select('id, code');
+    
+    if (dreError) {
+      console.error('[SYNC MISSING] ❌ Erro ao buscar linhas DRE:', dreError);
+      throw new Error(dreError.message);
+    }
+    
+    const dreLineMap = new Map<string, string>();
+    dreLines.forEach((line: any) => {
+      dreLineMap.set(line.code, line.id);
+    });
+
+    const dreItemToLineCode: Record<string, string> = {
+      'RECEITA_BRUTA': 'RB',
+      'DEDUCOES': 'DED',
+      'IMPOSTOS_VENDAS': 'DED',
+      'CMV': 'CMV',
+      'DESPESAS_VENDAS': 'DC',
+      'DESPESAS_ADMINISTRATIVAS': 'DA',
+      'DESPESAS_FINANCEIRAS': 'DF',
+      'RECEITAS_FINANCEIRAS': 'RF',
+    };
+
+    // ==================== ETAPA 4: Inserir contas faltantes SEM parent_id ====================
+    const rowsToInsert = missingAccounts.map((account) => {
+      const accountTypeNormalized = account.accountType.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      
+      let dreLineId = null;
+      if (accountTypeNormalized === 'analitica' && account.dreLineItem) {
+        const dreCode = dreItemToLineCode[account.dreLineItem];
+        dreLineId = dreCode ? dreLineMap.get(dreCode) : null;
+      }
+      
+      return {
+        company_id: auth.companyId,
+        type: account.type,
+        code: account.code,
+        name: account.name,
+        description: account.name,
+        parent_id: null,
+        level: account.level,
+        account_type: accountTypeNormalized,
+        dre_line_id: dreLineId,
+        sort_order: account.sortOrder,
+        is_active: true,
+      };
+    });
+
+    const { data: insertedAccounts, error: insertError } = await supabase
+      .from('account_categories')
+      .insert(rowsToInsert)
+      .select('id, code');
+
+    if (insertError) {
+      console.error('[SYNC MISSING] ❌ Erro ao inserir contas:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[SYNC MISSING] ✅ ${insertedAccounts.length} contas inseridas`);
+
+    // ==================== ETAPA 5: Buscar TODAS as contas para mapear parent_id ====================
+    const { data: allAccounts, error: allAccountsError } = await supabase
+      .from('account_categories')
+      .select('id, code')
+      .eq('company_id', auth.companyId);
+
+    if (allAccountsError) {
+      console.error('[SYNC MISSING] ❌ Erro ao buscar todas as contas:', allAccountsError);
+      throw new Error(allAccountsError.message);
+    }
+
+    const codeToIdMap = new Map<string, string>();
+    allAccounts.forEach((acc: any) => {
+      codeToIdMap.set(acc.code, acc.id);
+    });
+
+    // ==================== ETAPA 6: UPDATE parent_id das contas recém-inseridas ====================
+    let updateCount = 0;
+    for (const account of missingAccounts) {
+      if (account.parentId) {
+        const parentUuid = codeToIdMap.get(account.parentId);
+        const childUuid = codeToIdMap.get(account.code);
+        
+        if (parentUuid && childUuid) {
+          const { error: updateError } = await supabase
+            .from('account_categories')
+            .update({ parent_id: parentUuid })
+            .eq('id', childUuid);
+
+          if (updateError) {
+            console.error(`[SYNC MISSING] ❌ Erro ao atualizar parent_id de ${account.code}:`, updateError);
+          } else {
+            updateCount++;
+          }
+        }
+      }
+    }
+
+    console.log(`[SYNC MISSING] ✅ ${updateCount} relações pai-filho atualizadas`);
+    console.log(`[SYNC MISSING] 🎉 Sincronização concluída!`);
+    
+    return c.json({
+      success: true,
+      message: `${insertedAccounts.length} conta(s) adicionada(s) com sucesso`,
+      added: insertedAccounts.length,
+      details: missingAccounts.map(a => `${a.code} - ${a.name}`),
+    });
+
+  } catch (error) {
+    console.error('[SYNC MISSING] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/account-categories', async (c) => {
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ListTree, Plus, Pencil, Trash2, Lock, AlertCircle } from 'lucide-react';
+import { ListTree, Plus, Pencil, Trash2, Lock, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -313,6 +313,42 @@ export function ChartOfAccounts() {
     }
   };
 
+  // ==================== SYNC: Sincronizar plano de contas ====================
+  const handleSyncMissingAccounts = async () => {
+    if (!confirm('Deseja sincronizar o plano de contas com o padrão mais recente?\n\nIsso adicionará contas que estão no padrão mas não existem na sua base.')) {
+      return;
+    }
+
+    try {
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories/sync-missing`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ defaultAccounts: DEFAULT_CHART_OF_ACCOUNTS }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.added > 0) {
+          toast.success(`${result.message}\n\nContas adicionadas:\n${result.details.join('\n')}`);
+          // Recarregar página
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          toast.info(result.message);
+        }
+      } else {
+        toast.error(result.error || 'Erro ao sincronizar plano de contas');
+      }
+    } catch (error) {
+      console.error('[SYNC] Erro:', error);
+      toast.error('Erro ao sincronizar plano de contas');
+    }
+  };
+
   // ==================== HELPER: Encontrar nome da linha DRE ====================
   const getDRELineName = (dreLineId?: string): string => {
     if (!dreLineId) return '-';
@@ -346,10 +382,16 @@ export function ChartOfAccounts() {
             <ListTree className="w-8 h-8 text-green-600" />
             <h1 className="text-gray-900">Plano de Contas</h1>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nova Conta Analítica
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSyncMissingAccounts} variant="outline" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Sincronizar Plano Padrão
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nova Conta Analítica
+            </Button>
+          </div>
         </div>
         <p className="text-gray-500">Gerencie a estrutura contábil da empresa</p>
         
