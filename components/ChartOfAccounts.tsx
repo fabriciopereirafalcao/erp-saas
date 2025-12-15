@@ -29,13 +29,16 @@ import { Alert, AlertDescription } from './ui/alert';
 import { useERP } from '../contexts/ERPContext';
 import { AccountCategory, DRELine } from '../contexts/ERPContext';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
 
 export function ChartOfAccounts() {
   const { accountCategories, addAccountCategory, updateAccountCategory, deleteAccountCategory } = useERP();
+  const { accessToken } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null);
   const [dreLines, setDreLines] = useState<DRELine[]>([]);
   const [loadingDreLines, setLoadingDreLines] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'Receita' as 'Receita' | 'Despesa',
@@ -45,6 +48,115 @@ export function ChartOfAccounts() {
     dreLineId: '',
     parentId: '',
   });
+
+  // ==================== PLANO DE CONTAS PADRÃO ====================
+
+  const DEFAULT_CHART_OF_ACCOUNTS = [
+    // ===== RECEITAS =====
+    { code: '3.0.00.00', name: 'RECEITAS', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: null, level: 0, sortOrder: 0 },
+    { code: '3.1.00.00', name: 'Receita Bruta de Vendas', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: '3.0.00.00', level: 1, sortOrder: 1 },
+    { code: '3.1.01.00', name: 'Venda de Produtos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 2 },
+    { code: '3.1.02.00', name: 'Venda de Serviços', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 3 },
+    { code: '3.1.03.00', name: 'Venda de Mercadorias', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITA_BRUTA', parentId: '3.1.00.00', level: 2, sortOrder: 4 },
+    
+    { code: '3.2.00.00', name: 'Deduções da Receita Bruta', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: '3.0.00.00', level: 1, sortOrder: 5 },
+    { code: '3.2.01.00', name: 'Devoluções de Vendas', type: 'Receita', accountType: 'Analítica', dreLineItem: 'DEDUCOES', parentId: '3.2.00.00', level: 2, sortOrder: 6 },
+    { code: '3.2.02.00', name: 'Descontos Incondicionais', type: 'Receita', accountType: 'Analítica', dreLineItem: 'DEDUCOES', parentId: '3.2.00.00', level: 2, sortOrder: 7 },
+    { code: '3.2.03.00', name: 'Impostos sobre Vendas', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: '3.2.00.00', level: 2, sortOrder: 8 },
+    { code: '3.2.03.01', name: 'ICMS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 9 },
+    { code: '3.2.03.02', name: 'PIS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 10 },
+    { code: '3.2.03.03', name: 'COFINS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 11 },
+    { code: '3.2.03.04', name: 'ISS', type: 'Receita', accountType: 'Analítica', dreLineItem: 'IMPOSTOS_VENDAS', parentId: '3.2.03.00', level: 3, sortOrder: 12 },
+    
+    // ===== CUSTOS =====
+    { code: '4.0.00.00', name: 'CUSTOS', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: null, level: 0, sortOrder: 13 },
+    { code: '4.1.00.00', name: 'Custo dos Produtos Vendidos (CPV)', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '4.0.00.00', level: 1, sortOrder: 14 },
+    { code: '4.1.01.00', name: 'Matéria-Prima', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 15 },
+    { code: '4.1.02.00', name: 'Mão de Obra Direta', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 16 },
+    { code: '4.1.03.00', name: 'Custos Indiretos de Fabricação', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.1.00.00', level: 2, sortOrder: 17 },
+    
+    { code: '4.2.00.00', name: 'Custo das Mercadorias Vendidas (CMV)', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '4.0.00.00', level: 1, sortOrder: 18 },
+    { code: '4.2.01.00', name: 'Compra de Mercadorias', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.2.00.00', level: 2, sortOrder: 19 },
+    { code: '4.2.02.00', name: 'Frete sobre Compras', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.2.00.00', level: 2, sortOrder: 20 },
+    
+    { code: '4.3.00.00', name: 'Custo dos Serviços Prestados (CSP)', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '4.0.00.00', level: 1, sortOrder: 21 },
+    { code: '4.3.01.00', name: 'Mão de Obra Direta', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.3.00.00', level: 2, sortOrder: 22 },
+    { code: '4.3.02.00', name: 'Materiais Aplicados', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'CMV', parentId: '4.3.00.00', level: 2, sortOrder: 23 },
+    
+    // ===== DESPESAS OPERACIONAIS =====
+    { code: '5.0.00.00', name: 'DESPESAS OPERACIONAIS', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: null, level: 0, sortOrder: 24 },
+    
+    { code: '5.1.00.00', name: 'Despesas com Vendas', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '5.0.00.00', level: 1, sortOrder: 25 },
+    { code: '5.1.01.00', name: 'Comissões sobre Vendas', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 26 },
+    { code: '5.1.02.00', name: 'Propaganda e Marketing', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 27 },
+    { code: '5.1.03.00', name: 'Fretes sobre Vendas', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_VENDAS', parentId: '5.1.00.00', level: 2, sortOrder: 28 },
+    
+    { code: '5.2.00.00', name: 'Despesas Administrativas', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '5.0.00.00', level: 1, sortOrder: 29 },
+    { code: '5.2.01.00', name: 'Salários e Encargos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 30 },
+    { code: '5.2.02.00', name: 'Aluguéis', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 31 },
+    { code: '5.2.03.00', name: 'Material de Escritório', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 32 },
+    { code: '5.2.04.00', name: 'Serviços de Terceiros', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 33 },
+    { code: '5.2.05.00', name: 'Despesas com Veículos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 34 },
+    { code: '5.2.06.00', name: 'Telefone e Internet', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 35 },
+    { code: '5.2.07.00', name: 'Água, Luz e Gás', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 36 },
+    { code: '5.2.08.00', name: 'Depreciação', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_ADMINISTRATIVAS', parentId: '5.2.00.00', level: 2, sortOrder: 37 },
+    
+    { code: '5.3.00.00', name: 'Despesas Financeiras', type: 'Despesa', accountType: 'Sintética', dreLineItem: null, parentId: '5.0.00.00', level: 1, sortOrder: 38 },
+    { code: '5.3.01.00', name: 'Juros Pagos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 39 },
+    { code: '5.3.02.00', name: 'Descontos Concedidos', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 40 },
+    { code: '5.3.03.00', name: 'Tarifas Bancárias', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 41 },
+    { code: '5.3.04.00', name: 'IOF', type: 'Despesa', accountType: 'Analítica', dreLineItem: 'DESPESAS_FINANCEIRAS', parentId: '5.3.00.00', level: 2, sortOrder: 42 },
+    
+    // ===== OUTRAS RECEITAS =====
+    { code: '6.0.00.00', name: 'OUTRAS RECEITAS E DESPESAS', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: null, level: 0, sortOrder: 43 },
+    { code: '6.1.00.00', name: 'Receitas Financeiras', type: 'Receita', accountType: 'Sintética', dreLineItem: null, parentId: '6.0.00.00', level: 1, sortOrder: 44 },
+    { code: '6.1.01.00', name: 'Juros Recebidos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: '6.1.00.00', level: 2, sortOrder: 45 },
+    { code: '6.1.02.00', name: 'Descontos Obtidos', type: 'Receita', accountType: 'Analítica', dreLineItem: 'RECEITAS_FINANCEIRAS', parentId: '6.1.00.00', level: 2, sortOrder: 46 },
+  ];
+
+  // ==================== INICIALIZAÇÃO AUTOMÁTICA ====================
+
+  useEffect(() => {
+    const initializeChartOfAccounts = async () => {
+      // Só inicializa se não tiver nenhuma conta E ainda não inicializou
+      if (accountCategories.length === 0 && !hasInitialized && accessToken) {
+        try {
+          console.log('🌱 Inicializando plano de contas padrão...');
+          
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories/init-default`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ accounts: DEFAULT_CHART_OF_ACCOUNTS }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao criar plano de contas: ${errorText}`);
+          }
+
+          const result = await response.json();
+          console.log('✅ Plano de contas criado:', result);
+          
+          // Marca como inicializado
+          setHasInitialized(true);
+          
+          // Força reload do contexto
+          window.location.reload();
+        } catch (error) {
+          console.error('❌ Erro ao inicializar plano de contas:', error);
+          alert(`Erro ao criar plano de contas: ${(error as Error).message}`);
+        }
+      }
+    };
+
+    initializeChartOfAccounts();
+  }, [accountCategories.length, hasInitialized, accessToken]);
 
   // ==================== BUSCAR LINHAS DRE ====================
   useEffect(() => {
