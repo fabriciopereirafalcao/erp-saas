@@ -741,22 +741,23 @@ app.post('/account-categories/init-default', async (c) => {
     
     console.log(`[INIT CHART] ✅ ${dreLines.length} linhas DRE carregadas`);
     
-    // Mapear dreLineItem (string antiga) → dre_line_id (UUID)
+    // Mapear dreLineItem (string do frontend) → code da tabela dre_lines
+    // Frontend usa valores como 'RECEITA_BRUTA', 'DEDUCOES', etc.
+    // Tabela dre_lines usa códigos como 'RB', 'DED', 'CMV', etc.
     const dreItemToLineCode: Record<string, string> = {
-      'RECEITA_BRUTA': 'RB',
-      'DEDUCOES': 'DED',
-      'IMPOSTOS_VENDAS': 'DED',
-      'CMV': 'CMV',
-      'DESPESAS_VENDAS': 'DV',
-      'DESPESAS_PESSOAL': 'DP',
-      'DESPESAS_COMERCIAIS': 'DC',
-      'DESPESAS_ADMINISTRATIVAS': 'DA',
-      'DESPESAS_FINANCEIRAS': 'DF',
-      'RECEITAS_FINANCEIRAS': 'RF',
+      'RECEITA_BRUTA': 'RB',              // Receita Bruta → RB
+      'DEDUCOES': 'DED',                   // Deduções → DED
+      'IMPOSTOS_VENDAS': 'DED',            // Impostos sobre vendas também são deduções → DED
+      'CMV': 'CMV',                        // Custo das Mercadorias Vendidas → CMV
+      'DESPESAS_VENDAS': 'DC',             // Despesas com Vendas → DC (Despesas Comerciais)
+      'DESPESAS_ADMINISTRATIVAS': 'DA',    // Despesas Administrativas → DA
+      'DESPESAS_FINANCEIRAS': 'DF',        // Despesas Financeiras → DF
+      'RECEITAS_FINANCEIRAS': 'RF',        // Receitas Financeiras → RF
     };
     
     // Log do mapeamento para debug
     console.log('[INIT CHART] 📋 Códigos DRE disponíveis:', Array.from(dreLineMap.keys()).join(', '));
+    console.log('[INIT CHART] 📋 Mapeamento dreLineItem → code:', JSON.stringify(dreItemToLineCode, null, 2));
     
     // ==================== ETAPA 1: INSERT todas as contas SEM parent_id ====================
     console.log('[INIT CHART] 📝 Etapa 1: Inserindo contas com dre_line_id...');
