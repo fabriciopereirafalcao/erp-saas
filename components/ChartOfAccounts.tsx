@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
+import { FeatureInfoBadge } from './FeatureInfoBadge';
 import { useERP } from '../contexts/ERPContext';
 import { AccountCategory, DRELine } from '../contexts/ERPContext';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -397,6 +398,23 @@ export function ChartOfAccounts() {
           <div className="flex items-center gap-3">
             <ListTree className="w-8 h-8 text-green-600" />
             <h1 className="text-gray-900">Plano de Contas</h1>
+            
+            {/* Info Badge Moderno */}
+            <FeatureInfoBadge 
+              title="Contas Sintéticas" 
+              variant="blue"
+              position="inline"
+            >
+              <div className="text-sm text-gray-700 space-y-3">
+                <p>
+                  <strong>Contas Sintéticas</strong> (grupos) são <strong>somente leitura</strong> e fazem parte da estrutura padrão.
+                </p>
+                
+                <p>
+                  Você pode criar apenas <strong>Contas Analíticas</strong> (detalhadas) vinculadas a uma linha da DRE.
+                </p>
+              </div>
+            </FeatureInfoBadge>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={handleSyncMissingAccounts} variant="outline" className="gap-2">
@@ -410,15 +428,6 @@ export function ChartOfAccounts() {
           </div>
         </div>
         <p className="text-gray-500">Gerencie a estrutura contábil da empresa</p>
-        
-        {/* Alerta informativo */}
-        <Alert className="mt-4 border-blue-200 bg-blue-50">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-sm text-blue-900">
-            <strong>Contas Sintéticas</strong> (grupos) são <strong>somente leitura</strong> e fazem parte da estrutura padrão. 
-            Você pode criar apenas <strong>Contas Analíticas</strong> (detalhadas) vinculadas a uma linha da DRE.
-          </AlertDescription>
-        </Alert>
       </div>
 
       <div className="bg-white rounded-lg shadow">
