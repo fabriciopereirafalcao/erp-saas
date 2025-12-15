@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Users, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -18,13 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { useERP } from '../contexts/ERPContext';
-import { Salesperson } from '../contexts/ERPContext';
+import { projectId } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 export function Salespeople() {
-  const { salespeople, addSalesperson, updateSalesperson, deleteSalesperson } = useERP();
+  const { accessToken } = useAuth();
+  const [salespeopleFromDB, setSalespeopleFromDB] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<Salesperson | null>(null);
+  const [editingPerson, setEditingPerson] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -32,14 +35,49 @@ export function Salespeople() {
     commissionRate: 0,
   });
 
-  const handleOpenDialog = (person?: Salesperson) => {
+  // ==================== CARREGAR VENDEDORES DO BACKEND ====================
+  useEffect(() => {
+    const loadSalespeople = async () => {
+      if (!accessToken) return;
+
+      setIsLoading(true);
+      try {
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/salespeople`;
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setSalespeopleFromDB(result.data);
+          console.log('✅ Vendedores carregados:', result.data.length);
+        } else {
+          console.error('❌ Erro ao carregar vendedores:', result.error);
+          toast.error('Erro ao carregar vendedores');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar vendedores:', error);
+        toast.error('Erro ao conectar com o servidor');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSalespeople();
+  }, [accessToken]);
+
+  const handleOpenDialog = (person?: any) => {
     if (person) {
       setEditingPerson(person);
       setFormData({
         name: person.name,
         email: person.email || '',
         phone: person.phone || '',
-        commissionRate: person.commissionRate || 0,
+        commissionRate: person.commission_rate || 0,
       });
     } else {
       setEditingPerson(null);
@@ -64,21 +102,90 @@ export function Salespeople() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingPerson) {
-      updateSalesperson(editingPerson.id, formData);
-    } else {
-      addSalesperson(formData);
+    try {
+      if (editingPerson) {
+        // ==================== ATUALIZAR ====================
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/salespeople/${editingPerson.id}`;
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success(result.message);
+          // Atualizar lista local
+          setSalespeopleFromDB(prev =>
+            prev.map(p => p.id === editingPerson.id ? result.data : p)
+          );
+        } else {
+          toast.error(result.error || 'Erro ao atualizar vendedor');
+        }
+      } else {
+        // ==================== CRIAR ====================
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/salespeople`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success(result.message);
+          // Adicionar à lista local
+          setSalespeopleFromDB(prev => [...prev, result.data]);
+        } else {
+          toast.error(result.error || 'Erro ao criar vendedor');
+        }
+      }
+
+      handleCloseDialog();
+    } catch (error) {
+      console.error('❌ Erro ao salvar vendedor:', error);
+      toast.error('Erro ao conectar com o servidor');
     }
-    
-    handleCloseDialog();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Deseja realmente excluir este vendedor?')) {
-      deleteSalesperson(id);
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este vendedor?')) {
+      return;
+    }
+
+    try {
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/salespeople/${id}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        // Remover da lista local
+        setSalespeopleFromDB(prev => prev.filter(p => p.id !== id));
+      } else {
+        toast.error(result.error || 'Erro ao remover vendedor');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao deletar vendedor:', error);
+      toast.error('Erro ao conectar com o servidor');
     }
   };
 
@@ -111,20 +218,32 @@ export function Salespeople() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {salespeople.length === 0 ? (
+            {isLoading ? (
+              /* ========== ESTADO DE LOADING ========== */
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <RefreshCw className="w-8 h-8 text-green-600 animate-spin" />
+                    <p className="text-gray-600">Carregando vendedores...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : salespeopleFromDB.length === 0 ? (
+              /* ========== ESTADO VAZIO ========== */
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                   Nenhum vendedor cadastrado
                 </TableCell>
               </TableRow>
             ) : (
-              salespeople.map((person) => (
+              /* ========== VENDEDORES CARREGADOS ========== */
+              salespeopleFromDB.map((person) => (
                 <TableRow key={person.id}>
-                  <TableCell>{person.id}</TableCell>
-                  <TableCell>{person.name}</TableCell>
+                  <TableCell className="font-mono text-sm">{person.code}</TableCell>
+                  <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell className="text-gray-600">{person.email || '-'}</TableCell>
                   <TableCell className="text-gray-600">{person.phone || '-'}</TableCell>
-                  <TableCell>{person.commissionRate ? `${person.commissionRate}%` : '-'}</TableCell>
+                  <TableCell>{person.commission_rate ? `${person.commission_rate}%` : '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button

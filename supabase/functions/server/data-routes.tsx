@@ -2040,4 +2040,386 @@ app.delete('/cost-centers/:id', async (c) => {
   }
 });
 
+// ==================== ROTAS - SALESPEOPLE ====================
+
+app.get('/salespeople', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[SALESPEOPLE] 📥 Carregando vendedores da empresa ${auth.companyId}`);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('salespeople')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('is_active', true)
+      .order('code', { ascending: true });
+
+    if (error) {
+      console.error('[SALESPEOPLE] ❌ Erro ao buscar vendedores:', error);
+      throw error;
+    }
+
+    console.log(`[SALESPEOPLE] ✅ ${data.length} vendedores carregados`);
+    return c.json({
+      success: true,
+      data: data
+    });
+  } catch (error) {
+    console.error('[SALESPEOPLE] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/salespeople', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    console.log('[SALESPEOPLE] 📝 Criando novo vendedor:', body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // ==================== AUTO-GERAR CÓDIGO ====================
+    const { data: existing, error: fetchError } = await supabase
+      .from('salespeople')
+      .select('code')
+      .eq('company_id', auth.companyId)
+      .order('code', { ascending: false })
+      .limit(1);
+
+    if (fetchError) {
+      console.error('[SALESPEOPLE] ❌ Erro ao buscar códigos:', fetchError);
+      throw fetchError;
+    }
+
+    let nextCode = 'SP-001';
+    if (existing && existing.length > 0) {
+      const lastCode = existing[0].code;
+      const numericPart = parseInt(lastCode.replace('SP-', ''));
+      nextCode = `SP-${String(numericPart + 1).padStart(3, '0')}`;
+    }
+
+    console.log(`[SALESPEOPLE] 🔢 Código auto-gerado: ${nextCode}`);
+
+    // ==================== INSERIR VENDEDOR ====================
+    const { data, error } = await supabase
+      .from('salespeople')
+      .insert([{
+        company_id: auth.companyId,
+        code: nextCode,
+        name: body.name,
+        email: body.email || null,
+        phone: body.phone || null,
+        commission_rate: body.commissionRate || 0.00,
+        is_active: true,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[SALESPEOPLE] ❌ Erro ao inserir vendedor:', error);
+      throw error;
+    }
+
+    console.log(`[SALESPEOPLE] ✅ Vendedor criado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: `Vendedor ${data.code} - ${data.name} criado com sucesso`,
+      data: data
+    });
+  } catch (error) {
+    console.error('[SALESPEOPLE] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/salespeople/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    console.log(`[SALESPEOPLE] ✏️ Atualizando vendedor ${id}:`, body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('salespeople')
+      .update({
+        name: body.name,
+        email: body.email || null,
+        phone: body.phone || null,
+        commission_rate: body.commissionRate || 0.00,
+      })
+      .eq('id', id)
+      .eq('company_id', auth.companyId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[SALESPEOPLE] ❌ Erro ao atualizar vendedor:', error);
+      throw error;
+    }
+
+    console.log(`[SALESPEOPLE] ✅ Vendedor atualizado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: 'Vendedor atualizado com sucesso',
+      data: data
+    });
+  } catch (error) {
+    console.error('[SALESPEOPLE] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/salespeople/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[SALESPEOPLE] 🗑️ Soft delete de vendedor ${id}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('salespeople')
+      .update({ is_active: false })
+      .eq('id', id)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[SALESPEOPLE] ❌ Erro ao deletar vendedor:', error);
+      throw error;
+    }
+
+    console.log(`[SALESPEOPLE] ✅ Vendedor desativado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Vendedor removido com sucesso'
+    });
+  } catch (error) {
+    console.error('[SALESPEOPLE] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==================== ROTAS - BUYERS ====================
+
+app.get('/buyers', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[BUYERS] 📥 Carregando compradores da empresa ${auth.companyId}`);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('buyers')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('is_active', true)
+      .order('code', { ascending: true });
+
+    if (error) {
+      console.error('[BUYERS] ❌ Erro ao buscar compradores:', error);
+      throw error;
+    }
+
+    console.log(`[BUYERS] ✅ ${data.length} compradores carregados`);
+    return c.json({
+      success: true,
+      data: data
+    });
+  } catch (error) {
+    console.error('[BUYERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/buyers', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    console.log('[BUYERS] 📝 Criando novo comprador:', body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // ==================== AUTO-GERAR CÓDIGO ====================
+    const { data: existing, error: fetchError } = await supabase
+      .from('buyers')
+      .select('code')
+      .eq('company_id', auth.companyId)
+      .order('code', { ascending: false })
+      .limit(1);
+
+    if (fetchError) {
+      console.error('[BUYERS] ❌ Erro ao buscar códigos:', fetchError);
+      throw fetchError;
+    }
+
+    let nextCode = 'BY-001';
+    if (existing && existing.length > 0) {
+      const lastCode = existing[0].code;
+      const numericPart = parseInt(lastCode.replace('BY-', ''));
+      nextCode = `BY-${String(numericPart + 1).padStart(3, '0')}`;
+    }
+
+    console.log(`[BUYERS] 🔢 Código auto-gerado: ${nextCode}`);
+
+    // ==================== INSERIR COMPRADOR ====================
+    const { data, error } = await supabase
+      .from('buyers')
+      .insert([{
+        company_id: auth.companyId,
+        code: nextCode,
+        name: body.name,
+        email: body.email || null,
+        phone: body.phone || null,
+        department: body.department || null,
+        is_active: true,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[BUYERS] ❌ Erro ao inserir comprador:', error);
+      throw error;
+    }
+
+    console.log(`[BUYERS] ✅ Comprador criado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: `Comprador ${data.code} - ${data.name} criado com sucesso`,
+      data: data
+    });
+  } catch (error) {
+    console.error('[BUYERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/buyers/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    console.log(`[BUYERS] ✏️ Atualizando comprador ${id}:`, body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('buyers')
+      .update({
+        name: body.name,
+        email: body.email || null,
+        phone: body.phone || null,
+        department: body.department || null,
+      })
+      .eq('id', id)
+      .eq('company_id', auth.companyId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[BUYERS] ❌ Erro ao atualizar comprador:', error);
+      throw error;
+    }
+
+    console.log(`[BUYERS] ✅ Comprador atualizado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: 'Comprador atualizado com sucesso',
+      data: data
+    });
+  } catch (error) {
+    console.error('[BUYERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/buyers/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[BUYERS] 🗑️ Soft delete de comprador ${id}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('buyers')
+      .update({ is_active: false })
+      .eq('id', id)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[BUYERS] ❌ Erro ao deletar comprador:', error);
+      throw error;
+    }
+
+    console.log(`[BUYERS] ✅ Comprador desativado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Comprador removido com sucesso'
+    });
+  } catch (error) {
+    console.error('[BUYERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 export default app;
