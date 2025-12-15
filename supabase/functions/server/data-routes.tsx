@@ -1852,4 +1852,192 @@ app.get('/health', (c) => {
   });
 });
 
+// ==================== ROTAS - COST CENTERS ====================
+
+app.get('/cost-centers', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[COST CENTERS] 📥 Carregando centros de custo da empresa ${auth.companyId}`);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('cost_centers')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('is_active', true)
+      .order('code', { ascending: true });
+
+    if (error) {
+      console.error('[COST CENTERS] ❌ Erro ao buscar centros:', error);
+      throw error;
+    }
+
+    console.log(`[COST CENTERS] ✅ ${data.length} centros de custo carregados`);
+    return c.json({
+      success: true,
+      data: data
+    });
+  } catch (error) {
+    console.error('[COST CENTERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/cost-centers', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    console.log('[COST CENTERS] 📝 Criando novo centro de custo:', body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // ==================== AUTO-GERAR CÓDIGO ====================
+    // Buscar o maior código existente para esta empresa
+    const { data: existingCenters, error: fetchError } = await supabase
+      .from('cost_centers')
+      .select('code')
+      .eq('company_id', auth.companyId)
+      .order('code', { ascending: false })
+      .limit(1);
+
+    if (fetchError) {
+      console.error('[COST CENTERS] ❌ Erro ao buscar códigos:', fetchError);
+      throw fetchError;
+    }
+
+    let nextCode = 'CC-001';
+    if (existingCenters && existingCenters.length > 0) {
+      const lastCode = existingCenters[0].code;
+      const numericPart = parseInt(lastCode.replace('CC-', ''));
+      nextCode = `CC-${String(numericPart + 1).padStart(3, '0')}`;
+    }
+
+    console.log(`[COST CENTERS] 🔢 Código auto-gerado: ${nextCode}`);
+
+    // ==================== INSERIR CENTRO DE CUSTO ====================
+    const { data, error } = await supabase
+      .from('cost_centers')
+      .insert([{
+        company_id: auth.companyId,
+        code: nextCode,
+        name: body.name,
+        description: body.description || null,
+        is_active: true,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[COST CENTERS] ❌ Erro ao inserir centro:', error);
+      throw error;
+    }
+
+    console.log(`[COST CENTERS] ✅ Centro criado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: `Centro de custo ${data.code} - ${data.name} criado com sucesso`,
+      data: data
+    });
+  } catch (error) {
+    console.error('[COST CENTERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.put('/cost-centers/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    console.log(`[COST CENTERS] ✏️ Atualizando centro ${id}:`, body);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabase
+      .from('cost_centers')
+      .update({
+        name: body.name,
+        description: body.description || null,
+      })
+      .eq('id', id)
+      .eq('company_id', auth.companyId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[COST CENTERS] ❌ Erro ao atualizar centro:', error);
+      throw error;
+    }
+
+    console.log(`[COST CENTERS] ✅ Centro atualizado: ${data.code} - ${data.name}`);
+    return c.json({
+      success: true,
+      message: 'Centro de custo atualizado com sucesso',
+      data: data
+    });
+  } catch (error) {
+    console.error('[COST CENTERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/cost-centers/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[COST CENTERS] 🗑️ Soft delete de centro ${id}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('cost_centers')
+      .update({ is_active: false })
+      .eq('id', id)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[COST CENTERS] ❌ Erro ao deletar centro:', error);
+      throw error;
+    }
+
+    console.log(`[COST CENTERS] ✅ Centro desativado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Centro de custo removido com sucesso'
+    });
+  } catch (error) {
+    console.error('[COST CENTERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 export default app;
