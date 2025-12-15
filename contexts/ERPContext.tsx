@@ -1581,8 +1581,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   useEntityPersistence({ entityName: 'stock-movements', data: stockMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'price-tables', data: priceTables, enabled: !!profile?.company_id, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'product-categories', data: productCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'salespeople', data: salespeople, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'buyers', data: buyers, enabled: !!profile?.company_id, throttleMs: 1000 });
+  
+  // ⚠️ REMOVIDO: salespeople e buyers agora estão em tabelas SQL dedicadas (não mais em JSONB)
+  // Gerenciados diretamente pelos componentes Salespeople.tsx e Buyers.tsx
+  // useEntityPersistence({ entityName: 'salespeople', data: salespeople, enabled: !!profile?.company_id, throttleMs: 1000 });
+  // useEntityPersistence({ entityName: 'buyers', data: buyers, enabled: !!profile?.company_id, throttleMs: 1000 });
   
   // FASE 3: Entidades financeiras
   // ✅ IMPORTANTE: Só salvar após carregamento inicial para evitar salvar dados padrão antes do seed
