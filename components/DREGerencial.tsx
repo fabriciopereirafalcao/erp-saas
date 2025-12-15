@@ -10,8 +10,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Badge } from './ui/badge';
-import { Calendar, DollarSign, Target, TrendingUp, TrendingDown, BarChart3, Download, FileText, RefreshCw, ChevronDown, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Calendar, DollarSign, Target, TrendingUp, TrendingDown, BarChart3, Download, FileText, RefreshCw, ChevronDown, ChevronRight, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
 import { projectId } from '../utils/supabase/info';
+import { toast } from 'sonner';
 
 // ==================== TIPOS ====================
 
@@ -139,12 +140,20 @@ export function DREGerencial() {
 
   const handleCalculateDRE = async () => {
     if (!startDate || !endDate) {
-      alert('Selecione o período');
+      toast.error('Selecione o período');
       return;
     }
 
     if (!accessToken) {
-      alert('Você precisa estar autenticado');
+      toast.error('Você precisa estar autenticado');
+      return;
+    }
+
+    // ✅ VALIDAÇÃO: Regime tributário DEVE estar cadastrado
+    if (!companySettings?.taxRegime) {
+      toast.error('Para calcular a DRE, é necessário cadastrar o Regime Tributário em "Configurações da Empresa"', {
+        duration: 5000,
+      });
       return;
     }
 
@@ -227,13 +236,13 @@ export function DREGerencial() {
       const data = await response.json();
       
       if (data.success) {
-        alert('Snapshot salvo com sucesso!');
+        toast.success('Snapshot salvo com sucesso!');
       } else {
-        alert('Erro ao salvar snapshot');
+        toast.error('Erro ao salvar snapshot');
       }
     } catch (error) {
       console.error('Erro ao salvar snapshot:', error);
-      alert('Erro ao salvar snapshot');
+      toast.error('Erro ao salvar snapshot');
     }
   };
 
@@ -703,12 +712,12 @@ export function DREGerencial() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Regime */}
+            {/* Regime - Desabilitado, pega de Configurações */}
             <div>
-              <Label htmlFor="regime">Regime Tributário</Label>
-              <Select value={regime} onValueChange={setRegime}>
-                <SelectTrigger>
-                  <SelectValue />
+              <Label htmlFor="regime">Regime Tributário (definido em Configurações)</Label>
+              <Select value={regime} onValueChange={setRegime} disabled>
+                <SelectTrigger className="disabled:opacity-70">
+                  <SelectValue placeholder={!companySettings?.taxRegime ? 'Não cadastrado' : undefined} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="SIMPLES">Simples Nacional</SelectItem>
@@ -716,6 +725,12 @@ export function DREGerencial() {
                   <SelectItem value="REAL">Lucro Real</SelectItem>
                 </SelectContent>
               </Select>
+              {!companySettings?.taxRegime && (
+                <div className="flex items-center gap-1 mt-2 text-xs text-amber-600">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Cadastre em Configurações da Empresa</span>
+                </div>
+              )}
             </div>
 
             {/* Botão Calcular */}

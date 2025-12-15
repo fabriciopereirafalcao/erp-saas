@@ -253,10 +253,16 @@ export function ChartOfAccounts() {
       return;
     }
     
+    // Transformar ROOT_ACCOUNT em null
+    const submissionData = {
+      ...formData,
+      parentId: formData.parentId === 'ROOT_ACCOUNT' ? '' : formData.parentId
+    };
+    
     if (editingCategory) {
-      updateAccountCategory(editingCategory.id, formData);
+      updateAccountCategory(editingCategory.id, submissionData);
     } else {
-      addAccountCategory(formData);
+      addAccountCategory(submissionData);
     }
     
     handleCloseDialog();
@@ -539,7 +545,7 @@ export function ChartOfAccounts() {
                     <SelectValue placeholder="Nenhuma (conta raiz)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma (conta raiz)</SelectItem>
+                    <SelectItem value="ROOT_ACCOUNT">Nenhuma (conta raiz)</SelectItem>
                     {sortedAccounts
                       .filter((cat) => cat.accountType === 'sintetica')
                       .map((category) => (
