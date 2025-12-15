@@ -2024,7 +2024,10 @@ app.get('/salespeople', async (c) => {
       console.warn(`[SALESPEOPLE] ⚠️ ${(data?.length || 0) - validData.length} registros inválidos ignorados`);
     }
 
-    console.log(`[SALESPEOPLE] ✅ ${validData.length} vendedores carregados`);
+    console.log(`[SALESPEOPLE] 📊 Registros do banco: ${data?.length || 0}, Válidos: ${validData.length}`);
+    console.log(`[SALESPEOPLE] ✅ ${validData.length} vendedores retornados ao frontend`);
+    console.log(`[SALESPEOPLE] 📋 Códigos:`, validData.map(v => v.code).join(', '));
+    
     return c.json({
       success: true,
       data: validData
@@ -2061,11 +2064,35 @@ app.post('/salespeople', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ==================== VALIDAR EMAIL DUPLICADO ====================
+    if (body.email && body.email.trim() !== '') {
+      const { data: duplicateEmail, error: emailError } = await supabase
+        .from('salespeople')
+        .select('id, code, name')
+        .eq('company_id', auth.companyId)
+        .eq('email', body.email.trim())
+        .eq('is_active', true)
+        .limit(1);
+
+      if (emailError) {
+        console.error('[SALESPEOPLE] ❌ Erro ao verificar email duplicado:', emailError);
+        throw emailError;
+      }
+
+      if (duplicateEmail && duplicateEmail.length > 0) {
+        console.warn(`[SALESPEOPLE] ⚠️ Email ${body.email} já cadastrado para ${duplicateEmail[0].code} - ${duplicateEmail[0].name}`);
+        return c.json({ 
+          error: `Email já cadastrado para o vendedor ${duplicateEmail[0].code} - ${duplicateEmail[0].name}` 
+        }, 400);
+      }
+    }
+
     // ==================== AUTO-GERAR CÓDIGO ====================
     const { data: existing, error: fetchError } = await supabase
       .from('salespeople')
       .select('code')
       .eq('company_id', auth.companyId)
+      .eq('is_active', true)  // ✅ FIXADO: Só contar vendedores ativos
       .order('code', { ascending: false })
       .limit(1);
 
@@ -2240,7 +2267,10 @@ app.get('/buyers', async (c) => {
       console.warn(`[BUYERS] ⚠️ ${(data?.length || 0) - validData.length} registros inválidos ignorados`);
     }
 
-    console.log(`[BUYERS] ✅ ${validData.length} compradores carregados`);
+    console.log(`[BUYERS] 📊 Registros do banco: ${data?.length || 0}, Válidos: ${validData.length}`);
+    console.log(`[BUYERS] ✅ ${validData.length} compradores retornados ao frontend`);
+    console.log(`[BUYERS] 📋 Códigos:`, validData.map(b => b.code).join(', '));
+    
     return c.json({
       success: true,
       data: validData
@@ -2272,11 +2302,35 @@ app.post('/buyers', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ==================== VALIDAR EMAIL DUPLICADO ====================
+    if (body.email && body.email.trim() !== '') {
+      const { data: duplicateEmail, error: emailError } = await supabase
+        .from('buyers')
+        .select('id, code, name')
+        .eq('company_id', auth.companyId)
+        .eq('email', body.email.trim())
+        .eq('is_active', true)
+        .limit(1);
+
+      if (emailError) {
+        console.error('[BUYERS] ❌ Erro ao verificar email duplicado:', emailError);
+        throw emailError;
+      }
+
+      if (duplicateEmail && duplicateEmail.length > 0) {
+        console.warn(`[BUYERS] ⚠️ Email ${body.email} já cadastrado para ${duplicateEmail[0].code} - ${duplicateEmail[0].name}`);
+        return c.json({ 
+          error: `Email já cadastrado para o comprador ${duplicateEmail[0].code} - ${duplicateEmail[0].name}` 
+        }, 400);
+      }
+    }
+
     // ==================== AUTO-GERAR CÓDIGO ====================
     const { data: existing, error: fetchError } = await supabase
       .from('buyers')
       .select('code')
       .eq('company_id', auth.companyId)
+      .eq('is_active', true)  // ✅ FIXADO: Só contar compradores ativos
       .order('code', { ascending: false })
       .limit(1);
 
