@@ -755,6 +755,9 @@ app.post('/account-categories/init-default', async (c) => {
       'RECEITAS_FINANCEIRAS': 'RF',
     };
     
+    // Log do mapeamento para debug
+    console.log('[INIT CHART] 📋 Códigos DRE disponíveis:', Array.from(dreLineMap.keys()).join(', '));
+    
     // ==================== ETAPA 1: INSERT todas as contas SEM parent_id ====================
     console.log('[INIT CHART] 📝 Etapa 1: Inserindo contas com dre_line_id...');
     
