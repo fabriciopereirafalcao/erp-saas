@@ -849,6 +849,119 @@ app.post('/account-categories/init-default', async (c) => {
   }
 });
 
+// ✅ NOVA ROTA: Criar conta analítica com auto-geração de código
+app.post('/account-categories/create-analytical', async (c) => {
+  console.log('[CREATE ANALYTICAL] 🎯 Rota /account-categories/create-analytical CHAMADA!');
+  
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { parentId, name, description } = await c.req.json();
+    
+    if (!parentId || !name) {
+      return c.json({ error: 'parentId e name são obrigatórios' }, 400);
+    }
+
+    console.log(`[CREATE ANALYTICAL] 🌱 Criando conta analítica "${name}" sob parent ${parentId}`);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // ==================== ETAPA 1: Buscar conta pai ====================
+    const { data: parentAccount, error: parentError } = await supabase
+      .from('account_categories')
+      .select('*')
+      .eq('id', parentId)
+      .eq('company_id', auth.companyId)
+      .single();
+    
+    if (parentError || !parentAccount) {
+      console.error('[CREATE ANALYTICAL] ❌ Conta pai não encontrada:', parentError);
+      return c.json({ error: 'Conta pai não encontrada' }, 404);
+    }
+
+    console.log(`[CREATE ANALYTICAL] ✅ Conta pai encontrada: ${parentAccount.code} - ${parentAccount.name}`);
+
+    // ==================== ETAPA 2: Encontrar próximo código disponível ====================
+    // Buscar todas as contas filhas do mesmo pai
+    const { data: siblings, error: siblingsError } = await supabase
+      .from('account_categories')
+      .select('code')
+      .eq('parent_id', parentId)
+      .eq('company_id', auth.companyId);
+    
+    if (siblingsError) {
+      console.error('[CREATE ANALYTICAL] ❌ Erro ao buscar irmãos:', siblingsError);
+      throw new Error(siblingsError.message);
+    }
+
+    // Extrair o último dígito do código pai e gerar próximo código
+    const parentCode = parentAccount.code; // Ex: "3.2.03.00"
+    const parentParts = parentCode.split('.'); // ["3", "2", "03", "00"]
+    
+    // Encontrar maior sufixo entre os irmãos
+    let maxSuffix = 0;
+    siblings.forEach((sibling: any) => {
+      const siblingParts = sibling.code.split('.');
+      const lastPart = parseInt(siblingParts[siblingParts.length - 1], 10);
+      if (lastPart > maxSuffix) {
+        maxSuffix = lastPart;
+      }
+    });
+
+    // Próximo código
+    const nextSuffix = (maxSuffix + 1).toString().padStart(2, '0');
+    parentParts[parentParts.length - 1] = nextSuffix;
+    const newCode = parentParts.join('.');
+
+    console.log(`[CREATE ANALYTICAL] 🔢 Novo código gerado: ${newCode}`);
+
+    // ==================== ETAPA 3: Herdar atributos do pai ====================
+    const newAccount = {
+      company_id: auth.companyId,
+      type: parentAccount.type, // Herda tipo (Receita/Despesa)
+      code: newCode,
+      name,
+      description: description || name,
+      parent_id: parentId,
+      level: (parentAccount.level || 0) + 1, // Nível = nível do pai + 1
+      account_type: 'analitica', // Sempre analítica
+      dre_line_id: parentAccount.dre_line_id, // Herda linha DRE do pai
+      sort_order: maxSuffix + 1,
+      is_active: true,
+    };
+
+    // ==================== ETAPA 4: Inserir nova conta ====================
+    const { data: createdAccount, error: insertError } = await supabase
+      .from('account_categories')
+      .insert([newAccount])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[CREATE ANALYTICAL] ❌ Erro ao inserir conta:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[CREATE ANALYTICAL] 🎉 Conta criada: ${createdAccount.code} - ${createdAccount.name}`);
+    
+    return c.json({
+      success: true,
+      message: `Conta ${newCode} - ${name} criada com sucesso`,
+      data: createdAccount,
+    });
+
+  } catch (error) {
+    console.error('[CREATE ANALYTICAL] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 app.get('/account-categories', async (c) => {
   try {
     const auth = await sqlService.authenticate(c.req.header('Authorization'));

@@ -709,8 +709,7 @@ export function DREGerencial() {
               <Label>Regime Tributário:</Label>
               {companySettings?.taxRegime ? (
                 <Badge variant="outline" className="text-sm">
-                  {companySettings.taxRegime === 'SIMPLES' ? 'Simples Nacional' : 
-                   companySettings.taxRegime === 'PRESUMIDO' ? 'Lucro Presumido' : 'Lucro Real'}
+                  {companySettings.taxRegime}
                 </Badge>
               ) : (
                 <div className="flex items-center gap-1 text-xs text-amber-600">

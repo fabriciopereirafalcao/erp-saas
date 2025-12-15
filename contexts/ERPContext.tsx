@@ -661,8 +661,8 @@ const initialPaymentMethods: PaymentMethod[] = [
 ];
 
 // ❌ REMOVIDO: initialAccountCategories
-// O plano de contas completo (46 contas) é criado automaticamente
-// pelo componente ChartOfAccountsHierarchical ao acessar a tela pela primeira vez
+// O plano de contas completo (47 contas) é criado automaticamente
+// pelo componente ChartOfAccounts ao acessar a tela pela primeira vez
 
 const initialAccountsReceivable: AccountReceivable[] = [];
 
@@ -1428,8 +1428,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setAccountCategories(accountCategoriesData);
         } else if (isSubscribed) {
           // ❌ REMOVIDO: Antigo SEED de 4 contas básicas
-          // O plano de contas completo (46 contas) é criado automaticamente
-          // pelo componente ChartOfAccountsHierarchical ao acessar a tela pela primeira vez
+          // O plano de contas completo (47 contas) é criado automaticamente
+          // pelo componente ChartOfAccounts ao acessar a tela pela primeira vez
           console.log('[SEED] ℹ️ Plano de contas será criado automaticamente ao acessar a tela de Plano de Contas');
         }
         

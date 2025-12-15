@@ -30,6 +30,7 @@ import { useERP } from '../contexts/ERPContext';
 import { AccountCategory, DRELine } from '../contexts/ERPContext';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 export function ChartOfAccounts() {
   const { accountCategories, addAccountCategory, updateAccountCategory, deleteAccountCategory } = useERP();
@@ -239,9 +240,51 @@ export function ChartOfAccounts() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ NOVA LÓGICA: Criar conta analítica via endpoint inteligente
+    if (!editingCategory) {
+      // Validar que conta pai foi selecionada
+      if (!formData.parentId || formData.parentId === 'ROOT_ACCOUNT') {
+        toast.error('Selecione a conta pai onde a nova conta será criada');
+        return;
+      }
+
+      try {
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/account-categories/create-analytical`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            parentId: formData.parentId,
+            name: formData.name,
+            description: formData.description || formData.name,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success(result.message);
+          // Recarregar plano de contas
+          window.location.reload();
+        } else {
+          toast.error(result.error || 'Erro ao criar conta');
+        }
+      } catch (error) {
+        console.error('[CREATE ACCOUNT] Erro:', error);
+        toast.error('Erro ao criar conta analítica');
+      }
+
+      handleCloseDialog();
+      return;
+    }
+
+    // ❌ LEGADO: Edição de conta existente (manter lógica antiga)
     // Validação: conta analítica DEVE ter dreLineId
     if (formData.accountType === 'analitica' && !formData.dreLineId) {
       alert('Contas analíticas devem estar vinculadas a uma linha da DRE');
@@ -260,12 +303,7 @@ export function ChartOfAccounts() {
       parentId: formData.parentId === 'ROOT_ACCOUNT' ? '' : formData.parentId
     };
     
-    if (editingCategory) {
-      updateAccountCategory(editingCategory.id, submissionData);
-    } else {
-      addAccountCategory(submissionData);
-    }
-    
+    updateAccountCategory(editingCategory.id, submissionData);
     handleCloseDialog();
   };
 
@@ -451,112 +489,180 @@ export function ChartOfAccounts() {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              {/* Código */}
-              <div className="space-y-2">
-                <Label htmlFor="code">Código da Conta *</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="Ex: 3.1.01.01"
-                  required
-                />
-                <p className="text-xs text-gray-500">
-                  Utilize o formato hierárquico: 3.1.01.01 (último nível = analítica)
-                </p>
-              </div>
+              {!editingCategory ? (
+                /* ========== FORMULÁRIO SIMPLIFICADO: CRIAR NOVA CONTA ========== */
+                <>
+                  {/* Conta Pai (obrigatório) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="parentId">Conta Pai * (obrigatório)</Label>
+                    <Select
+                      value={formData.parentId}
+                      onValueChange={(value) => setFormData({ ...formData, parentId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a conta onde deseja adicionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sortedAccounts
+                          .filter((cat) => cat.accountType === 'sintetica')
+                          .map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.code} - {category.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">
+                      Selecione o grupo (conta sintética) onde a nova conta será criada
+                    </p>
+                  </div>
 
-              {/* Nome */}
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome da Conta *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Vendas de Produtos - Alimentos"
-                  required
-                />
-              </div>
+                  {/* Nome */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome da Conta *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex: Vendas de Produtos - Alimentos"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">
+                      O código será gerado automaticamente de acordo com a conta pai selecionada
+                    </p>
+                  </div>
 
-              {/* Tipo */}
-              <div className="space-y-2">
-                <Label htmlFor="type">Tipo *</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, type: value as 'Receita' | 'Despesa' })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Receita">Receita</SelectItem>
-                    <SelectItem value="Despesa">Despesa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  {/* Descrição */}
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição (opcional)</Label>
+                    <Input
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Descrição detalhada da conta"
+                    />
+                  </div>
 
-              {/* Linha DRE (obrigatório para analítica) */}
-              <div className="space-y-2">
-                <Label htmlFor="dreLineId">Linha da DRE * (obrigatório)</Label>
-                <Select
-                  value={formData.dreLineId}
-                  onValueChange={(value) => setFormData({ ...formData, dreLineId: value })}
-                  disabled={loadingDreLines}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={loadingDreLines ? 'Carregando...' : 'Selecione a linha DRE'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dreLines.map((line) => (
-                      <SelectItem key={line.id} value={line.id}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-gray-500">{line.code}</span>
-                          <span>{line.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500">
-                  A linha DRE define onde esta conta aparecerá no relatório DRE Gerencial
-                </p>
-              </div>
+                  {/* Informativo */}
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-900">
+                      <strong>Herança automática:</strong> A nova conta herdará automaticamente o tipo (Receita/Despesa) 
+                      e a linha DRE da conta pai selecionada.
+                    </AlertDescription>
+                  </Alert>
+                </>
+              ) : (
+                /* ========== FORMULÁRIO COMPLETO: EDITAR CONTA EXISTENTE ========== */
+                <>
+                  {/* Código */}
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Código da Conta *</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                      placeholder="Ex: 3.1.01.01"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">
+                      Utilize o formato hierárquico: 3.1.01.01 (último nível = analítica)
+                    </p>
+                  </div>
 
-              {/* Descrição */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição (opcional)</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descrição detalhada da conta"
-                />
-              </div>
+                  {/* Nome */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome da Conta *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex: Vendas de Produtos - Alimentos"
+                      required
+                    />
+                  </div>
 
-              {/* Conta Pai (opcional - para criar subcontas) */}
-              <div className="space-y-2">
-                <Label htmlFor="parentId">Conta Pai (opcional)</Label>
-                <Select
-                  value={formData.parentId}
-                  onValueChange={(value) => setFormData({ ...formData, parentId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nenhuma (conta raiz)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ROOT_ACCOUNT">Nenhuma (conta raiz)</SelectItem>
-                    {sortedAccounts
-                      .filter((cat) => cat.accountType === 'sintetica')
-                      .map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.code} - {category.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  {/* Tipo */}
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Tipo *</Label>
+                    <Select
+                      value={formData.type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, type: value as 'Receita' | 'Despesa' })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Receita">Receita</SelectItem>
+                        <SelectItem value="Despesa">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Linha DRE (obrigatório para analítica) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="dreLineId">Linha da DRE * (obrigatório)</Label>
+                    <Select
+                      value={formData.dreLineId}
+                      onValueChange={(value) => setFormData({ ...formData, dreLineId: value })}
+                      disabled={loadingDreLines}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingDreLines ? 'Carregando...' : 'Selecione a linha DRE'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dreLines.map((line) => (
+                          <SelectItem key={line.id} value={line.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-gray-500">{line.code}</span>
+                              <span>{line.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">
+                      A linha DRE define onde esta conta aparecerá no relatório DRE Gerencial
+                    </p>
+                  </div>
+
+                  {/* Descrição */}
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição (opcional)</Label>
+                    <Input
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Descrição detalhada da conta"
+                    />
+                  </div>
+
+                  {/* Conta Pai (opcional - para criar subcontas) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="parentId">Conta Pai (opcional)</Label>
+                    <Select
+                      value={formData.parentId}
+                      onValueChange={(value) => setFormData({ ...formData, parentId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Nenhuma (conta raiz)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ROOT_ACCOUNT">Nenhuma (conta raiz)</SelectItem>
+                        {sortedAccounts
+                          .filter((cat) => cat.accountType === 'sintetica')
+                          .map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.code} - {category.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
 
             <DialogFooter>

@@ -127,11 +127,6 @@ const ChartOfAccounts = lazy(() =>
     default: m.ChartOfAccounts,
   })),
 );
-const ChartOfAccountsHierarchical = lazy(() =>
-  import("./components/ChartOfAccountsHierarchical").then((m) => ({
-    default: m.ChartOfAccountsHierarchical,
-  })),
-);
 const DREGerencial = lazy(() =>
   import("./components/DREGerencial").then((m) => ({
     default: m.DREGerencial,
@@ -400,13 +395,6 @@ function AppContent() {
         return (
           <PlanAccessGuard feature="settings">
             <ChartOfAccounts />
-          </PlanAccessGuard>
-        );
-      
-      case "chartOfAccountsHierarchical":
-        return (
-          <PlanAccessGuard feature="settings">
-            <ChartOfAccountsHierarchical />
           </PlanAccessGuard>
         );
       
