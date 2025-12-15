@@ -115,7 +115,7 @@ export function DREGerencial() {
       if (!accessToken) return;
 
       try {
-        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/dre/structure`;
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/structure`;
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -150,7 +150,7 @@ export function DREGerencial() {
 
     setLoading(true);
     try {
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/dre/calculate?startDate=${startDate}&endDate=${endDate}`;
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/calculate?startDate=${startDate}&endDate=${endDate}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -185,7 +185,7 @@ export function DREGerencial() {
     if (!startDate2 || !endDate2 || !accessToken) return;
 
     try {
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/dre/calculate?startDate=${startDate2}&endDate=${endDate2}`;
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/calculate?startDate=${startDate2}&endDate=${endDate2}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: {
