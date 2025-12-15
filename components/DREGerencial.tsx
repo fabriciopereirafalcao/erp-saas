@@ -96,20 +96,12 @@ export function DREGerencial() {
     return date.toISOString().split('T')[0];
   });
   
-  const [regime, setRegime] = useState<string>('SIMPLES');
-  
   // Modal drill-down
   const [drillDownOpen, setDrillDownOpen] = useState(false);
   const [drillDownLine, setDrillDownLine] = useState<string>('');
   const [drillDownTransactions, setDrillDownTransactions] = useState<Transaction[]>([]);
 
   // ==================== EFFECTS ====================
-
-  useEffect(() => {
-    if (companySettings?.taxRegime) {
-      setRegime(companySettings.taxRegime);
-    }
-  }, [companySettings]);
 
   useEffect(() => {
     const fetchDREStructure = async () => {
@@ -711,24 +703,19 @@ export function DREGerencial() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Regime - Desabilitado, pega de Configurações */}
-            <div>
-              <Label htmlFor="regime">Regime Tributário (definido em Configurações)</Label>
-              <Select value={regime} onValueChange={setRegime} disabled>
-                <SelectTrigger className="disabled:opacity-70">
-                  <SelectValue placeholder={!companySettings?.taxRegime ? 'Não cadastrado' : undefined} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SIMPLES">Simples Nacional</SelectItem>
-                  <SelectItem value="PRESUMIDO">Lucro Presumido</SelectItem>
-                  <SelectItem value="REAL">Lucro Real</SelectItem>
-                </SelectContent>
-              </Select>
-              {!companySettings?.taxRegime && (
-                <div className="flex items-center gap-1 mt-2 text-xs text-amber-600">
+          <div className="flex items-center justify-between gap-4">
+            {/* Regime Tributário - Informativo */}
+            <div className="flex items-center gap-2">
+              <Label>Regime Tributário:</Label>
+              {companySettings?.taxRegime ? (
+                <Badge variant="outline" className="text-sm">
+                  {companySettings.taxRegime === 'SIMPLES' ? 'Simples Nacional' : 
+                   companySettings.taxRegime === 'PRESUMIDO' ? 'Lucro Presumido' : 'Lucro Real'}
+                </Badge>
+              ) : (
+                <div className="flex items-center gap-1 text-xs text-amber-600">
                   <AlertCircle className="w-3 h-3" />
-                  <span>Cadastre em Configurações da Empresa</span>
+                  <span>Não cadastrado (defina em Configurações)</span>
                 </div>
               )}
             </div>
@@ -801,7 +788,7 @@ export function DREGerencial() {
                   </CardContent>
                 </Card>
 
-                {regime !== 'SIMPLES' && (
+                {(companySettings?.taxRegime || dreData?.regime) !== 'SIMPLES' && (
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
@@ -848,7 +835,11 @@ export function DREGerencial() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>DRE - {regime}</CardTitle>
+                    <CardTitle>
+                      DRE - {companySettings?.taxRegime === 'SIMPLES' ? 'Simples Nacional' : 
+                             companySettings?.taxRegime === 'PRESUMIDO' ? 'Lucro Presumido' : 
+                             companySettings?.taxRegime === 'REAL' ? 'Lucro Real' : dreData.regime}
+                    </CardTitle>
                     <CardDescription>
                       Período: {new Date(dreData.periodStart).toLocaleDateString('pt-BR')} até{' '}
                       {new Date(dreData.periodEnd).toLocaleDateString('pt-BR')}
@@ -858,9 +849,11 @@ export function DREGerencial() {
                       )}
                     </CardDescription>
                   </div>
-                  <Badge variant={dreData.lucro_liquido > 0 ? 'default' : 'destructive'}>
-                    {dreData.lucro_liquido > 0 ? 'Lucro' : 'Prejuízo'}
-                  </Badge>
+                  {dreData.lucro_liquido !== 0 && (
+                    <Badge variant={dreData.lucro_liquido > 0 ? 'default' : 'destructive'}>
+                      {dreData.lucro_liquido > 0 ? 'Lucro' : 'Prejuízo'}
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -955,20 +948,20 @@ export function DREGerencial() {
                           value2: dreDataComparative?.receitas_financeiras
                         }
                       )}
-                      {regime !== 'SIMPLES' && dreData.resultado_operacional !== undefined && 
+                      {(companySettings?.taxRegime || dreData.regime) !== 'SIMPLES' && dreData.resultado_operacional !== undefined && 
                         renderDRELine('Resultado Operacional', dreData.resultado_operacional, { 
                           isSubtotal: true,
                           value2: dreDataComparative?.resultado_operacional
                         })
                       }
-                      {regime !== 'SIMPLES' && dreData.irpj !== undefined && dreData.irpj > 0 &&
+                      {(companySettings?.taxRegime || dreData.regime) !== 'SIMPLES' && dreData.irpj !== undefined && dreData.irpj > 0 &&
                         renderDRELine('IRPJ', dreData.irpj, { 
                           isNegative: true, 
                           indent: 1,
                           value2: dreDataComparative?.irpj
                         })
                       }
-                      {regime !== 'SIMPLES' && dreData.csll !== undefined && dreData.csll > 0 &&
+                      {(companySettings?.taxRegime || dreData.regime) !== 'SIMPLES' && dreData.csll !== undefined && dreData.csll > 0 &&
                         renderDRELine('CSLL', dreData.csll, { 
                           isNegative: true, 
                           indent: 1,
