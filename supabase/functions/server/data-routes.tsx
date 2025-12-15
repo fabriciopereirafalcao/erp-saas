@@ -2008,7 +2008,7 @@ app.get('/salespeople', async (c) => {
       .from('salespeople')
       .select('*')
       .eq('company_id', auth.companyId)
-      .eq('is_active', true)
+      // ✅ RETORNAR TODOS (ativos e inativos) - filtro é feito no frontend
       .not('name', 'is', null)  // ⚠️ Ignorar registros com name NULL
       .order('code', { ascending: true });
 
@@ -2245,6 +2245,44 @@ app.delete('/salespeople/:id', async (c) => {
   }
 });
 
+// ==================== REATIVAR VENDEDOR ====================
+app.post('/salespeople/:id/reactivate', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[SALESPEOPLE] 🔄 Reativando vendedor ${id}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('salespeople')
+      .update({ is_active: true })
+      .eq('id', id)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[SALESPEOPLE] ❌ Erro ao reativar vendedor:', error);
+      throw error;
+    }
+
+    console.log(`[SALESPEOPLE] ✅ Vendedor reativado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Vendedor reativado com sucesso'
+    });
+  } catch (error) {
+    console.error('[SALESPEOPLE] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - BUYERS ====================
 
 app.get('/buyers', async (c) => {
@@ -2265,7 +2303,7 @@ app.get('/buyers', async (c) => {
       .from('buyers')
       .select('*')
       .eq('company_id', auth.companyId)
-      .eq('is_active', true)
+      // ✅ RETORNAR TODOS (ativos e inativos) - filtro é feito no frontend
       .not('name', 'is', null)  // ⚠️ Ignorar registros com name NULL
       .order('code', { ascending: true });
 
@@ -2484,6 +2522,44 @@ app.delete('/buyers/:id', async (c) => {
     return c.json({
       success: true,
       message: 'Comprador removido com sucesso'
+    });
+  } catch (error) {
+    console.error('[BUYERS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==================== REATIVAR COMPRADOR ====================
+app.post('/buyers/:id/reactivate', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[BUYERS] 🔄 Reativando comprador ${id}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('buyers')
+      .update({ is_active: true })
+      .eq('id', id)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[BUYERS] ❌ Erro ao reativar comprador:', error);
+      throw error;
+    }
+
+    console.log(`[BUYERS] ✅ Comprador reativado com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Comprador reativado com sucesso'
     });
   } catch (error) {
     console.error('[BUYERS] ❌ Erro:', error);
