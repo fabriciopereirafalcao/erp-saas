@@ -40,6 +40,7 @@ export function ChartOfAccounts() {
   const [dreLines, setDreLines] = useState<DRELine[]>([]);
   const [loadingDreLines, setLoadingDreLines] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true); // ✅ NOVO: Estado de loading
   const [formData, setFormData] = useState({
     name: '',
     type: 'Receita' as 'Receita' | 'Despesa',
@@ -137,12 +138,24 @@ export function ChartOfAccounts() {
             }
           );
 
+          const result = await response.json();
+
+          // ✅ SILENCIAR ERRO DE DUPLICATA (plano já existe)
           if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Erro ao criar plano de contas: ${errorText}`);
+            // Se for erro de duplicata, apenas marca como inicializado (não é erro crítico)
+            if (result.error && result.error.includes('duplicate key')) {
+              console.log('ℹ️ Plano de contas já existe, pulando inicialização');
+              setHasInitialized(true);
+              setIsLoadingAccounts(false);
+              return;
+            }
+            
+            // Outros erros são logados mas não mostram alert
+            console.error('❌ Erro ao criar plano de contas:', result.error);
+            setIsLoadingAccounts(false);
+            return;
           }
 
-          const result = await response.json();
           console.log('✅ Plano de contas criado:', result);
           
           // Marca como inicializado
@@ -152,8 +165,11 @@ export function ChartOfAccounts() {
           window.location.reload();
         } catch (error) {
           console.error('❌ Erro ao inicializar plano de contas:', error);
-          alert(`Erro ao criar plano de contas: ${(error as Error).message}`);
+          setIsLoadingAccounts(false);
         }
+      } else if (accountCategories.length > 0) {
+        // ✅ Contas já carregadas
+        setIsLoadingAccounts(false);
       }
     };
 
@@ -419,13 +435,26 @@ export function ChartOfAccounts() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedAccounts.length === 0 ? (
+            {isLoadingAccounts ? (
+              /* ========== ESTADO DE LOADING ========== */
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <RefreshCw className="w-8 h-8 text-green-600 animate-spin" />
+                    <p className="text-gray-600">Carregando plano de contas...</p>
+                    <p className="text-xs text-gray-400">Aguarde alguns instantes</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : sortedAccounts.length === 0 ? (
+              /* ========== ESTADO VAZIO ========== */
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                   Nenhuma conta cadastrada
                 </TableCell>
               </TableRow>
             ) : (
+              /* ========== CONTAS CARREGADAS ========== */
               sortedAccounts.map((category) => {
                 const isSynthetic = isSyntheticAccount(category);
                 return (
