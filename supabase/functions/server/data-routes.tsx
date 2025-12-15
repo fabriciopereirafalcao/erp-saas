@@ -2059,13 +2059,26 @@ app.post('/salespeople', async (c) => {
       return c.json({ error: 'Nome é obrigatório' }, 400);
     }
 
+    // ✅ EMAIL É OBRIGATÓRIO (será usado para convites e autenticação)
+    if (!body.email || body.email.trim() === '') {
+      console.error('[SALESPEOPLE] ❌ Email é obrigatório');
+      return c.json({ error: 'Email é obrigatório' }, 400);
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(body.email.trim())) {
+      console.error('[SALESPEOPLE] ❌ Email inválido:', body.email);
+      return c.json({ error: 'Email inválido' }, 400);
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // ==================== VALIDAR EMAIL DUPLICADO ====================
-    if (body.email && body.email.trim() !== '') {
+    if (true) {
       const { data: duplicateEmail, error: emailError } = await supabase
         .from('salespeople')
         .select('id, code, name')
@@ -2088,11 +2101,12 @@ app.post('/salespeople', async (c) => {
     }
 
     // ==================== AUTO-GERAR CÓDIGO ====================
+    // ✅ Busca o maior código GERAL (ativos + inativos) para nunca reutilizar
     const { data: existing, error: fetchError } = await supabase
       .from('salespeople')
       .select('code')
       .eq('company_id', auth.companyId)
-      .eq('is_active', true)  // ✅ FIXADO: Só contar vendedores ativos
+      // ✅ REMOVIDO .eq('is_active', true) - códigos nunca são reutilizados
       .order('code', { ascending: false })
       .limit(1);
 
@@ -2297,13 +2311,26 @@ app.post('/buyers', async (c) => {
       return c.json({ error: 'Nome é obrigatório' }, 400);
     }
 
+    // ✅ EMAIL É OBRIGATÓRIO (será usado para convites e autenticação)
+    if (!body.email || body.email.trim() === '') {
+      console.error('[BUYERS] ❌ Email é obrigatório');
+      return c.json({ error: 'Email é obrigatório' }, 400);
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(body.email.trim())) {
+      console.error('[BUYERS] ❌ Email inválido:', body.email);
+      return c.json({ error: 'Email inválido' }, 400);
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // ==================== VALIDAR EMAIL DUPLICADO ====================
-    if (body.email && body.email.trim() !== '') {
+    if (true) {
       const { data: duplicateEmail, error: emailError } = await supabase
         .from('buyers')
         .select('id, code, name')
@@ -2326,11 +2353,12 @@ app.post('/buyers', async (c) => {
     }
 
     // ==================== AUTO-GERAR CÓDIGO ====================
+    // ✅ Busca o maior código GERAL (ativos + inativos) para nunca reutilizar
     const { data: existing, error: fetchError } = await supabase
       .from('buyers')
       .select('code')
       .eq('company_id', auth.companyId)
-      .eq('is_active', true)  // ✅ FIXADO: Só contar compradores ativos
+      // ✅ REMOVIDO .eq('is_active', true) - códigos nunca são reutilizados
       .order('code', { ascending: false })
       .limit(1);
 
