@@ -2080,14 +2080,19 @@ app.get('/salespeople', async (c) => {
 });
 
 app.post('/salespeople', async (c) => {
+  console.log('[SALESPEOPLE] 🔵 POST /salespeople - Início da requisição');
   try {
+    console.log('[SALESPEOPLE] 🔐 Autenticando usuário...');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.log('[SALESPEOPLE] ❌ Autenticação falhou');
       return c.json({ error: 'Não autorizado' }, 401);
     }
+    console.log('[SALESPEOPLE] ✅ Autenticado - Company ID:', auth.companyId);
 
+    console.log('[SALESPEOPLE] 📦 Parseando body da requisição...');
     const body = await c.req.json();
-    console.log('[SALESPEOPLE] 📝 Criando novo vendedor:', body);
+    console.log('[SALESPEOPLE] 📝 Criando novo vendedor:', JSON.stringify(body, null, 2));
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -2143,8 +2148,14 @@ app.post('/salespeople', async (c) => {
       data: data
     });
   } catch (error) {
-    console.error('[SALESPEOPLE] ❌ Erro:', error);
-    return c.json({ error: error.message }, 500);
+    console.error('[SALESPEOPLE] ❌ Erro completo:', error);
+    console.error('[SALESPEOPLE] ❌ Mensagem:', error.message);
+    console.error('[SALESPEOPLE] ❌ Stack:', error.stack);
+    return c.json({ 
+      success: false,
+      error: error.message,
+      details: error.toString()
+    }, 500);
   }
 });
 
