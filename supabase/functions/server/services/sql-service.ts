@@ -1033,28 +1033,375 @@ async function saveCompanySettings(companyId: string, settings: any) {
 
 // SALESPEOPLE
 async function getSalespeople(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.salespeople || [];
+  console.log(`[SQL_SERVICE] 📥 getSalespeople - companyId: ${companyId}`);
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('salespeople')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('code', { ascending: true });
+  
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar salespeople:', error);
+    throw new Error(error.message);
+  }
+  
+  console.log(`[SQL_SERVICE] ✅ ${data?.length || 0} salespeople encontrados`);
+  return data || [];
 }
 
 async function saveSalespeople(companyId: string, salespeople: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.salespeople = salespeople;
-  await saveCompanySettings(companyId, settings);
-  return { success: true, count: salespeople.length };
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 💾 saveSalespeople - companyId: ${companyId}, count: ${salespeople.length}`);
+  
+  // ==================== ARQUITETURA UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todos os salespeople (protege contra perda de dados)
+  // ✅ UPDATE salespeople existentes (preserva UUID e código)
+  // ✅ INSERT apenas salespeople novos
+  // ✅ DELETE apenas salespeople removidos pelo usuário
+  
+  // ETAPA 1: Buscar todos os salespeople existentes no banco
+  const { data: existingSalespeople, error: fetchError } = await supabase
+    .from('salespeople')
+    .select('id, code')
+    .eq('company_id', companyId);
+
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar salespeople existentes:', fetchError);
+    throw new Error(fetchError.message);
+  }
+
+  const existingIdMap = new Map<string, any>(); // id (UUID) → registro
+  existingSalespeople?.forEach((sp: any) => {
+    existingIdMap.set(sp.id, sp);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Salespeople no banco: ${existingIdMap.size}`);
+
+  // ETAPA 2: Classificar salespeople do frontend
+  const salespeopleToUpdate: any[] = []; // Salespeople com ID existente → UPDATE
+  const salespeopleToInsert: any[] = []; // Salespeople novos → INSERT
+  const incomingIds = new Set<string>(); // IDs enviados pelo frontend
+
+  for (const salesperson of salespeople) {
+    // Se tem ID e existe no banco → UPDATE
+    if (salesperson.id && existingIdMap.has(salesperson.id)) {
+      salespeopleToUpdate.push(salesperson);
+      incomingIds.add(salesperson.id);
+    } 
+    // Se não tem ID ou ID não existe → INSERT
+    else {
+      salespeopleToInsert.push(salesperson);
+      if (salesperson.id) incomingIds.add(salesperson.id);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${salespeopleToUpdate.length} | INSERT: ${salespeopleToInsert.length}`);
+
+  // ETAPA 3: UPDATE salespeople existentes (preserva UUID e código)
+  for (const salesperson of salespeopleToUpdate) {
+    const { error: updateError } = await supabase
+      .from('salespeople')
+      .update({
+        code: salesperson.code, // Preservar código customizado
+        name: salesperson.name,
+        email: salesperson.email || '',
+        phone: salesperson.phone || '',
+        address: salesperson.address || '',
+        street: salesperson.street || '',
+        number: salesperson.number || '',
+        complement: salesperson.complement || '',
+        neighborhood: salesperson.neighborhood || '',
+        city: salesperson.city || '',
+        state: salesperson.state || '',
+        zip_code: salesperson.zipCode || '',
+        is_active: salesperson.isActive ?? true
+      })
+      .eq('id', salesperson.id);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar salesperson ${salesperson.id}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${salespeopleToUpdate.length} salespeople atualizados`);
+
+  // ETAPA 4: Gerar códigos para salespeople novos (sequencial)
+  let codeCounter = 1;
+
+  // Encontrar o maior código existente
+  existingSalespeople?.forEach((sp: any) => {
+    if (sp.code) {
+      const match = sp.code.match(/^(\d+)$/);
+      if (match) {
+        const [, code] = match;
+        const codeNum = parseInt(code, 10);
+        
+        if (codeNum >= codeCounter) {
+          codeCounter = codeNum + 1;
+        }
+      }
+    }
+  });
+
+  // Gerar códigos para novos salespeople
+  const salespeopleToInsertWithCode = salespeopleToInsert.map((salesperson: any) => {
+    if (salesperson.code) {
+      // Código customizado já definido
+      return { ...salesperson, code: salesperson.code };
+    }
+    
+    // Gerar código sequencial
+    const newCode = String(codeCounter).padStart(3, '0');
+    codeCounter++;
+    
+    console.log(`[SQL_SERVICE] 🔢 Código gerado: ${newCode} para "${salesperson.name}"`);
+    return { ...salesperson, code: newCode };
+  });
+
+  // ETAPA 5: INSERT salespeople novos (com códigos gerados)
+  if (salespeopleToInsertWithCode.length > 0) {
+    const rows = salespeopleToInsertWithCode.map((salesperson: any) => ({
+      company_id: companyId,
+      code: salesperson.code,
+      name: salesperson.name,
+      email: salesperson.email || '',
+      phone: salesperson.phone || '',
+      address: salesperson.address || '',
+      street: salesperson.street || '',
+      number: salesperson.number || '',
+      complement: salesperson.complement || '',
+      neighborhood: salesperson.neighborhood || '',
+      city: salesperson.city || '',
+      state: salesperson.state || '',
+      zip_code: salesperson.zipCode || '',
+      is_active: salesperson.isActive ?? true
+    }));
+
+    const { error: insertError } = await supabase
+      .from('salespeople')
+      .insert(rows);
+
+    if (insertError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir salespeople:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[SQL_SERVICE] ✅ ${salespeopleToInsertWithCode.length} salespeople inseridos`);
+  }
+
+  // ETAPA 6: DELETE salespeople removidos
+  const idsToDelete: string[] = [];
+  existingIdMap.forEach((sp, id) => {
+    if (!incomingIds.has(id)) {
+      idsToDelete.push(id);
+    }
+  });
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('salespeople')
+      .delete()
+      .eq('company_id', companyId)
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar salespeople removidos:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${idsToDelete.length} salespeople removidos`);
+  }
+
+  const totalOperations = salespeopleToUpdate.length + salespeopleToInsertWithCode.length + idsToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: salespeopleToUpdate.length,
+    inserted: salespeopleToInsertWithCode.length,
+    deleted: idsToDelete.length
+  };
 }
 
 // BUYERS
 async function getBuyers(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.buyers || [];
+  console.log(`[SQL_SERVICE] 📥 getBuyers - companyId: ${companyId}`);
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('buyers')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('code', { ascending: true });
+  
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar buyers:', error);
+    throw new Error(error.message);
+  }
+  
+  console.log(`[SQL_SERVICE] ✅ ${data?.length || 0} buyers encontrados`);
+  return data || [];
 }
 
 async function saveBuyers(companyId: string, buyers: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.buyers = buyers;
-  await saveCompanySettings(companyId, settings);
-  return { success: true, count: buyers.length };
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 💾 saveBuyers - companyId: ${companyId}, count: ${buyers.length}`);
+  
+  // ==================== ARQUITETURA UPSERT INTELIGENTE ====================
+  // ✅ NUNCA deleta todos os buyers (protege contra perda de dados)
+  // ✅ UPDATE buyers existentes (preserva UUID e código)
+  // ✅ INSERT apenas buyers novos
+  // ✅ DELETE apenas buyers removidos pelo usuário
+  
+  // ETAPA 1: Buscar todos os buyers existentes no banco
+  const { data: existingBuyers, error: fetchError } = await supabase
+    .from('buyers')
+    .select('id, code')
+    .eq('company_id', companyId);
+
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar buyers existentes:', fetchError);
+    throw new Error(fetchError.message);
+  }
+
+  const existingIdMap = new Map<string, any>(); // id (UUID) → registro
+  existingBuyers?.forEach((buyer: any) => {
+    existingIdMap.set(buyer.id, buyer);
+  });
+
+  console.log(`[SQL_SERVICE] 📊 Buyers no banco: ${existingIdMap.size}`);
+
+  // ETAPA 2: Classificar buyers do frontend
+  const buyersToUpdate: any[] = []; // Buyers com ID existente → UPDATE
+  const buyersToInsert: any[] = []; // Buyers novos → INSERT
+  const incomingIds = new Set<string>(); // IDs enviados pelo frontend
+
+  for (const buyer of buyers) {
+    // Se tem ID e existe no banco → UPDATE
+    if (buyer.id && existingIdMap.has(buyer.id)) {
+      buyersToUpdate.push(buyer);
+      incomingIds.add(buyer.id);
+    } 
+    // Se não tem ID ou ID não existe → INSERT
+    else {
+      buyersToInsert.push(buyer);
+      if (buyer.id) incomingIds.add(buyer.id);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] 📝 UPDATE: ${buyersToUpdate.length} | INSERT: ${buyersToInsert.length}`);
+
+  // ETAPA 3: UPDATE buyers existentes (preserva UUID e código)
+  for (const buyer of buyersToUpdate) {
+    const { error: updateError } = await supabase
+      .from('buyers')
+      .update({
+        code: buyer.code, // Preservar código customizado
+        name: buyer.name,
+        email: buyer.email || '',
+        phone: buyer.phone || '',
+        is_active: buyer.isActive ?? buyer.is_active ?? true
+      })
+      .eq('id', buyer.id);
+
+    if (updateError) {
+      console.error(`[SQL_SERVICE] ❌ Erro ao atualizar buyer ${buyer.id}:`, updateError);
+      throw new Error(updateError.message);
+    }
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${buyersToUpdate.length} buyers atualizados`);
+
+  // ETAPA 4: Gerar códigos para buyers novos (sequencial)
+  let codeCounter = 1;
+
+  // Encontrar o maior código existente (formato BY-XXX)
+  existingBuyers?.forEach((buyer: any) => {
+    if (buyer.code) {
+      const match = buyer.code.match(/^BY-(\d+)$/);
+      if (match) {
+        const codeNum = parseInt(match[1], 10);
+        
+        if (codeNum >= codeCounter) {
+          codeCounter = codeNum + 1;
+        }
+      }
+    }
+  });
+
+  // Gerar códigos para novos buyers
+  const buyersToInsertWithCode = buyersToInsert.map((buyer: any) => {
+    if (buyer.code) {
+      // Código customizado já definido
+      return { ...buyer, code: buyer.code };
+    }
+    
+    // Gerar código sequencial
+    const newCode = `BY-${String(codeCounter).padStart(3, '0')}`;
+    codeCounter++;
+    
+    console.log(`[SQL_SERVICE] 🔢 Código gerado: ${newCode} para "${buyer.name}"`);
+    return { ...buyer, code: newCode };
+  });
+
+  // ETAPA 5: INSERT buyers novos (com códigos gerados)
+  if (buyersToInsertWithCode.length > 0) {
+    const rows = buyersToInsertWithCode.map((buyer: any) => ({
+      company_id: companyId,
+      code: buyer.code,
+      name: buyer.name,
+      email: buyer.email || '',
+      phone: buyer.phone || '',
+      is_active: buyer.isActive ?? buyer.is_active ?? true
+    }));
+
+    const { error: insertError } = await supabase
+      .from('buyers')
+      .insert(rows);
+
+    if (insertError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir buyers:', insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log(`[SQL_SERVICE] ✅ ${buyersToInsertWithCode.length} buyers inseridos`);
+  }
+
+  // ETAPA 6: DELETE buyers removidos
+  const idsToDelete: string[] = [];
+  existingIdMap.forEach((buyer, id) => {
+    if (!incomingIds.has(id)) {
+      idsToDelete.push(id);
+    }
+  });
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('buyers')
+      .delete()
+      .eq('company_id', companyId)
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar buyers removidos:', deleteError);
+      throw new Error(deleteError.message);
+    }
+
+    console.log(`[SQL_SERVICE] 🗑️  ${idsToDelete.length} buyers removidos`);
+  }
+
+  const totalOperations = buyersToUpdate.length + buyersToInsertWithCode.length + idsToDelete.length;
+  console.log(`[SQL_SERVICE] ✅ UPSERT completo: ${totalOperations} operações`);
+  
+  return { 
+    success: true, 
+    updated: buyersToUpdate.length,
+    inserted: buyersToInsertWithCode.length,
+    deleted: idsToDelete.length
+  };
 }
 
 // PAYMENT METHODS (temporário - depois migrar para tabela)

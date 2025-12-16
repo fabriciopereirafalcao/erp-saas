@@ -569,12 +569,16 @@ app.post('/product-categories', async (c) => {
 // ==================== ROTAS - SALESPEOPLE ====================
 
 app.get('/salespeople', async (c) => {
+  console.log('[SALESPEOPLE] 🚀 GET /salespeople - REQUISIÇÃO RECEBIDA (Rota 571)');
   try {
+    console.log('[SALESPEOPLE] 🔐 Autenticando...');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.error('[SALESPEOPLE] ❌ Autenticação falhou');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    console.log(`[SALESPEOPLE] ✅ Autenticado - Company: ${auth.companyId}`);
     console.log(`[SALESPEOPLE] 📥 Carregando salespeople da empresa ${auth.companyId}`);
     const salespeople = await sqlService.getSalespeople(auth.companyId);
     
@@ -2306,46 +2310,23 @@ app.post('/salespeople/:id/reactivate', async (c) => {
 // ==================== ROTAS - BUYERS ====================
 
 app.get('/buyers', async (c) => {
+  console.log('[BUYERS] 🚀 GET /buyers - REQUISIÇÃO RECEBIDA');
   try {
+    console.log('[BUYERS] 🔐 Autenticando...');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.error('[BUYERS] ❌ Autenticação falhou');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
-    console.log(`[BUYERS] 📥 Carregando compradores da empresa ${auth.companyId}`);
+    console.log(`[BUYERS] ✅ Autenticado - Company: ${auth.companyId}`);
+    console.log(`[BUYERS] 📥 Carregando compradores via sqlService.getBuyers()`);
+    const buyers = await sqlService.getBuyers(auth.companyId);
     
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data, error } = await supabase
-      .from('buyers')
-      .select('*')
-      .eq('company_id', auth.companyId)
-      // ✅ RETORNAR TODOS (ativos e inativos) - filtro é feito no frontend
-      .not('name', 'is', null)  // ⚠️ Ignorar registros com name NULL
-      .order('code', { ascending: true });
-
-    if (error) {
-      console.error('[BUYERS] ❌ Erro ao buscar compradores:', error);
-      throw error;
-    }
-
-    // Filtrar registros inválidos (segurança adicional)
-    const validData = (data || []).filter(item => item.name && item.code);
-    
-    if (validData.length < (data?.length || 0)) {
-      console.warn(`[BUYERS] ⚠️ ${(data?.length || 0) - validData.length} registros inválidos ignorados`);
-    }
-
-    console.log(`[BUYERS] 📊 Registros do banco: ${data?.length || 0}, Válidos: ${validData.length}`);
-    console.log(`[BUYERS] ✅ ${validData.length} compradores retornados ao frontend`);
-    console.log(`[BUYERS] 📋 Códigos:`, validData.map(b => b.code).join(', '));
-    
+    console.log(`[BUYERS] ✅ ${buyers.length} buyers carregados da tabela SQL`);
     return c.json({
       success: true,
-      data: validData
+      data: buyers
     });
   } catch (error) {
     console.error('[BUYERS] ❌ Erro:', error);
