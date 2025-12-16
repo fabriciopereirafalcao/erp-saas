@@ -72,7 +72,8 @@ const isCompanyDataComplete = (companySettings: any): { complete: boolean; missi
 
 // Tipos
 interface User {
-  id: string;
+  id: string; // Código amigável (USR-001)
+  uuid: string; // UUID real do Supabase
   name: string;
   email: string;
   phone: string;
@@ -165,8 +166,10 @@ export function UsersPermissions() {
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   
   // Verificar se dados da empresa estão completos
   const companyDataStatus = isCompanyDataComplete(companySettings);
@@ -381,16 +384,25 @@ export function UsersPermissions() {
       console.log('✅ Usuários recebidos:', data.users?.length || 0);
       
       // Mapear os dados do backend para o formato esperado
-      const mappedUsers: User[] = data.users.map((user: any) => ({
-        id: user.code || user.id, // ✅ Mostrar código amigável (USR-001) em vez de UUID
-        name: user.name,
-        email: user.email,
-        phone: user.phone || '',
-        role: user.role,
-        status: (user.is_active !== false) ? 'Ativo' : 'Inativo', // ✅ Default ativo se NULL
-        createdAt: user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-',
-        lastAccess: user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca'
-      }));
+      const mappedUsers: User[] = data.users.map((user: any) => {
+        console.log('📦 Mapeando usuário:', { 
+          code: user.code, 
+          created_at: user.created_at, 
+          last_login: user.last_login 
+        });
+        
+        return {
+          id: user.code || user.id, // ✅ Mostrar código amigável (USR-001) em vez de UUID
+          uuid: user.id, // ✅ UUID real para operações backend
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          role: user.role,
+          status: (user.is_active !== false) ? 'Ativo' : 'Inativo', // ✅ Default ativo se NULL
+          createdAt: user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : 'Data inválida',
+          lastAccess: user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca acessou'
+        };
+      });
 
       setUsers(mappedUsers);
       console.log('✅ Usuários mapeados e salvos no estado:', mappedUsers.length);
@@ -561,11 +573,46 @@ export function UsersPermissions() {
     setIsUserDialogOpen(false);
   };
 
-  // Excluir usuário
-  const handleDeleteUser = (userId: string) => {
-    if (confirm("Tem certeza que deseja excluir este usuário?")) {
-      setUsers(users.filter(u => u.id !== userId));
-      toast.success("Usuário excluído com sucesso!");
+  // Abrir Dialog de confirmação de exclusão
+  const handleDeleteUser = (user: User) => {
+    // ✅ Não permitir excluir owner
+    if (user.role === 'owner') {
+      toast.error('Não é possível excluir o proprietário da empresa', {
+        description: 'O proprietário tem acesso irrestrito ao sistema'
+      });
+      return;
+    }
+
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Confirmar exclusão (soft delete)
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      console.log('🗑️ Desativando usuário:', userToDelete.uuid);
+      
+      // Chamar endpoint de exclusão (soft delete)
+      await authDelete(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/users/${userToDelete.uuid}`
+      );
+      
+      // Atualizar lista local
+      setUsers(users.filter(u => u.uuid !== userToDelete.uuid));
+      
+      toast.success('Usuário removido com sucesso', {
+        description: `${userToDelete.name} foi desativado`
+      });
+      
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir usuário:', error);
+      toast.error('Erro ao excluir usuário', {
+        description: error.message
+      });
     }
   };
 
@@ -982,13 +1029,15 @@ export function UsersPermissions() {
                             Resetar Senha
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
+                          {user.role !== 'owner' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteUser(user)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -1511,6 +1560,67 @@ export function UsersPermissions() {
         onOpenChange={handleInviteDialogChange} 
         onSuccess={handleInviteSuccess}
       />
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="w-5 h-5" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita. O usuário será desativado permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {userToDelete && (
+            <div className="py-4">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border">
+                <Avatar>
+                  <AvatarFallback className="bg-red-100 text-red-600">
+                    {getInitials(userToDelete.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{userToDelete.name}</p>
+                  <p className="text-sm text-gray-500">{userToDelete.email}</p>
+                  <Badge variant="outline" className="mt-1">
+                    {getRoleName(userToDelete.role)}
+                  </Badge>
+                </div>
+              </div>
+              
+              <Alert className="mt-4 border-red-200 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  Tem certeza que deseja remover este usuário? Ele perderá acesso imediato ao sistema.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setUserToDelete(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteUser}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Sim, Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

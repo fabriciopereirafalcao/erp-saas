@@ -932,34 +932,124 @@ app.delete("/make-server-686b5e88/users/:userId", async (c) => {
       return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
     }
 
-    // No pode deletar outro owner
+    // Não pode deletar outro owner
     if (userToDelete.role === 'owner') {
       return c.json({ error: 'Não é possível excluir outro proprietário' }, 403);
     }
 
-    // Deletar perfil
-    const { error: deleteProfileError } = await supabase
+    // ✅ SOFT DELETE - Desativar usuário em vez de deletar
+    console.log(`[USERS] 🗑️ Desativando usuário ${userToDelete.name} (${userIdToDelete})...`);
+    
+    const { error: deactivateError } = await supabase
       .from('users')
-      .delete()
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', userIdToDelete);
 
-    if (deleteProfileError) {
-      console.error('Erro ao deletar perfil:', deleteProfileError);
-      return c.json({ error: `Erro ao deletar perfil: ${deleteProfileError.message}` }, 500);
+    if (deactivateError) {
+      console.error('Erro ao desativar usuário:', deactivateError);
+      return c.json({ error: `Erro ao desativar usuário: ${deactivateError.message}` }, 500);
     }
 
-    // Deletar do Auth
-    const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userIdToDelete);
+    console.log(`[USERS] ✅ Usuário desativado com sucesso`);
 
-    if (deleteAuthError) {
-      console.error('Erro ao deletar do auth:', deleteAuthError);
-      // Já deletou do perfil, então vamos continuar
-    }
+    // ✅ SOFT DELETE: Não deletar do Auth, apenas desativar
+    // O usuário fica bloqueado mas os dados históricos são preservados
+    // Se quiser reativar no futuro, basta setar is_active = true
 
-    return c.json({ success: true });
+    return c.json({ 
+      success: true,
+      message: 'Usuário desativado com sucesso' 
+    });
 
   } catch (error) {
     console.error('Erro ao deletar usuário:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
+// Reativar usuário (soft delete reverso)
+app.post("/make-server-686b5e88/users/:userId/reactivate", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const userIdToReactivate = c.req.param('userId');
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar perfil do usuário que está fazendo a requisição
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Apenas owner pode reativar usuários
+    if (profile.role !== 'owner') {
+      return c.json({ error: 'Apenas o proprietário pode reativar usuários' }, 403);
+    }
+
+    // Buscar usuário a ser reativado
+    const { data: userToReactivate, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userIdToReactivate)
+      .single();
+
+    if (fetchError || !userToReactivate) {
+      return c.json({ error: 'Usuário não encontrado' }, 404);
+    }
+
+    // Verificar se pertence à mesma empresa
+    if (userToReactivate.company_id !== profile.company_id) {
+      return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
+    }
+
+    // Reativar usuário
+    console.log(`[USERS] ♻️ Reativando usuário ${userToReactivate.name} (${userIdToReactivate})...`);
+    
+    const { error: reactivateError } = await supabase
+      .from('users')
+      .update({ 
+        is_active: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userIdToReactivate);
+
+    if (reactivateError) {
+      console.error('Erro ao reativar usuário:', reactivateError);
+      return c.json({ error: `Erro ao reativar usuário: ${reactivateError.message}` }, 500);
+    }
+
+    console.log(`[USERS] ✅ Usuário reativado com sucesso`);
+
+    return c.json({ 
+      success: true,
+      message: 'Usuário reativado com sucesso',
+      user: {
+        id: userToReactivate.id,
+        name: userToReactivate.name,
+        email: userToReactivate.email,
+        role: userToReactivate.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao reativar usuário:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });
