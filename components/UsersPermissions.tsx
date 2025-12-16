@@ -382,6 +382,7 @@ export function UsersPermissions() {
       );
       
       console.log('✅ Usuários recebidos:', data.users?.length || 0);
+      console.log('📦 Primeiro usuário bruto:', data.users?.[0]);
       
       // Mapear os dados do backend para o formato esperado
       const mappedUsers: User[] = data.users.map((user: any) => {
@@ -391,23 +392,33 @@ export function UsersPermissions() {
         let createdAtFormatted = 'Data inválida';
         if (user.created_at) {
           try {
+            console.log('🔍 created_at original:', user.created_at, typeof user.created_at);
             const isoDate = user.created_at.replace(' ', 'T');
+            console.log('🔍 created_at após replace:', isoDate);
             const date = new Date(isoDate);
+            console.log('🔍 Date criado:', date, 'isValid:', !isNaN(date.getTime()));
             if (!isNaN(date.getTime())) {
               createdAtFormatted = date.toLocaleDateString('pt-BR');
+              console.log('✅ created_at formatado:', createdAtFormatted);
+            } else {
+              console.warn('⚠️ Data inválida após conversão');
             }
           } catch (e) {
             console.error('❌ Erro ao converter created_at:', user.created_at, e);
           }
+        } else {
+          console.warn('⚠️ created_at é null/undefined');
         }
 
         let lastAccessFormatted = 'Nunca acessou';
         if (user.last_login) {
           try {
+            console.log('🔍 last_login original:', user.last_login, typeof user.last_login);
             const isoDate = user.last_login.replace(' ', 'T');
             const date = new Date(isoDate);
             if (!isNaN(date.getTime())) {
               lastAccessFormatted = date.toLocaleDateString('pt-BR');
+              console.log('✅ last_login formatado:', lastAccessFormatted);
             }
           } catch (e) {
             console.error('❌ Erro ao converter last_login:', user.last_login, e);
