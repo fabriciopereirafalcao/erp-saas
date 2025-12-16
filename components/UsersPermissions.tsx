@@ -1032,14 +1032,14 @@ export function UsersPermissions() {
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="w-4 h-4" />
-                        {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                        {user.createdAt}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {user.lastAccess ? (
+                      {user.lastAccess !== 'Nunca acessou' ? (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Clock className="w-4 h-4" />
-                          {new Date(user.lastAccess).toLocaleDateString('pt-BR')}
+                          {user.lastAccess}
                         </div>
                       ) : (
                         <span className="text-sm text-gray-400">Nunca</span>
