@@ -1991,12 +1991,22 @@ app.delete('/cost-centers/:id', async (c) => {
 // ==================== ROTAS - SALESPEOPLE ====================
 
 app.get('/salespeople', async (c) => {
+  console.log('[SALESPEOPLE] 🚀 GET /salespeople - REQUISIÇÃO RECEBIDA');
+  console.log('[SALESPEOPLE] 📋 Headers:', JSON.stringify({
+    authorization: c.req.header('Authorization') ? 'Presente' : 'Ausente',
+    contentType: c.req.header('Content-Type')
+  }, null, 2));
+  
   try {
+    console.log('[SALESPEOPLE] 🔐 Iniciando autenticação...');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
     if (!auth) {
+      console.error('[SALESPEOPLE] ❌ Autenticação falhou');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    console.log(`[SALESPEOPLE] ✅ Autenticado - Company ID: ${auth.companyId}`);
     console.log(`[SALESPEOPLE] 📥 Carregando vendedores da empresa ${auth.companyId}`);
     
     const supabase = createClient(
@@ -2576,5 +2586,20 @@ app.post('/buyers/:id/reactivate', async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+
+// ==================== LOG DE ROTAS REGISTRADAS ====================
+console.log('[DATA-ROUTES] 🎯 ROTAS SALESPEOPLE REGISTRADAS:');
+console.log('[DATA-ROUTES]    → GET /salespeople');
+console.log('[DATA-ROUTES]    → POST /salespeople');
+console.log('[DATA-ROUTES]    → PUT /salespeople/:id');
+console.log('[DATA-ROUTES]    → DELETE /salespeople/:id');
+console.log('[DATA-ROUTES]    → POST /salespeople/:id/reactivate');
+
+console.log('[DATA-ROUTES] 🎯 ROTAS BUYERS REGISTRADAS:');
+console.log('[DATA-ROUTES]    → GET /buyers');
+console.log('[DATA-ROUTES]    → POST /buyers');
+console.log('[DATA-ROUTES]    → PUT /buyers/:id');
+console.log('[DATA-ROUTES]    → DELETE /buyers/:id');
+console.log('[DATA-ROUTES]    → POST /buyers/:id/reactivate');
 
 export default app;
