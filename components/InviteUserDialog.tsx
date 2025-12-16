@@ -18,7 +18,7 @@ interface InviteUserDialogProps {
 
 export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDialogProps) {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'manager' | 'salesperson' | 'buyer' | 'financial' | 'viewer'>('viewer');
+  const [role, setRole] = useState<'owner' | 'admin' | 'manager' | 'salesperson' | 'buyer' | 'financial' | 'viewer'>('viewer');
   const [loading, setLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -169,6 +169,12 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
                       <div className="flex flex-col items-start">
                         <span className="font-medium">Administrador</span>
                         <span className="text-xs text-gray-500">Acesso completo a todos os módulos do sistema</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="owner">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Proprietário</span>
+                        <span className="text-xs text-gray-500">Acesso completo a todos os módulos do sistema, incluindo configurações avançadas</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

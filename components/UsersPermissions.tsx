@@ -571,7 +571,7 @@ export function UsersPermissions() {
   };
 
   // Salvar usuário
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     if (!userForm.name || !userForm.email || !userForm.role) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
@@ -585,26 +585,50 @@ export function UsersPermissions() {
       return;
     }
 
-    if (editingUser) {
-      // Atualizar usuário existente
-      setUsers(users.map(u => 
-        u.id === editingUser.id 
-          ? { ...u, ...userForm }
-          : u
-      ));
-      toast.success("Usuário atualizado com sucesso!");
-    } else {
-      // Criar novo usuário
-      const newUser: User = {
-        id: `USR-${String(users.length + 1).padStart(3, '0')}`,
-        ...userForm,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setUsers([...users, newUser]);
-      toast.success("Usuário criado com sucesso!");
-    }
+    try {
+      if (editingUser) {
+        // 🔄 Atualizar usuário existente via API
+        console.log('📝 Atualizando usuário:', editingUser.uuid);
+        
+        const updates = {
+          name: userForm.name,
+          phone: userForm.phone || null,
+          role: userForm.role,
+          is_active: userForm.status === 'Ativo'
+        };
+        
+        const response = await authPatch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/users/${editingUser.uuid}`,
+          updates
+        );
+        
+        // Recarregar lista de usuários
+        await loadUsers();
+        
+        toast.success("Usuário atualizado com sucesso!");
+      } else {
+        // ❌ Criar novo usuário não está implementado (usar convites)
+        toast.error("Para adicionar usuários, use a função de Convites", {
+          description: "Clique em 'Enviar Convite' para adicionar um novo usuário"
+        });
+        return;
+      }
 
-    setIsUserDialogOpen(false);
+      setIsUserDialogOpen(false);
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar usuário:', error);
+      
+      // Verificar se é erro de validação de regra de negócio
+      if (error.description) {
+        toast.error(error.message || 'Erro ao salvar usuário', {
+          description: error.description
+        });
+      } else {
+        toast.error('Erro ao salvar usuário', {
+          description: error.message || 'Tente novamente'
+        });
+      }
+    }
   };
 
   // Abrir Dialog de confirmação de exclusão

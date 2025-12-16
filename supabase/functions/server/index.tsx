@@ -378,9 +378,9 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
       return c.json({ error: 'Email e role são obrigatórios' }, 400);
     }
 
-    const validRoles = ['admin', 'manager', 'salesperson', 'buyer', 'financial', 'viewer'];
+    const validRoles = ['owner', 'admin', 'manager', 'salesperson', 'buyer', 'financial', 'viewer'];
     if (!validRoles.includes(role)) {
-      return c.json({ error: 'Role inválida. Use: admin, manager, salesperson, buyer, financial ou viewer' }, 400);
+      return c.json({ error: 'Role inválida. Use: owner, admin, manager, salesperson, buyer, financial ou viewer' }, 400);
     }
 
     const supabase = createClient(
@@ -518,6 +518,7 @@ app.post("/make-server-686b5e88/users/invite", async (c) => {
         
         // Mapear role para nome legível
         const roleNames: Record<string, string> = {
+          owner: 'Proprietário',
           admin: 'Administrador',
           manager: 'Gerente',
           salesperson: 'Vendedor',
@@ -1134,6 +1135,148 @@ app.patch("/make-server-686b5e88/users/:userId/role", async (c) => {
 
   } catch (error) {
     console.error('Erro ao atualizar role:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
+// Atualizar last_login do usuário
+app.patch("/make-server-686b5e88/users/update-last-login", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Atualizar last_login
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', user.id);
+
+    if (updateError) {
+      console.error('Erro ao atualizar last_login:', updateError);
+      return c.json({ error: `Erro ao atualizar last_login: ${updateError.message}` }, 500);
+    }
+
+    return c.json({ success: true });
+
+  } catch (error) {
+    console.error('Erro ao atualizar last_login:', error);
+    return c.json({ error: `Erro interno: ${error.message}` }, 500);
+  }
+});
+
+// Atualizar dados completos do usuário (nome, telefone, status) - apenas owner
+app.patch("/make-server-686b5e88/users/:userId", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const userIdToUpdate = c.req.param('userId');
+    const { name, phone, role, is_active } = await c.req.json();
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar perfil do usuário que está fazendo a requisição
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return c.json({ error: 'Perfil não encontrado' }, 404);
+    }
+
+    // Apenas owner pode atualizar usuários
+    if (profile.role !== 'owner') {
+      return c.json({ error: 'Apenas o proprietário pode editar usuários' }, 403);
+    }
+
+    // Buscar usuário a ser atualizado
+    const { data: userToUpdate, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userIdToUpdate)
+      .single();
+
+    if (fetchError || !userToUpdate) {
+      return c.json({ error: 'Usuário não encontrado' }, 404);
+    }
+
+    // Verificar se pertence à mesma empresa
+    if (userToUpdate.company_id !== profile.company_id) {
+      return c.json({ error: 'Usuário não pertence à sua empresa' }, 403);
+    }
+
+    // 🔒 REGRA 1: Owner não pode fazer downgrade sem outro owner
+    if (userToUpdate.role === 'owner' && role && role !== 'owner') {
+      // Contar quantos owners existem na empresa
+      const { data: owners, error: ownerCountError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('company_id', profile.company_id)
+        .eq('role', 'owner')
+        .eq('is_active', true);
+
+      if (ownerCountError) {
+        console.error('Erro ao contar owners:', ownerCountError);
+        return c.json({ error: 'Erro ao validar permissões' }, 500);
+      }
+
+      if (!owners || owners.length <= 1) {
+        return c.json({ 
+          error: 'Não é possível alterar a permissão do único proprietário ativo',
+          description: 'Adicione outro proprietário antes de fazer esta alteração'
+        }, 403);
+      }
+    }
+
+    // 🔒 REGRA 2: Owner não pode desativar outro owner
+    if (userToUpdate.role === 'owner' && is_active === false) {
+      return c.json({ 
+        error: 'Proprietários não podem desativar outros proprietários',
+        description: 'Entre em contato com o suporte para esta operação'
+      }, 403);
+    }
+
+    // Preparar campos para atualização (apenas os que foram enviados)
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    if (role !== undefined) updates.role = role;
+    if (is_active !== undefined) updates.is_active = is_active;
+
+    // Atualizar usuário
+    const { error: updateError } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userIdToUpdate);
+
+    if (updateError) {
+      console.error('Erro ao atualizar usuário:', updateError);
+      return c.json({ error: `Erro ao atualizar usuário: ${updateError.message}` }, 500);
+    }
+
+    return c.json({ success: true, updates });
+
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
     return c.json({ error: `Erro interno: ${error.message}` }, 500);
   }
 });

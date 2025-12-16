@@ -229,11 +229,11 @@ function AppContent() {
 
   // Rota de convite
   const urlParams = new URLSearchParams(window.location.search);
-  const inviteId = urlParams.get('invite');
-  if (inviteId) {
+  const inviteToken = urlParams.get('token');
+  if (inviteToken) {
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <AcceptInvite inviteId={inviteId} />
+        <AcceptInvite />
       </Suspense>
     );
   }

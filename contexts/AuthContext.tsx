@@ -408,6 +408,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.session?.access_token) {
         localStorage.setItem('erp_system_auth_token', data.session.access_token);
         setAccessToken(data.session.access_token);
+        
+        // 🕒 Atualizar last_login no backend
+        try {
+          const { projectId } = await import('../utils/supabase/info');
+          await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/users/update-last-login`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${data.session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (err) {
+          console.warn('⚠️ Erro ao atualizar last_login:', err);
+          // Não bloqueia o login se falhar
+        }
       }
 
       return { error: undefined };
