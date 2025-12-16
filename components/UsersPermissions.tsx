@@ -385,11 +385,34 @@ export function UsersPermissions() {
       
       // Mapear os dados do backend para o formato esperado
       const mappedUsers: User[] = data.users.map((user: any) => {
-        console.log('📦 Mapeando usuário:', { 
-          code: user.code, 
-          created_at: user.created_at, 
-          last_login: user.last_login 
-        });
+        // 🔧 FIX: Converter formato SQL para ISO 8601 (substituir espaço por T)
+        // Formato recebido: "2025-12-14 17:54:30.577756+00" (SQL)
+        // Formato esperado: "2025-12-14T17:54:30.577756+00" (ISO 8601)
+        let createdAtFormatted = 'Data inválida';
+        if (user.created_at) {
+          try {
+            const isoDate = user.created_at.replace(' ', 'T');
+            const date = new Date(isoDate);
+            if (!isNaN(date.getTime())) {
+              createdAtFormatted = date.toLocaleDateString('pt-BR');
+            }
+          } catch (e) {
+            console.error('❌ Erro ao converter created_at:', user.created_at, e);
+          }
+        }
+
+        let lastAccessFormatted = 'Nunca acessou';
+        if (user.last_login) {
+          try {
+            const isoDate = user.last_login.replace(' ', 'T');
+            const date = new Date(isoDate);
+            if (!isNaN(date.getTime())) {
+              lastAccessFormatted = date.toLocaleDateString('pt-BR');
+            }
+          } catch (e) {
+            console.error('❌ Erro ao converter last_login:', user.last_login, e);
+          }
+        }
         
         return {
           id: user.code || user.id, // ✅ Mostrar código amigável (USR-001) em vez de UUID
@@ -399,8 +422,8 @@ export function UsersPermissions() {
           phone: user.phone || '',
           role: user.role,
           status: (user.is_active !== false) ? 'Ativo' : 'Inativo', // ✅ Default ativo se NULL
-          createdAt: user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : 'Data inválida',
-          lastAccess: user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca acessou'
+          createdAt: createdAtFormatted,
+          lastAccess: lastAccessFormatted
         };
       });
 

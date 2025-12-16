@@ -323,24 +323,25 @@ app.get("/make-server-686b5e88/users", async (c) => {
     if (usersWithoutCode.length > 0) {
       console.log(`[USERS] 🔢 ${usersWithoutCode.length} usuários sem código - gerando automaticamente...`);
       
-      for (const user of usersWithoutCode) {
-        // Buscar maior código existente
-        const { data: maxCodeUser } = await supabase
-          .from('users')
-          .select('code')
-          .eq('company_id', profile.company_id)
-          .like('code', 'USR-%')
-          .order('code', { ascending: false })
-          .limit(1);
+      // 🔧 FIX: Buscar maior código UMA VEZ antes do loop (evitar duplicatas)
+      const { data: maxCodeUser } = await supabase
+        .from('users')
+        .select('code')
+        .eq('company_id', profile.company_id)
+        .like('code', 'USR-%')
+        .order('code', { ascending: false })
+        .limit(1);
 
-        let codeCounter = 1;
-        if (maxCodeUser && maxCodeUser.length > 0 && maxCodeUser[0].code) {
-          const match = maxCodeUser[0].code.match(/^USR-(\d+)$/);
-          if (match) {
-            codeCounter = parseInt(match[1], 10) + 1;
-          }
+      let codeCounter = 1;
+      if (maxCodeUser && maxCodeUser.length > 0 && maxCodeUser[0]?.code) {
+        const match = maxCodeUser[0].code.match(/^USR-(\d+)$/);
+        if (match) {
+          codeCounter = parseInt(match[1], 10) + 1;
         }
+      }
 
+      // Gerar códigos sequencialmente
+      for (const user of usersWithoutCode) {
         const newCode = `USR-${String(codeCounter).padStart(3, '0')}`;
         
         await supabase
@@ -352,6 +353,9 @@ app.get("/make-server-686b5e88/users", async (c) => {
         
         // Atualizar no array de retorno
         user.code = newCode;
+        
+        // Incrementar para o próximo usuário
+        codeCounter++;
       }
     }
 
