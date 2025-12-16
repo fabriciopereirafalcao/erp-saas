@@ -231,8 +231,12 @@ export function Buyers() {
 
       if (result.success) {
         toast.success(result.message);
-        // Remover da lista local
-        setBuyersFromDB(prev => prev.filter(b => b.id !== buyerToDelete.id));
+        // ✅ ATUALIZAR estado local marcando como inativo (não remover)
+        setBuyersFromDB(prev => prev.map(b => 
+          b.id === buyerToDelete.id 
+            ? { ...b, is_active: false } 
+            : b
+        ));
       } else {
         toast.error(result.error || 'Erro ao remover comprador');
       }

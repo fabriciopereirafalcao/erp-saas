@@ -51,11 +51,15 @@ export function Salespeople() {
 
   // ==================== CARREGAR VENDEDORES DO BACKEND ====================
   useEffect(() => {
+    console.log('🔵 [SALESPEOPLE] useEffect disparado. accessToken:', accessToken ? 'Presente' : 'Ausente');
     loadSalespeople();
   }, [accessToken]);
 
   const loadSalespeople = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      console.log('⚠️ [SALESPEOPLE] Sem accessToken, não carregar');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -73,8 +77,10 @@ export function Salespeople() {
       console.log('🔵 [SALESPEOPLE] Resposta recebida:', result);
 
       if (result.success) {
+        console.log('✅ [SALESPEOPLE] ANTES de setSalespeopleFromDB. Quantidade:', result.data.length);
+        console.log('✅ [SALESPEOPLE] Dados:', JSON.stringify(result.data, null, 2));
         setSalespeopleFromDB(result.data);
-        console.log('✅ [SALESPEOPLE] Vendedores carregados:', result.data.length, result.data);
+        console.log('✅ [SALESPEOPLE] DEPOIS de setSalespeopleFromDB');
       } else {
         console.error('❌ [SALESPEOPLE] Erro ao carregar vendedores:', result.error);
         toast.error('Erro ao carregar vendedores');
@@ -231,8 +237,12 @@ export function Salespeople() {
 
       if (result.success) {
         toast.success(result.message);
-        // Remover da lista local
-        setSalespeopleFromDB(prev => prev.filter(p => p.id !== personToDelete.id));
+        // ✅ ATUALIZAR estado local marcando como inativo (não remover)
+        setSalespeopleFromDB(prev => prev.map(p => 
+          p.id === personToDelete.id 
+            ? { ...p, is_active: false } 
+            : p
+        ));
       } else {
         toast.error(result.error || 'Erro ao remover vendedor');
       }
