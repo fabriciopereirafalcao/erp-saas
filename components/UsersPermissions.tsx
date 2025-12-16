@@ -330,59 +330,8 @@ export function UsersPermissions() {
     }
   ]);
 
-  // Mock de usuários
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "USR-001",
-      name: "João Silva",
-      email: "joao.silva@empresa.com",
-      phone: "(11) 98765-4321",
-      role: "admin",
-      status: "Ativo",
-      createdAt: "2024-01-10",
-      lastAccess: "2024-11-06"
-    },
-    {
-      id: "USR-002",
-      name: "Maria Santos",
-      email: "maria.santos@empresa.com",
-      phone: "(11) 98765-4322",
-      role: "manager",
-      status: "Ativo",
-      createdAt: "2024-02-15",
-      lastAccess: "2024-11-05"
-    },
-    {
-      id: "USR-003",
-      name: "Carlos Oliveira",
-      email: "carlos.oliveira@empresa.com",
-      phone: "(11) 98765-4323",
-      role: "salesperson",
-      status: "Ativo",
-      createdAt: "2024-03-20",
-      lastAccess: "2024-11-06"
-    },
-    {
-      id: "USR-004",
-      name: "Ana Costa",
-      email: "ana.costa@empresa.com",
-      phone: "(11) 98765-4324",
-      role: "financial",
-      status: "Ativo",
-      createdAt: "2024-04-10",
-      lastAccess: "2024-11-04"
-    },
-    {
-      id: "USR-005",
-      name: "Pedro Alves",
-      email: "pedro.alves@empresa.com",
-      phone: "(11) 98765-4325",
-      role: "buyer",
-      status: "Inativo",
-      createdAt: "2024-05-15",
-      lastAccess: "2024-10-20"
-    }
-  ]);
+  // ✅ DADOS REAIS DO BACKEND (removidos dados mockados)
+  const [users, setUsers] = useState<User[]>([]);
 
   // Convites do banco de dados
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -392,10 +341,43 @@ export function UsersPermissions() {
   const [inviteSearchTerm, setInviteSearchTerm] = useState("");
   const [inviteStatusFilter, setInviteStatusFilter] = useState<string>("all");
 
-  // Carregar convites do banco de dados
+  // Carregar usuários e convites do banco de dados
   useEffect(() => {
+    loadUsers();
     loadInvites();
   }, []);
+
+  const loadUsers = async () => {
+    console.log('🔄 Carregando usuários...');
+    try {
+      // Buscar usuários do backend usando authGet
+      const data = await authGet(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/users`
+      );
+      
+      console.log('✅ Usuários recebidos:', data.users?.length || 0);
+      
+      // Mapear os dados do backend para o formato esperado
+      const mappedUsers: User[] = data.users.map((user: any) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        status: user.is_active ? 'Ativo' : 'Inativo',
+        createdAt: user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-',
+        lastAccess: user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca'
+      }));
+
+      setUsers(mappedUsers);
+      console.log('✅ Usuários mapeados e salvos no estado:', mappedUsers.length);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar usuários:', error);
+      toast.error('Erro ao carregar usuários', {
+        description: error.message
+      });
+    }
+  };
 
   const loadInvites = async () => {
     console.log('🔄 Carregando convites...');

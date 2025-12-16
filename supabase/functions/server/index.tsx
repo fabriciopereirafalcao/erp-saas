@@ -721,6 +721,83 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
       return c.json({ error: `Erro ao criar perfil: ${profileError.message}` }, 500);
     }
 
+    // ✅ INTEGRAÇÃO AUTOMÁTICA: Criar vendedor ou comprador se role for salesperson/buyer
+    if (inviteData.role === 'salesperson') {
+      console.log(`[INVITE] 🎯 Criando vendedor automaticamente para ${name}...`);
+      
+      // Gerar código sequencial SP-XXX
+      const { data: existingSalespeople } = await supabase
+        .from('salespeople')
+        .select('code')
+        .eq('company_id', inviteData.company_id)
+        .like('code', 'SP-%')
+        .order('code', { ascending: false })
+        .limit(1);
+
+      let codeCounter = 1;
+      if (existingSalespeople && existingSalespeople.length > 0) {
+        const match = existingSalespeople[0].code.match(/^SP-(\d+)$/);
+        if (match) {
+          codeCounter = parseInt(match[1], 10) + 1;
+        }
+      }
+      const salespersonCode = `SP-${String(codeCounter).padStart(3, '0')}`;
+
+      // Inserir vendedor
+      const { error: salespersonError } = await supabase
+        .from('salespeople')
+        .insert({
+          company_id: inviteData.company_id,
+          code: salespersonCode,
+          name: name,
+          email: inviteData.email,
+          is_active: true
+        });
+
+      if (salespersonError) {
+        console.error('[INVITE] ⚠️ Erro ao criar vendedor (não crítico):', salespersonError);
+      } else {
+        console.log(`[INVITE] ✅ Vendedor ${salespersonCode} criado com sucesso`);
+      }
+    } else if (inviteData.role === 'buyer') {
+      console.log(`[INVITE] 🎯 Criando comprador automaticamente para ${name}...`);
+      
+      // Gerar código sequencial BY-XXX
+      const { data: existingBuyers } = await supabase
+        .from('buyers')
+        .select('code')
+        .eq('company_id', inviteData.company_id)
+        .like('code', 'BY-%')
+        .order('code', { ascending: false })
+        .limit(1);
+
+      let codeCounter = 1;
+      if (existingBuyers && existingBuyers.length > 0) {
+        const match = existingBuyers[0].code.match(/^BY-(\d+)$/);
+        if (match) {
+          codeCounter = parseInt(match[1], 10) + 1;
+        }
+      }
+      const buyerCode = `BY-${String(codeCounter).padStart(3, '0')}`;
+
+      // Inserir comprador
+      const { error: buyerError } = await supabase
+        .from('buyers')
+        .insert({
+          company_id: inviteData.company_id,
+          code: buyerCode,
+          name: name,
+          email: inviteData.email,
+          is_active: true
+        });
+
+      if (buyerError) {
+        console.error('[INVITE] ⚠️ Erro ao criar comprador (não crítico):', buyerError);
+      } else {
+        console.log(`[INVITE] ✅ Comprador ${buyerCode} criado com sucesso`);
+      }
+    }
+
     // Marcar convite como usado
     inviteData.status = 'accepted';
     inviteData.accepted_at = new Date().toISOString();
