@@ -9,9 +9,10 @@ import { acceptInvite } from '../utils/userManagement';
 
 interface AcceptInviteProps {
   onSuccess?: () => void;
+  onNavigateToLogin?: () => void;
 }
 
-export function AcceptInvite({ onSuccess }: AcceptInviteProps) {
+export function AcceptInvite({ onSuccess, onNavigateToLogin }: AcceptInviteProps) {
   const [token, setToken] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -80,6 +81,8 @@ export function AcceptInvite({ onSuccess }: AcceptInviteProps) {
       setTimeout(() => {
         if (onSuccess) {
           onSuccess();
+        } else if (onNavigateToLogin) {
+          onNavigateToLogin();
         } else {
           // Redirecionar para login
           window.location.href = '/';

@@ -3,14 +3,20 @@ import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
 import { ForgotPasswordPage } from './ForgotPasswordPage';
 import { LandingPage } from '../LandingPage';
+import { AcceptInvite } from '../AcceptInvite';
 import { useAuth } from '../../contexts/AuthContext';
 
-type AuthView = 'landing' | 'login' | 'register' | 'forgot-password';
+type AuthView = 'landing' | 'login' | 'register' | 'forgot-password' | 'accept-invite';
 
 export function AuthFlow({ children }: { children: React.ReactNode }) {
   // ✅ Detectar se deve iniciar na tela de cadastro via URL param
   const getInitialView = (): AuthView => {
     const params = new URLSearchParams(window.location.search);
+    // Se tem token de convite, vai para aceitar convite
+    if (params.get('token')) {
+      return 'accept-invite';
+    }
+    // Se tem signup=true, vai para registro
     if (params.get('signup') === 'true') {
       return 'register';
     }
@@ -26,7 +32,7 @@ export function AuthFlow({ children }: { children: React.ReactNode }) {
     view
   });
 
-  // ✅ Limpar parâmetro signup=true da URL quando mudar de view
+  // ✅ Limpar parâmetro signup=true da URL quando mudar de view (mas manter token)
   useEffect(() => {
     if (view !== 'register') {
       const params = new URLSearchParams(window.location.search);
@@ -72,6 +78,12 @@ export function AuthFlow({ children }: { children: React.ReactNode }) {
     case 'forgot-password':
       return (
         <ForgotPasswordPage
+          onNavigateToLogin={() => setView('login')}
+        />
+      );
+    case 'accept-invite':
+      return (
+        <AcceptInvite
           onNavigateToLogin={() => setView('login')}
         />
       );

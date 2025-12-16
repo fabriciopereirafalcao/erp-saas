@@ -227,17 +227,6 @@ function AppContent() {
     return <LoadingScreen />;
   }
 
-  // Rota de convite
-  const urlParams = new URLSearchParams(window.location.search);
-  const inviteToken = urlParams.get('token');
-  if (inviteToken) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <AcceptInvite />
-      </Suspense>
-    );
-  }
-
   console.log('✅ Usuário autenticado - Renderizando app');
 
   // Renderizar conteúdo com base na view selecionada
