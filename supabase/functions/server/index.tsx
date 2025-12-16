@@ -318,6 +318,43 @@ app.get("/make-server-686b5e88/users", async (c) => {
       return c.json({ error: `Erro ao buscar usuários: ${usersError.message}` }, 500);
     }
 
+    // ✅ Auto-gerar códigos para usuários que não têm (migração automática)
+    const usersWithoutCode = users.filter(u => !u.code);
+    if (usersWithoutCode.length > 0) {
+      console.log(`[USERS] 🔢 ${usersWithoutCode.length} usuários sem código - gerando automaticamente...`);
+      
+      for (const user of usersWithoutCode) {
+        // Buscar maior código existente
+        const { data: maxCodeUser } = await supabase
+          .from('users')
+          .select('code')
+          .eq('company_id', profile.company_id)
+          .like('code', 'USR-%')
+          .order('code', { ascending: false })
+          .limit(1);
+
+        let codeCounter = 1;
+        if (maxCodeUser && maxCodeUser.length > 0 && maxCodeUser[0].code) {
+          const match = maxCodeUser[0].code.match(/^USR-(\d+)$/);
+          if (match) {
+            codeCounter = parseInt(match[1], 10) + 1;
+          }
+        }
+
+        const newCode = `USR-${String(codeCounter).padStart(3, '0')}`;
+        
+        await supabase
+          .from('users')
+          .update({ code: newCode })
+          .eq('id', user.id);
+
+        console.log(`[USERS] ✅ Código ${newCode} atribuído a ${user.name}`);
+        
+        // Atualizar no array de retorno
+        user.code = newCode;
+      }
+    }
+
     return c.json({ users });
 
   } catch (error) {
@@ -703,6 +740,26 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
       return c.json({ error: 'Falha ao criar usuário' }, 500);
     }
 
+    // Gerar código do usuário (USR-XXX)
+    const { data: maxCodeUser } = await supabase
+      .from('users')
+      .select('code')
+      .eq('company_id', inviteData.company_id)
+      .like('code', 'USR-%')
+      .order('code', { ascending: false })
+      .limit(1);
+
+    let codeCounter = 1;
+    if (maxCodeUser && maxCodeUser.length > 0 && maxCodeUser[0]?.code) {
+      const match = maxCodeUser[0].code.match(/^USR-(\d+)$/);
+      if (match) {
+        codeCounter = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    const userCode = `USR-${String(codeCounter).padStart(3, '0')}`;
+    console.log(`[INVITE] 🔢 Código gerado para usuário: ${userCode}`);
+
     // Criar perfil do usuário na tabela users
     const { error: profileError } = await supabase
       .from('users')
@@ -712,6 +769,8 @@ app.post("/make-server-686b5e88/users/accept-invite", async (c) => {
         name,
         company_id: inviteData.company_id,
         role: inviteData.role,
+        code: userCode,
+        is_active: true
       });
 
     if (profileError) {

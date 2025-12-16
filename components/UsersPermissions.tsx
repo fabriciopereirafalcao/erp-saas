@@ -191,6 +191,29 @@ export function UsersPermissions() {
   // Mock de perfis do sistema
   const [roles, setRoles] = useState<Role[]>([
     {
+      id: "owner",
+      name: "Proprietário",
+      description: "Proprietário da empresa com acesso total e irrestrito",
+      isSystem: true,
+      permissions: {
+        dashboard: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        inventory: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        purchases: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        sales: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        customers: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        suppliers: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        priceTables: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        taxInvoicing: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        financial: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        accounts: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        bankReconciliation: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        cashFlow: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        reports: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        company: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+        users: { view: true, create: true, edit: true, delete: true, export: true, approve: true }
+      }
+    },
+    {
       id: "admin",
       name: "Administrador",
       description: "Acesso completo a todos os módulos do sistema",
@@ -359,12 +382,12 @@ export function UsersPermissions() {
       
       // Mapear os dados do backend para o formato esperado
       const mappedUsers: User[] = data.users.map((user: any) => ({
-        id: user.id,
+        id: user.code || user.id, // ✅ Mostrar código amigável (USR-001) em vez de UUID
         name: user.name,
         email: user.email,
         phone: user.phone || '',
         role: user.role,
-        status: user.is_active ? 'Ativo' : 'Inativo',
+        status: (user.is_active !== false) ? 'Ativo' : 'Inativo', // ✅ Default ativo se NULL
         createdAt: user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-',
         lastAccess: user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca'
       }));
