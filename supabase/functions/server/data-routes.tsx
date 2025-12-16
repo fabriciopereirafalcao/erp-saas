@@ -2004,6 +2004,7 @@ app.get('/salespeople', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    console.log('[SALESPEOPLE] 🔍 Executando query no banco...');
     const { data, error } = await supabase
       .from('salespeople')
       .select('*')
@@ -2017,6 +2018,9 @@ app.get('/salespeople', async (c) => {
       throw error;
     }
 
+    console.log('[SALESPEOPLE] 🔍 Query executada com sucesso');
+    console.log('[SALESPEOPLE] 📊 Dados brutos do banco:', JSON.stringify(data, null, 2));
+
     // Filtrar registros inválidos (segurança adicional)
     const validData = (data || []).filter(item => item.name && item.code);
     
@@ -2027,6 +2031,7 @@ app.get('/salespeople', async (c) => {
     console.log(`[SALESPEOPLE] 📊 Registros do banco: ${data?.length || 0}, Válidos: ${validData.length}`);
     console.log(`[SALESPEOPLE] ✅ ${validData.length} vendedores retornados ao frontend`);
     console.log(`[SALESPEOPLE] 📋 Códigos:`, validData.map(v => v.code).join(', '));
+    console.log('[SALESPEOPLE] 🔍 Dados válidos completos:', JSON.stringify(validData, null, 2));
     
     return c.json({
       success: true,
@@ -2125,26 +2130,31 @@ app.post('/salespeople', async (c) => {
     console.log(`[SALESPEOPLE] 🔢 Código auto-gerado: ${nextCode}`);
 
     // ==================== INSERIR VENDEDOR ====================
+    const insertData = {
+      company_id: auth.companyId,
+      code: nextCode,
+      name: body.name,
+      email: body.email || null,
+      phone: body.phone || null,
+      commission_rate: body.commissionRate || 0.00,
+      is_active: true,
+    };
+    console.log('[SALESPEOPLE] 📤 Dados a serem inseridos:', JSON.stringify(insertData, null, 2));
+
     const { data, error } = await supabase
       .from('salespeople')
-      .insert([{
-        company_id: auth.companyId,
-        code: nextCode,
-        name: body.name,
-        email: body.email || null,
-        phone: body.phone || null,
-        commission_rate: body.commissionRate || 0.00,
-        is_active: true,
-      }])
+      .insert([insertData])
       .select()
       .single();
 
     if (error) {
       console.error('[SALESPEOPLE] ❌ Erro ao inserir vendedor:', error);
+      console.error('[SALESPEOPLE] ❌ Detalhes:', JSON.stringify(error, null, 2));
       throw error;
     }
 
     console.log(`[SALESPEOPLE] ✅ Vendedor criado: ${data.code} - ${data.name}`);
+    console.log('[SALESPEOPLE] 📊 Dados completos do vendedor criado:', JSON.stringify(data, null, 2));
     return c.json({
       success: true,
       message: `Vendedor ${data.code} - ${data.name} criado com sucesso`,
