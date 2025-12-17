@@ -1301,8 +1301,10 @@ app.post('/account-categories/sync-missing', async (c) => {
 
 app.get('/account-categories', async (c) => {
   try {
+    console.log('[ACCOUNT CATEGORIES] 🟢 GET /account-categories - Início');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.error('[ACCOUNT CATEGORIES] ❌ Não autorizado');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
@@ -1317,34 +1319,52 @@ app.get('/account-categories', async (c) => {
 
   } catch (error) {
     console.error('[ACCOUNT CATEGORIES] ❌ Erro ao carregar:', error);
-    return c.json({ error: error.message }, 500);
+    console.error('[ACCOUNT CATEGORIES] ❌ Stack:', error.stack);
+    console.error('[ACCOUNT CATEGORIES] ❌ Mensagem:', error.message);
+    return c.json({ 
+      error: error.message || 'Erro ao carregar account categories',
+      details: error.stack 
+    }, 500);
   }
 });
 
 app.post('/account-categories', async (c) => {
   try {
+    console.log('[ACCOUNT CATEGORIES] 🔵 POST /account-categories - Início');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.error('[ACCOUNT CATEGORIES] ❌ Não autorizado');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    console.log(`[ACCOUNT CATEGORIES] ✅ Autenticado - Company ID: ${auth.companyId}`);
     const { data } = await c.req.json();
     
     if (!Array.isArray(data)) {
+      console.error('[ACCOUNT CATEGORIES] ❌ Dados não são array:', typeof data);
       return c.json({ error: 'Dados devem ser um array' }, 400);
     }
 
     console.log(`[ACCOUNT CATEGORIES] 💾 Salvando ${data.length} account categories para empresa ${auth.companyId}`);
+    console.log('[ACCOUNT CATEGORIES] 📋 Primeira categoria (exemplo):', JSON.stringify(data[0], null, 2));
+    
     const result = await sqlService.saveAccountCategories(auth.companyId, data);
     
+    console.log('[ACCOUNT CATEGORIES] ✅ Salvo com sucesso:', result);
     return c.json({
       success: true,
-      message: `${result.count} account categories salvos com sucesso`
+      message: `${result.inserted + result.updated} account categories salvos com sucesso`,
+      result
     });
 
   } catch (error) {
     console.error('[ACCOUNT CATEGORIES] ❌ Erro ao salvar:', error);
-    return c.json({ error: error.message }, 500);
+    console.error('[ACCOUNT CATEGORIES] ❌ Stack:', error.stack);
+    console.error('[ACCOUNT CATEGORIES] ❌ Mensagem:', error.message);
+    return c.json({ 
+      error: error.message || 'Erro ao salvar account categories',
+      details: error.stack 
+    }, 500);
   }
 });
 
