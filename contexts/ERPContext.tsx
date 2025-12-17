@@ -1370,11 +1370,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setPriceTables(priceTablesData);
         }
         
-        // Carregar categorias de produtos
-        const productCategoriesData = await loadEntity<string[]>('product-categories');
+        // Carregar categorias de produtos (extrair apenas os nomes)
+        const productCategoriesData = await loadEntity<any[]>('product-categories');
         if (isSubscribed && productCategoriesData && productCategoriesData.length > 0) {
           console.log(`[SUPABASE] ✅ ${productCategoriesData.length} categorias de produtos carregadas`);
-          setProductCategories(productCategoriesData);
+          // Extrair apenas os nomes para manter compatibilidade
+          const categoryNames = productCategoriesData.map((cat: any) => 
+            typeof cat === 'string' ? cat : cat.name
+          ).filter(Boolean);
+          setProductCategories(categoryNames);
         }
         
         // Carregar vendedores

@@ -1700,17 +1700,169 @@ async function saveAccountCategories(companyId: string, categories: any[]) {
   };
 }
 
-// PRODUCT CATEGORIES (temporário - depois migrar para tabela)
+// PRODUCT CATEGORIES - ✅ MIGRADO PARA TABELA SQL
 async function getProductCategories(companyId: string) {
-  const settings = await getCompanySettings(companyId);
-  return settings.productCategories || [];
+  console.log(`[SQL_SERVICE] 📥 getProductCategories - companyId: ${companyId}`);
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ getProductCategories - Erro:', error);
+    throw new Error(error.message);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ getProductCategories - ${data?.length || 0} categorias carregadas`);
+  
+  // Mapear para o formato esperado pelo frontend
+  return (data || []).map((cat: any) => ({
+    id: cat.id,
+    name: cat.name,
+    description: cat.description,
+    parentId: cat.parent_id,
+    defaultNcm: cat.default_ncm,
+    defaultCest: cat.default_cest,
+    defaultOrigin: cat.default_origin,
+    defaultCfop: cat.default_cfop,
+    defaultIcmsRate: cat.default_icms_rate,
+    defaultPisRate: cat.default_pis_rate,
+    defaultCofinsRate: cat.default_cofins_rate,
+    isActive: cat.is_active,
+    createdAt: cat.created_at,
+    updatedAt: cat.updated_at
+  }));
 }
 
 async function saveProductCategories(companyId: string, categories: any[]) {
-  const settings = await getCompanySettings(companyId);
-  settings.productCategories = categories;
-  await saveCompanySettings(companyId, settings);
-  return { success: true, count: categories.length };
+  const supabase = getSupabaseClient();
+  console.log(`[SQL_SERVICE] 💾 saveProductCategories - companyId: ${companyId}, count: ${categories.length}`);
+  
+  // ✅ MIGRADO: Salvar na tabela SQL product_categories
+  
+  // 1. Buscar categorias existentes
+  const { data: existing, error: fetchError } = await supabase
+    .from('product_categories')
+    .select('id, name')
+    .eq('company_id', companyId)
+    .eq('is_active', true);
+
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar categorias existentes:', fetchError);
+    throw new Error(fetchError.message);
+  }
+
+  const existingMap = new Map(existing?.map(cat => [cat.name, cat.id]) || []);
+  
+  // 2. Identificar categorias para inserir (novas) e atualizar (existentes)
+  const categoriesToInsert: any[] = [];
+  const categoriesToUpdate: any[] = [];
+  
+  for (const category of categories) {
+    const categoryName = typeof category === 'string' ? category : category.name;
+    const existingId = existingMap.get(categoryName);
+    
+    if (existingId) {
+      // Categoria já existe - atualizar
+      categoriesToUpdate.push({
+        id: existingId,
+        ...( typeof category === 'object' ? {
+          description: category.description,
+          parent_id: category.parentId,
+          default_ncm: category.defaultNcm,
+          default_cest: category.defaultCest,
+          default_origin: category.defaultOrigin,
+          default_cfop: category.defaultCfop,
+          default_icms_rate: category.defaultIcmsRate,
+          default_pis_rate: category.defaultPisRate,
+          default_cofins_rate: category.defaultCofinsRate
+        } : {})
+      });
+    } else {
+      // Categoria nova - inserir
+      categoriesToInsert.push({
+        company_id: companyId,
+        name: categoryName,
+        description: typeof category === 'object' ? category.description : null,
+        parent_id: typeof category === 'object' ? category.parentId : null,
+        default_ncm: typeof category === 'object' ? category.defaultNcm : null,
+        default_cest: typeof category === 'object' ? category.defaultCest : null,
+        default_origin: typeof category === 'object' ? category.defaultOrigin : null,
+        default_cfop: typeof category === 'object' ? category.defaultCfop : null,
+        default_icms_rate: typeof category === 'object' ? category.defaultIcmsRate : null,
+        default_pis_rate: typeof category === 'object' ? category.defaultPisRate : null,
+        default_cofins_rate: typeof category === 'object' ? category.defaultCofinsRate : null,
+        is_active: true
+      });
+    }
+  }
+
+  // 3. Identificar categorias removidas (soft delete)
+  const categoryNames = categories.map(cat => typeof cat === 'string' ? cat : cat.name);
+  const idsToDelete = existing
+    ?.filter(cat => !categoryNames.includes(cat.name))
+    .map(cat => cat.id) || [];
+
+  // 4. Executar operações
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let deletedCount = 0;
+
+  if (categoriesToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from('product_categories')
+      .insert(categoriesToInsert);
+
+    if (insertError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao inserir categorias:', insertError);
+      throw new Error(insertError.message);
+    }
+    insertedCount = categoriesToInsert.length;
+    console.log(`[SQL_SERVICE] ✅ ${insertedCount} categorias inseridas`);
+  }
+
+  if (categoriesToUpdate.length > 0) {
+    for (const category of categoriesToUpdate) {
+      const { id, ...updates } = category;
+      const { error: updateError } = await supabase
+        .from('product_categories')
+        .update(updates)
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('[SQL_SERVICE] ❌ Erro ao atualizar categoria:', updateError);
+        throw new Error(updateError.message);
+      }
+    }
+    updatedCount = categoriesToUpdate.length;
+    console.log(`[SQL_SERVICE] ✅ ${updatedCount} categorias atualizadas`);
+  }
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('product_categories')
+      .update({ is_active: false })
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao desativar categorias:', deleteError);
+      throw new Error(deleteError.message);
+    }
+    deletedCount = idsToDelete.length;
+    console.log(`[SQL_SERVICE] ✅ ${deletedCount} categorias desativadas`);
+  }
+
+  return { 
+    success: true, 
+    count: categories.length,
+    inserted: insertedCount,
+    updated: updatedCount,
+    deleted: deletedCount
+  };
 }
 
 // PRICE TABLES (temporário - depois migrar para tabela)

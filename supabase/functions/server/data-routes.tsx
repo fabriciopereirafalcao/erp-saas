@@ -566,6 +566,222 @@ app.post('/product-categories', async (c) => {
   }
 });
 
+// ==================== ROTAS CRUD - PRODUCT CATEGORIES (Individual) ====================
+
+// CREATE - Criar nova categoria
+app.post('/product-categories/create', async (c) => {
+  console.log('[PRODUCT CATEGORIES] 🔵 POST /product-categories/create - Início');
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    console.log('[PRODUCT CATEGORIES] 📝 Criando nova categoria:', JSON.stringify(body, null, 2));
+
+    // Validação
+    if (!body.name || body.name.trim() === '') {
+      return c.json({ error: 'Nome é obrigatório' }, 400);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verificar duplicidade
+    const { data: duplicateName, error: checkError } = await supabase
+      .from('product_categories')
+      .select('id, name')
+      .eq('company_id', auth.companyId)
+      .eq('name', body.name.trim())
+      .eq('is_active', true)
+      .limit(1);
+
+    if (checkError) {
+      console.error('[PRODUCT CATEGORIES] ❌ Erro ao verificar duplicidade:', checkError);
+      throw checkError;
+    }
+
+    if (duplicateName && duplicateName.length > 0) {
+      return c.json({ 
+        error: `Categoria "${body.name.trim()}" já existe` 
+      }, 400);
+    }
+
+    // Inserir categoria
+    const insertData = {
+      company_id: auth.companyId,
+      name: body.name.trim(),
+      description: body.description?.trim() || null,
+      parent_id: body.parentId || null,
+      default_ncm: body.defaultNcm || null,
+      default_cest: body.defaultCest || null,
+      default_origin: body.defaultOrigin || null,
+      default_cfop: body.defaultCfop || null,
+      default_icms_rate: body.defaultIcmsRate || null,
+      default_pis_rate: body.defaultPisRate || null,
+      default_cofins_rate: body.defaultCofinsRate || null,
+      is_active: true,
+    };
+
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[PRODUCT CATEGORIES] ❌ Erro ao inserir:', error);
+      throw error;
+    }
+
+    console.log('[PRODUCT CATEGORIES] ✅ Categoria criada:', data.id);
+    return c.json({ success: true, data });
+
+  } catch (error) {
+    console.error('[PRODUCT CATEGORIES] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// UPDATE - Atualizar categoria
+app.put('/product-categories/:id', async (c) => {
+  console.log('[PRODUCT CATEGORIES] 🟡 PUT /product-categories/:id - Início');
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const categoryId = c.req.param('id');
+    const body = await c.req.json();
+    console.log('[PRODUCT CATEGORIES] 📝 Atualizando categoria:', categoryId);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verificar se categoria existe
+    const { data: existing, error: fetchError } = await supabase
+      .from('product_categories')
+      .select('*')
+      .eq('id', categoryId)
+      .eq('company_id', auth.companyId)
+      .single();
+
+    if (fetchError || !existing) {
+      return c.json({ error: 'Categoria não encontrada' }, 404);
+    }
+
+    // Se mudou o nome, verificar duplicidade
+    if (body.name && body.name.trim() !== existing.name) {
+      const { data: duplicateName } = await supabase
+        .from('product_categories')
+        .select('id')
+        .eq('company_id', auth.companyId)
+        .eq('name', body.name.trim())
+        .eq('is_active', true)
+        .neq('id', categoryId)
+        .limit(1);
+
+      if (duplicateName && duplicateName.length > 0) {
+        return c.json({ 
+          error: `Categoria "${body.name.trim()}" já existe` 
+        }, 400);
+      }
+    }
+
+    // Atualizar
+    const updateData: any = {};
+    if (body.name !== undefined) updateData.name = body.name.trim();
+    if (body.description !== undefined) updateData.description = body.description?.trim() || null;
+    if (body.parentId !== undefined) updateData.parent_id = body.parentId || null;
+    if (body.defaultNcm !== undefined) updateData.default_ncm = body.defaultNcm || null;
+    if (body.defaultCest !== undefined) updateData.default_cest = body.defaultCest || null;
+    if (body.defaultOrigin !== undefined) updateData.default_origin = body.defaultOrigin || null;
+    if (body.defaultCfop !== undefined) updateData.default_cfop = body.defaultCfop || null;
+    if (body.defaultIcmsRate !== undefined) updateData.default_icms_rate = body.defaultIcmsRate || null;
+    if (body.defaultPisRate !== undefined) updateData.default_pis_rate = body.defaultPisRate || null;
+    if (body.defaultCofinsRate !== undefined) updateData.default_cofins_rate = body.defaultCofinsRate || null;
+
+    const { data, error } = await supabase
+      .from('product_categories')
+      .update(updateData)
+      .eq('id', categoryId)
+      .eq('company_id', auth.companyId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[PRODUCT CATEGORIES] ❌ Erro ao atualizar:', error);
+      throw error;
+    }
+
+    console.log('[PRODUCT CATEGORIES] ✅ Categoria atualizada:', categoryId);
+    return c.json({ success: true, data });
+
+  } catch (error) {
+    console.error('[PRODUCT CATEGORIES] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE - Soft delete de categoria
+app.delete('/product-categories/:id', async (c) => {
+  console.log('[PRODUCT CATEGORIES] 🔴 DELETE /product-categories/:id - Início');
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const categoryId = c.req.param('id');
+    console.log('[PRODUCT CATEGORIES] 🗑️ Deletando categoria:', categoryId);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verificar se categoria existe
+    const { data: existing, error: fetchError } = await supabase
+      .from('product_categories')
+      .select('name')
+      .eq('id', categoryId)
+      .eq('company_id', auth.companyId)
+      .single();
+
+    if (fetchError || !existing) {
+      return c.json({ error: 'Categoria não encontrada' }, 404);
+    }
+
+    // TODO: Verificar se há produtos usando esta categoria
+    // Por ora, apenas desativa
+
+    // Soft delete
+    const { error } = await supabase
+      .from('product_categories')
+      .update({ is_active: false })
+      .eq('id', categoryId)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[PRODUCT CATEGORIES] ❌ Erro ao deletar:', error);
+      throw error;
+    }
+
+    console.log('[PRODUCT CATEGORIES] ✅ Categoria deletada:', categoryId);
+    return c.json({ success: true, message: 'Categoria removida com sucesso' });
+
+  } catch (error) {
+    console.error('[PRODUCT CATEGORIES] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - SALESPEOPLE ====================
 
 app.get('/salespeople', async (c) => {
