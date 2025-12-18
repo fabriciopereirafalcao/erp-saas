@@ -362,6 +362,9 @@ export interface InventoryItem {
   requiresExpiryDate?: boolean; // Se o produto tem data de validade
   defaultLocation?: string; // Localização padrão no depósito
   shelfLife?: number; // Validade em dias (a partir da fabricação)
+  // Controle de lotes integrado
+  trackBatches?: boolean; // Se produto exige controle de lote (novo sistema)
+  batchFifoAuto?: boolean; // Se deve usar FIFO automático nas vendas
 }
 
 export interface PriceTableItem {

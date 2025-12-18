@@ -720,6 +720,9 @@ export async function getProducts(companyId: string) {
     status: row.status || 'Em Estoque',
     lastRestocked: row.last_restocked || null,
     active: row.active !== false, // Soft delete - true se NULL ou true
+    // Controle de lotes
+    trackBatches: row.track_batches || false,
+    batchFifoAuto: row.batch_fifo_auto !== false, // true por padrão
     // Dados fiscais
     ncm: row.ncm || '',
     cest: row.cest || '',
@@ -822,6 +825,9 @@ export async function saveProducts(companyId: string, products: any[]) {
         status: product.status || 'Em Estoque',
         last_restocked: product.lastRestocked || null,
         active: product.active !== undefined ? product.active : true,
+        // Controle de lotes
+        track_batches: product.trackBatches || false,
+        batch_fifo_auto: product.batchFifoAuto !== undefined ? product.batchFifoAuto : true,
         // Dados fiscais
         ncm: product.ncm || null,
         cest: product.cest || null,
@@ -870,6 +876,9 @@ export async function saveProducts(companyId: string, products: any[]) {
       status: product.status || 'Em Estoque',
       last_restocked: product.lastRestocked || null,
       active: product.active !== undefined ? product.active : true,
+      // Controle de lotes
+      track_batches: product.trackBatches || false,
+      batch_fifo_auto: product.batchFifoAuto !== undefined ? product.batchFifoAuto : true,
       // Dados fiscais
       ncm: product.ncm || null,
       cest: product.cest || null,

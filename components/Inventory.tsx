@@ -358,7 +358,10 @@ export function Inventory() {
       cofinsRate: product.cofinsRate ? String(product.cofinsRate) : "",
       ipiRate: product.ipiRate ? String(product.ipiRate) : "",
       cfop: product.cfop || "",
-      taxCustomized: product.taxCustomized || false
+      taxCustomized: product.taxCustomized || false,
+      // Controle de lotes
+      trackBatches: product.trackBatches || false,
+      batchFifoAuto: product.batchFifoAuto !== false
     });
     setEditNcmError("");
     setIsEditDialogOpen(true);
@@ -921,6 +924,49 @@ export function Inventory() {
                           className="col-span-3"
                         />
                       </div>
+                    </div>
+
+                    {/* Controle de Lotes */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <h4 className="text-sm text-gray-700">Controle de Lotes</h4>
+                      
+                      <div className="flex items-center space-x-2 col-span-full">
+                        <input
+                          type="checkbox"
+                          id="trackBatches"
+                          checked={newProduct.trackBatches || false}
+                          onChange={(e) => setNewProduct({...newProduct, trackBatches: e.target.checked})}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <Label htmlFor="trackBatches" className="cursor-pointer">
+                          Controlar Lotes de Fabricação
+                        </Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Exigirá informar lote em compras e vendas deste produto</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+
+                      {newProduct.trackBatches && (
+                        <div className="flex items-center space-x-2 col-span-full ml-6">
+                          <input
+                            type="checkbox"
+                            id="batchFifoAuto"
+                            checked={newProduct.batchFifoAuto !== false}
+                            onChange={(e) => setNewProduct({...newProduct, batchFifoAuto: e.target.checked})}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <Label htmlFor="batchFifoAuto" className="cursor-pointer">
+                            Usar FIFO automático (consumir lotes mais antigos primeiro)
+                          </Label>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -1601,6 +1647,49 @@ export function Inventory() {
                       className="col-span-3"
                     />
                   </div>
+                </div>
+
+                {/* Controle de Lotes */}
+                <div className="space-y-3 pt-4 border-t">
+                  <h4 className="text-sm text-gray-700">Controle de Lotes</h4>
+                  
+                  <div className="flex items-center space-x-2 col-span-full">
+                    <input
+                      type="checkbox"
+                      id="edit-trackBatches"
+                      checked={editProduct.trackBatches || false}
+                      onChange={(e) => setEditProduct({...editProduct, trackBatches: e.target.checked})}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <Label htmlFor="edit-trackBatches" className="cursor-pointer">
+                      Controlar Lotes de Fabricação
+                    </Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3 h-3 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Exigirá informar lote em compras e vendas deste produto</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                  {editProduct.trackBatches && (
+                    <div className="flex items-center space-x-2 col-span-full ml-6">
+                      <input
+                        type="checkbox"
+                        id="edit-batchFifoAuto"
+                        checked={editProduct.batchFifoAuto !== false}
+                        onChange={(e) => setEditProduct({...editProduct, batchFifoAuto: e.target.checked})}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <Label htmlFor="edit-batchFifoAuto" className="cursor-pointer">
+                        Usar FIFO automático (consumir lotes mais antigos primeiro)
+                      </Label>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>

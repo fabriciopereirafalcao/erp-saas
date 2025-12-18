@@ -3358,4 +3358,355 @@ console.log('[DATA-ROUTES]    → PUT /buyers/:id');
 console.log('[DATA-ROUTES]    → DELETE /buyers/:id');
 console.log('[DATA-ROUTES]    → POST /buyers/:id/reactivate');
 
+// ==================== ROTAS - BATCH CONTROL (CONTROLE DE LOTES) ====================
+
+// GET - Buscar lotes disponíveis de um produto específico (para vendas)
+app.get('/product-batches/by-product/:productId', async (c) => {
+  try {
+    console.log('[BATCH CONTROL] 🟢 GET /product-batches/by-product/:productId');
+    const productId = c.req.param('productId');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Buscar lotes disponíveis (status Ativo, quantidade > 0, não vencido)
+    const { data, error } = await supabase
+      .from('product_batches')
+      .select('*')
+      .eq('product_id', productId)
+      .eq('company_id', auth.companyId)
+      .eq('status', 'Ativo')
+      .gt('current_quantity', 0)
+      .or(`expiry_date.is.null,expiry_date.gte.${new Date().toISOString().split('T')[0]}`)
+      .order('manufacturing_date', { ascending: true }); // FIFO
+
+    if (error) throw error;
+
+    // Mapear snake_case para camelCase
+    const mappedData = data.map(batch => ({
+      id: batch.id,
+      productId: batch.product_id,
+      productName: batch.product_name,
+      batchNumber: batch.batch_number,
+      manufacturingDate: batch.manufacturing_date,
+      expiryDate: batch.expiry_date,
+      locationId: batch.location_id,
+      locationName: batch.location_name,
+      shelfPosition: batch.shelf_position,
+      initialQuantity: batch.initial_quantity,
+      currentQuantity: batch.current_quantity,
+      reservedQuantity: batch.reserved_quantity,
+      supplierId: batch.supplier_id,
+      supplierName: batch.supplier_name,
+      purchaseOrderId: batch.purchase_order_id,
+      status: batch.status,
+      notes: batch.notes,
+      createdAt: batch.created_at,
+      updatedAt: batch.updated_at,
+    }));
+
+    console.log(`[BATCH CONTROL] ✅ ${mappedData.length} lotes disponíveis para produto ${productId}`);
+    return c.json({ success: true, data: mappedData });
+
+  } catch (error) {
+    console.error('[BATCH CONTROL] ❌ Erro ao buscar lotes:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Alocar lotes para um item de pedido
+app.post('/batch-movements/allocate', async (c) => {
+  try {
+    console.log('[BATCH CONTROL] 🟢 POST /batch-movements/allocate');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { orderId, orderItemId, productId, batches, invoiceId, notes } = body;
+
+    // Validações
+    if (!productId) {
+      return c.json({ error: 'productId é obrigatório' }, 400);
+    }
+    if (!batches || !Array.isArray(batches) || batches.length === 0) {
+      return c.json({ error: 'batches é obrigatório e deve ser um array não vazio' }, 400);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Processar cada alocação de lote
+    const allocations = [];
+    const movements = [];
+
+    for (const batchAlloc of batches) {
+      const { batchId, quantity } = batchAlloc;
+
+      if (!batchId || !quantity || quantity <= 0) {
+        return c.json({ error: 'Cada lote deve ter batchId e quantity > 0' }, 400);
+      }
+
+      // Buscar lote atual
+      const { data: batch, error: batchError } = await supabase
+        .from('product_batches')
+        .select('*')
+        .eq('id', batchId)
+        .eq('company_id', auth.companyId)
+        .single();
+
+      if (batchError || !batch) {
+        return c.json({ error: `Lote ${batchId} não encontrado` }, 404);
+      }
+
+      // Validar saldo disponível
+      if (batch.current_quantity < quantity) {
+        return c.json({ 
+          error: `Saldo insuficiente no lote ${batch.batch_number}. Disponível: ${batch.current_quantity}, Solicitado: ${quantity}` 
+        }, 400);
+      }
+
+      // Atualizar quantidade do lote
+      const newQuantity = batch.current_quantity - quantity;
+      const newStatus = newQuantity === 0 ? 'Esgotado' : batch.status;
+
+      const { error: updateError } = await supabase
+        .from('product_batches')
+        .update({ 
+          current_quantity: newQuantity,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', batchId);
+
+      if (updateError) {
+        console.error('[BATCH CONTROL] ❌ Erro ao atualizar lote:', updateError);
+        throw updateError;
+      }
+
+      // Registrar alocação em order_items_batches
+      const { data: allocation, error: allocError } = await supabase
+        .from('order_items_batches')
+        .insert({
+          company_id: auth.companyId,
+          order_id: orderId || null,
+          order_item_id: orderItemId || `item-${Date.now()}`,
+          product_id: productId,
+          batch_id: batchId,
+          batch_number: batch.batch_number,
+          quantity_allocated: quantity,
+        })
+        .select()
+        .single();
+
+      if (allocError) {
+        console.error('[BATCH CONTROL] ❌ Erro ao criar alocação:', allocError);
+        throw allocError;
+      }
+
+      allocations.push(allocation);
+
+      // Registrar movimento em batch_movements
+      const { data: movement, error: movError } = await supabase
+        .from('batch_movements')
+        .insert({
+          company_id: auth.companyId,
+          batch_id: batchId,
+          product_id: productId,
+          movement_type: 'SAIDA_VENDA',
+          quantity: quantity,
+          quantity_before: batch.current_quantity,
+          quantity_after: newQuantity,
+          order_id: orderId || null,
+          order_item_id: orderItemId || null,
+          invoice_id: invoiceId || null,
+          user_id: auth.userId || null,
+          notes: notes || `Alocação para pedido ${orderId || 'N/A'}`,
+        })
+        .select()
+        .single();
+
+      if (movError) {
+        console.error('[BATCH CONTROL] ❌ Erro ao criar movimento:', movError);
+        throw movError;
+      }
+
+      movements.push(movement);
+    }
+
+    console.log(`[BATCH CONTROL] ✅ ${allocations.length} lotes alocados com sucesso`);
+    return c.json({ 
+      success: true, 
+      data: {
+        allocations,
+        movements
+      }
+    });
+
+  } catch (error) {
+    console.error('[BATCH CONTROL] ❌ Erro ao alocar lotes:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Rastreamento de lote (Recall)
+app.get('/batch-movements/trace/:batchId', async (c) => {
+  try {
+    console.log('[BATCH CONTROL] 🟢 GET /batch-movements/trace/:batchId');
+    const batchId = c.req.param('batchId');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Buscar informações do lote
+    const { data: batch, error: batchError } = await supabase
+      .from('product_batches')
+      .select('*')
+      .eq('id', batchId)
+      .eq('company_id', auth.companyId)
+      .single();
+
+    if (batchError || !batch) {
+      return c.json({ error: 'Lote não encontrado' }, 404);
+    }
+
+    // Buscar todos os movimentos do lote
+    const { data: movements, error: movError } = await supabase
+      .from('batch_movements')
+      .select('*')
+      .eq('batch_id', batchId)
+      .eq('company_id', auth.companyId)
+      .order('created_at', { ascending: true });
+
+    if (movError) throw movError;
+
+    // Mapear snake_case para camelCase
+    const mappedBatch = {
+      id: batch.id,
+      productId: batch.product_id,
+      productName: batch.product_name,
+      batchNumber: batch.batch_number,
+      manufacturingDate: batch.manufacturing_date,
+      expiryDate: batch.expiry_date,
+      initialQuantity: batch.initial_quantity,
+      currentQuantity: batch.current_quantity,
+      status: batch.status,
+      createdAt: batch.created_at,
+    };
+
+    const mappedMovements = movements.map(mov => ({
+      id: mov.id,
+      batchId: mov.batch_id,
+      productId: mov.product_id,
+      movementType: mov.movement_type,
+      quantity: mov.quantity,
+      quantityBefore: mov.quantity_before,
+      quantityAfter: mov.quantity_after,
+      orderId: mov.order_id,
+      orderItemId: mov.order_item_id,
+      invoiceId: mov.invoice_id,
+      userId: mov.user_id,
+      notes: mov.notes,
+      createdAt: mov.created_at,
+    }));
+
+    console.log(`[BATCH CONTROL] ✅ Rastreamento: ${mappedMovements.length} movimentos`);
+    return c.json({ 
+      success: true, 
+      data: {
+        batch: mappedBatch,
+        movements: mappedMovements
+      }
+    });
+
+  } catch (error) {
+    console.error('[BATCH CONTROL] ❌ Erro ao rastrear lote:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET - Buscar lotes próximos do vencimento
+app.get('/product-batches/expiring-soon', async (c) => {
+  try {
+    console.log('[BATCH CONTROL] 🟢 GET /product-batches/expiring-soon');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const days = c.req.query('days') || '30'; // Padrão: 30 dias
+    const daysInt = parseInt(days);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Data limite (hoje + X dias)
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() + daysInt);
+    const limitDateStr = limitDate.toISOString().split('T')[0];
+
+    // Buscar lotes que vencem nos próximos X dias
+    const { data, error } = await supabase
+      .from('product_batches')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('status', 'Ativo')
+      .gt('current_quantity', 0)
+      .not('expiry_date', 'is', null)
+      .lte('expiry_date', limitDateStr)
+      .order('expiry_date', { ascending: true });
+
+    if (error) throw error;
+
+    // Mapear snake_case para camelCase
+    const mappedData = data.map(batch => ({
+      id: batch.id,
+      productId: batch.product_id,
+      productName: batch.product_name,
+      batchNumber: batch.batch_number,
+      manufacturingDate: batch.manufacturing_date,
+      expiryDate: batch.expiry_date,
+      currentQuantity: batch.current_quantity,
+      status: batch.status,
+      createdAt: batch.created_at,
+      // Calcular dias restantes
+      daysToExpiry: Math.ceil((new Date(batch.expiry_date) - new Date()) / (1000 * 60 * 60 * 24))
+    }));
+
+    console.log(`[BATCH CONTROL] ✅ ${mappedData.length} lotes vencendo em ${daysInt} dias`);
+    return c.json({ success: true, data: mappedData });
+
+  } catch (error) {
+    console.error('[BATCH CONTROL] ❌ Erro ao buscar lotes vencendo:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTAS BATCH CONTROL REGISTRADAS:');
+console.log('[DATA-ROUTES]    → GET /product-batches/by-product/:productId');
+console.log('[DATA-ROUTES]    → POST /batch-movements/allocate');
+console.log('[DATA-ROUTES]    → GET /batch-movements/trace/:batchId');
+console.log('[DATA-ROUTES]    → GET /product-batches/expiring-soon');
+
 export default app;
