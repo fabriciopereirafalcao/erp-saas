@@ -58,7 +58,7 @@ export function ProductCategories() {
       setLoading(true);
       setError(null);
       
-      const response = await authFetch('/make-server-686b5e88/product-categories');
+      const response = await authFetch('/make-server-686b5e88/data/product-categories');
       const result = await response.json();
       
       if (result.success) {
@@ -98,7 +98,7 @@ export function ProductCategories() {
     try {
       setSaving(true);
       
-      const response = await authFetch('/make-server-686b5e88/product-categories/create', {
+      const response = await authFetch('/make-server-686b5e88/data/product-categories/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +132,7 @@ export function ProductCategories() {
     }
 
     try {
-      const response = await authFetch(`/make-server-686b5e88/product-categories/${category.id}`, {
+      const response = await authFetch(`/make-server-686b5e88/data/product-categories/${category.id}`, {
         method: 'DELETE',
       });
 

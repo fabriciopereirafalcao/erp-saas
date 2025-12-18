@@ -519,8 +519,10 @@ app.post('/price-tables', async (c) => {
 
 app.get('/product-categories', async (c) => {
   try {
+    console.log('[PRODUCT CATEGORIES] 🟢 GET /product-categories - Início');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.error('[PRODUCT CATEGORIES] ❌ Não autorizado');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
@@ -535,7 +537,11 @@ app.get('/product-categories', async (c) => {
 
   } catch (error) {
     console.error('[PRODUCT CATEGORIES] ❌ Erro ao carregar:', error);
-    return c.json({ error: error.message }, 500);
+    console.error('[PRODUCT CATEGORIES] ❌ Stack:', error.stack);
+    return c.json({ 
+      error: error.message || 'Erro ao carregar product categories',
+      details: error.stack 
+    }, 500);
   }
 });
 
