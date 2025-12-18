@@ -1067,8 +1067,8 @@ app.post('/product-batches/create', async (c) => {
     console.log('[PRODUCT BATCHES] 📝 Criando novo lote:', JSON.stringify(body, null, 2));
 
     // Validações
-    if (!body.productName || body.productName.trim() === '') {
-      return c.json({ error: 'Nome do produto é obrigatório' }, 400);
+    if (!body.productId) {
+      return c.json({ error: 'Produto é obrigatório' }, 400);
     }
     if (!body.batchNumber || body.batchNumber.trim() === '') {
       return c.json({ error: 'Número do lote é obrigatório' }, 400);
@@ -1082,32 +1082,42 @@ app.post('/product-batches/create', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Para product_batches, vamos simplificar: não exigir product_id por enquanto
-    // O usuário pode cadastrar lote com apenas o nome do produto
-    
-    // Verificar duplicidade de lote
+    // Buscar produto para validar e obter nome
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, name')
+      .eq('id', body.productId)
+      .eq('company_id', auth.companyId)
+      .eq('active', true)
+      .single();
+
+    if (productError || !product) {
+      console.error('[PRODUCT BATCHES] ❌ Produto não encontrado:', body.productId);
+      return c.json({ error: 'Produto não encontrado ou inativo' }, 404);
+    }
+
+    console.log('[PRODUCT BATCHES] 📦 Produto validado:', product.name);
+
+    // Verificar duplicidade de lote para este produto
     const { data: duplicateBatch } = await supabase
       .from('product_batches')
       .select('id')
       .eq('company_id', auth.companyId)
+      .eq('product_id', body.productId)
       .eq('batch_number', body.batchNumber.trim())
-      .eq('product_name', body.productName.trim())
       .limit(1);
 
     if (duplicateBatch && duplicateBatch.length > 0) {
       return c.json({ 
-        error: `Lote "${body.batchNumber.trim()}" já existe para este produto` 
+        error: `Lote "${body.batchNumber.trim()}" já existe para o produto "${product.name}"` 
       }, 400);
     }
-
-    // Gerar um product_id fake temporário (UUID v4)
-    const fakeProductId = crypto.randomUUID();
 
     // Inserir lote
     const insertData = {
       company_id: auth.companyId,
-      product_id: fakeProductId, // Usar fake ID por enquanto (schema exige NOT NULL)
-      product_name: body.productName.trim(),
+      product_id: product.id,
+      product_name: product.name,
       batch_number: body.batchNumber.trim(),
       manufacturing_date: body.manufacturingDate || null,
       expiry_date: body.expiryDate || null,
@@ -1173,10 +1183,9 @@ app.put('/product-batches/:id', async (c) => {
       return c.json({ error: 'Lote não encontrado' }, 404);
     }
 
-    // Atualizar
+    // Atualizar (NÃO permite alterar produto)
     const updateData: any = {};
     if (body.batchNumber !== undefined) updateData.batch_number = body.batchNumber.trim();
-    if (body.productName !== undefined) updateData.product_name = body.productName.trim();
     if (body.quantity !== undefined) {
       updateData.current_quantity = body.quantity;
       updateData.initial_quantity = body.quantity;

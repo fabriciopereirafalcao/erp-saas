@@ -43,16 +43,24 @@ interface ManufacturingBatch {
   updatedAt: string;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+}
+
 export function ManufacturingBatches() {
   const [batches, setBatches] = useState<ManufacturingBatch[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<ManufacturingBatch | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
+    productId: '',
     batchNumber: '',
-    productName: '',
     quantity: '',
     manufacturingDate: '',
     expiryDate: '',
@@ -86,12 +94,36 @@ export function ManufacturingBatches() {
     }
   };
 
-  const handleOpenDialog = (batch?: ManufacturingBatch) => {
+  const loadProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/inventory`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setProducts(result.data || []);
+      } else {
+        throw new Error(result.error || 'Erro ao carregar produtos');
+      }
+    } catch (err: any) {
+      console.error('[MANUFACTURING BATCHES] Erro ao carregar produtos:', err);
+      toast.error('Erro ao carregar produtos');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleOpenDialog = async (batch?: ManufacturingBatch) => {
+    // Carregar produtos ao abrir dialog
+    await loadProducts();
+
     if (batch) {
       setEditingBatch(batch);
+      // Para edição, não permitir mudar o produto (apenas visualizar)
       setFormData({
+        productId: '', // Não usado em edição
         batchNumber: batch.batchNumber,
-        productName: batch.productName,
         quantity: batch.currentQuantity.toString(),
         manufacturingDate: batch.manufacturingDate || '',
         expiryDate: batch.expiryDate || '',
@@ -100,8 +132,8 @@ export function ManufacturingBatches() {
     } else {
       setEditingBatch(null);
       setFormData({
+        productId: '',
         batchNumber: '',
-        productName: '',
         quantity: '',
         manufacturingDate: '',
         expiryDate: '',
@@ -115,8 +147,8 @@ export function ManufacturingBatches() {
     setIsDialogOpen(false);
     setEditingBatch(null);
     setFormData({
+      productId: '',
       batchNumber: '',
-      productName: '',
       quantity: '',
       manufacturingDate: '',
       expiryDate: '',
@@ -127,12 +159,12 @@ export function ManufacturingBatches() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.batchNumber.trim()) {
-      toast.error('Número do lote é obrigatório');
+    if (!editingBatch && !formData.productId) {
+      toast.error('Selecione um produto');
       return;
     }
-    if (!formData.productName.trim()) {
-      toast.error('Nome do produto é obrigatório');
+    if (!formData.batchNumber.trim()) {
+      toast.error('Número do lote é obrigatório');
       return;
     }
     if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
@@ -144,7 +176,7 @@ export function ManufacturingBatches() {
       setSaving(true);
 
       if (editingBatch) {
-        // ATUALIZAR
+        // ATUALIZAR (não altera produto)
         const response = await authFetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-batches/${editingBatch.id}`,
           {
@@ -154,7 +186,6 @@ export function ManufacturingBatches() {
             },
             body: JSON.stringify({
               batchNumber: formData.batchNumber.trim(),
-              productName: formData.productName.trim(),
               quantity: parseFloat(formData.quantity),
               manufacturingDate: formData.manufacturingDate || null,
               expiryDate: formData.expiryDate || null,
@@ -173,7 +204,7 @@ export function ManufacturingBatches() {
           throw new Error(result.error || 'Erro ao atualizar lote');
         }
       } else {
-        // CRIAR
+        // CRIAR (exige produto selecionado)
         const response = await authFetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-batches/create`,
           {
@@ -182,8 +213,8 @@ export function ManufacturingBatches() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+              productId: formData.productId,
               batchNumber: formData.batchNumber.trim(),
-              productName: formData.productName.trim(),
               quantity: parseFloat(formData.quantity),
               manufacturingDate: formData.manufacturingDate || null,
               expiryDate: formData.expiryDate || null,
@@ -372,6 +403,58 @@ export function ManufacturingBatches() {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
+              {/* Produto - apenas no CREATE */}
+              {!editingBatch && (
+                <div className="space-y-2">
+                  <Label htmlFor="productId">Produto *</Label>
+                  {loadingProducts ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Carregando produtos...
+                    </div>
+                  ) : products.length === 0 ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Nenhum produto cadastrado. Cadastre produtos primeiro na tela de Inventário.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Select
+                      value={formData.productId}
+                      onValueChange={(value) => setFormData({ ...formData, productId: value })}
+                      disabled={saving}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} {product.sku && `(${product.sku})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
+
+              {/* Produto - apenas VISUALIZAÇÃO no EDIT */}
+              {editingBatch && (
+                <div className="space-y-2">
+                  <Label>Produto</Label>
+                  <Input
+                    value={editingBatch.productName}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500">
+                    ℹ️ Não é possível alterar o produto de um lote existente
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="batchNumber">Número do Lote *</Label>
@@ -386,20 +469,6 @@ export function ManufacturingBatches() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="productName">Nome do Produto *</Label>
-                  <Input
-                    id="productName"
-                    value={formData.productName}
-                    onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                    placeholder="Ex: Arroz Integral"
-                    required
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
                   <Label htmlFor="quantity">Quantidade *</Label>
                   <Input
                     id="quantity"
@@ -412,7 +481,9 @@ export function ManufacturingBatches() {
                     disabled={saving}
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="manufacturingDate">Data de Fabricação</Label>
                   <Input
@@ -465,7 +536,10 @@ export function ManufacturingBatches() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button 
+                type="submit" 
+                disabled={saving || (!editingBatch && products.length === 0)}
+              >
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
