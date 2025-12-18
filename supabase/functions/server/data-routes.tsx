@@ -1045,8 +1045,31 @@ app.get('/product-batches', async (c) => {
 
     if (error) throw error;
 
-    console.log(`[PRODUCT BATCHES] ✅ ${data.length} lotes carregados`);
-    return c.json({ success: true, data });
+    // Mapear snake_case para camelCase
+    const mappedData = data.map(batch => ({
+      id: batch.id,
+      productId: batch.product_id,
+      productName: batch.product_name,
+      batchNumber: batch.batch_number,
+      manufacturingDate: batch.manufacturing_date,
+      expiryDate: batch.expiry_date,
+      locationId: batch.location_id,
+      locationName: batch.location_name,
+      shelfPosition: batch.shelf_position,
+      initialQuantity: batch.initial_quantity,
+      currentQuantity: batch.current_quantity,
+      reservedQuantity: batch.reserved_quantity,
+      supplierId: batch.supplier_id,
+      supplierName: batch.supplier_name,
+      purchaseOrderId: batch.purchase_order_id,
+      status: batch.status,
+      notes: batch.notes,
+      createdAt: batch.created_at,
+      updatedAt: batch.updated_at,
+    }));
+
+    console.log(`[PRODUCT BATCHES] ✅ ${mappedData.length} lotes carregados`);
+    return c.json({ success: true, data: mappedData });
 
   } catch (error) {
     console.error('[PRODUCT BATCHES] ❌ Erro ao carregar:', error);
@@ -1145,8 +1168,31 @@ app.post('/product-batches/create', async (c) => {
       throw error;
     }
 
-    console.log('[PRODUCT BATCHES] ✅ Lote criado:', data.id);
-    return c.json({ success: true, data });
+    // Mapear snake_case para camelCase
+    const mappedData = {
+      id: data.id,
+      productId: data.product_id,
+      productName: data.product_name,
+      batchNumber: data.batch_number,
+      manufacturingDate: data.manufacturing_date,
+      expiryDate: data.expiry_date,
+      locationId: data.location_id,
+      locationName: data.location_name,
+      shelfPosition: data.shelf_position,
+      initialQuantity: data.initial_quantity,
+      currentQuantity: data.current_quantity,
+      reservedQuantity: data.reserved_quantity,
+      supplierId: data.supplier_id,
+      supplierName: data.supplier_name,
+      purchaseOrderId: data.purchase_order_id,
+      status: data.status,
+      notes: data.notes,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+
+    console.log('[PRODUCT BATCHES] ✅ Lote criado:', mappedData.id);
+    return c.json({ success: true, data: mappedData });
 
   } catch (error) {
     console.error('[PRODUCT BATCHES] ❌ Erro:', error);
@@ -1207,8 +1253,31 @@ app.put('/product-batches/:id', async (c) => {
       throw error;
     }
 
+    // Mapear snake_case para camelCase
+    const mappedData = {
+      id: data.id,
+      productId: data.product_id,
+      productName: data.product_name,
+      batchNumber: data.batch_number,
+      manufacturingDate: data.manufacturing_date,
+      expiryDate: data.expiry_date,
+      locationId: data.location_id,
+      locationName: data.location_name,
+      shelfPosition: data.shelf_position,
+      initialQuantity: data.initial_quantity,
+      currentQuantity: data.current_quantity,
+      reservedQuantity: data.reserved_quantity,
+      supplierId: data.supplier_id,
+      supplierName: data.supplier_name,
+      purchaseOrderId: data.purchase_order_id,
+      status: data.status,
+      notes: data.notes,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+
     console.log('[PRODUCT BATCHES] ✅ Lote atualizado:', batchId);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: mappedData });
 
   } catch (error) {
     console.error('[PRODUCT BATCHES] ❌ Erro:', error);
