@@ -21,6 +21,7 @@ import {
 import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner@2.0.3';
 import { authFetch } from '../utils/authFetch';
+import { projectId } from '../utils/supabase/info';
 
 interface ProductCategory {
   id: string;
@@ -58,7 +59,7 @@ export function ProductCategories() {
       setLoading(true);
       setError(null);
       
-      const response = await authFetch('/make-server-686b5e88/data/product-categories');
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories`);
       const result = await response.json();
       
       if (result.success) {
@@ -98,7 +99,7 @@ export function ProductCategories() {
     try {
       setSaving(true);
       
-      const response = await authFetch('/make-server-686b5e88/data/product-categories/create', {
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +133,7 @@ export function ProductCategories() {
     }
 
     try {
-      const response = await authFetch(`/make-server-686b5e88/data/product-categories/${category.id}`, {
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories/${category.id}`, {
         method: 'DELETE',
       });
 
