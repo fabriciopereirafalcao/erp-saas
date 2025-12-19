@@ -3920,6 +3920,7 @@ app.post('/api/product-with-initial-batch', async (c) => {
       const batchData = {
         company_id: companyId,
         product_id: createdProduct.id,
+        product_name: createdProduct.name, // ✅ Campo obrigatório
         batch_number: initialBatch.batchNumber,
         manufacturing_date: initialBatch.manufacturingDate || null,
         expiry_date: initialBatch.expiryDate || null,
@@ -3948,6 +3949,8 @@ app.post('/api/product-with-initial-batch', async (c) => {
         company_id: companyId,
         batch_id: createdBatch.id,
         product_id: createdProduct.id,
+        product_name: createdProduct.name, // ✅ Campo obrigatório
+        batch_number: createdBatch.batch_number, // ✅ Campo obrigatório
         movement_type: 'entry',
         quantity: initialBatch.quantity,
         reference_type: initialBatch.entryType || 'Estoque Inicial',
