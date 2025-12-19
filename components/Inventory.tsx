@@ -20,7 +20,7 @@ import { formatNCM, validateNCM } from "../utils/ncmValidation";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { BatchMovementModal } from "./BatchMovementModal";
 import { projectId } from "../utils/supabase/info";
-import { authFetch } from "../utils/authFetch";
+import { authFetch, getAccessToken } from "../utils/authFetch";
 
 // ✅ Helper para mapear tipos do banco (inglês) para labels em português
 const getMovementTypeLabel = (type: string): string => {
@@ -352,18 +352,36 @@ export function Inventory() {
     try {
       console.log('[INVENTORY] 🔍 Buscando lotes do produto:', productId);
       
-      // Não usar authFetch aqui para evitar logout em caso de erro
-      // Buscar lotes retorna array vazio se não houver lotes (não é erro)
-      const response = await authFetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/batches?productId=${productId}`,
-        { method: 'GET' }
-      ).catch((err) => {
-        console.warn('[INVENTORY] ⚠️ Erro ao buscar lotes (não crítico):', err);
-        return null;
+      // Usar fetch direto com token manual (não authFetch para evitar logout)
+      const token = await getAccessToken();
+      
+      if (!token) {
+        console.warn('[INVENTORY] ⚠️ Sem token de autenticação');
+        return [];
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/batches?productId=${productId}`;
+      console.log('[INVENTORY] 📡 URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (!response || !response.ok) {
-        console.log('[INVENTORY] ℹ️ Nenhum lote encontrado ou erro na busca');
+      console.log('[INVENTORY] 📊 Response status:', response.status);
+
+      // Se 401, NÃO fazer logout - apenas retornar array vazio
+      if (response.status === 401) {
+        console.warn('[INVENTORY] ⚠️ Erro 401 - Mas não fará logout (permite criar novo lote)');
+        return [];
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[INVENTORY] ❌ Erro na resposta:', errorData);
         return [];
       }
 
