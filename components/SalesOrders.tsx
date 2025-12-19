@@ -27,6 +27,8 @@ import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statusTransitionValidation";
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
 import { SalesAndPurchasePersonManagement } from "./SalesAndPurchasePersonManagement";
+import { BatchAllocationModal } from "./BatchAllocationModal";
+import type { BatchAllocation } from "../contexts/ERPContext";
 
 interface OrderItem {
   productId: string;
@@ -36,6 +38,7 @@ interface OrderItem {
   discountType: "percentage" | "value";
   discountAmount: number;
   subtotal: number;
+  batchAllocations?: BatchAllocation[]; // ✅ SPRINT 2
 }
 
 interface PaymentInstallment {
@@ -71,6 +74,10 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   const [isPersonManagementOpen, setIsPersonManagementOpen] = useState(false);
   const [isNFeConfirmDialogOpen, setIsNFeConfirmDialogOpen] = useState(false);
   const [selectedOrderForNFe, setSelectedOrderForNFe] = useState<any>(null);
+  
+  // ✅ SPRINT 2: Estados para modal de alocação de lotes
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [selectedItemForBatch, setSelectedItemForBatch] = useState<{index: number, item: OrderItem} | null>(null);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -346,6 +353,35 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     toast.info(`${item.productName} removido do pedido`);
   };
 
+  // ✅ SPRINT 2: Abrir modal de alocação de lotes
+  const handleOpenBatchModal = (index: number) => {
+    const item = orderItems[index];
+    const product = safeInventory.find(p => p.id === item.productId);
+    
+    if (!product?.trackBatches) {
+      toast.error('Este produto não possui controle de lotes ativado');
+      return;
+    }
+
+    setSelectedItemForBatch({ index, item });
+    setIsBatchModalOpen(true);
+  };
+
+  // ✅ SPRINT 2: Confirmar alocações de lotes
+  const handleConfirmBatchAllocations = (allocations: BatchAllocation[]) => {
+    if (!selectedItemForBatch) return;
+
+    const updatedItems = [...orderItems];
+    updatedItems[selectedItemForBatch.index] = {
+      ...updatedItems[selectedItemForBatch.index],
+      batchAllocations: allocations
+    };
+
+    setOrderItems(updatedItems);
+    toast.success(`Lotes alocados para ${selectedItemForBatch.item.productName}`);
+    setSelectedItemForBatch(null);
+  };
+
   const handleEditItemQuantity = (index: number) => {
     const item = orderItems[index];
     const newQuantity = prompt(`Digite a nova quantidade para ${item.productName}:`, String(item.quantity));
@@ -472,6 +508,27 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
         toast.warning(`Atenção: "${item.productName}" ficará com estoque baixo após este pedido (${stockAfter} ${product.unit})`, {
           duration: 5000
         });
+      }
+
+      // ✅ SPRINT 2: Validar alocações de lotes
+      if (product.trackBatches) {
+        if (!item.batchAllocations || item.batchAllocations.length === 0) {
+          toast.error(`Produto \"${item.productName}\" requer alocação de lotes!`, {
+            description: 'Use o botão "Alocar Lotes" no menu do item'
+          });
+          return;
+        }
+
+        // Validar quantidade total alocada
+        const totalAllocated = item.batchAllocations.reduce((sum, alloc) => sum + alloc.quantityAllocated, 0);
+        if (Math.abs(totalAllocated - item.quantity) > 0.001) {
+          toast.error(`Quantidade alocada (${totalAllocated.toFixed(3)}) difere da quantidade do item (${item.quantity.toFixed(3)})`, {
+            description: `Produto: ${item.productName}`
+          });
+          return;
+        }
+
+        console.log(`✅ SPRINT 2: Item "${item.productName}" possui ${item.batchAllocations.length} lotes alocados corretamente`);
       }
     }
 
@@ -1630,6 +1687,24 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                         <Edit className="w-4 h-4 mr-2" />
                                         Editar Quantidade
                                       </DropdownMenuItem>
+                                      {/* ✅ SPRINT 2: Botão Alocar Lotes */}
+                                      {(() => {
+                                        const product = safeInventory.find(p => p.id === item.productId);
+                                        if (product?.trackBatches) {
+                                          return (
+                                            <DropdownMenuItem onClick={() => handleOpenBatchModal(index)}>
+                                              <Package className="w-4 h-4 mr-2" />
+                                              Alocar Lotes
+                                              {item.batchAllocations && item.batchAllocations.length > 0 && (
+                                                <Badge variant="secondary" className="ml-2">
+                                                  {item.batchAllocations.length}
+                                                </Badge>
+                                              )}
+                                            </DropdownMenuItem>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                       <DropdownMenuItem 
                                         onClick={() => handleRemoveItem(index)}
                                         className="text-red-600 focus:text-red-600"
@@ -1642,7 +1717,16 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                 </TableCell>
                                 <TableCell className="py-4">
                                   <div>
-                                    <p className="text-gray-900">{item.productName}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-gray-900">{item.productName}</p>
+                                      {/* ✅ SPRINT 2: Badge de lotes alocados */}
+                                      {item.batchAllocations && item.batchAllocations.length > 0 && (
+                                        <Badge variant="outline" className="text-xs gap-1">
+                                          <Package className="w-3 h-3" />
+                                          {item.batchAllocations.length} lote(s)
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                       {/* Buscar SKU do produto ao invés de mostrar UUID */}
                                       {(() => {
@@ -1650,6 +1734,16 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                         return product?.sku || item.productId;
                                       })()}
                                     </p>
+                                    {/* ✅ SPRINT 2: Mostrar lotes alocados */}
+                                    {item.batchAllocations && item.batchAllocations.length > 0 && (
+                                      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                        {item.batchAllocations.map((alloc, idx) => (
+                                          <div key={idx}>
+                                            Lote {alloc.batchNumber}: {alloc.quantityAllocated.toFixed(3)}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right py-4">
@@ -2219,6 +2313,30 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ✅ SPRINT 2: Modal de Alocação de Lotes */}
+      {selectedItemForBatch && (
+        <BatchAllocationModal
+          isOpen={isBatchModalOpen}
+          onClose={() => {
+            setIsBatchModalOpen(false);
+            setSelectedItemForBatch(null);
+          }}
+          productId={selectedItemForBatch.item.productId}
+          productName={selectedItemForBatch.item.productName}
+          quantityNeeded={selectedItemForBatch.item.quantity}
+          currentAllocations={selectedItemForBatch.item.batchAllocations || []}
+          onConfirmAllocations={handleConfirmBatchAllocations}
+          trackBatches={(() => {
+            const product = safeInventory.find(p => p.id === selectedItemForBatch.item.productId);
+            return product?.trackBatches || false;
+          })()}
+          batchFifoAuto={(() => {
+            const product = safeInventory.find(p => p.id === selectedItemForBatch.item.productId);
+            return product?.batchFifoAuto || false;
+          })()}
+        />
+      )}
     </div>
   );
 }

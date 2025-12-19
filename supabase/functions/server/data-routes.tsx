@@ -3703,10 +3703,133 @@ app.get('/product-batches/expiring-soon', async (c) => {
   }
 });
 
+// ==================== SPRINT 2: NOVOS ENDPOINTS PARA ALOCAÇÃO DE LOTES ====================
+
+// GET - Buscar lotes disponíveis de um produto (ordenados por FIFO)
+app.get('/api/available-batches/:productId', async (c) => {
+  try {
+    console.log('[BATCH ALLOCATION] 🟢 GET /api/available-batches/:productId');
+    const productId = c.req.param('productId');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    // Buscar lotes disponíveis via VIEW v_available_batches (já ordenados por FIFO)
+    const { data, error } = await supabase
+      .from('v_available_batches')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('product_id', productId)
+      .order('manufacturing_date', { ascending: true }) // FIFO: mais antigo primeiro
+      .order('expiry_date', { ascending: true, nullsFirst: false }); // Vencimento próximo primeiro
+
+    if (error) {
+      console.error('[BATCH ALLOCATION] ❌ Erro ao buscar lotes:', error);
+      return c.json({ error: 'Erro ao buscar lotes disponíveis' }, 500);
+    }
+
+    console.log(`[BATCH ALLOCATION] ✅ ${data?.length || 0} lotes disponíveis encontrados`);
+    
+    return c.json({
+      success: true,
+      batches: data || []
+    });
+
+  } catch (error) {
+    console.error('[BATCH ALLOCATION] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST - Alocar lotes automaticamente via FIFO
+app.post('/api/allocate-batches-fifo', async (c) => {
+  try {
+    console.log('[BATCH ALLOCATION] 🟢 POST /api/allocate-batches-fifo');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { productId, quantityNeeded } = await c.req.json();
+
+    if (!productId || !quantityNeeded || quantityNeeded <= 0) {
+      return c.json({ error: 'Dados inválidos' }, 400);
+    }
+
+    // Buscar lotes disponíveis ordenados por FIFO
+    const { data: availableBatches, error: fetchError } = await supabase
+      .from('v_available_batches')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('product_id', productId)
+      .order('manufacturing_date', { ascending: true })
+      .order('expiry_date', { ascending: true, nullsFirst: false });
+
+    if (fetchError) {
+      console.error('[BATCH ALLOCATION] ❌ Erro ao buscar lotes:', fetchError);
+      return c.json({ error: 'Erro ao buscar lotes disponíveis' }, 500);
+    }
+
+    if (!availableBatches || availableBatches.length === 0) {
+      return c.json({ 
+        success: false, 
+        error: 'Nenhum lote disponível para este produto' 
+      }, 400);
+    }
+
+    // Alocar via FIFO
+    const allocations = [];
+    let remainingQuantity = quantityNeeded;
+
+    for (const batch of availableBatches) {
+      if (remainingQuantity <= 0) break;
+
+      const quantityToAllocate = Math.min(batch.current_quantity, remainingQuantity);
+      
+      allocations.push({
+        batch_id: batch.id,
+        batch_number: batch.batch_number,
+        quantity_allocated: quantityToAllocate,
+        manufacturing_date: batch.manufacturing_date,
+        expiry_date: batch.expiry_date
+      });
+
+      remainingQuantity -= quantityToAllocate;
+    }
+
+    // Verificar se conseguiu alocar toda a quantidade
+    const totalAllocated = allocations.reduce((sum, a) => sum + a.quantity_allocated, 0);
+    
+    if (totalAllocated < quantityNeeded) {
+      return c.json({
+        success: false,
+        error: `Estoque insuficiente. Disponível: ${totalAllocated.toFixed(3)}, Necessário: ${quantityNeeded.toFixed(3)}`
+      }, 400);
+    }
+
+    console.log(`[BATCH ALLOCATION] ✅ FIFO: ${allocations.length} lotes alocados`);
+
+    return c.json({
+      success: true,
+      allocations,
+      totalAllocated
+    });
+
+  } catch (error) {
+    console.error('[BATCH ALLOCATION] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 console.log('[DATA-ROUTES] 🎯 ROTAS BATCH CONTROL REGISTRADAS:');
 console.log('[DATA-ROUTES]    → GET /product-batches/by-product/:productId');
 console.log('[DATA-ROUTES]    → POST /batch-movements/allocate');
 console.log('[DATA-ROUTES]    → GET /batch-movements/trace/:batchId');
 console.log('[DATA-ROUTES]    → GET /product-batches/expiring-soon');
+console.log('[DATA-ROUTES]    → GET /api/available-batches/:productId [SPRINT 2]');
+console.log('[DATA-ROUTES]    → POST /api/allocate-batches-fifo [SPRINT 2]');
 
 export default app;

@@ -122,6 +122,15 @@ export interface OrderActionFlags {
   customerStatsUpdated?: boolean;
 }
 
+// ✅ SPRINT 2: Interface para alocação de lotes
+export interface BatchAllocation {
+  batchId: string;
+  batchNumber: string;
+  quantityAllocated: number;
+  manufacturingDate?: string;
+  expiryDate?: string;
+}
+
 // Item individual de um pedido multi-item
 export interface OrderItem {
   productId: string;
@@ -131,6 +140,7 @@ export interface OrderItem {
   discountType: "percentage" | "value";
   discountAmount: number;
   subtotal: number;
+  batchAllocations?: BatchAllocation[]; // ✅ SPRINT 2: Alocações de lotes
 }
 
 export interface SalesOrder {

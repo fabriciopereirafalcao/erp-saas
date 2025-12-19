@@ -521,9 +521,10 @@ export async function createSalesOrder(companyId: string, orderData: any) {
       }))
     );
 
-    const { error: itemsError } = await supabase
+    const { data: insertedItems, error: itemsError } = await supabase
       .from('sales_order_items')
-      .insert(itemsWithResolvedIds);
+      .insert(itemsWithResolvedIds)
+      .select('id, product_id');
 
     if (itemsError) {
       console.error('[SQL_SERVICE] ❌ Erro ao inserir items:', itemsError);
@@ -531,6 +532,82 @@ export async function createSalesOrder(companyId: string, orderData: any) {
       console.warn('[SQL_SERVICE] ⚠️ Pedido criado mas items falharam');
     } else {
       console.log(`[SQL_SERVICE] ✅ ${orderData.items.length} items inseridos`);
+      
+      // ✅ SPRINT 2: Processar alocações de lotes
+      console.log(`[SQL_SERVICE] 🔄 Processando alocações de lotes...`);
+      
+      for (let i = 0; i < orderData.items.length; i++) {
+        const item = orderData.items[i];
+        const insertedItem = insertedItems?.[i];
+        
+        if (item.batchAllocations && item.batchAllocations.length > 0 && insertedItem) {
+          console.log(`[SQL_SERVICE] 📦 Item ${i + 1} possui ${item.batchAllocations.length} alocações de lotes`);
+          
+          try {
+            // Inserir registros em order_items_batches
+            const batchAllocations = item.batchAllocations.map((alloc: any) => ({
+              company_id: companyId,
+              order_id: insertedOrder.id,
+              order_item_id: insertedItem.id,
+              product_id: insertedItem.product_id,
+              batch_id: alloc.batchId,
+              quantity_allocated: alloc.quantityAllocated
+            }));
+
+            const { error: allocError } = await supabase
+              .from('order_items_batches')
+              .insert(batchAllocations);
+
+            if (allocError) {
+              console.error(`[SQL_SERVICE] ❌ Erro ao inserir alocações de lotes:`, allocError);
+            } else {
+              console.log(`[SQL_SERVICE] ✅ ${batchAllocations.length} alocações salvas`);
+              
+              // Criar movimentações de lote (saída) e atualizar quantidades
+              for (const alloc of item.batchAllocations) {
+                try {
+                  // Chamar função SQL para atualizar quantidade do lote
+                  const { error: updateError } = await supabase.rpc('update_batch_quantity', {
+                    p_batch_id: alloc.batchId,
+                    p_quantity_change: -alloc.quantityAllocated,
+                    p_company_id: companyId
+                  });
+
+                  if (updateError) {
+                    console.error(`[SQL_SERVICE] ❌ Erro ao atualizar lote ${alloc.batchNumber}:`, updateError);
+                  }
+
+                  // Criar registro de movimentação
+                  const { error: movementError } = await supabase
+                    .from('batch_movements')
+                    .insert({
+                      company_id: companyId,
+                      batch_id: alloc.batchId,
+                      product_id: insertedItem.product_id,
+                      order_id: insertedOrder.id,
+                      movement_type: 'sale',
+                      quantity: alloc.quantityAllocated,
+                      trace_code: insertedOrder.order_number,
+                      notes: `Venda - Pedido ${insertedOrder.order_number}`
+                    });
+
+                  if (movementError) {
+                    console.error(`[SQL_SERVICE] ❌ Erro ao criar movimentação:`, movementError);
+                  } else {
+                    console.log(`[SQL_SERVICE] ✅ Movimentação criada para lote ${alloc.batchNumber}: -${alloc.quantityAllocated}`);
+                  }
+                } catch (batchError) {
+                  console.error(`[SQL_SERVICE] ❌ Erro ao processar lote ${alloc.batchNumber}:`, batchError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`[SQL_SERVICE] ❌ Erro ao processar alocações do item ${i + 1}:`, error);
+          }
+        }
+      }
+      
+      console.log(`[SQL_SERVICE] ✅ Processamento de lotes concluído`);
     }
   }
 
