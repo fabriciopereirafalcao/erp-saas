@@ -4063,7 +4063,8 @@ app.post('/api/stock-movement-with-batch', async (c) => {
     
     // Autenticação
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth.authenticated || !auth.userId || !auth.companyId) {
+    if (!auth) {
+      console.error('[STOCK-MOVEMENT-BATCH] ❌ Autenticação falhou');
       return c.json({ success: false, error: 'Não autorizado' }, 401);
     }
 
@@ -4358,7 +4359,8 @@ app.get('/api/batches', async (c) => {
     console.log('[GET-BATCHES] 📦 Requisição recebida');
     
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
-    if (!auth.authenticated || !auth.companyId) {
+    if (!auth) {
+      console.error('[GET-BATCHES] ❌ Autenticação falhou');
       return c.json({ success: false, error: 'Não autorizado' }, 401);
     }
 
