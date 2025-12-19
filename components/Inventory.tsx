@@ -388,6 +388,7 @@ export function Inventory() {
 
       const result = await response.json();
       console.log('[INVENTORY] ✅ Lotes encontrados:', result.data?.length || 0);
+      console.log('[INVENTORY] 📋 Detalhes dos lotes:', JSON.stringify(result.data, null, 2));
       return result.data || [];
       
     } catch (error: any) {
@@ -2122,11 +2123,22 @@ export function Inventory() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="p-4 bg-gray-50 rounded-md border">
-              <p className="text-sm text-gray-600">Estoque Atual</p>
-              <p className="text-2xl text-gray-900 mt-1">
-                {selectedProduct?.currentStock.toLocaleString('pt-BR')} {selectedProduct?.unit}
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 rounded-md border">
+                <p className="text-sm text-gray-600">Estoque Atual</p>
+                <p className="text-2xl text-gray-900 mt-1">
+                  {selectedProduct?.currentStock.toLocaleString('pt-BR')} {selectedProduct?.unit}
+                </p>
+              </div>
+
+              {movement.quantity && (
+                <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+                  <p className="text-sm text-blue-900">Novo estoque</p>
+                  <p className="text-2xl text-blue-900 mt-1">
+                    {(selectedProduct?.currentStock + Number(movement.quantity)).toLocaleString('pt-BR')} {selectedProduct?.unit}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -2229,17 +2241,6 @@ export function Inventory() {
                   Markup: {' '}
                   <strong>
                     {calculateMarkup(Number(movement.costPrice), Number(movement.sellPrice)).toFixed(2)}%
-                  </strong>
-                </p>
-              </div>
-            )}
-
-            {movement.quantity && (
-              <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-                <p className="text-sm text-blue-900">
-                  Novo estoque: {' '}
-                  <strong>
-                    {(selectedProduct?.currentStock + Number(movement.quantity)).toLocaleString('pt-BR')} {selectedProduct?.unit}
                   </strong>
                 </p>
               </div>

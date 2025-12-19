@@ -84,6 +84,12 @@ export function BatchMovementModal({
   // Reset ao abrir modal
   useEffect(() => {
     if (isOpen) {
+      console.log('[BATCH_MODAL] 🔍 Abrindo modal com lotes:', availableBatches);
+      console.log('[BATCH_MODAL] 📊 Quantidade de lotes:', availableBatches.length);
+      if (availableBatches.length > 0) {
+        console.log('[BATCH_MODAL] 📦 Primeiro lote:', JSON.stringify(availableBatches[0], null, 2));
+      }
+      
       if (isEntradaProducao) {
         setMode('create');
       } else {
@@ -98,27 +104,7 @@ export function BatchMovementModal({
         notes: ''
       });
     }
-  }, [isOpen, isEntradaProducao]);
-
-  // FIFO Automático: DESABILITADO - Permitir seleção manual
-  // useEffect(() => {
-  //   if (product?.batchFifoAuto && mode === 'select' && availableBatches.length > 0 && !selectedBatchId) {
-  //     const sortedBatches = [...availableBatches]
-  //       .filter(b => b.currentQuantity > 0)
-  //       .sort((a, b) => {
-  //         if (a.manufacturingDate && b.manufacturingDate) {
-  //           return new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime();
-  //         }
-  //         if (a.expiryDate && b.expiryDate) {
-  //           return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
-  //         }
-  //         return 0;
-  //       });
-  //     if (sortedBatches.length > 0) {
-  //       setSelectedBatchId(sortedBatches[0].id);
-  //     }
-  //   }
-  // }, [product, mode, availableBatches, selectedBatchId]);
+  }, [isOpen, isEntradaProducao, availableBatches]);
 
   const handleConfirm = () => {
     if (mode === 'create') {
@@ -243,9 +229,9 @@ export function BatchMovementModal({
                     <SelectContent>
                       {availableBatches.map(batch => (
                         <SelectItem key={batch.id} value={batch.id}>
-                          {batch.batchNumber} - Estoque: {batch.currentQuantity} un
+                          {batch.batchNumber || 'Sem código'} - Estoque: {batch.currentQuantity ?? 0} un
                           {batch.expiryDate && ` - Validade: ${new Date(batch.expiryDate).toLocaleDateString('pt-BR')}`}
-                          {batch.status !== 'Ativo' && ` - ${batch.status}`}
+                          {batch.status && batch.status !== 'Ativo' && ` - ${batch.status}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
