@@ -34,9 +34,9 @@ const getMovementTypeLabel = (type: string): string => {
   return labels[type] || type;
 };
 
-// ✅ Helper para verificar se é entrada (purchase, return)
+// ✅ Helper para verificar se é entrada (purchase, return, adjustment de entrada)
 const isInboundMovement = (type: string): boolean => {
-  return ['purchase', 'return'].includes(type);
+  return ['purchase', 'return', 'adjustment-in', 'production'].includes(type);
 };
 
 export function Inventory() {
@@ -508,7 +508,12 @@ export function Inventory() {
       };
       
       const movementReason = movementTypeToLabel[movementType] || movement.reason;
-      addStockMovement(selectedProduct.id, quantity, movementReason);
+      
+      // ✅ Detectar se é saída e aplicar sinal negativo
+      const isOutbound = movementType.startsWith('saida');
+      const signedQuantity = isOutbound ? -quantity : quantity;
+      
+      addStockMovement(selectedProduct.id, signedQuantity, movementReason);
       
       // Atualizar estoque no contexto local
       updateInventoryItem(selectedProduct.id, {
@@ -548,10 +553,19 @@ export function Inventory() {
     const costPrice = Number(movement.costPrice);
     const sellPrice = Number(movement.sellPrice);
 
+    if (quantity <= 0) {
+      toast.error("Quantidade deve ser maior que zero");
+      return;
+    }
+
     if (costPrice < 0 || sellPrice < 0) {
       toast.error("Custo e preço devem ser valores positivos");
       return;
     }
+
+    // ✅ NOVO: Detectar automaticamente se é entrada ou saída
+    const isOutbound = movement.reason.startsWith('Saída');
+    const signedQuantity = isOutbound ? -quantity : quantity;
 
     // ===== NOVO: VERIFICAR SE TEM CONTROLE DE LOTES =====
     if (selectedProduct.trackBatches) {
@@ -609,8 +623,8 @@ export function Inventory() {
     // ===== FLUXO EXISTENTE PARA PRODUTOS SEM LOTES =====
     const markup = calculateMarkup(costPrice, sellPrice);
 
-    // Registra a movimentação
-    addStockMovement(selectedProduct.id, quantity, movement.reason);
+    // Registra a movimentação (com quantidade já com sinal correto)
+    addStockMovement(selectedProduct.id, signedQuantity, movement.reason);
 
     // Atualiza os preços do produto
     updateInventoryItem(selectedProduct.id, {
@@ -2147,27 +2161,33 @@ export function Inventory() {
                 </p>
               </div>
 
-              {movement.quantity && (
-                <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
-                  <p className="text-sm text-blue-900">Novo estoque</p>
-                  <p className="text-2xl text-blue-900 mt-1">
-                    {(selectedProduct?.currentStock + Number(movement.quantity)).toLocaleString('pt-BR')} {selectedProduct?.unit}
-                  </p>
-                </div>
-              )}
+              {movement.quantity && movement.reason && (() => {
+                const qty = Number(movement.quantity);
+                const isOutbound = movement.reason.startsWith('Saída');
+                const newStock = selectedProduct?.currentStock + (isOutbound ? -qty : qty);
+                
+                return (
+                  <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+                    <p className="text-sm text-blue-900">Novo estoque</p>
+                    <p className="text-2xl text-blue-900 mt-1">
+                      {newStock.toLocaleString('pt-BR')} {selectedProduct?.unit}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="movement-quantity">
                 Quantidade *
-                <span className="text-xs text-gray-500 ml-2">(Use valores negativos para saída)</span>
               </Label>
               <Input
                 id="movement-quantity"
                 type="number"
                 value={movement.quantity}
                 onChange={(e) => setMovement({...movement, quantity: e.target.value})}
-                placeholder="Ex: 100 ou -50"
+                placeholder="Ex: 100"
+                min="0"
               />
             </div>
 

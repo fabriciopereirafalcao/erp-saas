@@ -3597,6 +3597,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const previousStock = product.currentStock;
     const newStock = previousStock + quantity;
     
+    // ✅ Determinar tipo baseado no reason (texto em português) ou sinal da quantidade
+    let type: string;
+    if (reason.includes('Entrada') || reason.includes('Produção') || reason.includes('Devolução') || reason.includes('Compra')) {
+      type = 'purchase';
+    } else if (reason.includes('Saída') || reason.includes('Venda') || reason.includes('Perda') || reason.includes('Doação') || reason.includes('Consumo')) {
+      type = 'sale';
+    } else if (reason.includes('Ajuste')) {
+      type = quantity > 0 ? 'purchase' : 'sale';
+    } else {
+      // Fallback: usar sinal da quantidade
+      type = quantity > 0 ? 'purchase' : 'sale';
+    }
+    
     // Criar registro de movimentação
     const now = new Date();
     // Gerar ID único com timestamp + sufixo aleatório para evitar duplicatas
@@ -3607,7 +3620,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       productName: product.productName,
       date: now.toISOString().split('T')[0],
       time: now.toTimeString().split(' ')[0],
-      type: quantity > 0 ? "purchase" : "sale", // ✅ CORRIGIDO: usar valores aceitos pelo banco (purchase/sale)
+      type,
       quantity: Math.abs(quantity),
       previousStock,
       newStock,
