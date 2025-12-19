@@ -3843,37 +3843,14 @@ app.post('/api/product-with-initial-batch', async (c) => {
   try {
     console.log('[PRODUCT-WITH-BATCH] 📦 Requisição recebida');
     
-    // Autenticação
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader) {
-      return c.json({ success: false, error: 'Token de autorização ausente' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      console.error('[PRODUCT-WITH-BATCH] ❌ Erro de autenticação:', authError);
+    // ✅ Usar padrão de autenticação dos outros endpoints
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
       return c.json({ success: false, error: 'Não autorizado' }, 401);
     }
 
-    // Obter company_id
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      return c.json({ success: false, error: 'Company ID não encontrado' }, 400);
-    }
-
-    const companyId = profile.company_id;
+    const companyId = auth.companyId;
+    console.log('[PRODUCT-WITH-BATCH] ✅ Autenticado - Company ID:', companyId);
     const body = await c.req.json();
     const { product, initialBatch } = body;
 
