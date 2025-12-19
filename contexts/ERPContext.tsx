@@ -3466,7 +3466,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.log('[INVENTORY] 📦 Criando produto com lote inicial...');
         
         const response = await authFetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/product-with-initial-batch`,
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/product-with-initial-batch`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
