@@ -3452,6 +3452,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const addInventoryItem = async (itemData: Omit<InventoryItem, 'id' | 'status' | 'lastRestocked'>) => {
+    // ✅ DEBUG: Ver o que está chegando
+    console.log('[INVENTORY] 📋 Dados recebidos no addInventoryItem:', {
+      productName: itemData.productName,
+      trackBatches: itemData.trackBatches,
+      hasInitialBatch: !!(itemData as any).initialBatch,
+      initialBatch: (itemData as any).initialBatch
+    });
+
     // ✅ FASE 1: Se tem lote inicial, usar endpoint dedicado
     if ((itemData as any).initialBatch) {
       try {
