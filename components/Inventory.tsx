@@ -423,26 +423,54 @@ export function Inventory() {
         return;
       }
 
-      // Chamar endpoint
-      const response = await authFetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/stock-movement-with-batch`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: selectedProduct.id,
-            quantity,
-            movementType,
-            costPrice,
-            sellPrice,
-            batchData
-          })
-        }
-      );
+      // Obter token manualmente (não usar authFetch para evitar logout em 401)
+      const token = await getAccessToken();
+      
+      if (!token) {
+        toast.error('Você precisa estar autenticado para realizar esta operação');
+        return;
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/stock-movement-with-batch`;
+      console.log('[INVENTORY] 📡 POST URL:', url);
+      console.log('[INVENTORY] 📊 Payload:', {
+        productId: selectedProduct.id,
+        quantity,
+        movementType,
+        costPrice,
+        sellPrice,
+        batchData
+      });
+
+      // Chamar endpoint com fetch direto
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          quantity,
+          movementType,
+          costPrice,
+          sellPrice,
+          batchData
+        })
+      });
+
+      console.log('[INVENTORY] 📊 Response status:', response.status);
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao processar movimentação');
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        console.error('[INVENTORY] ❌ Erro na resposta:', errorData);
+        
+        if (response.status === 401) {
+          toast.error('Sessão expirada. Por favor, faça login novamente.');
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Erro ao processar movimentação');
       }
 
       const result = await response.json();
