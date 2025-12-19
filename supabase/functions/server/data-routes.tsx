@@ -4001,6 +4001,43 @@ app.post('/api/product-with-initial-batch', async (c) => {
         console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado:', createdMovement.id);
       }
 
+      // 4️⃣ CRIAR REGISTRO NO HISTÓRICO (stock_movements_686b5e88)
+      // Mapear tipo de entrada para o histórico (português)
+      const historyReasonMap: Record<string, string> = {
+        'Produção': 'Entrada - Produção',
+        'Compra': 'Entrada - Compra',
+        'Ajuste de Estoque Inicial': 'Estoque Inicial',
+        'Outro': 'Estoque Inicial'
+      };
+
+      const historyReason = historyReasonMap[initialBatch.entryType] || 'Estoque Inicial';
+      
+      const historyMovementData = {
+        company_id: companyId,
+        product_id: createdProduct.id,
+        product_name: createdProduct.name,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().split(' ')[0],
+        type: 'purchase', // Sempre entrada no cadastro inicial
+        quantity: initialBatch.quantity,
+        previous_stock: 0,
+        new_stock: initialBatch.quantity,
+        reason: historyReason,
+        description: `Lote inicial: ${initialBatch.batchNumber}`
+      };
+
+      console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico:', historyMovementData);
+      const { error: historyError } = await supabaseAdmin
+        .from('stock_movements_686b5e88')
+        .insert(historyMovementData);
+
+      if (historyError) {
+        console.error('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar histórico (não-fatal):', historyError);
+        // Não bloquear o fluxo por erro no histórico
+      } else {
+        console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado');
+      }
+
       return c.json({
         success: true,
         product: createdProduct,

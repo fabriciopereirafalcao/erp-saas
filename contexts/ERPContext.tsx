@@ -3534,6 +3534,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     updateDefaultPriceTable(newItem.productName, newItem.sellPrice);
     
     toast.success(`Produto ${newItem.productName} adicionado ao estoque!`);
+
+    // ✅ NOVO: Registrar histórico de estoque inicial (produtos SEM lotes)
+    if (itemData.currentStock > 0) {
+      // Aguardar um pouco para garantir que o produto foi salvo no backend
+      setTimeout(() => {
+        addStockMovement(newItem.id, itemData.currentStock, 'Estoque Inicial', 'Cadastro inicial do produto');
+      }, 500);
+    }
     
     // ✅ REFRESH: Aguardar 1.5s para o backend processar e recarregar do banco
     setTimeout(async () => {
