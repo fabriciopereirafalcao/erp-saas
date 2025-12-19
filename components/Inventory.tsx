@@ -70,7 +70,10 @@ export function Inventory() {
     cofinsRate: "",
     ipiRate: "",
     cfop: "",
-    taxCustomized: false
+    taxCustomized: false,
+    // ✅ SPRINT 2: Controle de lotes
+    trackBatches: false,
+    batchFifoAuto: true
   });
   const [editProduct, setEditProduct] = useState({
     productName: "",
@@ -92,7 +95,10 @@ export function Inventory() {
     cofinsRate: "",
     ipiRate: "",
     cfop: "",
-    taxCustomized: false
+    taxCustomized: false,
+    // ✅ SPRINT 2: Controle de lotes
+    trackBatches: false,
+    batchFifoAuto: true
   });
   const [movement, setMovement] = useState({
     quantity: "",
@@ -212,7 +218,10 @@ export function Inventory() {
       cofinsRate: newProduct.cofinsRate ? Number(newProduct.cofinsRate) : undefined,
       ipiRate: newProduct.ipiRate ? Number(newProduct.ipiRate) : undefined,
       cfop: newProduct.cfop || undefined,
-      taxCustomized: newProduct.taxCustomized
+      taxCustomized: newProduct.taxCustomized,
+      // ✅ SPRINT 2: Adicionar controle de lotes
+      trackBatches: newProduct.trackBatches || false,
+      batchFifoAuto: newProduct.batchFifoAuto !== false
     });
 
     // Resetar formulário
@@ -235,7 +244,10 @@ export function Inventory() {
       cofinsRate: "",
       ipiRate: "",
       cfop: "",
-      taxCustomized: false
+      taxCustomized: false,
+      // ✅ SPRINT 2: Resetar controle de lotes
+      trackBatches: false,
+      batchFifoAuto: true
     });
     setNcmError("");
     setIsDialogOpen(false);
@@ -284,7 +296,10 @@ export function Inventory() {
       cofinsRate: editProduct.cofinsRate ? Number(editProduct.cofinsRate) : undefined,
       ipiRate: editProduct.ipiRate ? Number(editProduct.ipiRate) : undefined,
       cfop: editProduct.cfop || undefined,
-      taxCustomized: editProduct.taxCustomized
+      taxCustomized: editProduct.taxCustomized,
+      // ✅ SPRINT 2: Adicionar controle de lotes
+      trackBatches: editProduct.trackBatches || false,
+      batchFifoAuto: editProduct.batchFifoAuto !== false
     });
 
     setEditNcmError("");
