@@ -3466,7 +3466,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         console.log('[INVENTORY] 📦 Criando produto com lote inicial...');
         
         const response = await authFetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/product-with-initial-batch`,
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/product-with-initial-batch`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3477,7 +3477,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           }
         );
 
+        console.log('[INVENTORY] 📡 Resposta recebida, status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[INVENTORY] ❌ Erro HTTP:', response.status, errorText);
+          throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+        }
+
         const result = await response.json();
+        console.log('[INVENTORY] 📦 Resultado:', result);
 
         if (!result.success) {
           throw new Error(result.error || 'Erro ao criar produto com lote');
