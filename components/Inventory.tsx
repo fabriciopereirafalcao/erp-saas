@@ -18,6 +18,9 @@ import { PaginationControls } from "./PaginationControls";
 import { formatDateLocal } from "../utils/dateUtils";
 import { formatNCM, validateNCM } from "../utils/ncmValidation";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
+import { BatchMovementModal } from "./BatchMovementModal";
+import { projectId } from "../utils/supabase/info";
+import { authFetch } from "../utils/authFetch";
 
 // ✅ Helper para mapear tipos do banco (inglês) para labels em português
 const getMovementTypeLabel = (type: string): string => {
@@ -112,6 +115,10 @@ export function Inventory() {
     costPrice: "",
     sellPrice: ""
   });
+  
+  // ===== FASE 5: Estados para controle de lotes =====
+  const [isBatchMovementModalOpen, setIsBatchMovementModalOpen] = useState(false);
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
 
   const filteredInventory = inventory.filter(item => {
     // Filtro de produtos inativos (soft delete)
@@ -340,7 +347,110 @@ export function Inventory() {
     setSelectedProduct(null);
   };
 
-  const handleStockMovement = () => {
+  // ===== FASE 5: Buscar lotes disponíveis de um produto =====
+  const fetchProductBatches = async (productId: string) => {
+    try {
+      console.log('[INVENTORY] 🔍 Buscando lotes do produto:', productId);
+      
+      const response = await authFetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/batches?productId=${productId}`,
+        { method: 'GET' }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao buscar lotes');
+      }
+
+      const result = await response.json();
+      console.log('[INVENTORY] ✅ Lotes encontrados:', result.data?.length || 0);
+      return result.data || [];
+      
+    } catch (error: any) {
+      console.error('[INVENTORY] ❌ Erro ao buscar lotes:', error);
+      toast.error('Erro ao carregar lotes do produto');
+      return [];
+    }
+  };
+
+  // ===== FASE 5: Confirmar movimentação com lote =====
+  const handleBatchMovementConfirm = async (batchData: any) => {
+    try {
+      console.log('[INVENTORY] 📦 Processando movimentação com lote...', batchData);
+      
+      const quantity = Math.abs(Number(movement.quantity)); // Sempre positivo
+      const costPrice = Number(movement.costPrice);
+      const sellPrice = Number(movement.sellPrice);
+
+      // Mapear motivos para movementType
+      const movementTypeMap: Record<string, string> = {
+        'Entrada - Produção': 'entrada-producao',
+        'Entrada - Devolução': 'entrada-devolucao',
+        'Entrada - Ajuste de Inventário': 'entrada-ajuste',
+        'Saída - Perda': 'saida-perda',
+        'Saída - Doação': 'saida-doacao',
+        'Saída - Ajuste de Inventário': 'saida-ajuste',
+        'Saída - Consumo Interno': 'saida-consumo'
+      };
+
+      const movementType = movementTypeMap[movement.reason];
+      
+      if (!movementType) {
+        toast.error('Tipo de movimentação inválido');
+        return;
+      }
+
+      // Chamar endpoint
+      const response = await authFetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/stock-movement-with-batch`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: selectedProduct.id,
+            quantity,
+            movementType,
+            costPrice,
+            sellPrice,
+            batchData
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao processar movimentação');
+      }
+
+      const result = await response.json();
+      console.log('[INVENTORY] ✅ Movimentação processada:', result);
+      
+      toast.success('Movimentação registrada com sucesso!');
+      
+      // Atualizar estoque no contexto local
+      updateInventoryItem(selectedProduct.id, {
+        currentStock: result.data.newStock,
+        costPrice,
+        sellPrice,
+        pricePerUnit: sellPrice,
+        markup: calculateMarkup(costPrice, sellPrice)
+      });
+
+      // Fechar modais e limpar estados
+      setIsBatchMovementModalOpen(false);
+      setIsMovementDialogOpen(false);
+      setMovement({ quantity: '', reason: '', costPrice: '', sellPrice: '' });
+      setSelectedProduct(null);
+      setAvailableBatches([]);
+
+    } catch (error: any) {
+      console.error('[INVENTORY] ❌ Erro ao processar movimentação:', error);
+      toast.error(error.message || 'Erro ao processar movimentação');
+    }
+  };
+
+  const handleStockMovement = async () => {
+    // ===== VALIDAÇÕES EXISTENTES =====
     if (!selectedProduct || !movement.quantity || !movement.reason) {
       toast.error("Preencha a quantidade e o motivo da movimentação");
       return;
@@ -360,6 +470,49 @@ export function Inventory() {
       return;
     }
 
+    // ===== NOVO: VERIFICAR SE TEM CONTROLE DE LOTES =====
+    if (selectedProduct.trackBatches) {
+      console.log('[INVENTORY] 📦 Produto com controle de lotes detectado');
+
+      // Mapear motivos para movementType
+      const movementTypeMap: Record<string, string> = {
+        'Entrada - Produção': 'entrada-producao',
+        'Entrada - Devolução': 'entrada-devolucao',
+        'Entrada - Ajuste de Inventário': 'entrada-ajuste',
+        'Saída - Perda': 'saida-perda',
+        'Saída - Doação': 'saida-doacao',
+        'Saída - Ajuste de Inventário': 'saida-ajuste',
+        'Saída - Consumo Interno': 'saida-consumo'
+      };
+
+      const movementType = movementTypeMap[movement.reason];
+
+      // Bloquear Compra e Venda para produtos com lotes
+      if (movement.reason === 'Entrada - Compra') {
+        toast.error('Use o módulo de Compras (Purchase Orders) para registrar entradas de compra em produtos com controle de lotes');
+        return;
+      }
+
+      if (movement.reason === 'Saída - Venda') {
+        toast.error('Use o módulo de Vendas (Sales Orders) para registrar saídas de venda em produtos com controle de lotes');
+        return;
+      }
+
+      if (!movementType) {
+        toast.error('Tipo de movimentação inválido para produtos com controle de lotes');
+        return;
+      }
+
+      // Buscar lotes disponíveis
+      const batches = await fetchProductBatches(selectedProduct.id);
+      setAvailableBatches(batches);
+
+      // Abrir modal de lotes
+      setIsBatchMovementModalOpen(true);
+      return;
+    }
+
+    // ===== FLUXO EXISTENTE PARA PRODUTOS SEM LOTES =====
     const markup = calculateMarkup(costPrice, sellPrice);
 
     // Registra a movimentação
@@ -1295,6 +1448,13 @@ export function Inventory() {
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-gray-400" />
                     {item.productName}
+                    {/* Badge de controle de lotes */}
+                    {item.trackBatches && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        <Package className="w-3 h-3 mr-1" />
+                        Lotes
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{item.category}</TableCell>
@@ -1917,10 +2077,20 @@ export function Inventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Entrada - Produção">Entrada - Produção</SelectItem>
-                  <SelectItem value="Entrada - Compra">Entrada - Compra</SelectItem>
+                  
+                  {/* Ocultar Compra se produto tem controle de lotes */}
+                  {!selectedProduct?.trackBatches && (
+                    <SelectItem value="Entrada - Compra">Entrada - Compra</SelectItem>
+                  )}
+                  
                   <SelectItem value="Entrada - Devolução">Entrada - Devolução</SelectItem>
                   <SelectItem value="Entrada - Ajuste de Inventário">Entrada - Ajuste de Inventário</SelectItem>
-                  <SelectItem value="Saída - Venda">Saída - Venda</SelectItem>
+                  
+                  {/* Ocultar Venda se produto tem controle de lotes */}
+                  {!selectedProduct?.trackBatches && (
+                    <SelectItem value="Saída - Venda">Saída - Venda</SelectItem>
+                  )}
+                  
                   <SelectItem value="Saída - Perda">Saída - Perda</SelectItem>
                   <SelectItem value="Saída - Doação">Saída - Doação</SelectItem>
                   <SelectItem value="Saída - Ajuste de Inventário">Saída - Ajuste de Inventário</SelectItem>
@@ -2125,6 +2295,33 @@ export function Inventory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ===== FASE 5: Modal de Controle de Lotes ===== */}
+      {selectedProduct && (
+        <BatchMovementModal
+          isOpen={isBatchMovementModalOpen}
+          onClose={() => {
+            setIsBatchMovementModalOpen(false);
+            setAvailableBatches([]);
+          }}
+          product={selectedProduct}
+          movementType={(() => {
+            const map: Record<string, any> = {
+              'Entrada - Produção': 'entrada-producao',
+              'Entrada - Devolução': 'entrada-devolucao',
+              'Entrada - Ajuste de Inventário': 'entrada-ajuste',
+              'Saída - Perda': 'saida-perda',
+              'Saída - Doação': 'saida-doacao',
+              'Saída - Ajuste de Inventário': 'saida-ajuste',
+              'Saída - Consumo Interno': 'saida-consumo'
+            };
+            return map[movement.reason] || 'entrada-producao';
+          })()}
+          quantity={Math.abs(Number(movement.quantity))}
+          onConfirm={handleBatchMovementConfirm}
+          availableBatches={availableBatches}
+        />
+      )}
 
       {/* Alerts */}
       {(lowStockItems > 0 || outOfStockItems > 0) && (

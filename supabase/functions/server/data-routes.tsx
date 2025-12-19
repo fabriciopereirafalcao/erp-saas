@@ -4029,4 +4029,375 @@ app.post('/api/product-with-initial-batch', async (c) => {
 console.log('[DATA-ROUTES] 🎯 ROTA FASE 1 REGISTRADA:');
 console.log('[DATA-ROUTES]    → POST /api/product-with-initial-batch [LOTE OBRIGATÓRIO]');
 
+// ==================== FASE 5: MOVIMENTAÇÃO DE ESTOQUE COM LOTES ====================
+
+/**
+ * POST /api/stock-movement-with-batch
+ * Movimentação de estoque para produtos com controle de lotes
+ * 
+ * REGRAS:
+ * - ENTRADA - PRODUÇÃO: Cria NOVO lote
+ * - ENTRADA - DEVOLUÇÃO: Altera lote existente (seleção)
+ * - ENTRADA - AJUSTE: Altera lote existente (seleção)
+ * - SAÍDA - PERDA: Altera lote existente (seleção ou FIFO)
+ * - SAÍDA - DOAÇÃO: Altera lote existente (seleção ou FIFO)
+ * - SAÍDA - AJUSTE: Altera lote existente (seleção ou FIFO)
+ * - SAÍDA - CONSUMO: Altera lote existente (seleção ou FIFO)
+ * 
+ * Body: {
+ *   productId: UUID,
+ *   quantity: number,
+ *   movementType: string,
+ *   costPrice: number,
+ *   sellPrice: number,
+ *   batchData: {
+ *     mode: 'create' | 'select',
+ *     batchId?: UUID (se mode = 'select'),
+ *     batch?: { batchNumber, manufacturingDate, expiryDate, ... } (se mode = 'create')
+ *   }
+ * }
+ */
+app.post('/api/stock-movement-with-batch', async (c) => {
+  try {
+    console.log('[STOCK-MOVEMENT-BATCH] 📦 Requisição recebida');
+    
+    // Autenticação
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth.authenticated || !auth.userId || !auth.companyId) {
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { productId, quantity, movementType, costPrice, sellPrice, batchData } = body;
+
+    console.log('[STOCK-MOVEMENT-BATCH] 📊 Dados:', {
+      productId,
+      quantity,
+      movementType,
+      batchMode: batchData?.mode
+    });
+
+    // ===== VALIDAÇÕES =====
+    if (!productId || !quantity || !movementType || !batchData) {
+      return c.json({ 
+        success: false, 
+        error: 'productId, quantity, movementType e batchData são obrigatórios' 
+      }, 400);
+    }
+
+    if (quantity <= 0) {
+      return c.json({ success: false, error: 'Quantidade deve ser maior que zero' }, 400);
+    }
+
+    // Validar tipo de movimento
+    const validMovementTypes = [
+      'entrada-producao',
+      'entrada-devolucao',
+      'entrada-ajuste',
+      'saida-perda',
+      'saida-doacao',
+      'saida-ajuste',
+      'saida-consumo'
+    ];
+
+    if (!validMovementTypes.includes(movementType)) {
+      return c.json({ 
+        success: false, 
+        error: `Tipo de movimento inválido. Use: ${validMovementTypes.join(', ')}` 
+      }, 400);
+    }
+
+    // Validar mode
+    if (!['create', 'select'].includes(batchData.mode)) {
+      return c.json({ 
+        success: false, 
+        error: 'batchData.mode deve ser "create" ou "select"' 
+      }, 400);
+    }
+
+    // Validar dados conforme mode
+    if (batchData.mode === 'select' && !batchData.batchId) {
+      return c.json({ 
+        success: false, 
+        error: 'batchData.batchId é obrigatório quando mode = "select"' 
+      }, 400);
+    }
+
+    if (batchData.mode === 'create' && !batchData.batch?.batchNumber) {
+      return c.json({ 
+        success: false, 
+        error: 'batchData.batch.batchNumber é obrigatório quando mode = "create"' 
+      }, 400);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    );
+
+    // ===== BUSCAR PRODUTO =====
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .eq('company_id', auth.companyId)
+      .single();
+
+    if (productError || !product) {
+      console.error('[STOCK-MOVEMENT-BATCH] ❌ Produto não encontrado:', productError);
+      return c.json({ success: false, error: 'Produto não encontrado' }, 404);
+    }
+
+    if (!product.track_batches) {
+      return c.json({ 
+        success: false, 
+        error: 'Este produto não tem controle de lotes ativado' 
+      }, 400);
+    }
+
+    const isEntrada = movementType.startsWith('entrada');
+    const isSaida = movementType.startsWith('saida');
+
+    // ===== MODO: CRIAR NOVO LOTE =====
+    if (batchData.mode === 'create') {
+      console.log('[STOCK-MOVEMENT-BATCH] 🆕 Criando novo lote...');
+
+      // Verificar se lote já existe
+      const { data: existingBatch } = await supabase
+        .from('product_batches')
+        .select('id')
+        .eq('company_id', auth.companyId)
+        .eq('product_id', productId)
+        .eq('batch_number', batchData.batch.batchNumber)
+        .single();
+
+      if (existingBatch) {
+        return c.json({ 
+          success: false, 
+          error: `Lote ${batchData.batch.batchNumber} já existe para este produto` 
+        }, 400);
+      }
+
+      // Criar novo lote
+      const { data: newBatch, error: batchError } = await supabase
+        .from('product_batches')
+        .insert({
+          company_id: auth.companyId,
+          product_id: productId,
+          product_name: product.name,
+          batch_number: batchData.batch.batchNumber,
+          manufacturing_date: batchData.batch.manufacturingDate || null,
+          expiry_date: batchData.batch.expiryDate || null,
+          location_name: batchData.batch.locationName || null,
+          initial_quantity: quantity,
+          current_quantity: quantity,
+          status: 'Ativo',
+          notes: batchData.batch.notes || null
+        })
+        .select()
+        .single();
+
+      if (batchError || !newBatch) {
+        console.error('[STOCK-MOVEMENT-BATCH] ❌ Erro ao criar lote:', batchError);
+        return c.json({ success: false, error: 'Erro ao criar lote' }, 500);
+      }
+
+      // Registrar movimento
+      const movementTypeMap: Record<string, string> = {
+        'entrada-producao': 'ENTRADA_PRODUCAO',
+        'entrada-devolucao': 'DEVOLUCAO_FORNECEDOR',
+        'entrada-ajuste': 'ENTRADA_AJUSTE'
+      };
+
+      await supabase.from('batch_movements').insert({
+        company_id: auth.companyId,
+        product_id: productId,
+        batch_id: newBatch.id,
+        movement_type: movementTypeMap[movementType] || 'ENTRADA_PRODUCAO',
+        quantity: quantity,
+        quantity_before: 0,
+        quantity_after: quantity,
+        user_id: auth.userId,
+        notes: `Lote criado via movimentação manual (${movementType})`
+      });
+
+      // Atualizar estoque do produto
+      const newStock = product.stock_quantity + quantity;
+      await supabase
+        .from('products')
+        .update({ 
+          stock_quantity: newStock,
+          purchase_price: costPrice || product.purchase_price,
+          sale_price: sellPrice || product.sale_price,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      console.log('[STOCK-MOVEMENT-BATCH] ✅ Lote criado e estoque atualizado');
+
+      return c.json({ 
+        success: true, 
+        data: {
+          batch: newBatch,
+          newStock
+        }
+      });
+    }
+
+    // ===== MODO: USAR LOTE EXISTENTE =====
+    if (batchData.mode === 'select') {
+      console.log('[STOCK-MOVEMENT-BATCH] 📝 Atualizando lote existente...');
+
+      // Buscar lote
+      const { data: batch, error: batchError } = await supabase
+        .from('product_batches')
+        .select('*')
+        .eq('id', batchData.batchId)
+        .eq('company_id', auth.companyId)
+        .eq('product_id', productId)
+        .single();
+
+      if (batchError || !batch) {
+        console.error('[STOCK-MOVEMENT-BATCH] ❌ Lote não encontrado:', batchError);
+        return c.json({ success: false, error: 'Lote não encontrado' }, 404);
+      }
+
+      // Validar estoque para saídas
+      if (isSaida && batch.current_quantity < quantity) {
+        return c.json({ 
+          success: false, 
+          error: `Estoque insuficiente no lote. Disponível: ${batch.current_quantity} un` 
+        }, 400);
+      }
+
+      const quantityBefore = batch.current_quantity;
+      const quantityAfter = isEntrada 
+        ? quantityBefore + quantity 
+        : quantityBefore - quantity;
+
+      // Atualizar lote
+      const { error: updateError } = await supabase
+        .from('product_batches')
+        .update({ 
+          current_quantity: quantityAfter,
+          status: quantityAfter === 0 ? 'Esgotado' : batch.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', batch.id);
+
+      if (updateError) {
+        console.error('[STOCK-MOVEMENT-BATCH] ❌ Erro ao atualizar lote:', updateError);
+        return c.json({ success: false, error: 'Erro ao atualizar lote' }, 500);
+      }
+
+      // Registrar movimento
+      const movementTypeMap: Record<string, string> = {
+        'entrada-devolucao': 'DEVOLUCAO_FORNECEDOR',
+        'entrada-ajuste': 'ENTRADA_AJUSTE',
+        'saida-perda': 'SAIDA_PERDA',
+        'saida-doacao': 'SAIDA_AJUSTE',
+        'saida-ajuste': 'SAIDA_AJUSTE',
+        'saida-consumo': 'SAIDA_AJUSTE'
+      };
+
+      await supabase.from('batch_movements').insert({
+        company_id: auth.companyId,
+        product_id: productId,
+        batch_id: batch.id,
+        movement_type: movementTypeMap[movementType] || 'SAIDA_AJUSTE',
+        quantity: quantity,
+        quantity_before: quantityBefore,
+        quantity_after: quantityAfter,
+        user_id: auth.userId,
+        notes: `Movimentação manual: ${movementType}`
+      });
+
+      // Atualizar estoque do produto
+      const newStock = isEntrada 
+        ? product.stock_quantity + quantity 
+        : product.stock_quantity - quantity;
+
+      await supabase
+        .from('products')
+        .update({ 
+          stock_quantity: newStock,
+          purchase_price: costPrice || product.purchase_price,
+          sale_price: sellPrice || product.sale_price,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      console.log('[STOCK-MOVEMENT-BATCH] ✅ Lote atualizado e estoque sincronizado');
+
+      return c.json({ 
+        success: true, 
+        data: {
+          batch: { ...batch, current_quantity: quantityAfter },
+          newStock
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('[STOCK-MOVEMENT-BATCH] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA FASE 5 REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/stock-movement-with-batch [MOVIMENTAÇÃO COM LOTES]');
+
+// ==================== GET /api/batches - BUSCAR LOTES DE UM PRODUTO ====================
+
+/**
+ * GET /api/batches?productId=uuid
+ * Busca todos os lotes de um produto
+ */
+app.get('/api/batches', async (c) => {
+  try {
+    console.log('[GET-BATCHES] 📦 Requisição recebida');
+    
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth.authenticated || !auth.companyId) {
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const productId = c.req.query('productId');
+    if (!productId) {
+      return c.json({ success: false, error: 'productId é obrigatório' }, 400);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    );
+
+    // Buscar lotes ordenados por data de fabricação (FIFO)
+    const { data: batches, error } = await supabase
+      .from('product_batches')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('product_id', productId)
+      .order('manufacturing_date', { ascending: true, nullsFirst: false })
+      .order('expiry_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('[GET-BATCHES] ❌ Erro:', error);
+      return c.json({ success: false, error: 'Erro ao buscar lotes' }, 500);
+    }
+
+    console.log('[GET-BATCHES] ✅ Lotes encontrados:', batches?.length || 0);
+
+    return c.json({ success: true, data: batches || [] });
+
+  } catch (error) {
+    console.error('[GET-BATCHES] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA AUXILIAR REGISTRADA:');
+console.log('[DATA-ROUTES]    → GET /api/batches [BUSCAR LOTES DE PRODUTO]');
+
 export default app;
