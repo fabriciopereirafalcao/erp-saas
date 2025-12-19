@@ -388,8 +388,24 @@ export function Inventory() {
 
       const result = await response.json();
       console.log('[INVENTORY] ✅ Lotes encontrados:', result.data?.length || 0);
-      console.log('[INVENTORY] 📋 Detalhes dos lotes:', JSON.stringify(result.data, null, 2));
-      return result.data || [];
+      console.log('[INVENTORY] 📋 Detalhes dos lotes (snake_case):', JSON.stringify(result.data, null, 2));
+      
+      // Transformar snake_case para camelCase
+      const transformedBatches = (result.data || []).map((batch: any) => ({
+        id: batch.id,
+        batchNumber: batch.batch_number,
+        currentQuantity: batch.current_quantity,
+        expiryDate: batch.expiry_date,
+        manufacturingDate: batch.manufacturing_date,
+        locationName: batch.location_name,
+        status: batch.status,
+        initialQuantity: batch.initial_quantity,
+        reservedQuantity: batch.reserved_quantity,
+        notes: batch.notes
+      }));
+      
+      console.log('[INVENTORY] 🔄 Lotes transformados (camelCase):', JSON.stringify(transformedBatches, null, 2));
+      return transformedBatches;
       
     } catch (error: any) {
       console.error('[INVENTORY] ❌ Erro ao buscar lotes:', error);
