@@ -3867,10 +3867,19 @@ app.post('/api/product-with-initial-batch', async (c) => {
     );
 
     // 1️⃣ CRIAR PRODUTO
+    // Gerar SKU sequencial
+    const { count } = await supabaseAdmin
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', companyId);
+    
+    const nextNumber = (count || 0) + 1;
+    const generatedSku = `PROD-${String(nextNumber).padStart(3, '0')}`;
+
     const productData = {
       company_id: companyId,
       name: product.productName || product.name,
-      sku: product.sku || `PROD-${Date.now()}`,
+      sku: product.sku || generatedSku,
       category: product.category || 'Geral',
       unit: product.unit || 'un',
       purchase_price: product.purchasePrice || 0,
@@ -3958,14 +3967,18 @@ app.post('/api/product-with-initial-batch', async (c) => {
         notes: `Lote inicial criado junto com o produto. Tipo: ${initialBatch.entryType || 'Estoque Inicial'}`
       };
 
-      const { error: movementError } = await supabaseAdmin
+      console.log('[PRODUCT-WITH-BATCH] 📝 Criando movimento:', movementData);
+      const { data: createdMovement, error: movementError } = await supabaseAdmin
         .from('batch_movements')
-        .insert(movementData);
+        .insert(movementData)
+        .select()
+        .single();
 
       if (movementError) {
-        console.warn('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar movimento (não crítico):', movementError);
+        console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar movimento:', movementError);
+        console.error('[PRODUCT-WITH-BATCH] 📋 Dados do movimento:', JSON.stringify(movementData, null, 2));
       } else {
-        console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado');
+        console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado:', createdMovement.id);
       }
 
       return c.json({
