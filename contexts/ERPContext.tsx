@@ -3537,13 +3537,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     // ✅ NOVO: Registrar histórico de estoque inicial (produtos SEM lotes)
     if (itemData.currentStock > 0) {
-      // Aguardar um pouco para garantir que o produto foi salvo no backend
-      setTimeout(() => {
-        addStockMovement(newItem.id, itemData.currentStock, 'Estoque Inicial', 'Cadastro inicial do produto');
-      }, 500);
+      console.log('[INVENTORY] 📝 Criando histórico de estoque inicial...');
+      console.log('[INVENTORY] 📊 Product ID:', newItem.id);
+      console.log('[INVENTORY] 📊 Current Stock:', itemData.currentStock);
+      
+      // Criar movimento imediatamente (antes do refresh)
+      addStockMovement(newItem.id, itemData.currentStock, 'Estoque Inicial', 'Cadastro inicial do produto');
     }
     
-    // ✅ REFRESH: Aguardar 1.5s para o backend processar e recarregar do banco
+    // ✅ REFRESH: Aguardar 2s para o backend processar TUDO (produto + histórico) e recarregar
     setTimeout(async () => {
       try {
         const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
@@ -3551,10 +3553,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setInventory(refreshedInventory);
           console.log('[INVENTORY] ✅ Dados atualizados do backend (SKU sincronizado)');
         }
+        
+        // Recarregar histórico também
+        const refreshedMovements = await loadEntity<StockMovement[]>('stock-movements');
+        if (refreshedMovements && refreshedMovements.length > 0) {
+          setStockMovements(refreshedMovements);
+          console.log('[INVENTORY] ✅ Histórico atualizado do backend');
+        }
       } catch (error) {
         console.error('[INVENTORY] ⚠️ Erro ao atualizar dados:', error);
       }
-    }, 1500);
+    }, 2000);
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
@@ -3599,15 +3608,23 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const addStockMovement = (productId: string, quantity: number, reason: string, description?: string) => {
+    console.log('[STOCK MOVEMENT] 🚀 addStockMovement chamado:', { productId, quantity, reason, description });
+    
     const product = inventory.find(item => item.id === productId);
-    if (!product) return;
+    console.log('[STOCK MOVEMENT] 🔍 Produto encontrado:', product ? product.productName : 'NÃO ENCONTRADO');
+    
+    if (!product) {
+      console.error('[STOCK MOVEMENT] ❌ Produto não encontrado no inventory! Product ID:', productId);
+      console.log('[STOCK MOVEMENT] 📋 Inventory atual:', inventory.map(i => ({ id: i.id, name: i.productName })));
+      return;
+    }
 
     const previousStock = product.currentStock;
     const newStock = previousStock + quantity;
     
     // ✅ Determinar tipo baseado no reason (texto em português) ou sinal da quantidade
     let type: string;
-    if (reason.includes('Entrada') || reason.includes('Produção') || reason.includes('Devolução') || reason.includes('Compra')) {
+    if (reason.includes('Entrada') || reason.includes('Produção') || reason.includes('Devolução') || reason.includes('Compra') || reason.includes('Estoque Inicial')) {
       type = 'purchase';
     } else if (reason.includes('Saída') || reason.includes('Venda') || reason.includes('Perda') || reason.includes('Doação') || reason.includes('Consumo')) {
       type = 'sale';
@@ -3617,6 +3634,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // Fallback: usar sinal da quantidade
       type = quantity > 0 ? 'purchase' : 'sale';
     }
+    
+    console.log('[STOCK MOVEMENT] 🎯 Tipo determinado:', type, 'para reason:', reason);
     
     // Criar registro de movimentação
     const now = new Date();
@@ -3661,18 +3680,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // ✅ SALVAR NO BACKEND
     (async () => {
       try {
+        console.log('[STOCK MOVEMENT] 📡 Enviando para backend:', JSON.stringify(movement, null, 2));
         const response = await authPost(
           `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
           { data: [movement] }
         );
         
+        console.log('[STOCK MOVEMENT] 📊 Resposta do backend:', response);
+        
         if (!response.success) {
           console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', response.error);
         } else {
-          console.log('[STOCK MOVEMENT] ✅ Movimentação salva no backend');
+          console.log('[STOCK MOVEMENT] ✅ Movimentação salva no backend com sucesso!');
         }
       } catch (error) {
-        console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', error);
+        console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend (exception):', error);
       }
     })();
     

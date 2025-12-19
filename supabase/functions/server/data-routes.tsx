@@ -4026,16 +4026,19 @@ app.post('/api/product-with-initial-batch', async (c) => {
         description: `Lote inicial: ${initialBatch.batchNumber}`
       };
 
-      console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico:', historyMovementData);
-      const { error: historyError } = await supabaseAdmin
+      console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico:', JSON.stringify(historyMovementData, null, 2));
+      const { data: historyData, error: historyError } = await supabaseAdmin
         .from('stock_movements_686b5e88')
-        .insert(historyMovementData);
+        .insert(historyMovementData)
+        .select();
 
       if (historyError) {
-        console.error('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar histórico (não-fatal):', historyError);
+        console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar histórico:', historyError);
+        console.error('[PRODUCT-WITH-BATCH] 📋 Detalhes do erro:', JSON.stringify(historyError, null, 2));
         // Não bloquear o fluxo por erro no histórico
       } else {
-        console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado');
+        console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado com sucesso!');
+        console.log('[PRODUCT-WITH-BATCH] 📊 Dados do histórico:', JSON.stringify(historyData, null, 2));
       }
 
       return c.json({
