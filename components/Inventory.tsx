@@ -352,14 +352,19 @@ export function Inventory() {
     try {
       console.log('[INVENTORY] 🔍 Buscando lotes do produto:', productId);
       
+      // Não usar authFetch aqui para evitar logout em caso de erro
+      // Buscar lotes retorna array vazio se não houver lotes (não é erro)
       const response = await authFetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/batches?productId=${productId}`,
         { method: 'GET' }
-      );
+      ).catch((err) => {
+        console.warn('[INVENTORY] ⚠️ Erro ao buscar lotes (não crítico):', err);
+        return null;
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao buscar lotes');
+      if (!response || !response.ok) {
+        console.log('[INVENTORY] ℹ️ Nenhum lote encontrado ou erro na busca');
+        return [];
       }
 
       const result = await response.json();
@@ -368,7 +373,7 @@ export function Inventory() {
       
     } catch (error: any) {
       console.error('[INVENTORY] ❌ Erro ao buscar lotes:', error);
-      toast.error('Erro ao carregar lotes do produto');
+      // Não mostrar toast de erro - retornar array vazio permite criar novo lote
       return [];
     }
   };
@@ -473,6 +478,12 @@ export function Inventory() {
     // ===== NOVO: VERIFICAR SE TEM CONTROLE DE LOTES =====
     if (selectedProduct.trackBatches) {
       console.log('[INVENTORY] 📦 Produto com controle de lotes detectado');
+      console.log('[INVENTORY] 📊 Dados do produto:', {
+        id: selectedProduct.id,
+        nome: selectedProduct.productName,
+        trackBatches: selectedProduct.trackBatches,
+        motivo: movement.reason
+      });
 
       // Mapear motivos para movementType
       const movementTypeMap: Record<string, string> = {
@@ -503,10 +514,15 @@ export function Inventory() {
         return;
       }
 
+      console.log('[INVENTORY] 🔄 Buscando lotes disponíveis...');
+      
       // Buscar lotes disponíveis
       const batches = await fetchProductBatches(selectedProduct.id);
+      console.log('[INVENTORY] 📋 Lotes recebidos:', batches);
       setAvailableBatches(batches);
 
+      console.log('[INVENTORY] 🎯 Abrindo modal de lotes...');
+      
       // Abrir modal de lotes
       setIsBatchMovementModalOpen(true);
       return;

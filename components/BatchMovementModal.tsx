@@ -100,17 +100,6 @@ export function BatchMovementModal({
     }
   }, [isOpen, isEntradaProducao]);
 
-  // Auto-gerar número do lote
-  useEffect(() => {
-    if (mode === 'create' && !newBatch.batchNumber) {
-      const timestamp = Date.now().toString().slice(-6);
-      setNewBatch(prev => ({
-        ...prev,
-        batchNumber: `LOTE-${timestamp}`
-      }));
-    }
-  }, [mode, newBatch.batchNumber]);
-
   // FIFO Automático: selecionar lote mais antigo com estoque
   useEffect(() => {
     if (product?.batchFifoAuto && mode === 'select' && availableBatches.length > 0 && !selectedBatchId) {
