@@ -3954,11 +3954,22 @@ app.post('/api/product-with-initial-batch', async (c) => {
       console.log('[PRODUCT-WITH-BATCH] ✅ Lote criado:', createdBatch.id);
 
       // 3️⃣ CRIAR MOVIMENTO INICIAL
+      // Mapear tipo de entrada do frontend para ENUM do banco
+      const entryTypeMapping: Record<string, string> = {
+        'Produção': 'ENTRADA_PRODUCAO',
+        'Compra': 'ENTRADA_COMPRA',
+        'Ajuste de Estoque Inicial': 'ENTRADA_COMPRA', // Usar ENTRADA_COMPRA como fallback
+        'Outro': 'ENTRADA_COMPRA' // Usar ENTRADA_COMPRA como fallback
+      };
+
+      const movementType = entryTypeMapping[initialBatch.entryType] || 'ENTRADA_COMPRA';
+      console.log('[PRODUCT-WITH-BATCH] 🔀 Mapeando tipo:', initialBatch.entryType, '->', movementType);
+
       const movementData = {
         company_id: companyId,
         batch_id: createdBatch.id,
         product_id: createdProduct.id,
-        movement_type: 'ENTRADA_COMPRA', // ✅ Valor válido do ENUM
+        movement_type: movementType, // ✅ Mapeado corretamente do frontend
         quantity: initialBatch.quantity,
         quantity_before: 0, // ✅ Antes do movimento, estava zerado
         quantity_after: initialBatch.quantity, // ✅ Depois, ficou com a quantidade inicial
