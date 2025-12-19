@@ -3958,12 +3958,14 @@ app.post('/api/product-with-initial-batch', async (c) => {
         company_id: companyId,
         batch_id: createdBatch.id,
         product_id: createdProduct.id,
-        product_name: createdProduct.name, // ✅ Campo obrigatório
-        batch_number: createdBatch.batch_number, // ✅ Campo obrigatório
-        movement_type: 'entry',
+        movement_type: 'ENTRADA_COMPRA', // ✅ Valor válido do ENUM
         quantity: initialBatch.quantity,
-        reference_type: initialBatch.entryType || 'Estoque Inicial',
-        reference_id: null,
+        quantity_before: 0, // ✅ Antes do movimento, estava zerado
+        quantity_after: initialBatch.quantity, // ✅ Depois, ficou com a quantidade inicial
+        order_id: null,
+        order_item_id: null,
+        invoice_id: null,
+        user_id: auth.userId || null,
         notes: `Lote inicial criado junto com o produto. Tipo: ${initialBatch.entryType || 'Estoque Inicial'}`
       };
 
@@ -3977,6 +3979,13 @@ app.post('/api/product-with-initial-batch', async (c) => {
       if (movementError) {
         console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar movimento:', movementError);
         console.error('[PRODUCT-WITH-BATCH] 📋 Dados do movimento:', JSON.stringify(movementData, null, 2));
+        // ⚠️ ROLLBACK: Deletar lote e produto
+        await supabaseAdmin.from('product_batches').delete().eq('id', createdBatch.id);
+        await supabaseAdmin.from('products').delete().eq('id', createdProduct.id);
+        return c.json({ 
+          success: false, 
+          error: 'Erro ao criar movimento inicial: ' + movementError.message 
+        }, 500);
       } else {
         console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado:', createdMovement.id);
       }
@@ -3985,7 +3994,11 @@ app.post('/api/product-with-initial-batch', async (c) => {
         success: true,
         product: createdProduct,
         batch: createdBatch,
-        message: 'Produto e lote criados com sucesso'
+        movement: createdMovement,
+        productId: createdProduct.id,
+        batchId: createdBatch.id,
+        movementId: createdMovement.id,
+        message: 'Produto, lote e movimento criados com sucesso'
       });
     }
 

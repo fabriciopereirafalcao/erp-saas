@@ -3488,9 +3488,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         const result = await response.json();
         console.log('[INVENTORY] 📦 Resultado completo:', JSON.stringify(result, null, 2));
         console.log('[INVENTORY] 📦 Success?', result.success);
-        console.log('[INVENTORY] 📦 Product ID:', result.productId);
-        console.log('[INVENTORY] 📦 Batch ID:', result.batchId);
-        console.log('[INVENTORY] 📦 Movement ID:', result.movementId);
+        console.log('[INVENTORY] 📦 Product ID:', result.productId || result.product?.id);
+        console.log('[INVENTORY] 📦 Batch ID:', result.batchId || result.batch?.id);
+        console.log('[INVENTORY] 📦 Movement ID:', result.movementId || result.movement?.id);
 
         if (!result.success) {
           throw new Error(result.error || 'Erro ao criar produto com lote');
