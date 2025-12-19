@@ -720,8 +720,9 @@ export async function getProducts(companyId: string) {
     status: row.status || 'Em Estoque',
     lastRestocked: row.last_restocked || null,
     active: row.active !== false, // Soft delete - true se NULL ou true
-    // Controle de lotes
-    trackBatches: row.track_batches || false,
+    // Controle de lotes (FASE 2: Unificação de campos)
+    // Prioriza track_batches, usa requires_batch_control como fallback
+    trackBatches: row.track_batches || row.requires_batch_control || false,
     batchFifoAuto: row.batch_fifo_auto !== false, // true por padrão
     // Dados fiscais
     ncm: row.ncm || '',
@@ -736,9 +737,9 @@ export async function getProducts(companyId: string) {
     ipiRate: parseFloat(row.ipi_rate || 0),
     cfop: row.cfop || '',
     taxCustomized: row.tax_customized || false,
-    // Rastreabilidade
-    requiresBatchControl: row.requires_batch_control || false,
-    requiresExpiryDate: row.requires_expiry_date || false,
+    // Rastreabilidade (⚠️ DEPRECADO: usar trackBatches)
+    requiresBatchControl: row.track_batches || row.requires_batch_control || false,
+    requiresExpiryDate: row.track_batches || row.requires_expiry_date || false,
     defaultLocation: row.default_location || '',
     shelfLife: row.shelf_life || null
   })) || [];
@@ -841,9 +842,9 @@ export async function saveProducts(companyId: string, products: any[]) {
         ipi_rate: product.ipiRate || null,
         cfop: product.cfop || null,
         tax_customized: product.taxCustomized || false,
-        // Rastreabilidade
-        requires_batch_control: product.requiresBatchControl || false,
-        requires_expiry_date: product.requiresExpiryDate || false,
+        // Rastreabilidade (FASE 2: Sincronizar campos antigos e novos)
+        requires_batch_control: product.trackBatches || product.requiresBatchControl || false,
+        requires_expiry_date: product.trackBatches || product.requiresExpiryDate || false,
         default_location: product.defaultLocation || null,
         shelf_life: product.shelfLife || null
       })
@@ -892,9 +893,9 @@ export async function saveProducts(companyId: string, products: any[]) {
       ipi_rate: product.ipiRate || null,
       cfop: product.cfop || null,
       tax_customized: product.taxCustomized || false,
-      // Rastreabilidade
-      requires_batch_control: product.requiresBatchControl || false,
-      requires_expiry_date: product.requiresExpiryDate || false,
+      // Rastreabilidade (FASE 2: Sincronizar campos antigos e novos)
+      requires_batch_control: product.trackBatches || product.requiresBatchControl || false,
+      requires_expiry_date: product.trackBatches || product.requiresExpiryDate || false,
       default_location: product.defaultLocation || null,
       shelf_life: product.shelfLife || null
     }));
