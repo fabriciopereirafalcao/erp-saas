@@ -100,28 +100,25 @@ export function BatchMovementModal({
     }
   }, [isOpen, isEntradaProducao]);
 
-  // FIFO Automático: selecionar lote mais antigo com estoque
-  useEffect(() => {
-    if (product?.batchFifoAuto && mode === 'select' && availableBatches.length > 0 && !selectedBatchId) {
-      // Ordenar por data de fabricação (mais antigo primeiro) ou por criação
-      const sortedBatches = [...availableBatches]
-        .filter(b => b.currentQuantity > 0)
-        .sort((a, b) => {
-          if (a.manufacturingDate && b.manufacturingDate) {
-            return new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime();
-          }
-          // Se não tem data de fabricação, usar data de validade
-          if (a.expiryDate && b.expiryDate) {
-            return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
-          }
-          return 0;
-        });
-
-      if (sortedBatches.length > 0) {
-        setSelectedBatchId(sortedBatches[0].id);
-      }
-    }
-  }, [product, mode, availableBatches, selectedBatchId]);
+  // FIFO Automático: DESABILITADO - Permitir seleção manual
+  // useEffect(() => {
+  //   if (product?.batchFifoAuto && mode === 'select' && availableBatches.length > 0 && !selectedBatchId) {
+  //     const sortedBatches = [...availableBatches]
+  //       .filter(b => b.currentQuantity > 0)
+  //       .sort((a, b) => {
+  //         if (a.manufacturingDate && b.manufacturingDate) {
+  //           return new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime();
+  //         }
+  //         if (a.expiryDate && b.expiryDate) {
+  //           return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+  //         }
+  //         return 0;
+  //       });
+  //     if (sortedBatches.length > 0) {
+  //       setSelectedBatchId(sortedBatches[0].id);
+  //     }
+  //   }
+  // }, [product, mode, availableBatches, selectedBatchId]);
 
   const handleConfirm = () => {
     if (mode === 'create') {
@@ -201,7 +198,7 @@ export function BatchMovementModal({
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="select" id="select" />
                   <Label htmlFor="select" className="cursor-pointer">
-                    Usar lote existente {product?.batchFifoAuto && '(FIFO Automático)'}
+                    Usar lote existente (seleção manual)
                   </Label>
                 </div>
                 {isEntrada && (
@@ -280,14 +277,6 @@ export function BatchMovementModal({
                         </Alert>
                       )}
                     </div>
-                  )}
-
-                  {product?.batchFifoAuto && (
-                    <Alert>
-                      <AlertDescription className="text-sm">
-                        💡 <strong>FIFO Automático Ativo:</strong> O lote mais antigo foi selecionado automaticamente.
-                      </AlertDescription>
-                    </Alert>
                   )}
                 </>
               )}

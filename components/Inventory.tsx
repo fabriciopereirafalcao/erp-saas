@@ -113,7 +113,8 @@ export function Inventory() {
     quantity: "",
     reason: "",
     costPrice: "",
-    sellPrice: ""
+    sellPrice: "",
+    date: new Date().toISOString().split('T')[0] // Data atual como padrão
   });
   
   // ===== FASE 5: Estados para controle de lotes =====
@@ -478,6 +479,20 @@ export function Inventory() {
       
       toast.success('Movimentação registrada com sucesso!');
       
+      // Registrar histórico de movimentação
+      const movementTypeToLabel: Record<string, string> = {
+        'entrada-producao': 'Entrada - Produção',
+        'entrada-devolucao': 'Entrada - Devolução',
+        'entrada-ajuste': 'Entrada - Ajuste de Inventário',
+        'saida-perda': 'Saída - Perda',
+        'saida-doacao': 'Saída - Doação',
+        'saida-ajuste': 'Saída - Ajuste de Inventário',
+        'saida-consumo': 'Saída - Consumo Interno'
+      };
+      
+      const movementReason = movementTypeToLabel[movementType] || movement.reason;
+      addStockMovement(selectedProduct.id, quantity, movementReason);
+      
       // Atualizar estoque no contexto local
       updateInventoryItem(selectedProduct.id, {
         currentStock: result.data.newStock,
@@ -490,7 +505,7 @@ export function Inventory() {
       // Fechar modais e limpar estados
       setIsBatchMovementModalOpen(false);
       setIsMovementDialogOpen(false);
-      setMovement({ quantity: '', reason: '', costPrice: '', sellPrice: '' });
+      setMovement({ quantity: '', reason: '', costPrice: '', sellPrice: '', date: new Date().toISOString().split('T')[0] });
       setSelectedProduct(null);
       setAvailableBatches([]);
 
@@ -588,7 +603,7 @@ export function Inventory() {
       markup
     });
 
-    setMovement({ quantity: "", reason: "", costPrice: "", sellPrice: "" });
+    setMovement({ quantity: "", reason: "", costPrice: "", sellPrice: "", date: new Date().toISOString().split('T')[0] });
     setIsMovementDialogOpen(false);
     setSelectedProduct(null);
   };
@@ -2161,6 +2176,17 @@ export function Inventory() {
               </Select>
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="movement-date">Data da Movimentação *</Label>
+              <Input
+                id="movement-date"
+                type="date"
+                value={movement.date}
+                onChange={(e) => setMovement({...movement, date: e.target.value})}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="movement-costPrice">Novo Custo *</Label>
@@ -2223,7 +2249,7 @@ export function Inventory() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => {
               setIsMovementDialogOpen(false);
-              setMovement({ quantity: "", reason: "", costPrice: "", sellPrice: "" });
+              setMovement({ quantity: "", reason: "", costPrice: "", sellPrice: "", date: new Date().toISOString().split('T')[0] });
             }}>
               Cancelar
             </Button>
