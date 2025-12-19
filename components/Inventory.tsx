@@ -73,7 +73,13 @@ export function Inventory() {
     taxCustomized: false,
     // ✅ SPRINT 2: Controle de lotes
     trackBatches: false,
-    batchFifoAuto: true
+    batchFifoAuto: true,
+    // ✅ FASE 1: Lote Inicial Obrigatório
+    batchNumber: "",
+    manufacturingDate: "",
+    expiryDate: "",
+    entryType: "Produção",
+    otherEntryType: ""
   });
   const [editProduct, setEditProduct] = useState({
     productName: "",
@@ -184,6 +190,19 @@ export function Inventory() {
       return;
     }
 
+    // ✅ FASE 1: Validar lote inicial se controle de lotes estiver ativo
+    if (newProduct.trackBatches) {
+      if (!newProduct.batchNumber || !newProduct.manufacturingDate) {
+        toast.error("Preencha o código do lote e a data de fabricação");
+        return;
+      }
+
+      if (newProduct.entryType === "Outro" && !newProduct.otherEntryType) {
+        toast.error("Especifique o tipo de entrada");
+        return;
+      }
+    }
+
     const currentStock = Number(newProduct.currentStock);
     const reorderLevel = Number(newProduct.reorderLevel);
     const costPrice = Number(newProduct.costPrice);
@@ -221,7 +240,15 @@ export function Inventory() {
       taxCustomized: newProduct.taxCustomized,
       // ✅ SPRINT 2: Adicionar controle de lotes
       trackBatches: newProduct.trackBatches || false,
-      batchFifoAuto: newProduct.batchFifoAuto !== false
+      batchFifoAuto: newProduct.batchFifoAuto !== false,
+      // ✅ FASE 1: Dados do lote inicial (se aplicável)
+      initialBatch: newProduct.trackBatches ? {
+        batchNumber: newProduct.batchNumber,
+        manufacturingDate: newProduct.manufacturingDate,
+        expiryDate: newProduct.expiryDate || undefined,
+        entryType: newProduct.entryType === "Outro" ? newProduct.otherEntryType : newProduct.entryType,
+        quantity: currentStock
+      } : undefined
     });
 
     // Resetar formulário
@@ -247,7 +274,13 @@ export function Inventory() {
       taxCustomized: false,
       // ✅ SPRINT 2: Resetar controle de lotes
       trackBatches: false,
-      batchFifoAuto: true
+      batchFifoAuto: true,
+      // ✅ FASE 1: Resetar lote inicial
+      batchNumber: "",
+      manufacturingDate: "",
+      expiryDate: "",
+      entryType: "Produção",
+      otherEntryType: ""
     });
     setNcmError("");
     setIsDialogOpen(false);
@@ -469,7 +502,7 @@ export function Inventory() {
               </DialogHeader>
 
               <Tabs defaultValue="general" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={`grid w-full ${newProduct.trackBatches ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <TabsTrigger value="general">
                     <Package className="w-4 h-4 mr-2" />
                     Dados Gerais
@@ -478,6 +511,12 @@ export function Inventory() {
                     <Receipt className="w-4 h-4 mr-2" />
                     Dados Fiscais
                   </TabsTrigger>
+                  {newProduct.trackBatches && (
+                    <TabsTrigger value="batch">
+                      <Box className="w-4 h-4 mr-2" />
+                      Lote Inicial
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-4 mt-4">
@@ -985,6 +1024,120 @@ export function Inventory() {
                     </div>
                   </div>
                 </TabsContent>
+
+                {/* ✅ FASE 1: Aba de Lote Inicial (condicional) */}
+                {newProduct.trackBatches && (
+                  <TabsContent value="batch" className="space-y-4 mt-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-800">
+                          <strong>Lote Inicial Obrigatório:</strong> Produtos com controle de lotes exigem a criação de um lote para o estoque inicial.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                      {/* Código do Lote */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="batchNumber" className="text-right">
+                          Código do Lote *
+                        </Label>
+                        <Input
+                          id="batchNumber"
+                          value={newProduct.batchNumber}
+                          onChange={(e) => setNewProduct({...newProduct, batchNumber: e.target.value})}
+                          placeholder="Ex: LOTE-2024-001"
+                          className="col-span-3"
+                        />
+                      </div>
+
+                      {/* Tipo de Entrada */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="entryType" className="text-right">
+                          Tipo de Entrada *
+                        </Label>
+                        <Select
+                          value={newProduct.entryType}
+                          onValueChange={(value) => setNewProduct({...newProduct, entryType: value})}
+                        >
+                          <SelectTrigger className="col-span-3">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Produção">Produção</SelectItem>
+                            <SelectItem value="Compra">Compra</SelectItem>
+                            <SelectItem value="Ajuste de Estoque Inicial">Ajuste de Estoque Inicial</SelectItem>
+                            <SelectItem value="Outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Campo "Outro" (condicional) */}
+                      {newProduct.entryType === "Outro" && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="otherEntryType" className="text-right">
+                            Especificar *
+                          </Label>
+                          <Input
+                            id="otherEntryType"
+                            value={newProduct.otherEntryType}
+                            onChange={(e) => setNewProduct({...newProduct, otherEntryType: e.target.value})}
+                            placeholder="Especifique o tipo de entrada"
+                            className="col-span-3"
+                          />
+                        </div>
+                      )}
+
+                      {/* Data de Fabricação */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="manufacturingDate" className="text-right">
+                          Data de Fabricação *
+                        </Label>
+                        <Input
+                          id="manufacturingDate"
+                          type="date"
+                          value={newProduct.manufacturingDate}
+                          onChange={(e) => setNewProduct({...newProduct, manufacturingDate: e.target.value})}
+                          className="col-span-3"
+                        />
+                      </div>
+
+                      {/* Data de Validade */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="expiryDate" className="text-right">
+                          Data de Validade
+                          <span className="text-xs text-gray-500 ml-1">(Opcional)</span>
+                        </Label>
+                        <Input
+                          id="expiryDate"
+                          type="date"
+                          value={newProduct.expiryDate}
+                          onChange={(e) => setNewProduct({...newProduct, expiryDate: e.target.value})}
+                          className="col-span-3"
+                        />
+                      </div>
+
+                      {/* Quantidade (já preenchida) */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-gray-600">
+                          Quantidade do Lote
+                        </Label>
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md border">
+                            <Package className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-700">
+                              {newProduct.currentStock || "0"} {newProduct.unit}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-2">
+                              (mesma quantidade do estoque inicial)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                )}
               </Tabs>
 
               <div className="flex justify-end gap-2 mt-4 pt-4 border-t">

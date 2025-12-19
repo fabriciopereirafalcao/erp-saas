@@ -23,7 +23,7 @@ import {
 import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
-import { authGet, authPost, authPatch } from '../utils/authFetch';
+import { authGet, authPost, authPatch, authFetch } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
@@ -3451,7 +3451,47 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addInventoryItem = (itemData: Omit<InventoryItem, 'id' | 'status' | 'lastRestocked'>) => {
+  const addInventoryItem = async (itemData: Omit<InventoryItem, 'id' | 'status' | 'lastRestocked'>) => {
+    // ✅ FASE 1: Se tem lote inicial, usar endpoint dedicado
+    if ((itemData as any).initialBatch) {
+      try {
+        console.log('[INVENTORY] 📦 Criando produto com lote inicial...');
+        
+        const response = await authFetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/product-with-initial-batch`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              product: itemData,
+              initialBatch: (itemData as any).initialBatch
+            })
+          }
+        );
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao criar produto com lote');
+        }
+
+        toast.success(`Produto ${itemData.productName} e lote inicial criados com sucesso!`);
+        
+        // Recarregar dados
+        const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+        if (refreshedInventory && refreshedInventory.length > 0) {
+          setInventory(refreshedInventory);
+        }
+        
+        return;
+      } catch (error) {
+        console.error('[INVENTORY] ❌ Erro ao criar produto com lote:', error);
+        toast.error('Erro ao criar produto com lote: ' + error.message);
+        return;
+      }
+    }
+
+    // Fluxo normal (sem lote)
     let status: InventoryItem['status'] = "Em Estoque";
     
     if (itemData.currentStock === 0) {

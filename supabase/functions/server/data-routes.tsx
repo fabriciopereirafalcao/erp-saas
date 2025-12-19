@@ -3832,4 +3832,184 @@ console.log('[DATA-ROUTES]    → GET /product-batches/expiring-soon');
 console.log('[DATA-ROUTES]    → GET /api/available-batches/:productId [SPRINT 2]');
 console.log('[DATA-ROUTES]    → POST /api/allocate-batches-fifo [SPRINT 2]');
 
+// ==================== FASE 1: CRIAR PRODUTO COM LOTE INICIAL ====================
+
+/**
+ * POST /api/product-with-initial-batch
+ * Cria produto E lote inicial em transação única
+ * Body: { product: {...}, initialBatch: {...} }
+ */
+app.post('/api/product-with-initial-batch', async (c) => {
+  try {
+    console.log('[PRODUCT-WITH-BATCH] 📦 Requisição recebida');
+    
+    // Autenticação
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) {
+      return c.json({ success: false, error: 'Token de autorização ausente' }, 401);
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.error('[PRODUCT-WITH-BATCH] ❌ Erro de autenticação:', authError);
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    // Obter company_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      return c.json({ success: false, error: 'Company ID não encontrado' }, 400);
+    }
+
+    const companyId = profile.company_id;
+    const body = await c.req.json();
+    const { product, initialBatch } = body;
+
+    console.log('[PRODUCT-WITH-BATCH] 📝 Dados recebidos:', {
+      productName: product.productName,
+      batchNumber: initialBatch?.batchNumber,
+      companyId
+    });
+
+    // Usar service role para transação
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // 1️⃣ CRIAR PRODUTO
+    const productData = {
+      company_id: companyId,
+      name: product.productName || product.name,
+      sku: product.sku || `PROD-${Date.now()}`,
+      category: product.category || 'Geral',
+      unit: product.unit || 'un',
+      purchase_price: product.purchasePrice || 0,
+      cost_price: product.costPrice || 0,
+      sale_price: product.sellPrice || product.salePrice || product.pricePerUnit || 0,
+      markup: product.markup || 0,
+      stock_quantity: product.currentStock || product.stockQuantity || 0,
+      min_stock: product.minStock || 0,
+      max_stock: product.maxStock || 0,
+      reorder_level: product.reorderLevel || 0,
+      status: product.status || 'Em Estoque',
+      last_restocked: product.lastRestocked || null,
+      active: product.active !== undefined ? product.active : true,
+      // Controle de lotes
+      track_batches: product.trackBatches || false,
+      batch_fifo_auto: product.batchFifoAuto !== undefined ? product.batchFifoAuto : true,
+      // Dados fiscais
+      ncm: product.ncm || null,
+      cest: product.cest || null,
+      origin: product.origin || null,
+      service_code: product.serviceCode || null,
+      csosn: product.csosn || null,
+      cst: product.cst || null,
+      icms_rate: product.icmsRate || null,
+      pis_rate: product.pisRate || null,
+      cofins_rate: product.cofinsRate || null,
+      ipi_rate: product.ipiRate || null,
+      cfop: product.cfop || null,
+      tax_customized: product.taxCustomized || false
+    };
+
+    const { data: createdProduct, error: productError } = await supabaseAdmin
+      .from('products')
+      .insert(productData)
+      .select()
+      .single();
+
+    if (productError) {
+      console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar produto:', productError);
+      return c.json({ success: false, error: productError.message }, 500);
+    }
+
+    console.log('[PRODUCT-WITH-BATCH] ✅ Produto criado:', createdProduct.id);
+
+    // 2️⃣ CRIAR LOTE INICIAL (se aplicável)
+    if (initialBatch && product.trackBatches) {
+      const batchData = {
+        company_id: companyId,
+        product_id: createdProduct.id,
+        batch_number: initialBatch.batchNumber,
+        manufacturing_date: initialBatch.manufacturingDate || null,
+        expiry_date: initialBatch.expiryDate || null,
+        initial_quantity: initialBatch.quantity,
+        current_quantity: initialBatch.quantity,
+        status: 'Ativo'
+      };
+
+      const { data: createdBatch, error: batchError } = await supabaseAdmin
+        .from('product_batches')
+        .insert(batchData)
+        .select()
+        .single();
+
+      if (batchError) {
+        console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar lote:', batchError);
+        // Rollback: deletar produto
+        await supabaseAdmin.from('products').delete().eq('id', createdProduct.id);
+        return c.json({ success: false, error: 'Erro ao criar lote: ' + batchError.message }, 500);
+      }
+
+      console.log('[PRODUCT-WITH-BATCH] ✅ Lote criado:', createdBatch.id);
+
+      // 3️⃣ CRIAR MOVIMENTO INICIAL
+      const movementData = {
+        company_id: companyId,
+        batch_id: createdBatch.id,
+        product_id: createdProduct.id,
+        movement_type: 'entry',
+        quantity: initialBatch.quantity,
+        reference_type: initialBatch.entryType || 'Estoque Inicial',
+        reference_id: null,
+        notes: `Lote inicial criado junto com o produto. Tipo: ${initialBatch.entryType || 'Estoque Inicial'}`
+      };
+
+      const { error: movementError } = await supabaseAdmin
+        .from('batch_movements')
+        .insert(movementData);
+
+      if (movementError) {
+        console.warn('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar movimento (não crítico):', movementError);
+      } else {
+        console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado');
+      }
+
+      return c.json({
+        success: true,
+        product: createdProduct,
+        batch: createdBatch,
+        message: 'Produto e lote criados com sucesso'
+      });
+    }
+
+    // Produto sem lote
+    return c.json({
+      success: true,
+      product: createdProduct,
+      message: 'Produto criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[PRODUCT-WITH-BATCH] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA FASE 1 REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/product-with-initial-batch [LOTE OBRIGATÓRIO]');
+
 export default app;
