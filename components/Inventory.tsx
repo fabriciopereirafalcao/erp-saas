@@ -500,24 +500,8 @@ export function Inventory() {
       
       toast.success('Movimentação registrada com sucesso!');
       
-      // Registrar histórico de movimentação
-      const movementTypeToLabel: Record<string, string> = {
-        'entrada-producao': 'Entrada - Produção',
-        'entrada-devolucao': 'Entrada - Devolução',
-        'entrada-ajuste': 'Entrada - Ajuste de Inventário',
-        'saida-perda': 'Saída - Perda',
-        'saida-doacao': 'Saída - Doação',
-        'saida-ajuste': 'Saída - Ajuste de Inventário',
-        'saida-consumo': 'Saída - Consumo Interno'
-      };
-      
-      const movementReason = movementTypeToLabel[movementType] || movement.reason;
-      
-      // ✅ Detectar se é saída e aplicar sinal negativo
-      const isOutbound = movementType.startsWith('saida');
-      const signedQuantity = isOutbound ? -quantity : quantity;
-      
-      addStockMovement(selectedProduct.id, signedQuantity, movementReason);
+      // ❌ NÃO registrar aqui - backend já criou em stock_movements!
+      // O backend já cria o movimento via createStockMovement()
       
       // Atualizar estoque no contexto local
       updateInventoryItem(selectedProduct.id, {
@@ -2368,7 +2352,11 @@ export function Inventory() {
                               <div>
                                 <p className="text-sm">
                                   {movement.date 
-                                    ? new Date(movement.date).toLocaleDateString('pt-BR')
+                                    ? (() => {
+                                        // Backend já envia YYYY-MM-DD, converter para DD/MM/YYYY
+                                        const [year, month, day] = movement.date.split('-');
+                                        return `${day}/${month}/${year}`;
+                                      })()
                                     : '-'
                                   }
                                 </p>

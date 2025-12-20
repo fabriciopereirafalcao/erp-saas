@@ -256,8 +256,8 @@ app.post('/inventory/create', async (c) => {
         purchase_price: product.costPrice || 0,
         sale_price: product.sellPrice || 0,
         min_stock_level: product.reorderLevel || 0,
-        track_batches: product.trackBatches || false,
-        location: product.location || null
+        track_batches: product.trackBatches || false
+        // ❌ Removido 'location' - coluna não existe na tabela
       })
       .select()
       .single();
@@ -280,7 +280,7 @@ app.post('/inventory/create', async (c) => {
       sellPrice: createdProduct.sale_price,
       reorderLevel: createdProduct.min_stock_level,
       trackBatches: createdProduct.track_batches,
-      location: createdProduct.location,
+      // ❌ Removido 'location' - coluna não existe
       status: createdProduct.stock_quantity === 0 ? 'Fora de Estoque' : 
               createdProduct.stock_quantity <= createdProduct.min_stock_level ? 'Baixo Estoque' : 
               'Em Estoque'
