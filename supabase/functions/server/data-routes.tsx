@@ -210,6 +210,43 @@ app.post('/inventory', async (c) => {
   }
 });
 
+// ✅ NOVO: Criar produto individual (retorna UUID)
+app.post('/inventory/create', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const product = await c.req.json();
+    
+    console.log(`[INVENTORY] 📝 Criando produto individual: ${product.productName}`);
+    
+    // Salvar como array de 1 produto para reutilizar lógica existente
+    const result = await sqlService.saveProducts(auth.companyId, [product]);
+    
+    // Recarregar para pegar o produto com UUID correto
+    const allProducts = await sqlService.getProducts(auth.companyId);
+    const createdProduct = allProducts.find(p => p.productName === product.productName);
+    
+    if (!createdProduct) {
+      throw new Error('Produto criado mas não encontrado ao recarregar');
+    }
+    
+    console.log(`[INVENTORY] ✅ Produto criado com UUID: ${createdProduct.id}`);
+    
+    return c.json({
+      success: true,
+      data: createdProduct,
+      message: 'Produto criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[INVENTORY] ❌ Erro ao criar produto:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - SALES ORDERS ====================
 
 // ✅ NOVA ROTA: Criar pedido único com SKU gerado imediatamente
@@ -460,6 +497,31 @@ app.post('/stock-movements', async (c) => {
 
   } catch (error) {
     console.error('[STOCK MOVEMENTS] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ✅ NOVO: Criar movimento individual (cadastro inicial, movimentações manuais)
+app.post('/stock-movements/create', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const movement = await c.req.json();
+    
+    console.log(`[STOCK MOVEMENTS] 📝 Criando movimento individual para produto ${movement.productId}`);
+    const result = await sqlService.createStockMovement(auth.companyId, movement);
+    
+    return c.json({
+      success: true,
+      data: result,
+      message: 'Movimento criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[STOCK MOVEMENTS] ❌ Erro ao criar movimento:', error);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -4001,8 +4063,8 @@ app.post('/api/product-with-initial-batch', async (c) => {
         console.log('[PRODUCT-WITH-BATCH] ✅ Movimento inicial criado:', createdMovement.id);
       }
 
-      // 4️⃣ CRIAR REGISTRO NO HISTÓRICO (stock_movements_686b5e88)
-      // Mapear tipo de entrada para o histórico (português)
+      // 4️⃣ CRIAR REGISTRO NO HISTÓRICO (stock_movements)
+      // Usar a nova função createStockMovement
       const historyReasonMap: Record<string, string> = {
         'Produção': 'Entrada - Produção',
         'Compra': 'Entrada - Compra',
@@ -4012,33 +4074,21 @@ app.post('/api/product-with-initial-batch', async (c) => {
 
       const historyReason = historyReasonMap[initialBatch.entryType] || 'Estoque Inicial';
       
-      const historyMovementData = {
-        company_id: companyId,
-        product_id: createdProduct.id,
-        product_name: createdProduct.name,
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toTimeString().split(' ')[0],
-        type: 'purchase', // Sempre entrada no cadastro inicial
-        quantity: initialBatch.quantity,
-        previous_stock: 0,
-        new_stock: initialBatch.quantity,
-        reason: historyReason,
-        description: `Lote inicial: ${initialBatch.batchNumber}`
-      };
-
-      console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico:', JSON.stringify(historyMovementData, null, 2));
-      const { data: historyData, error: historyError } = await supabaseAdmin
-        .from('stock_movements_686b5e88')
-        .insert(historyMovementData)
-        .select();
-
-      if (historyError) {
-        console.error('[PRODUCT-WITH-BATCH] ❌ Erro ao criar histórico:', historyError);
-        console.error('[PRODUCT-WITH-BATCH] 📋 Detalhes do erro:', JSON.stringify(historyError, null, 2));
+      try {
+        console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico em stock_movements...');
+        await sqlService.createStockMovement(companyId, {
+          productId: createdProduct.id,  // UUID do produto
+          type: 'purchase',  // Sempre entrada no cadastro inicial
+          quantity: initialBatch.quantity,
+          referenceId: createdBatch.id,  // ✅ Vincular com o lote
+          referenceType: 'batch',
+          notes: `${historyReason} - Lote: ${initialBatch.batchNumber}`,
+          batchId: createdBatch.id
+        });
+        console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado em stock_movements!');
+      } catch (historyError) {
+        console.error('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar histórico (não-fatal):', historyError);
         // Não bloquear o fluxo por erro no histórico
-      } else {
-        console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado com sucesso!');
-        console.log('[PRODUCT-WITH-BATCH] 📊 Dados do histórico:', JSON.stringify(historyData, null, 2));
       }
 
       return c.json({

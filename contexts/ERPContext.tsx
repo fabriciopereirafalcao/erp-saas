@@ -3521,97 +3521,76 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
 
     // Fluxo normal (sem lote)
-    let status: InventoryItem['status'] = "Em Estoque";
-    
-    if (itemData.currentStock === 0) {
-      status = "Fora de Estoque";
-    } else if (itemData.currentStock <= itemData.reorderLevel) {
-      status = "Baixo Estoque";
-    }
+    try {
+      console.log('[INVENTORY] 📦 Criando produto SEM lote no backend...');
+      
+      // 1️⃣ Criar produto no backend para pegar o UUID real
+      const productResponse = await authPost(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/inventory/create`,
+        itemData
+      );
 
-    const newItem: InventoryItem = {
-      ...itemData,
-      id: `PROD-${String(inventory.length + 1).padStart(3, '0')}`,
-      status,
-      lastRestocked: new Date().toISOString().split('T')[0]
-    };
+      if (!productResponse.success || !productResponse.data) {
+        throw new Error(productResponse.error || 'Erro ao criar produto no backend');
+      }
 
-    setInventory(prev => [...prev, newItem]);
-    
-    // Atualizar tabela de preço padrão automaticamente
-    updateDefaultPriceTable(newItem.productName, newItem.sellPrice);
-    
-    toast.success(`Produto ${newItem.productName} adicionado ao estoque!`);
+      const createdProduct = productResponse.data;
+      console.log('[INVENTORY] ✅ Produto criado no backend - UUID:', createdProduct.id);
 
-    // ✅ NOVO: Registrar histórico de estoque inicial (produtos SEM lotes)
-    if (itemData.currentStock > 0) {
-      console.log('[INVENTORY] 📝 Criando histórico de estoque inicial...');
-      console.log('[INVENTORY] 📊 Product ID:', newItem.id);
-      console.log('[INVENTORY] 📊 Current Stock:', itemData.currentStock);
-      
-      // Criar movimento DIRETAMENTE sem depender do estado inventory
-      const now = new Date();
-      const uniqueSuffix = Math.random().toString(36).substring(2, 9);
-      const initialMovement: StockMovement = {
-        id: `MOV-${Date.now()}-${uniqueSuffix}`,
-        productId: newItem.id,
-        productName: newItem.productName,
-        date: now.toISOString().split('T')[0],
-        time: now.toTimeString().split(' ')[0],
-        type: 'purchase',
-        quantity: itemData.currentStock,
-        previousStock: 0,
-        newStock: itemData.currentStock,
-        reason: 'Estoque Inicial',
-        description: 'Cadastro inicial do produto'
-      };
-      
-      console.log('[INVENTORY] 📦 Movimento criado:', initialMovement);
-      
-      // Adicionar ao estado local
-      setStockMovements(prev => [initialMovement, ...prev]);
-      
-      // Salvar no backend
-      (async () => {
+      // 2️⃣ Se tem estoque inicial, criar movimento no histórico
+      if (itemData.currentStock > 0) {
+        console.log('[INVENTORY] 📝 Criando histórico de estoque inicial...');
+        
         try {
-          console.log('[INVENTORY] 📡 Salvando movimento no backend...');
-          const response = await authPost(
-            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
-            { data: [initialMovement] }
+          const movementResponse = await authPost(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements/create`,
+            {
+              productId: createdProduct.id,  // ✅ UUID real do backend
+              type: 'purchase',
+              quantity: itemData.currentStock,
+              notes: 'Estoque Inicial - Cadastro do produto'
+            }
           );
-          
-          console.log('[INVENTORY] 📊 Resposta do backend:', response);
-          
-          if (!response.success) {
-            console.error('[INVENTORY] ❌ Erro ao salvar movimento:', response.error);
+
+          if (movementResponse.success) {
+            console.log('[INVENTORY] ✅ Histórico criado no backend!');
           } else {
-            console.log('[INVENTORY] ✅ Movimento de estoque inicial salvo no backend!');
+            console.error('[INVENTORY] ⚠️ Erro ao criar histórico:', movementResponse.error);
+          }
+        } catch (histError) {
+          console.error('[INVENTORY] ⚠️ Erro ao criar histórico (não-fatal):', histError);
+        }
+      }
+
+      // 3️⃣ Atualizar tabela de preço padrão
+      updateDefaultPriceTable(createdProduct.productName, createdProduct.sellPrice);
+      
+      toast.success(`Produto ${createdProduct.productName} adicionado ao estoque!`);
+
+      // 4️⃣ Recarregar dados do backend
+      setTimeout(async () => {
+        try {
+          const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+          if (refreshedInventory && refreshedInventory.length > 0) {
+            setInventory(refreshedInventory);
+            console.log('[INVENTORY] ✅ Produtos atualizados do backend');
+          }
+          
+          const refreshedMovements = await loadEntity<StockMovement[]>('stock-movements');
+          if (refreshedMovements && refreshedMovements.length > 0) {
+            setStockMovements(refreshedMovements);
+            console.log('[INVENTORY] ✅ Histórico atualizado do backend');
           }
         } catch (error) {
-          console.error('[INVENTORY] ❌ Erro ao salvar movimento (exception):', error);
+          console.error('[INVENTORY] ⚠️ Erro ao atualizar dados:', error);
         }
-      })();
+      }, 1500);
+
+    } catch (error) {
+      console.error('[INVENTORY] ❌ Erro ao criar produto:', error);
+      toast.error('Erro ao criar produto: ' + error.message);
+      return;
     }
-    
-    // ✅ REFRESH: Aguardar 2s para o backend processar TUDO (produto + histórico) e recarregar
-    setTimeout(async () => {
-      try {
-        const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
-        if (refreshedInventory && refreshedInventory.length > 0) {
-          setInventory(refreshedInventory);
-          console.log('[INVENTORY] ✅ Dados atualizados do backend (SKU sincronizado)');
-        }
-        
-        // Recarregar histórico também
-        const refreshedMovements = await loadEntity<StockMovement[]>('stock-movements');
-        if (refreshedMovements && refreshedMovements.length > 0) {
-          setStockMovements(refreshedMovements);
-          console.log('[INVENTORY] ✅ Histórico atualizado do backend');
-        }
-      } catch (error) {
-        console.error('[INVENTORY] ⚠️ Erro ao atualizar dados:', error);
-      }
-    }, 2000);
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {

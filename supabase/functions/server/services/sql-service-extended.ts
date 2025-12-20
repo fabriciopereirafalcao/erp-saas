@@ -1421,6 +1421,50 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
   return { success: true, count: movements.length };
 }
 
+/**
+ * ✅ NOVA FUNÇÃO: Criar movimento individual de estoque
+ * Usado para cadastro inicial e movimentações manuais
+ */
+export async function createStockMovement(companyId: string, movement: {
+  productId: string;  // UUID do produto
+  type: string;
+  quantity: number;
+  referenceId?: string;
+  referenceType?: string;
+  notes?: string;
+  batchId?: string;  // ✅ NOVO: Para integrar com batch_movements
+}) {
+  const supabase = getSupabaseClient();
+
+  console.log(`[SQL_SERVICE] 📝 Criando stock movement para produto ${movement.productId}`);
+
+  const row = {
+    company_id: companyId,
+    product_id: movement.productId,  // Já deve ser UUID
+    type: movement.type,
+    quantity: movement.quantity,
+    reference_id: movement.referenceId || null,
+    reference_type: movement.referenceType || null,
+    notes: movement.notes || null
+  };
+
+  console.log('[SQL_SERVICE] 📊 Dados do movimento:', row);
+
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao criar stock movement:', error);
+    throw new Error(error.message);
+  }
+
+  console.log('[SQL_SERVICE] ✅ Stock movement criado:', data.id);
+  return data;
+}
+
 // ==================== FINANCIAL TRANSACTIONS ====================
 
 // Helper: Validar se é UUID válido
@@ -1998,6 +2042,7 @@ export const sqlServiceExtended = {
   createFinancialTransaction, // ✅ Nova função para criar transação única
   getStockMovements,
   saveStockMovements,
+  createStockMovement, // ✅ NOVO: Criar movimento individual
   getFinancialTransactions,
   saveFinancialTransactions,
   getAccountsReceivable,
