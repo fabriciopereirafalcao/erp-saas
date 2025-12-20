@@ -1358,34 +1358,58 @@ export async function getStockMovements(companyId: string) {
   }
 
   return data?.map((row: any) => {
-    // Converter created_at para date e time
-    // ✅ Ajustar para timezone GMT-3 (São Paulo)
+    // ✅ Extrair movementReason do notes estruturado: [REASON]|notes
+    let movementReason = 'Ajuste';
+    let cleanNotes = row.notes || '';
+    
+    if (cleanNotes && cleanNotes.startsWith('[')) {
+      const match = cleanNotes.match(/^\[([^\]]+)\]\|?(.*)$/);
+      if (match) {
+        movementReason = match[1];
+        cleanNotes = match[2] || '';
+      }
+    }
+    
+    // Converter created_at para date e time com timezone GMT-3
     const createdAt = row.created_at ? new Date(row.created_at) : null;
     let dateStr = null;
     let timeStr = '';
     
     if (createdAt) {
-      // Converter para GMT-3 (São Paulo)
-      const offsetMs = -3 * 60 * 60 * 1000; // -3 horas em ms
-      const localDate = new Date(createdAt.getTime() + offsetMs);
-      dateStr = localDate.toISOString().split('T')[0];
-      timeStr = localDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
+      // ✅ CORRIGIDO: Usar toLocaleString com timezone São Paulo
+      const localDateStr = createdAt.toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      // Formato: DD/MM/YYYY, HH:MM:SS
+      const [datePart, timePart] = localDateStr.split(', ');
+      const [day, month, year] = datePart.split('/');
+      dateStr = `${year}-${month}-${day}`;  // YYYY-MM-DD
+      timeStr = timePart;  // HH:MM:SS
     }
     
     return {
       id: row.id,
       productId: row.product_id,
-      productName: '', // Não temos esse campo na tabela SQL
+      productName: '',
       type: row.type,
-      quantity: parseFloat(row.quantity),
+      quantity: parseFloat(row.quantity),  // ✅ Sempre positivo
+      movementReason: movementReason,  // ✅ NOVO: Produção, Compra, Venda, etc
       date: dateStr,
       time: timeStr,
       previousStock: parseFloat(row.previous_stock || 0),
       newStock: parseFloat(row.new_stock || 0),
-      reason: row.reason || '',
+      reason: movementReason,  // Manter compatibilidade
       referenceId: row.reference_id,
       referenceType: row.reference_type,
-      notes: row.notes || ''
+      notes: cleanNotes
     };
   }) || [];
 }
@@ -1440,23 +1464,34 @@ export async function createStockMovement(companyId: string, movement: {
   productId: string;  // UUID do produto
   type: string;
   quantity: number;
+  direction?: 'in' | 'out';  // ✅ NOVO: Direção
+  movementReason?: string;  // ✅ NOVO: Produção, Compra, Venda, etc
   referenceId?: string;
   referenceType?: string;
   notes?: string;
-  batchId?: string;  // ✅ NOVO: Para integrar com batch_movements
+  batchId?: string;
 }) {
   const supabase = getSupabaseClient();
 
   console.log(`[SQL_SERVICE] 📝 Criando stock movement para produto ${movement.productId}`);
 
+  // ✅ Garantir quantity sempre positiva
+  const absoluteQuantity = Math.abs(movement.quantity);
+  
+  // ✅ Construir notes estruturado: [REASON]|notes
+  const movementReason = movement.movementReason || 'Ajuste';
+  const structuredNotes = movement.notes 
+    ? `[${movementReason}]|${movement.notes}`
+    : `[${movementReason}]`;
+
   const row = {
     company_id: companyId,
-    product_id: movement.productId,  // Já deve ser UUID
+    product_id: movement.productId,
     type: movement.type,
-    quantity: movement.quantity,
+    quantity: absoluteQuantity,  // ✅ Sempre positivo
     reference_id: movement.referenceId || null,
     reference_type: movement.referenceType || null,
-    notes: movement.notes || null
+    notes: structuredNotes
   };
 
   console.log('[SQL_SERVICE] 📊 Dados do movimento:', row);

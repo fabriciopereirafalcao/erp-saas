@@ -222,22 +222,73 @@ app.post('/inventory/create', async (c) => {
     
     console.log(`[INVENTORY] 📝 Criando produto individual: ${product.productName}`);
     
-    // Salvar como array de 1 produto para reutilizar lógica existente
-    const result = await sqlService.saveProducts(auth.companyId, [product]);
-    
-    // Recarregar para pegar o produto com UUID correto
-    const allProducts = await sqlService.getProducts(auth.companyId);
-    const createdProduct = allProducts.find(p => p.productName === product.productName);
-    
-    if (!createdProduct) {
-      throw new Error('Produto criado mas não encontrado ao recarregar');
+    // ✅ Inserir diretamente (não usar saveProducts que deleta tudo)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    );
+
+    // Gerar SKU se não existir
+    if (!product.id || product.id.startsWith('PROD-')) {
+      const { data: existingProducts } = await supabaseAdmin
+        .from('products')
+        .select('sku')
+        .eq('company_id', auth.companyId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const nextNumber = existingProducts && existingProducts.length > 0
+        ? parseInt(existingProducts[0].sku.replace('PROD-', '')) + 1
+        : 1;
+      
+      product.id = `PROD-${String(nextNumber).padStart(3, '0')}`;
+    }
+
+    const { data: createdProduct, error } = await supabaseAdmin
+      .from('products')
+      .insert({
+        company_id: auth.companyId,
+        sku: product.id,
+        name: product.productName,
+        category: product.category || null,
+        unit: product.unit || 'un',
+        stock_quantity: product.currentStock || 0,
+        purchase_price: product.costPrice || 0,
+        sale_price: product.sellPrice || 0,
+        min_stock_level: product.reorderLevel || 0,
+        track_batches: product.trackBatches || false,
+        location: product.location || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[INVENTORY] ❌ Erro ao inserir produto:', error);
+      throw new Error(error.message);
     }
     
     console.log(`[INVENTORY] ✅ Produto criado com UUID: ${createdProduct.id}`);
     
+    // ✅ Retornar no formato esperado pelo frontend
+    const formattedProduct = {
+      id: createdProduct.id,  // UUID
+      productName: createdProduct.name,
+      category: createdProduct.category,
+      unit: createdProduct.unit,
+      currentStock: createdProduct.stock_quantity,
+      costPrice: createdProduct.purchase_price,
+      sellPrice: createdProduct.sale_price,
+      reorderLevel: createdProduct.min_stock_level,
+      trackBatches: createdProduct.track_batches,
+      location: createdProduct.location,
+      status: createdProduct.stock_quantity === 0 ? 'Fora de Estoque' : 
+              createdProduct.stock_quantity <= createdProduct.min_stock_level ? 'Baixo Estoque' : 
+              'Em Estoque'
+    };
+    
     return c.json({
       success: true,
-      data: createdProduct,
+      data: formattedProduct,
       message: 'Produto criado com sucesso'
     });
 
@@ -4072,35 +4123,34 @@ app.post('/api/product-with-initial-batch', async (c) => {
         'Outro': 'Estoque Inicial'
       };
 
-      const historyReason = historyReasonMap[initialBatch.entryType] || 'Estoque Inicial';
-      
-      // ✅ Mapear tipo de entrada para stock_movements
-      const stockMovementTypeMap: Record<string, string> = {
-        'Produção': 'adjustment',  // Produção = ajuste/entrada de fabricação
-        'Compra': 'purchase',      // Compra = compra de fornecedor
-        'Ajuste de Estoque Inicial': 'adjustment',
-        'Outro': 'adjustment'
+      // ✅ Mapear tipo de entrada para movementReason
+      const reasonMap: Record<string, string> = {
+        'Produção': 'Produção',
+        'Compra': 'Compra',
+        'Ajuste de Estoque Inicial': 'Ajuste',
+        'Outro': 'Ajuste'
       };
       
-      const stockMovementType = stockMovementTypeMap[initialBatch.entryType] || 'adjustment';
+      const movementReason = reasonMap[initialBatch.entryType] || 'Ajuste';
       
       try {
         console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico em stock_movements...');
-        console.log('[PRODUCT-WITH-BATCH] 🔀 Tipo mapeado:', initialBatch.entryType, '->', stockMovementType);
+        console.log('[PRODUCT-WITH-BATCH] 🔀 Tipo mapeado:', initialBatch.entryType, '->', movementReason);
         
         await sqlService.createStockMovement(companyId, {
-          productId: createdProduct.id,  // UUID do produto
-          type: stockMovementType,  // ✅ Tipo correto mapeado
+          productId: createdProduct.id,
+          type: 'adjustment',  // ✅ Usar 'adjustment' para cadastro inicial
           quantity: initialBatch.quantity,
-          referenceId: createdBatch.id,  // ✅ Vincular com o lote
+          direction: 'in',
+          movementReason: movementReason,  // ✅ NOVO: Produção, Compra, Ajuste
+          referenceId: createdBatch.id,
           referenceType: 'batch',
-          notes: `${historyReason} - Lote: ${initialBatch.batchNumber}`,
+          notes: `Lote inicial: ${initialBatch.batchNumber}`,
           batchId: createdBatch.id
         });
         console.log('[PRODUCT-WITH-BATCH] ✅ Histórico criado em stock_movements!');
       } catch (historyError) {
         console.error('[PRODUCT-WITH-BATCH] ⚠️ Erro ao criar histórico (não-fatal):', historyError);
-        // Não bloquear o fluxo por erro no histórico
       }
 
       return c.json({
@@ -4340,19 +4390,21 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
       // ✅ NOVO: Criar registro em stock_movements para histórico
       try {
-        const stockTypeMap: Record<string, string> = {
-          'entrada-producao': 'adjustment',
-          'entrada-devolucao': 'return',
-          'entrada-ajuste': 'adjustment'
+        const reasonMap: Record<string, string> = {
+          'entrada-producao': 'Produção',
+          'entrada-devolucao': 'Devolução',
+          'entrada-ajuste': 'Ajuste'
         };
 
         await sqlService.createStockMovement(auth.companyId, {
           productId: productId,
-          type: stockTypeMap[movementType] || 'adjustment',
+          type: 'adjustment',
           quantity: quantity,
+          direction: 'in',
+          movementReason: reasonMap[movementType] || 'Ajuste',
           referenceId: newBatch.id,
           referenceType: 'batch',
-          notes: `Movimentação manual: ${movementType} - Lote: ${batchData.batch.batchNumber}`
+          notes: `Lote: ${batchData.batch.batchNumber}`
         });
         console.log('[STOCK-MOVEMENT-BATCH] ✅ Histórico criado em stock_movements');
       } catch (histError) {
@@ -4455,22 +4507,24 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
       // ✅ NOVO: Criar registro em stock_movements para histórico
       try {
-        const stockTypeMap: Record<string, string> = {
-          'entrada-devolucao': 'return',
-          'entrada-ajuste': 'adjustment',
-          'saida-perda': 'adjustment',
-          'saida-doacao': 'adjustment',
-          'saida-ajuste': 'adjustment',
-          'saida-consumo': 'adjustment'
+        const reasonMap: Record<string, string> = {
+          'entrada-devolucao': 'Devolução',
+          'entrada-ajuste': 'Ajuste',
+          'saida-perda': 'Perda',
+          'saida-doacao': 'Doação',
+          'saida-ajuste': 'Ajuste',
+          'saida-consumo': 'Consumo'
         };
 
         await sqlService.createStockMovement(auth.companyId, {
           productId: productId,
-          type: stockTypeMap[movementType] || 'adjustment',
-          quantity: isEntrada ? quantity : -quantity,  // ✅ Negativo para saídas
+          type: 'adjustment',
+          quantity: quantity,  // ✅ Sempre positivo
+          direction: isEntrada ? 'in' : 'out',  // ✅ Direção correta
+          movementReason: reasonMap[movementType] || 'Ajuste',
           referenceId: batch.id,
           referenceType: 'batch',
-          notes: `Movimentação manual: ${movementType} - Lote: ${batch.batch_number}`
+          notes: `Lote: ${batch.batch_number}`
         });
         console.log('[STOCK-MOVEMENT-BATCH] ✅ Histórico criado em stock_movements');
       } catch (histError) {

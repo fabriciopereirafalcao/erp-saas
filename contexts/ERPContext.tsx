@@ -431,13 +431,17 @@ export interface StockMovement {
   productName: string;
   date: string;
   time: string;
-  type: "purchase" | "sale" | "adjustment" | "return" | "transfer"; // ✅ CORRIGIDO: valores aceitos pelo banco
+  type: "purchase" | "sale" | "adjustment" | "return" | "transfer";
   quantity: number;
+  movementReason?: string; // ✅ NOVO: Produção, Compra, Venda, Perda, etc
   previousStock: number;
   newStock: number;
   reason: string;
   description?: string;
   reference?: string;
+  referenceId?: string;
+  referenceType?: string;
+  notes?: string;
   // MED-005: Campos de rastreabilidade
   batchNumber?: string; // Número do lote
   expiryDate?: string; // Data de validade (YYYY-MM-DD)
@@ -3546,9 +3550,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
             `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements/create`,
             {
               productId: createdProduct.id,  // ✅ UUID real do backend
-              type: 'purchase',
+              type: 'adjustment',
               quantity: itemData.currentStock,
-              notes: 'Estoque Inicial - Cadastro do produto'
+              direction: 'in',
+              movementReason: 'Ajuste',  // ✅ NOVO
+              notes: 'Cadastro do produto'
             }
           );
 

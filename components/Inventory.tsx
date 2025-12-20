@@ -22,21 +22,25 @@ import { BatchMovementModal } from "./BatchMovementModal";
 import { projectId } from "../utils/supabase/info";
 import { authFetch, getAccessToken } from "../utils/authFetch";
 
-// ✅ Helper para mapear tipos do banco (inglês) para labels em português
-const getMovementTypeLabel = (type: string): string => {
-  const labels: Record<string, string> = {
-    'purchase': 'Entrada',
-    'sale': 'Saída',
-    'adjustment': 'Ajuste',
-    'return': 'Devolução',
-    'transfer': 'Transferência'
-  };
-  return labels[type] || type;
+// ✅ Helper para mapear movementReason para label
+const getMovementTypeLabel = (movementReason?: string): string => {
+  return movementReason || 'Ajuste';
 };
 
-// ✅ Helper para verificar se é entrada (purchase, return, adjustment de entrada)
-const isInboundMovement = (type: string): boolean => {
-  return ['purchase', 'return', 'adjustment-in', 'production'].includes(type);
+// ✅ Helper para verificar se é entrada baseado em movementReason
+const isInboundMovement = (movementReason?: string): boolean => {
+  // Entradas: Produção, Compra, Devolução, Ajuste (entradas)
+  const inboundReasons = ['Produção', 'Compra', 'Devolução', 'Ajuste'];
+  // Saídas: Venda, Perda, Doação, Consumo
+  const outboundReasons = ['Venda', 'Perda', 'Doação', 'Consumo'];
+  
+  // Se é explicitamente saída, retornar false
+  if (outboundReasons.includes(movementReason || '')) {
+    return false;
+  }
+  
+  // Caso contrário, assumir entrada
+  return true;
 };
 
 export function Inventory() {
@@ -2373,21 +2377,21 @@ export function Inventory() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={isInboundMovement(movement.type)
+                            <Badge className={isInboundMovement(movement.movementReason)
                               ? "bg-green-100 text-green-700 border-green-200" 
                               : "bg-red-100 text-red-700 border-red-200"
                             }>
-                              {isInboundMovement(movement.type) ? (
+                              {isInboundMovement(movement.movementReason) ? (
                                 <TrendingUp className="w-3 h-3 mr-1" />
                               ) : (
                                 <TrendingDown className="w-3 h-3 mr-1" />
                               )}
-                              {getMovementTypeLabel(movement.type)}
+                              {getMovementTypeLabel(movement.movementReason)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className={isInboundMovement(movement.type) ? "text-green-600" : "text-red-600"}>
-                              {isInboundMovement(movement.type) ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
+                            <span className={isInboundMovement(movement.movementReason) ? "text-green-600" : "text-red-600"}>
+                              {isInboundMovement(movement.movementReason) ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-gray-600">
