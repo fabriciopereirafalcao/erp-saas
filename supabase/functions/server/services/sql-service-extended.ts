@@ -1359,7 +1359,18 @@ export async function getStockMovements(companyId: string) {
 
   return data?.map((row: any) => {
     // Converter created_at para date e time
+    // ✅ Ajustar para timezone GMT-3 (São Paulo)
     const createdAt = row.created_at ? new Date(row.created_at) : null;
+    let dateStr = null;
+    let timeStr = '';
+    
+    if (createdAt) {
+      // Converter para GMT-3 (São Paulo)
+      const offsetMs = -3 * 60 * 60 * 1000; // -3 horas em ms
+      const localDate = new Date(createdAt.getTime() + offsetMs);
+      dateStr = localDate.toISOString().split('T')[0];
+      timeStr = localDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
+    }
     
     return {
       id: row.id,
@@ -1367,8 +1378,8 @@ export async function getStockMovements(companyId: string) {
       productName: '', // Não temos esse campo na tabela SQL
       type: row.type,
       quantity: parseFloat(row.quantity),
-      date: createdAt ? createdAt.toISOString().split('T')[0] : null,
-      time: createdAt ? createdAt.toTimeString().split(' ')[0] : '',
+      date: dateStr,
+      time: timeStr,
       previousStock: parseFloat(row.previous_stock || 0),
       newStock: parseFloat(row.new_stock || 0),
       reason: row.reason || '',

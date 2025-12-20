@@ -4074,11 +4074,23 @@ app.post('/api/product-with-initial-batch', async (c) => {
 
       const historyReason = historyReasonMap[initialBatch.entryType] || 'Estoque Inicial';
       
+      // ✅ Mapear tipo de entrada para stock_movements
+      const stockMovementTypeMap: Record<string, string> = {
+        'Produção': 'adjustment',  // Produção = ajuste/entrada de fabricação
+        'Compra': 'purchase',      // Compra = compra de fornecedor
+        'Ajuste de Estoque Inicial': 'adjustment',
+        'Outro': 'adjustment'
+      };
+      
+      const stockMovementType = stockMovementTypeMap[initialBatch.entryType] || 'adjustment';
+      
       try {
         console.log('[PRODUCT-WITH-BATCH] 📝 Criando histórico em stock_movements...');
+        console.log('[PRODUCT-WITH-BATCH] 🔀 Tipo mapeado:', initialBatch.entryType, '->', stockMovementType);
+        
         await sqlService.createStockMovement(companyId, {
           productId: createdProduct.id,  // UUID do produto
-          type: 'purchase',  // Sempre entrada no cadastro inicial
+          type: stockMovementType,  // ✅ Tipo correto mapeado
           quantity: initialBatch.quantity,
           referenceId: createdBatch.id,  // ✅ Vincular com o lote
           referenceType: 'batch',
@@ -4326,6 +4338,27 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
       console.log('[STOCK-MOVEMENT-BATCH] ✅ Lote criado e estoque atualizado');
 
+      // ✅ NOVO: Criar registro em stock_movements para histórico
+      try {
+        const stockTypeMap: Record<string, string> = {
+          'entrada-producao': 'adjustment',
+          'entrada-devolucao': 'return',
+          'entrada-ajuste': 'adjustment'
+        };
+
+        await sqlService.createStockMovement(auth.companyId, {
+          productId: productId,
+          type: stockTypeMap[movementType] || 'adjustment',
+          quantity: quantity,
+          referenceId: newBatch.id,
+          referenceType: 'batch',
+          notes: `Movimentação manual: ${movementType} - Lote: ${batchData.batch.batchNumber}`
+        });
+        console.log('[STOCK-MOVEMENT-BATCH] ✅ Histórico criado em stock_movements');
+      } catch (histError) {
+        console.error('[STOCK-MOVEMENT-BATCH] ⚠️ Erro ao criar histórico:', histError);
+      }
+
       return c.json({ 
         success: true, 
         data: {
@@ -4419,6 +4452,30 @@ app.post('/api/stock-movement-with-batch', async (c) => {
         .eq('id', productId);
 
       console.log('[STOCK-MOVEMENT-BATCH] ✅ Lote atualizado e estoque sincronizado');
+
+      // ✅ NOVO: Criar registro em stock_movements para histórico
+      try {
+        const stockTypeMap: Record<string, string> = {
+          'entrada-devolucao': 'return',
+          'entrada-ajuste': 'adjustment',
+          'saida-perda': 'adjustment',
+          'saida-doacao': 'adjustment',
+          'saida-ajuste': 'adjustment',
+          'saida-consumo': 'adjustment'
+        };
+
+        await sqlService.createStockMovement(auth.companyId, {
+          productId: productId,
+          type: stockTypeMap[movementType] || 'adjustment',
+          quantity: isEntrada ? quantity : -quantity,  // ✅ Negativo para saídas
+          referenceId: batch.id,
+          referenceType: 'batch',
+          notes: `Movimentação manual: ${movementType} - Lote: ${batch.batch_number}`
+        });
+        console.log('[STOCK-MOVEMENT-BATCH] ✅ Histórico criado em stock_movements');
+      } catch (histError) {
+        console.error('[STOCK-MOVEMENT-BATCH] ⚠️ Erro ao criar histórico:', histError);
+      }
 
       return c.json({ 
         success: true, 
