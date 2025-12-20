@@ -3498,10 +3498,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         toast.success(`Produto ${itemData.productName} e lote inicial criados com sucesso!`);
         
-        // Recarregar dados
+        // Recarregar dados do produto
         const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
         if (refreshedInventory && refreshedInventory.length > 0) {
           setInventory(refreshedInventory);
+        }
+        
+        // ✅ NOVO: Recarregar histórico de movimentações
+        console.log('[INVENTORY] 📥 Recarregando histórico de movimentações...');
+        const refreshedMovements = await loadEntity<StockMovement[]>('stock-movements');
+        if (refreshedMovements && refreshedMovements.length > 0) {
+          setStockMovements(refreshedMovements);
+          console.log('[INVENTORY] ✅ Histórico atualizado -', refreshedMovements.length, 'movimentações');
         }
         
         return;
@@ -3541,8 +3549,48 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       console.log('[INVENTORY] 📊 Product ID:', newItem.id);
       console.log('[INVENTORY] 📊 Current Stock:', itemData.currentStock);
       
-      // Criar movimento imediatamente (antes do refresh)
-      addStockMovement(newItem.id, itemData.currentStock, 'Estoque Inicial', 'Cadastro inicial do produto');
+      // Criar movimento DIRETAMENTE sem depender do estado inventory
+      const now = new Date();
+      const uniqueSuffix = Math.random().toString(36).substring(2, 9);
+      const initialMovement: StockMovement = {
+        id: `MOV-${Date.now()}-${uniqueSuffix}`,
+        productId: newItem.id,
+        productName: newItem.productName,
+        date: now.toISOString().split('T')[0],
+        time: now.toTimeString().split(' ')[0],
+        type: 'purchase',
+        quantity: itemData.currentStock,
+        previousStock: 0,
+        newStock: itemData.currentStock,
+        reason: 'Estoque Inicial',
+        description: 'Cadastro inicial do produto'
+      };
+      
+      console.log('[INVENTORY] 📦 Movimento criado:', initialMovement);
+      
+      // Adicionar ao estado local
+      setStockMovements(prev => [initialMovement, ...prev]);
+      
+      // Salvar no backend
+      (async () => {
+        try {
+          console.log('[INVENTORY] 📡 Salvando movimento no backend...');
+          const response = await authPost(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
+            { data: [initialMovement] }
+          );
+          
+          console.log('[INVENTORY] 📊 Resposta do backend:', response);
+          
+          if (!response.success) {
+            console.error('[INVENTORY] ❌ Erro ao salvar movimento:', response.error);
+          } else {
+            console.log('[INVENTORY] ✅ Movimento de estoque inicial salvo no backend!');
+          }
+        } catch (error) {
+          console.error('[INVENTORY] ❌ Erro ao salvar movimento (exception):', error);
+        }
+      })();
     }
     
     // ✅ REFRESH: Aguardar 2s para o backend processar TUDO (produto + histórico) e recarregar
