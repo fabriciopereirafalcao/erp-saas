@@ -1476,9 +1476,9 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
       }
     }
     
-    // ✅ Determinar se é entrada ou saída
-    const inboundReasons = ['Produção', 'Compra', 'Devolução', 'Ajuste'];
-    const isInbound = inboundReasons.includes(movementReason);
+    // ✅ NOVO: Determinar se é entrada ou saída baseado no campo 'type' da tabela
+    const inboundTypes = ['production', 'return', 'adjustment-in', 'adjustment', 'purchase'];
+    const isInbound = inboundTypes.includes(row.type || '');
     
     const quantity = parseFloat(row.quantity);
     

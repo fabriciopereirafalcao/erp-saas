@@ -22,25 +22,27 @@ import { BatchMovementModal } from "./BatchMovementModal";
 import { projectId } from "../utils/supabase/info";
 import { authFetch, getAccessToken } from "../utils/authFetch";
 
-// ✅ Helper para mapear movementReason para label
-const getMovementTypeLabel = (movementReason?: string): string => {
-  return movementReason || 'Ajuste';
+// ✅ NOVO: Mapear tipo do banco para label em português
+const getMovementTypeLabel = (type?: string): string => {
+  const labelMap: Record<string, string> = {
+    'production': 'Produção',
+    'return': 'Devolução',
+    'adjustment-in': 'Ajuste (Entrada)',
+    'adjustment-out': 'Ajuste (Saída)',
+    'adjustment': 'Ajuste',
+    'loss': 'Perda',
+    'consumption': 'Consumo',
+    'donation': 'Doação',
+    'purchase': 'Compra',
+    'sale': 'Venda'
+  };
+  return labelMap[type || ''] || 'Ajuste';
 };
 
-// ✅ Helper para verificar se é entrada baseado em movementReason
-const isInboundMovement = (movementReason?: string): boolean => {
-  // Entradas: Produção, Compra, Devolução, Ajuste (entradas)
-  const inboundReasons = ['Produção', 'Compra', 'Devolução', 'Ajuste'];
-  // Saídas: Venda, Perda, Doação, Consumo
-  const outboundReasons = ['Venda', 'Perda', 'Doação', 'Consumo'];
-  
-  // Se é explicitamente saída, retornar false
-  if (outboundReasons.includes(movementReason || '')) {
-    return false;
-  }
-  
-  // Caso contrário, assumir entrada
-  return true;
+// ✅ NOVO: Verificar se é entrada baseado no tipo do banco
+const isInboundMovement = (type?: string): boolean => {
+  const inboundTypes = ['production', 'return', 'adjustment-in', 'adjustment', 'purchase'];
+  return inboundTypes.includes(type || '');
 };
 
 export function Inventory() {
@@ -519,14 +521,14 @@ export function Inventory() {
           console.log('[INVENTORY] 📥 Recarregando histórico após movimentação COM lote...');
           const token = await getAccessToken();
           const response = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements-with-calculated-stocks`,
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
             {
               headers: { 'Authorization': `Bearer ${token}` }
             }
           );
           if (response.ok) {
             const movementsData = await response.json();
-            // Atualizar contexto via função que será exposta
+            // Atualizar contexto via evento customizado
             window.dispatchEvent(new CustomEvent('reload-stock-movements', { detail: movementsData.data }));
             console.log('[INVENTORY] ✅ Histórico recarregado:', movementsData.data.length, 'movimentações');
           }
@@ -2213,20 +2215,8 @@ export function Inventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Entrada - Produção">Entrada - Produção</SelectItem>
-                  
-                  {/* Ocultar Compra se produto tem controle de lotes */}
-                  {!selectedProduct?.trackBatches && (
-                    <SelectItem value="Entrada - Compra">Entrada - Compra</SelectItem>
-                  )}
-                  
                   <SelectItem value="Entrada - Devolução">Entrada - Devolução</SelectItem>
                   <SelectItem value="Entrada - Ajuste de Inventário">Entrada - Ajuste de Inventário</SelectItem>
-                  
-                  {/* Ocultar Venda se produto tem controle de lotes */}
-                  {!selectedProduct?.trackBatches && (
-                    <SelectItem value="Saída - Venda">Saída - Venda</SelectItem>
-                  )}
-                  
                   <SelectItem value="Saída - Perda">Saída - Perda</SelectItem>
                   <SelectItem value="Saída - Doação">Saída - Doação</SelectItem>
                   <SelectItem value="Saída - Ajuste de Inventário">Saída - Ajuste de Inventário</SelectItem>
@@ -2406,21 +2396,21 @@ export function Inventory() {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Badge className={isInboundMovement(movement.movementReason)
+                            <Badge className={isInboundMovement(movement.type)
                               ? "bg-green-100 text-green-700 border-green-200" 
                               : "bg-red-100 text-red-700 border-red-200"
                             }>
-                              {isInboundMovement(movement.movementReason) ? (
+                              {isInboundMovement(movement.type) ? (
                                 <TrendingUp className="w-3 h-3 mr-1" />
                               ) : (
                                 <TrendingDown className="w-3 h-3 mr-1" />
                               )}
-                              {getMovementTypeLabel(movement.movementReason)}
+                              {getMovementTypeLabel(movement.type)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className={isInboundMovement(movement.movementReason) ? "text-green-600" : "text-red-600"}>
-                              {isInboundMovement(movement.movementReason) ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
+                            <span className={isInboundMovement(movement.type) ? "text-green-600" : "text-red-600"}>
+                              {isInboundMovement(movement.type) ? "+" : "-"}{movement.quantity} {selectedProduct.unit}
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-gray-600">

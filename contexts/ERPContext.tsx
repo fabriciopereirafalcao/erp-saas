@@ -3671,18 +3671,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const previousStock = product.currentStock;
     const newStock = previousStock + quantity;
     
-    // ✅ Determinar tipo baseado no reason (texto em português) ou sinal da quantidade
+    // ✅ NOVO: Mapear motivos para tipos específicos (não usar purchase/sale para movimentações manuais)
     let type: string;
-    if (reason.includes('Entrada') || reason.includes('Produção') || reason.includes('Devolução') || reason.includes('Compra') || reason.includes('Estoque Inicial')) {
-      type = 'purchase';
-    } else if (reason.includes('Saída') || reason.includes('Venda') || reason.includes('Perda') || reason.includes('Doação') || reason.includes('Consumo')) {
-      type = 'sale';
-    } else if (reason.includes('Ajuste')) {
-      type = quantity > 0 ? 'purchase' : 'sale';
-    } else {
-      // Fallback: usar sinal da quantidade
-      type = quantity > 0 ? 'purchase' : 'sale';
-    }
+    
+    // Mapeamento específico por motivo
+    const typeMap: Record<string, string> = {
+      'Entrada - Produção': 'production',
+      'Entrada - Devolução': 'return',
+      'Entrada - Ajuste de Inventário': 'adjustment-in',
+      'Saída - Perda': 'loss',
+      'Saída - Consumo Interno': 'consumption',
+      'Saída - Doação': 'donation',
+      'Saída - Ajuste de Inventário': 'adjustment-out',
+      // Manter purchase/sale apenas para movimentações automáticas (pedidos)
+      'Entrada - Compra': 'purchase',
+      'Saída - Venda': 'sale',
+      'Cadastro do produto': 'adjustment',
+      'Estoque Inicial': 'adjustment'
+    };
+    
+    type = typeMap[reason] || (quantity > 0 ? 'adjustment-in' : 'adjustment-out');
     
     console.log('[STOCK MOVEMENT] 🎯 Tipo determinado:', type, 'para reason:', reason);
     
