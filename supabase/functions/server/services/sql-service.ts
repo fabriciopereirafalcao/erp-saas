@@ -967,6 +967,7 @@ export const sqlService = {
   getPurchaseOrders: extendedService.getPurchaseOrders,
   savePurchaseOrders: extendedService.savePurchaseOrders,
   getStockMovements: extendedService.getStockMovements,
+  getStockMovementsWithCalculatedStocks: extendedService.getStockMovementsWithCalculatedStocks, // ✅ NOVO - Calcula estoques
   saveStockMovements: extendedService.saveStockMovements,
   createStockMovement: extendedService.createStockMovement, // ✅ NOVO
   getFinancialTransactions: extendedService.getFinancialTransactions,
