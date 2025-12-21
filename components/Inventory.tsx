@@ -2334,7 +2334,8 @@ export function Inventory() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Data/Hora</TableHead>
+                        <TableHead>Data/Hora Registro</TableHead>
+                        <TableHead>Data Mov.</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead className="text-right">Quantidade</TableHead>
                         <TableHead className="text-right">Estoque Anterior</TableHead>
@@ -2363,6 +2364,23 @@ export function Inventory() {
                                 <p className="text-xs text-gray-500">{movement.time}</p>
                               </div>
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm">
+                              {movement.movementDate
+                                ? (() => {
+                                    const [year, month, day] = movement.movementDate.split('-');
+                                    return `${day}/${month}/${year}`;
+                                  })()
+                                : (movement.date
+                                    ? (() => {
+                                        const [year, month, day] = movement.date.split('-');
+                                        return `${day}/${month}/${year}`;
+                                      })()
+                                    : '-'
+                                  )
+                              }
+                            </p>
                           </TableCell>
                           <TableCell>
                             <Badge className={isInboundMovement(movement.movementReason)

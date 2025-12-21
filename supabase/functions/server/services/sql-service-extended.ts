@@ -1404,14 +1404,135 @@ export async function getStockMovements(companyId: string) {
       movementReason: movementReason,  // ✅ NOVO: Produção, Compra, Venda, etc
       date: dateStr,
       time: timeStr,
-      previousStock: parseFloat(row.previous_stock || 0),
-      newStock: parseFloat(row.new_stock || 0),
+      // ❌ PROBLEMA: previous_stock e new_stock NÃO existem na tabela!
+      // Solução temporária: usar 0 até calcular no próximo deploy
+      previousStock: 0,  
+      newStock: 0,
       reason: movementReason,  // Manter compatibilidade
       referenceId: row.reference_id,
       referenceType: row.reference_type,
       notes: cleanNotes
     };
   }) || [];
+}
+
+/**
+ * ✅ NOVA FUNÇÃO: Buscar movimentos com cálculo de estoque anterior/novo
+ */
+export async function getStockMovementsWithCalculatedStocks(companyId: string) {
+  const supabase = getSupabaseClient();
+  
+  // 1️⃣ Buscar todos os movimentos ordenados cronologicamente (mais antigo primeiro)
+  const { data: movements, error } = await supabase
+    .from('stock_movements')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar stock movements:', error);
+    throw new Error(error.message);
+  }
+
+  if (!movements || movements.length === 0) {
+    return [];
+  }
+
+  // 2️⃣ Buscar estoque atual de todos os produtos
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, stock_quantity')
+    .eq('company_id', companyId);
+
+  if (productsError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar produtos:', productsError);
+    return [];
+  }
+
+  // Mapa: productId → estoque atual
+  const productStocks = new Map(
+    products?.map(p => [p.id, parseFloat(p.stock_quantity || 0)]) || []
+  );
+
+  // 3️⃣ Calcular estoques retroativamente (do presente para o passado)
+  const result = [];
+  const productPreviousStocks = new Map(productStocks);  // Clonar
+
+  // Processar do mais recente para o mais antigo
+  for (let i = movements.length - 1; i >= 0; i--) {
+    const row = movements[i];
+    const productId = row.product_id;
+    const currentStock = productPreviousStocks.get(productId) || 0;
+
+    // ✅ Extrair movementReason do notes estruturado: [REASON]|notes
+    let movementReason = 'Ajuste';
+    let cleanNotes = row.notes || '';
+    
+    if (cleanNotes && cleanNotes.startsWith('[')) {
+      const match = cleanNotes.match(/^\[([^\]]+)\]\|?(.*)$/);
+      if (match) {
+        movementReason = match[1];
+        cleanNotes = match[2] || '';
+      }
+    }
+    
+    // ✅ Determinar se é entrada ou saída
+    const inboundReasons = ['Produção', 'Compra', 'Devolução', 'Ajuste'];
+    const isInbound = inboundReasons.includes(movementReason);
+    
+    const quantity = parseFloat(row.quantity);
+    
+    // ✅ Calcular estoque anterior
+    // Se foi entrada: estoque_anterior = atual - quantidade
+    // Se foi saída: estoque_anterior = atual + quantidade
+    const previousStock = isInbound ? currentStock - quantity : currentStock + quantity;
+    const newStock = currentStock;
+
+    // Converter created_at para date e time com timezone GMT-3
+    const createdAt = row.created_at ? new Date(row.created_at) : null;
+    let dateStr = null;
+    let timeStr = '';
+    
+    if (createdAt) {
+      const localDateStr = createdAt.toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      const [datePart, timePart] = localDateStr.split(', ');
+      const [day, month, year] = datePart.split('/');
+      dateStr = `${year}-${month}-${day}`;
+      timeStr = timePart;
+    }
+    
+    result.unshift({  // Adicionar no início para manter ordem DESC
+      id: row.id,
+      productId: row.product_id,
+      productName: '',
+      type: row.type,
+      quantity,
+      movementReason,
+      date: dateStr,
+      time: timeStr,
+      previousStock,  // ✅ Calculado corretamente
+      newStock,       // ✅ Calculado corretamente
+      reason: movementReason,
+      referenceId: row.reference_id,
+      referenceType: row.reference_type,
+      notes: cleanNotes
+    });
+
+    // Atualizar estoque "atual" para a próxima iteração (indo para o passado)
+    productPreviousStocks.set(productId, previousStock);
+  }
+
+  return result;
 }
 
 export async function saveStockMovements(companyId: string, movements: any[]) {

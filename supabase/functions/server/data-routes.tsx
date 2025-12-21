@@ -255,9 +255,8 @@ app.post('/inventory/create', async (c) => {
         stock_quantity: product.currentStock || 0,
         purchase_price: product.costPrice || 0,
         sale_price: product.sellPrice || 0,
-        min_stock_level: product.reorderLevel || 0,
+        min_stock: product.reorderLevel || 0,  // ✅ CORRIGIDO: min_stock (não min_stock_level)
         track_batches: product.trackBatches || false
-        // ❌ Removido 'location' - coluna não existe na tabela
       })
       .select()
       .single();
@@ -278,11 +277,10 @@ app.post('/inventory/create', async (c) => {
       currentStock: createdProduct.stock_quantity,
       costPrice: createdProduct.purchase_price,
       sellPrice: createdProduct.sale_price,
-      reorderLevel: createdProduct.min_stock_level,
+      reorderLevel: createdProduct.min_stock,  // ✅ CORRIGIDO: min_stock
       trackBatches: createdProduct.track_batches,
-      // ❌ Removido 'location' - coluna não existe
       status: createdProduct.stock_quantity === 0 ? 'Fora de Estoque' : 
-              createdProduct.stock_quantity <= createdProduct.min_stock_level ? 'Baixo Estoque' : 
+              createdProduct.stock_quantity <= createdProduct.min_stock ? 'Baixo Estoque' : 
               'Em Estoque'
     };
     
@@ -511,7 +509,8 @@ app.get('/stock-movements', async (c) => {
     }
 
     console.log(`[STOCK MOVEMENTS] 📥 Carregando stock movements da empresa ${auth.companyId}`);
-    const stockMovements = await sqlService.getStockMovements(auth.companyId);
+    // ✅ Usar nova função que calcula previousStock e newStock
+    const stockMovements = await sqlService.getStockMovementsWithCalculatedStocks(auth.companyId);
     
     console.log(`[STOCK MOVEMENTS] ✅ ${stockMovements.length} stock movements carregados`);
     return c.json({
