@@ -1553,15 +1553,43 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
   // Inserir novos movimentos
   if (movements.length > 0) {
     const rows = await Promise.all(
-      movements.map(async (movement: any) => ({
-        company_id: companyId,
-        product_id: await resolveProductId(companyId, movement.productId),
-        type: movement.type,
-        quantity: movement.quantity,
-        reference_id: movement.referenceId,
-        reference_type: movement.referenceType,
-        notes: movement.notes || ''
-      }))
+      movements.map(async (movement: any) => {
+        // ✅ Calcular movement_date (usar movementDate se enviado, senão extrair de 'date', senão hoje)
+        let movementDateStr = movement.movementDate;
+        if (!movementDateStr && movement.date) {
+          // Se tem 'date' (formato YYYY-MM-DD ou DD/MM/YYYY), extrair apenas a data
+          const dateMatch = movement.date.match(/(\d{4})-(\d{2})-(\d{2})|(\d{2})\/(\d{2})\/(\d{4})/);
+          if (dateMatch) {
+            if (dateMatch[1]) {
+              // Formato YYYY-MM-DD
+              movementDateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+            } else {
+              // Formato DD/MM/YYYY
+              movementDateStr = `${dateMatch[6]}-${dateMatch[5]}-${dateMatch[4]}`;
+            }
+          }
+        }
+        if (!movementDateStr) {
+          // Padrão: hoje em GMT-3
+          const now = new Date();
+          const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+          const year = brazilDate.getFullYear();
+          const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+          const day = String(brazilDate.getDate()).padStart(2, '0');
+          movementDateStr = `${year}-${month}-${day}`;
+        }
+
+        return {
+          company_id: companyId,
+          product_id: await resolveProductId(companyId, movement.productId),
+          type: movement.type,
+          quantity: movement.quantity,
+          movement_date: movementDateStr,  // ✅ NOVO: Sempre incluir
+          reference_id: movement.referenceId,
+          reference_type: movement.referenceType,
+          notes: movement.notes || ''
+        };
+      })
     );
 
     const { error: insertError } = await supabase
