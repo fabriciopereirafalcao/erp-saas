@@ -4403,6 +4403,13 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
       // ✅ NOVO: Criar registro em stock_movements para histórico
       try {
+        // Mapear movementType para type específico
+        const typeMap: Record<string, string> = {
+          'entrada-producao': 'production',
+          'entrada-devolucao': 'return',
+          'entrada-ajuste': 'adjustment-in'
+        };
+
         const reasonMap: Record<string, string> = {
           'entrada-producao': 'Produção',
           'entrada-devolucao': 'Devolução',
@@ -4411,7 +4418,7 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
         await sqlService.createStockMovement(auth.companyId, {
           productId: productId,
-          type: 'adjustment',
+          type: typeMap[movementType] || 'adjustment-in',
           quantity: quantity,
           direction: 'in',
           movementReason: reasonMap[movementType] || 'Ajuste',
@@ -4520,6 +4527,16 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
       // ✅ NOVO: Criar registro em stock_movements para histórico
       try {
+        // Mapear movementType para type específico
+        const typeMap: Record<string, string> = {
+          'entrada-devolucao': 'return',
+          'entrada-ajuste': 'adjustment-in',
+          'saida-perda': 'loss',
+          'saida-doacao': 'donation',
+          'saida-ajuste': 'adjustment-out',
+          'saida-consumo': 'consumption'
+        };
+
         const reasonMap: Record<string, string> = {
           'entrada-devolucao': 'Devolução',
           'entrada-ajuste': 'Ajuste',
@@ -4531,7 +4548,7 @@ app.post('/api/stock-movement-with-batch', async (c) => {
 
         await sqlService.createStockMovement(auth.companyId, {
           productId: productId,
-          type: 'adjustment',
+          type: typeMap[movementType] || (isEntrada ? 'adjustment-in' : 'adjustment-out'),
           quantity: quantity,  // ✅ Sempre positivo
           direction: isEntrada ? 'in' : 'out',  // ✅ Direção correta
           movementReason: reasonMap[movementType] || 'Ajuste',
