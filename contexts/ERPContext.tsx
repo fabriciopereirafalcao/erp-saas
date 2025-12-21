@@ -1586,6 +1586,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   }, [stockMovements, profile?.company_id]);
 
+  // ✅ NOVO: Listener para recarregar stock movements após movimentação COM lote
+  useEffect(() => {
+    const handleReloadStockMovements = (event: CustomEvent) => {
+      if (event.detail && Array.isArray(event.detail)) {
+        console.log('[ERP_CONTEXT] 📥 Recarregando stock movements via evento:', event.detail.length, 'itens');
+        setStockMovements(event.detail);
+      }
+    };
+
+    window.addEventListener('reload-stock-movements', handleReloadStockMovements as EventListener);
+    
+    return () => {
+      window.removeEventListener('reload-stock-movements', handleReloadStockMovements as EventListener);
+    };
+  }, []);
+
   // ==================== PERSISTÊNCIA AUTOMÁTICA COM ROTAS ESPECÍFICAS ====================
   
   // Sistema de persistência imediata (sem debounce) via rotas específicas
@@ -3710,26 +3726,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       return item;
     }));
     
-    // ✅ SALVAR NO BACKEND
-    (async () => {
-      try {
-        console.log('[STOCK MOVEMENT] 📡 Enviando para backend:', JSON.stringify(movement, null, 2));
-        const response = await authPost(
-          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements`,
-          { data: [movement] }
-        );
-        
-        console.log('[STOCK MOVEMENT] 📊 Resposta do backend:', response);
-        
-        if (!response.success) {
-          console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend:', response.error);
-        } else {
-          console.log('[STOCK MOVEMENT] ✅ Movimentação salva no backend com sucesso!');
-        }
-      } catch (error) {
-        console.error('[STOCK MOVEMENT] ❌ Erro ao salvar no backend (exception):', error);
-      }
-    })();
+    // ✅ REMOVIDO: Chamada manual ao backend
+    // useEntityPersistence já salva automaticamente quando stockMovements muda (linha 1602)
+    // Duplicar a chamada causava movimentações duplicadas no banco
     
     const movementType = quantity > 0 ? "Entrada" : "Saída"; // Label para toast em português
     toast.success(`${movementType} de ${Math.abs(quantity)} unidades registrada - ${reason}`);
@@ -3805,6 +3804,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ==================== QUERIES ====================
 
   const getStockMovementsByProduct = (productId: string) => {
+    // ✅ Para produtos COM lote: as movimentações são criadas no backend via createStockMovement()
+    // ✅ Para produtos SEM lote: as movimentações são adicionadas ao estado local via addStockMovement()
+    // 
+    // Problema: stockMovements local não inclui movimentações de produtos COM lote
+    // Solução: Filtrar APENAS do estado local (que já está sincronizado com o backend via load)
+    //
+    // IMPORTANTE: stockMovements é carregado na inicialização via loadEntity('stock-movements')
+    // então DEVE incluir todas as movimentações (com e sem lote)
     return stockMovements.filter(m => m.productId === productId);
   };
 

@@ -512,6 +512,29 @@ export function Inventory() {
         markup: calculateMarkup(costPrice, sellPrice)
       });
 
+      // ✅ NOVO: Recarregar histórico de movimentações do backend
+      // Aguardar 500ms para garantir que o backend processou
+      setTimeout(async () => {
+        try {
+          console.log('[INVENTORY] 📥 Recarregando histórico após movimentação COM lote...');
+          const token = await getAccessToken();
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-movements-with-calculated-stocks`,
+            {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }
+          );
+          if (response.ok) {
+            const movementsData = await response.json();
+            // Atualizar contexto via função que será exposta
+            window.dispatchEvent(new CustomEvent('reload-stock-movements', { detail: movementsData.data }));
+            console.log('[INVENTORY] ✅ Histórico recarregado:', movementsData.data.length, 'movimentações');
+          }
+        } catch (error) {
+          console.error('[INVENTORY] ⚠️ Erro ao recarregar histórico:', error);
+        }
+      }, 500);
+
       // Fechar modais e limpar estados
       setIsBatchMovementModalOpen(false);
       setIsMovementDialogOpen(false);
