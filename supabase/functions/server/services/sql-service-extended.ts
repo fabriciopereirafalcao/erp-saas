@@ -1520,6 +1520,7 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
       movementReason,
       date: dateStr,
       time: timeStr,
+      movementDate: row.movement_date || dateStr,  // ✅ NOVO: Data efetiva da movimentação
       previousStock,  // ✅ Calculado corretamente
       newStock,       // ✅ Calculado corretamente
       reason: movementReason,
@@ -1587,6 +1588,7 @@ export async function createStockMovement(companyId: string, movement: {
   quantity: number;
   direction?: 'in' | 'out';  // ✅ NOVO: Direção
   movementReason?: string;  // ✅ NOVO: Produção, Compra, Venda, etc
+  movementDate?: string;  // ✅ NOVO: Data efetiva da movimentação (YYYY-MM-DD)
   referenceId?: string;
   referenceType?: string;
   notes?: string;
@@ -1605,11 +1607,23 @@ export async function createStockMovement(companyId: string, movement: {
     ? `[${movementReason}]|${movement.notes}`
     : `[${movementReason}]`;
 
+  // ✅ Calcular movement_date (padrão: hoje em GMT-3)
+  let movementDateStr = movement.movementDate;
+  if (!movementDateStr) {
+    const now = new Date();
+    const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const year = brazilDate.getFullYear();
+    const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+    const day = String(brazilDate.getDate()).padStart(2, '0');
+    movementDateStr = `${year}-${month}-${day}`;
+  }
+
   const row = {
     company_id: companyId,
     product_id: movement.productId,
     type: movement.type,
     quantity: absoluteQuantity,  // ✅ Sempre positivo
+    movement_date: movementDateStr,  // ✅ NOVO: Data efetiva da movimentação
     reference_id: movement.referenceId || null,
     reference_type: movement.referenceType || null,
     notes: structuredNotes

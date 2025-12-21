@@ -244,6 +244,11 @@ app.post('/inventory/create', async (c) => {
       product.id = `PROD-${String(nextNumber).padStart(3, '0')}`;
     }
 
+    // ✅ Calcular markup: ((sellPrice - costPrice) / costPrice) * 100
+    const costPrice = parseFloat(product.costPrice) || 0;
+    const sellPrice = parseFloat(product.sellPrice) || 0;
+    const markup = costPrice > 0 ? ((sellPrice - costPrice) / costPrice) * 100 : 0;
+
     const { data: createdProduct, error } = await supabaseAdmin
       .from('products')
       .insert({
@@ -253,10 +258,15 @@ app.post('/inventory/create', async (c) => {
         category: product.category || null,
         unit: product.unit || 'un',
         stock_quantity: product.currentStock || 0,
-        purchase_price: product.costPrice || 0,
-        sale_price: product.sellPrice || 0,
-        min_stock: product.reorderLevel || 0,  // ✅ CORRIGIDO: min_stock (não min_stock_level)
-        track_batches: product.trackBatches || false
+        cost_price: costPrice,  // ✅ CORRIGIDO: cost_price (não purchase_price)
+        purchase_price: costPrice,  // ✅ Manter purchase_price também
+        sale_price: sellPrice,
+        markup: markup,  // ✅ NOVO: Calcular markup
+        min_stock: product.reorderLevel || 0,
+        reorder_level: product.reorderLevel || 0,  // ✅ Manter reorder_level também
+        ncm: product.ncm || null,  // ✅ NOVO: NCM
+        track_batches: product.trackBatches || false,
+        batch_fifo_auto: product.trackBatches ? (product.batchFifoAuto !== false) : false  // ✅ CORRIGIDO: false se não tem lote
       })
       .select()
       .single();
@@ -275,10 +285,13 @@ app.post('/inventory/create', async (c) => {
       category: createdProduct.category,
       unit: createdProduct.unit,
       currentStock: createdProduct.stock_quantity,
-      costPrice: createdProduct.purchase_price,
+      costPrice: createdProduct.cost_price,  // ✅ CORRIGIDO: cost_price
       sellPrice: createdProduct.sale_price,
-      reorderLevel: createdProduct.min_stock,  // ✅ CORRIGIDO: min_stock
+      markup: createdProduct.markup,  // ✅ NOVO
+      reorderLevel: createdProduct.min_stock,
+      ncm: createdProduct.ncm,  // ✅ NOVO
       trackBatches: createdProduct.track_batches,
+      batchFifoAuto: createdProduct.batch_fifo_auto,  // ✅ NOVO
       status: createdProduct.stock_quantity === 0 ? 'Fora de Estoque' : 
               createdProduct.stock_quantity <= createdProduct.min_stock ? 'Baixo Estoque' : 
               'Em Estoque'
@@ -4142,6 +4155,7 @@ app.post('/api/product-with-initial-batch', async (c) => {
           quantity: initialBatch.quantity,
           direction: 'in',
           movementReason: movementReason,  // ✅ NOVO: Produção, Compra, Ajuste
+          movementDate: initialBatch.manufacturingDate,  // ✅ NOVO: Data de fabricação = data da movimentação
           referenceId: createdBatch.id,
           referenceType: 'batch',
           notes: `Lote inicial: ${initialBatch.batchNumber}`,
