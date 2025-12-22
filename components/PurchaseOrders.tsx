@@ -518,8 +518,8 @@ export function PurchaseOrders() {
 
   // ✅ NOVO: Callback após recebimento bem-sucedido
   const handleReceiveSuccess = () => {
-    // Recarregar pedidos e inventário
-    window.location.reload(); // Solução simples - recarrega tudo
+    // Não precisa fazer nada - updatePurchaseOrderStatus já atualiza o estado
+    console.log('[PURCHASE-ORDERS] ✅ Recebimento concluído com sucesso');
   };
 
   // Resetar formulário ao fechar o diálogo

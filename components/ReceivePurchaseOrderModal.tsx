@@ -65,7 +65,7 @@ export function ReceivePurchaseOrderModal({
   order,
   onSuccess
 }: ReceivePurchaseOrderModalProps) {
-  const { inventory } = useERP();
+  const { inventory, updatePurchaseOrderStatus } = useERP();
   const [isLoading, setIsLoading] = useState(false);
   const [itemsConfig, setItemsConfig] = useState<Record<string, ItemBatchConfig>>({});
   const [availableBatches, setAvailableBatches] = useState<Record<string, any[]>>({});
@@ -256,7 +256,12 @@ export function ReceivePurchaseOrderModal({
       }
 
       const result = await response.json();
-      console.log('[RECEIVE-MODAL] ✅ Recebimento concluído:', result);
+      console.log('[RECEIVE-MODAL] ✅ Lotes processados:', result);
+
+      // ✅ NOVO: Chamar updatePurchaseOrderStatus para completar o fluxo
+      // Isso irá: atualizar estoque, criar transações financeiras, atualizar histórico
+      console.log('[RECEIVE-MODAL] 🔄 Atualizando status do pedido para "Recebido"...');
+      await updatePurchaseOrderStatus(order.id, 'Recebido');
 
       toast.success('Pedido recebido com sucesso!', {
         description: `${result.data.itemsProcessed} item(ns) processado(s), ${result.data.batchesCreated} lote(s) criado(s)`

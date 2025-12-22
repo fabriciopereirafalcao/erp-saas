@@ -4658,7 +4658,10 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
 
     console.log(`[RECEIVE-PURCHASE] 🔄 Recebendo pedido ${orderId} com ${items.length} item(ns)`);
 
-    const supabase = sqlService.getSupabaseClient();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
     const createdBatches: any[] = [];
     let totalStockAdded = 0;
 
@@ -4788,63 +4791,28 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
         console.log('[RECEIVE-PURCHASE] ✅ Movimento de lote registrado');
       }
 
-      // ========== ATUALIZAR ESTOQUE DO PRODUTO ==========
-      const newStock = product.stock_quantity + quantity;
-      await supabase
-        .from('products')
-        .update({ 
-          stock_quantity: newStock,
-          purchase_price: costPrice || product.purchase_price,
-          sale_price: sellPrice || product.sale_price,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', productId);
-
-      totalStockAdded += quantity;
-      console.log(`[RECEIVE-PURCHASE] ✅ Estoque atualizado: ${product.stock_quantity} → ${newStock}`);
-
-      // ========== CRIAR MOVIMENTO EM stock_movements ==========
-      try {
-        await sqlService.createStockMovement(auth.companyId, {
-          productId: productId,
-          type: 'purchase',
-          quantity: quantity,
-          direction: 'in',
-          movementReason: 'Compra',
-          referenceId: orderId,
-          referenceType: 'purchase_order',
-          notes: productHasLotControl && batch 
-            ? `Pedido ${orderId} - Lote: ${batch.batchNumber || batch.batchId}` 
-            : `Pedido de compra ${orderId}`
-        });
-        console.log('[RECEIVE-PURCHASE] ✅ Movimento em stock_movements criado');
-      } catch (histError) {
-        console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao criar histórico:', histError);
-      }
+      // ❌ REMOVIDO: Não atualizar estoque aqui - será feito por updatePurchaseOrderStatus()
+      // ❌ REMOVIDO: Não criar stock_movement aqui - será feito por executeStockAddition()
+      
+      console.log(`[RECEIVE-PURCHASE] ✅ Item processado: ${product.name}`);
     }
 
-    // Atualizar status do pedido para "Recebido"
-    const { error: statusError } = await supabase
-      .from('purchase_orders')
-      .update({ status: 'Recebido', stock_increased: true, updated_at: new Date().toISOString() })
-      .eq('order_number', orderId)
-      .eq('company_id', auth.companyId);
+    // ❌ REMOVIDO: Não atualizar status do pedido aqui
+    // O frontend chamará updatePurchaseOrderStatus() que fará:
+    // - Atualizar estoque via executeStockAddition()
+    // - Criar transações financeiras
+    // - Atualizar histórico completo
 
-    if (statusError) {
-      console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao atualizar status:', statusError);
-    }
-
-    console.log(`[RECEIVE-PURCHASE] ✅ Pedido ${orderId} recebido!`);
+    console.log(`[RECEIVE-PURCHASE] ✅ Processamento concluído!`);
     console.log(`[RECEIVE-PURCHASE] 📊 ${createdBatches.length} lote(s) criado(s)`);
 
     return c.json({ 
       success: true, 
-      message: `Pedido recebido com sucesso`,
+      message: `Lotes processados com sucesso`,
       data: {
         orderId,
         itemsProcessed: items.length,
         batchesCreated: createdBatches.length,
-        totalStockAdded,
         batches: createdBatches
       }
     });
