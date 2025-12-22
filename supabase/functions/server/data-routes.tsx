@@ -4856,7 +4856,6 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
     // - Criar transações financeiras
     // - Atualizar histórico completo
     // - MAS NÃO criará stock_movements (já criado aqui)
-    }
 
     // ❌ REMOVIDO: Não atualizar status do pedido aqui
     // O frontend chamará updatePurchaseOrderStatus() que fará:
