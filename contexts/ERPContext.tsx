@@ -1610,16 +1610,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Mais robusto, seguro e performático que o sistema anterior
   
   // FASE 1: Entidades principais (críticas)
-  useEntityPersistence({ entityName: 'customers', data: customers, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'inventory', data: inventory, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'suppliers', data: suppliers, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'sales-orders', data: salesOrders, enabled: !!profile?.company_id, throttleMs: 500 });
+  // ✅ FIX: Só habilitar persistência APÓS carregamento inicial para evitar re-salvar cache antigo
+  useEntityPersistence({ entityName: 'customers', data: customers, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'inventory', data: inventory, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'suppliers', data: suppliers, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'sales-orders', data: salesOrders, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
   
   // FASE 2: Entidades secundárias
-  useEntityPersistence({ entityName: 'purchase-orders', data: purchaseOrders, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'stock-movements', data: stockMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'price-tables', data: priceTables, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'product-categories', data: productCategories, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'purchase-orders', data: purchaseOrders, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'stock-movements', data: stockMovements, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'price-tables', data: priceTables, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'product-categories', data: productCategories, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   
   // ⚠️ REMOVIDO: salespeople e buyers agora estão em tabelas SQL dedicadas (não mais em JSONB)
   // Gerenciados diretamente pelos componentes Salespeople.tsx e Buyers.tsx
@@ -1628,24 +1629,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   
   // FASE 3: Entidades financeiras
   // ✅ IMPORTANTE: Só salvar após carregamento inicial para evitar salvar dados padrão antes do seed
-  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: !!profile?.company_id && initialDataLoaded, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: !!profile?.company_id && initialDataLoaded, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'bank-movements', data: bankMovements, enabled: !!profile?.company_id, throttleMs: 1000 });
-  useEntityPersistence({ entityName: 'cash-flow-entries', data: cashFlowEntries, enabled: !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  useEntityPersistence({ entityName: 'bank-movements', data: bankMovements, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
+  useEntityPersistence({ entityName: 'cash-flow-entries', data: cashFlowEntries, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   
   // FASE 4: Entidades auxiliares
-  useEntityPersistence({ entityName: 'audit-issues', data: auditIssues, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'audit-issues', data: auditIssues, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
   useEntityPersistence({ 
     entityName: 'last-analysis-date', 
     data: lastAnalysisDate && !isNaN(lastAnalysisDate.getTime()) ? lastAnalysisDate.toISOString() : null, 
-    enabled: !!profile?.company_id, 
+    enabled: initialDataLoaded && !!profile?.company_id, 
     throttleMs: 2000 
   });
-  useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: !!profile?.company_id, throttleMs: 2000 });
-  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
 
   // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
   

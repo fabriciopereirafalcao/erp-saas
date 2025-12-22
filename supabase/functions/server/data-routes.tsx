@@ -4844,9 +4844,17 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
 
         // ✅ NOVO: Criar movimento em stock_movements COM referência ao lote
         console.log('[RECEIVE-PURCHASE] 📝 Criando stock_movement...');
+        console.log('[RECEIVE-PURCHASE] 🔍 Dados do movimento:', {
+          companyId: auth.companyId,
+          productId,
+          type: 'purchase',
+          quantity,
+          direction: 'in',
+          batchId
+        });
         
         try {
-          await sqlService.createStockMovement(auth.companyId, {
+          const stockMovementResult = await sqlService.createStockMovement(auth.companyId, {
             productId: productId,
             type: 'purchase',
             quantity: quantity,
@@ -4857,6 +4865,7 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
             notes: `Lote: ${batch.batchNumber || batch.batchId}`
           });
           
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado:', stockMovementResult);
           console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado com referência ao lote');
         } catch (error: any) {
           console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar stock_movement:', error);
