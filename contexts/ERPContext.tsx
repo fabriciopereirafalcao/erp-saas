@@ -1215,18 +1215,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // 🔧 LIMPEZA DE DADOS ÓRFÃOS - Remove dados de company_id incorreto
     const allKeys = Object.keys(localStorage);
     const erpKeys = allKeys.filter(k => k.startsWith('erp_'));
-    const currentCompanyPrefix = `erp_${profile.company_id}_`;
     const systemPrefix = 'erp_system_'; // Dados sem company_id (legado)
     
     // Dados órfãos = não são do company_id atual E não são do sistema de auth
+    // FORMATO CORRETO: erp_system_XXX_${companyId}
     const orphanKeys = erpKeys.filter(k => 
-      !k.startsWith(currentCompanyPrefix) && 
-      !k.includes('auth') &&
-      k.startsWith(systemPrefix) // Especificamente dados system_ que deveriam ter company_id
+      k.startsWith(systemPrefix) && // Começa com erp_system_
+      !k.endsWith(`_${profile.company_id}`) && // Não termina com o company_id atual
+      !k.includes('auth') // Não é de auth
     );
     
     console.log(`[CACHE] 🔍 Total de chaves ERP: ${erpKeys.length}`);
-    console.log(`[CACHE] 🎯 Chaves do company atual: ${erpKeys.filter(k => k.startsWith(currentCompanyPrefix)).length}`);
+    console.log(`[CACHE] 🎯 Chaves do company atual: ${erpKeys.filter(k => k.endsWith(`_${profile.company_id}`)).length}`);
     
     if (orphanKeys.length > 0) {
       console.warn(`[CACHE] ⚠️  DADOS ÓRFÃOS DETECTADOS: ${orphanKeys.length} chaves`);
