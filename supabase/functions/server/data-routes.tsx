@@ -4655,11 +4655,42 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
       return c.json({ success: false, error: 'Não autorizado' }, 401);
     }
 
-    const orderId = c.req.param('id');
+    const orderIdParam = c.req.param('id');
     const { items } = await c.req.json();
 
-    console.log(`[RECEIVE-PURCHASE] 🔍 orderId recebido do frontend:`, orderId);
-    console.log(`[RECEIVE-PURCHASE] 🔍 Tipo do orderId:`, typeof orderId);
+    console.log(`[RECEIVE-PURCHASE] 🔍 orderId recebido do frontend:`, orderIdParam);
+    console.log(`[RECEIVE-PURCHASE] 🔍 Tipo do orderId:`, typeof orderIdParam);
+
+    // ✅ RESOLVER UUID: Aceitar tanto UUID quanto order_number (PC-0001)
+    let orderId = orderIdParam;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdParam);
+    
+    if (!isUUID) {
+      console.log(`[RECEIVE-PURCHASE] 🔄 Parâmetro não é UUID, buscando por order_number: ${orderIdParam}`);
+      
+      const supabaseTemp = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: orderData, error: orderError } = await supabaseTemp
+        .from('purchase_orders')
+        .select('id')
+        .eq('order_number', orderIdParam)
+        .eq('company_id', auth.companyId)
+        .single();
+      
+      if (orderError || !orderData) {
+        console.error('[RECEIVE-PURCHASE] ❌ Pedido não encontrado:', orderError);
+        return c.json({ 
+          success: false, 
+          error: `Pedido ${orderIdParam} não encontrado` 
+        }, 404);
+      }
+      
+      orderId = orderData.id; // ✅ Usar o UUID real
+      console.log(`[RECEIVE-PURCHASE] ✅ UUID resolvido: ${orderId}`);
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return c.json({ success: false, error: 'Items é obrigatório' }, 400);
