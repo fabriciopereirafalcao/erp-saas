@@ -1668,7 +1668,8 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
 
   console.log(`[SQL_SERVICE] ✅ ${movements.length} stock movements salvos (UPSERT - preserva created_at)`);
   return { success: true, count: movements.length };
-}
+  }  // ← Fechar if (movements.length > 0)
+}    // ← Fechar função saveStockMovements
 
 /**
  * ✅ NOVA FUNÇÃO: Criar movimento individual de estoque
@@ -1739,13 +1740,6 @@ export async function createStockMovement(companyId: string, movement: {
 }
 
 // ==================== FINANCIAL TRANSACTIONS ====================
-
-// Helper: Validar se é UUID válido
-function isValidUUID(value: any): boolean {
-  if (!value || typeof value !== 'string') return false;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(value);
-}
 
 export async function getFinancialTransactions(companyId: string) {
   const supabase = getSupabaseClient();
