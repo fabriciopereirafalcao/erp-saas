@@ -1458,15 +1458,31 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
 
   // 3️⃣ Calcular estoques retroativamente (do presente para o passado)
   const result = [];
-  const productPreviousStocks = new Map(productStocks);  // Clonar
-
-  // Processar do mais recente para o mais antigo
-  for (let i = movements.length - 1; i >= 0; i--) {
-    const row = movements[i];
+  
+  // Agora vamos processar do mais ANTIGO para o mais NOVO (ordem cronológica)
+  // para calcular previousStock e newStock corretamente
+  const productCurrentStocks = new Map();
+  
+  // Para cada produto, começar do estoque inicial 0
+  for (const row of movements) {
     const productId = row.product_id;
-    const currentStock = productPreviousStocks.get(productId) || 0;
-
-    // ✅ Extrair movementReason do notes estruturado: [REASON]|notes
+    
+    // Estoque antes desta movimentação
+    const previousStock = productCurrentStocks.get(productId) || 0;
+    
+    // Determinar se é entrada ou saída
+    const inboundTypes = ['production', 'return', 'adjustment-in', 'adjustment', 'purchase'];
+    const isInbound = inboundTypes.includes(row.type || '');
+    
+    const quantity = parseFloat(row.quantity);
+    
+    // Calcular novo estoque
+    const newStock = isInbound ? previousStock + quantity : previousStock - quantity;
+    
+    // Atualizar estoque atual para próxima iteração
+    productCurrentStocks.set(productId, newStock);
+    
+    // Extrair movementReason
     let movementReason = 'Ajuste';
     let cleanNotes = row.notes || '';
     
@@ -1478,19 +1494,7 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
       }
     }
     
-    // ✅ NOVO: Determinar se é entrada ou saída baseado no campo 'type' da tabela
-    const inboundTypes = ['production', 'return', 'adjustment-in', 'adjustment', 'purchase'];
-    const isInbound = inboundTypes.includes(row.type || '');
-    
-    const quantity = parseFloat(row.quantity);
-    
-    // ✅ Calcular estoque anterior
-    // Se foi entrada: estoque_anterior = atual - quantidade
-    // Se foi saída: estoque_anterior = atual + quantidade
-    const previousStock = isInbound ? currentStock - quantity : currentStock + quantity;
-    const newStock = currentStock;
-
-    // Converter created_at para date e time com timezone GMT-3
+    // Converter created_at para date e time
     const createdAt = row.created_at ? new Date(row.created_at) : null;
     let dateStr = null;
     let timeStr = '';
@@ -1513,7 +1517,7 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
       timeStr = timePart;
     }
     
-    result.unshift({  // Adicionar no início para manter ordem DESC
+    result.push({
       id: row.id,
       productId: row.product_id,
       productName: '',
@@ -1522,20 +1526,18 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
       movementReason,
       date: dateStr,
       time: timeStr,
-      movementDate: row.movement_date || dateStr,  // ✅ NOVO: Data efetiva da movimentação
-      previousStock,  // ✅ Calculado corretamente
-      newStock,       // ✅ Calculado corretamente
+      movementDate: row.movement_date || dateStr,
+      previousStock,  // ✅ Estoque ANTES desta movimentação
+      newStock,       // ✅ Estoque DEPOIS desta movimentação
       reason: movementReason,
       referenceId: row.reference_id,
       referenceType: row.reference_type,
       notes: cleanNotes
     });
-
-    // Atualizar estoque "atual" para a próxima iteração (indo para o passado)
-    productPreviousStocks.set(productId, previousStock);
   }
 
-  return result;
+  // ✅ Retornar em ordem DECRESCENTE (mais recente primeiro)
+  return result.reverse();
 }
 
 export async function saveStockMovements(companyId: string, movements: any[]) {

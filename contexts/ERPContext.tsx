@@ -3820,7 +3820,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     //
     // IMPORTANTE: stockMovements é carregado na inicialização via loadEntity('stock-movements')
     // então DEVE incluir todas as movimentações (com e sem lote)
-    return stockMovements.filter(m => m.productId === productId);
+    //
+    // ✅ NOVO: Retornar em ordem DECRESCENTE (mais recente primeiro)
+    return stockMovements
+      .filter(m => m.productId === productId)
+      .sort((a, b) => {
+        // Ordenar por data + hora (do mais recente para o mais antigo)
+        const dateTimeA = `${a.date} ${a.time}`;
+        const dateTimeB = `${b.date} ${b.time}`;
+        return dateTimeB.localeCompare(dateTimeA);
+      });
   };
 
   // ==================== PRODUCT CATEGORY ACTIONS ====================
