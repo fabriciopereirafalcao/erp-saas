@@ -4790,9 +4790,9 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
           quantity: quantity,  // ✅ CORRETO: usar "quantity" igual movimentações manuais
           quantity_before: batch.mode === 'create' ? 0 : (batchData.current_quantity - quantity),
           quantity_after: batchData.current_quantity,
-          order_id: orderId,   // ✅ CORRETO: usar "order_id" igual schema
+          order_id: null,   // ✅ CORRIGIDO: order_id é UUID no banco, passar null por enquanto
           user_id: auth.userId, // ✅ CORRETO: adicionar user_id
-          notes: `Recebimento de pedido de compra ${orderId}`
+          notes: `Recebimento de pedido de compra ${orderId}` // ✅ order_number fica nas notas
         });
 
         if (batchMovementError) {
