@@ -28,6 +28,7 @@ import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statu
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
 import { SalesAndPurchasePersonManagement } from "./SalesAndPurchasePersonManagement";
 import { BatchAllocationModal } from "./BatchAllocationModal";
+import { ShipSalesOrderModal } from "./ShipSalesOrderModal";
 import type { BatchAllocation } from "../contexts/ERPContext";
 
 interface OrderItem {
@@ -78,6 +79,10 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   // ✅ SPRINT 2: Estados para modal de alocação de lotes
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [selectedItemForBatch, setSelectedItemForBatch] = useState<{index: number, item: OrderItem} | null>(null);
+  
+  // ✅ NOVO: Estados para modal de expedição
+  const [isShipModalOpen, setIsShipModalOpen] = useState(false);
+  const [selectedOrderForShip, setSelectedOrderForShip] = useState<typeof salesOrders[0] | null>(null);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -2047,6 +2052,20 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                           Duplicar Pedido
                         </DropdownMenuItem>
                         <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedOrderForShip(order);
+                            setIsShipModalOpen(true);
+                          }}
+                          disabled={order.status !== "Confirmado"}
+                          className={order.status !== "Confirmado" ? "opacity-50 cursor-not-allowed" : ""}
+                        >
+                          <Truck className="mr-2 h-4 w-4" />
+                          Expedir Pedido
+                          {order.status !== "Confirmado" && 
+                            <span className="ml-1 text-xs">(requer confirmação)</span>
+                          }
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
                           onClick={() => handleEmitirNFe(order)}
                           disabled={!["Confirmado", "Enviado", "Entregue", "Concluído"].includes(order.status)}
                           className={!["Confirmado", "Enviado", "Entregue", "Concluído"].includes(order.status) ? "opacity-50 cursor-not-allowed" : ""}
@@ -2335,6 +2354,23 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
             const product = safeInventory.find(p => p.id === selectedItemForBatch.item.productId);
             return product?.batchFifoAuto || false;
           })()}
+        />
+      )}
+      
+      {/* Modal de Expedição */}
+      {selectedOrderForShip && (
+        <ShipSalesOrderModal
+          isOpen={isShipModalOpen}
+          onClose={() => {
+            setIsShipModalOpen(false);
+            setSelectedOrderForShip(null);
+          }}
+          order={selectedOrderForShip}
+          onSuccess={() => {
+            // Recarregar pedidos após sucesso
+            setIsShipModalOpen(false);
+            setSelectedOrderForShip(null);
+          }}
         />
       )}
     </div>

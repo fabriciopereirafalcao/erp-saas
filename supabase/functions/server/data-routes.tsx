@@ -4954,4 +4954,273 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
 console.log('[DATA-ROUTES] 🎯 ROTA DE RECEBIMENTO REGISTRADA:');
 console.log('[DATA-ROUTES]    → POST /api/purchase-orders/:id/receive [RECEBER PEDIDO COM LOTES]');
 
+// ==================== POST /api/sales-orders/:id/ship - EXPEDIR PEDIDO COM LOTES ====================
+
+/**
+ * POST /api/sales-orders/:id/ship
+ * Expede pedido de venda com suporte a alocação de lotes
+ */
+app.post('/api/sales-orders/:id/ship', async (c) => {
+  try {
+    console.log('[SHIP-SALES] 📦 Expedindo pedido de venda...');
+    
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      console.error('[SHIP-SALES] ❌ Autenticação falhou');
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const orderIdParam = c.req.param('id');
+    const { items } = await c.req.json();
+
+    console.log(`[SHIP-SALES] 🔍 orderId recebido do frontend:`, orderIdParam);
+    console.log(`[SHIP-SALES] 🔍 Tipo do orderId:`, typeof orderIdParam);
+
+    // ✅ RESOLVER UUID: Aceitar tanto UUID quanto order_number (PV-0001)
+    let orderId = orderIdParam;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdParam);
+    
+    if (!isUUID) {
+      console.log(`[SHIP-SALES] 🔄 Parâmetro não é UUID, buscando por order_number: ${orderIdParam}`);
+      
+      const supabaseTemp = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: orderData, error: orderError } = await supabaseTemp
+        .from('sales_orders')
+        .select('id')
+        .eq('order_number', orderIdParam)
+        .eq('company_id', auth.companyId)
+        .single();
+      
+      if (orderError || !orderData) {
+        console.error('[SHIP-SALES] ❌ Pedido não encontrado:', orderError);
+        return c.json({ 
+          success: false, 
+          error: `Pedido ${orderIdParam} não encontrado` 
+        }, 404);
+      }
+      
+      orderId = orderData.id; // ✅ Usar o UUID real
+      console.log(`[SHIP-SALES] ✅ UUID resolvido: ${orderId}`);
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, error: 'Items é obrigatório' }, 400);
+    }
+
+    console.log(`[SHIP-SALES] 🔄 Expedindo pedido ${orderId} com ${items.length} item(ns)`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const processedBatches: any[] = [];
+    let totalStockReduced = 0;
+
+    // Processar cada item
+    for (const item of items) {
+      const { productId, quantity, allocations } = item;
+
+      console.log(`[SHIP-SALES] 📦 Processando item:`, { productId, quantity, hasAllocations: !!allocations });
+
+      // Buscar produto
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .eq('company_id', auth.companyId)
+        .single();
+
+      if (productError || !product) {
+        console.error('[SHIP-SALES] ❌ Produto não encontrado:', productId);
+        return c.json({ success: false, error: `Produto ${productId} não encontrado` }, 404);
+      }
+
+      const productHasLotControl = product.track_batches === true;
+      console.log(`[SHIP-SALES] 🏷️ Produto ${product.name}: trackBatches=${productHasLotControl}`);
+
+      // ========== PRODUTO COM CONTROLE DE LOTE ==========
+      if (productHasLotControl && allocations && allocations.length > 0) {
+        console.log('[SHIP-SALES] 🔄 Processando COM controle de lote...');
+        
+        // Validar que a soma das alocações = quantity
+        const totalAllocated = allocations.reduce((sum: number, a: any) => sum + a.quantityAllocated, 0);
+        if (totalAllocated !== quantity) {
+          return c.json({ 
+            success: false, 
+            error: `Alocação inválida: quantidade total (${totalAllocated}) diferente de quantidade solicitada (${quantity})` 
+          }, 400);
+        }
+
+        // Processar cada alocação de lote
+        for (const allocation of allocations) {
+          const { batchId, quantityAllocated } = allocation;
+
+          console.log(`[SHIP-SALES] 🔄 Processando lote ${batchId}: consumindo ${quantityAllocated} unidades`);
+
+          // Buscar lote
+          const { data: existingBatch, error: batchError } = await supabase
+            .from('product_batches')
+            .select('*')
+            .eq('id', batchId)
+            .eq('company_id', auth.companyId)
+            .eq('product_id', productId)
+            .single();
+
+          if (batchError || !existingBatch) {
+            return c.json({ success: false, error: `Lote ${batchId} não encontrado` }, 404);
+          }
+
+          // Validar estoque disponível no lote
+          if (existingBatch.current_quantity < quantityAllocated) {
+            return c.json({ 
+              success: false, 
+              error: `Lote ${existingBatch.batch_number} tem apenas ${existingBatch.current_quantity} unidades disponíveis (solicitado: ${quantityAllocated})` 
+            }, 400);
+          }
+
+          // Reduzir quantidade do lote
+          const newQuantity = existingBatch.current_quantity - quantityAllocated;
+          const { error: updateError } = await supabase
+            .from('product_batches')
+            .update({ 
+              current_quantity: newQuantity,
+              status: newQuantity === 0 ? 'Esgotado' : 'Ativo',
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', batchId);
+
+          if (updateError) {
+            console.error('[SHIP-SALES] ❌ Erro ao atualizar lote:', updateError);
+            return c.json({ success: false, error: 'Erro ao atualizar lote' }, 500);
+          }
+
+          console.log(`[SHIP-SALES] ✅ Lote atualizado: ${existingBatch.current_quantity} → ${newQuantity}`);
+          processedBatches.push({
+            batchId,
+            batchNumber: existingBatch.batch_number,
+            quantityBefore: existingBatch.current_quantity,
+            quantityAfter: newQuantity
+          });
+
+          // Registrar movimento em batch_movements
+          const { error: batchMovementError } = await supabase.from('batch_movements').insert({
+            company_id: auth.companyId,
+            product_id: productId,
+            batch_id: batchId,
+            movement_type: 'SAIDA_VENDA',
+            quantity: -quantityAllocated,  // ✅ Negativo para saída
+            quantity_before: existingBatch.current_quantity,
+            quantity_after: newQuantity,
+            order_id: null,  // UUID do pedido (futuro)
+            user_id: auth.userId,
+            notes: `Expedição de pedido de venda ${orderId}`
+          });
+
+          if (batchMovementError) {
+            console.error('[SHIP-SALES] ❌ Erro ao criar batch_movement:', batchMovementError);
+            throw new Error(`Erro ao registrar movimento de lote: ${batchMovementError.message}`);
+          }
+          
+          console.log('[SHIP-SALES] ✅ Movimento de lote registrado');
+        }
+
+        // ✅ Criar movimento em stock_movements COM referência aos lotes
+        console.log('[SHIP-SALES] 📝 Criando stock_movement...');
+        
+        try {
+          const stockMovementResult = await sqlService.createStockMovement(auth.companyId, {
+            productId: productId,
+            type: 'sale',
+            quantity: quantity,
+            direction: 'out',
+            movementReason: 'Venda',
+            referenceId: orderId,
+            referenceType: 'sales_order',
+            notes: `Lotes: ${allocations.map((a: any) => a.batchNumber || a.batchId).join(', ')}`
+          });
+          
+          console.log('[SHIP-SALES] ✅ Movimento de estoque criado:', stockMovementResult);
+        } catch (error: any) {
+          console.error('[SHIP-SALES] ❌ Erro ao criar stock_movement:', error);
+          throw new Error(`Erro ao criar movimento de estoque: ${error.message}`);
+        }
+      } else {
+        // ✅ PRODUTO SEM CONTROLE DE LOTE: Criar stock_movement normal
+        console.log('[SHIP-SALES] 📦 Produto SEM controle de lote');
+        console.log('[SHIP-SALES] 📝 Criando stock_movement...');
+        
+        // Validar estoque disponível
+        if (product.stock_quantity < quantity) {
+          return c.json({ 
+            success: false, 
+            error: `Produto ${product.name} tem apenas ${product.stock_quantity} unidades disponíveis (solicitado: ${quantity})` 
+          }, 400);
+        }
+        
+        try {
+          await sqlService.createStockMovement(auth.companyId, {
+            productId: productId,
+            type: 'sale',
+            quantity: quantity,
+            direction: 'out',
+            movementReason: 'Venda',
+            referenceId: orderId,
+            referenceType: 'sales_order',
+            notes: `Pedido de venda ${orderId}`
+          });
+          
+          console.log('[SHIP-SALES] ✅ Movimento de estoque criado');
+        } catch (error: any) {
+          console.error('[SHIP-SALES] ❌ Erro ao criar stock_movement:', error);
+          throw new Error(`Erro ao criar movimento de estoque: ${error.message}`);
+        }
+      }
+
+      // ✅ ATUALIZAR ESTOQUE DO PRODUTO
+      const newStock = product.stock_quantity - quantity;
+      await supabase
+        .from('products')
+        .update({ 
+          stock_quantity: newStock,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      totalStockReduced += quantity;
+      console.log(`[SHIP-SALES] ✅ Estoque atualizado: ${product.stock_quantity} → ${newStock}`);
+      
+      console.log(`[SHIP-SALES] ✅ Item processado: ${product.name}`);
+    }
+
+    console.log(`[SHIP-SALES] ✅ Processamento concluído!`);
+    console.log(`[SHIP-SALES] 📊 ${processedBatches.length} lote(s) processado(s)`);
+    console.log(`[SHIP-SALES] 📦 ${totalStockReduced} unidades reduzidas do estoque`);
+
+    console.log('[SHIP-SALES] ℹ️ Lotes/estoque processados. Frontend irá atualizar status e criar transação financeira.');
+
+    return c.json({ 
+      success: true, 
+      message: `Pedido expedido com sucesso`,
+      data: {
+        orderId,
+        itemsProcessed: items.length,
+        batchesProcessed: processedBatches.length,
+        totalStockReduced,
+        batches: processedBatches
+      }
+    });
+
+  } catch (error) {
+    console.error('[SHIP-SALES] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA DE EXPEDIÇÃO REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/ship [EXPEDIR PEDIDO COM LOTES]');
+
 export default app;

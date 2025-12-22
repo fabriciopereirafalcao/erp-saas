@@ -2868,7 +2868,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`🔄 Criando conta a receber para pedido ${order.id}...`);
       
-      const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+      // ✅ CORREÇÃO: Buscar categoria específica do pedido, com fallback para qualquer categoria de receita ativa
+      const category = order.revenueCategoryId 
+        ? (accountCategories || []).find(c => c.id === order.revenueCategoryId)
+        : (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+      
+      if (!category) {
+        console.warn(`⚠️ Categoria de receita não encontrada, usando valores padrão`);
+      }
+      
       const bankAccounts = companySettings?.bankAccounts || [];
       const bank = order.bankAccountId 
         ? bankAccounts.find(b => b.id === order.bankAccountId)
@@ -2926,6 +2934,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyType: "Cliente",
           partyId: order.customerId,
           partyName: order.customer,
+          category: category?.name || 'Vendas de Produtos',  // ✅ NOVO: Categoria exibida na tabela
           categoryId: category?.id || '',
           categoryName: category?.name || "Vendas de Produtos",
           // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
@@ -3144,7 +3153,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Criar nova transação se necessário
       if (isNewTransaction) {
-        const category = (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+        // ✅ CORREÇÃO: Buscar categoria específica do pedido, com fallback para qualquer categoria de receita ativa
+        const category = order.revenueCategoryId 
+          ? (accountCategories || []).find(c => c.id === order.revenueCategoryId)
+          : (accountCategories || []).find(cat => cat.type === "Receita" && cat.isActive);
+        
+        if (!category) {
+          console.warn(`⚠️ Categoria de receita não encontrada, usando valores padrão`);
+        }
+        
         const paymentMethod = (paymentMethods || []).find(pm => pm.isActive) || (paymentMethods || [])[0];
         // ✅ NOVO: Criar transação via API com SKU gerado pelo backend
         
@@ -3173,6 +3190,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyType: "Cliente",
           partyId: order.customerId,
           partyName: order.customer,
+          category: category?.name || 'Vendas de Produtos',  // ✅ NOVO: Categoria exibida na tabela
           categoryId: category?.id || '',
           categoryName: category?.name || "Vendas de Produtos",
           // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
@@ -3277,7 +3295,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  const updateSalesOrderStatus = async (id: string, newStatus: SalesOrder['status'], userName: string = "Sistema", isExceptional: boolean = false) => {
+  const updateSalesOrderStatus = async (id: string, newStatus: SalesOrder['status'], userName: string = "Sistema", isExceptional: boolean = false, skipStockUpdate: boolean = false) => {
     const order = salesOrders.find(o => o.id === id);
     if (!order) {
       toast.error("Pedido não encontrado!");
@@ -3338,21 +3356,28 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       console.log(`🔍 [DEBUG LOOP] Processando status: "${status}"`);
       switch (status) {
         case "Enviado":
-          // Baixar estoque
-          const stockResult = executeStockReduction(orderWithUpdatedContext);
-          if (stockResult.success && stockResult.movementId) {
-            actionsExecuted.push(`✅ ${stockResult.message}`);
-            if (stockResult.movementId) {
-              generatedIds.push({ type: "Movimento de Estoque", id: stockResult.movementId });
+          // Baixar estoque (pular se skipStockUpdate = true, pois backend já fez)
+          if (!skipStockUpdate) {
+            const stockResult = executeStockReduction(orderWithUpdatedContext);
+            if (stockResult.success && stockResult.movementId) {
+              actionsExecuted.push(`✅ ${stockResult.message}`);
+              if (stockResult.movementId) {
+                generatedIds.push({ type: "Movimento de Estoque", id: stockResult.movementId });
+              }
+              updatedActionFlags.stockReduced = true;
+              updatedActionFlags.stockReductionId = stockResult.movementId;
+              orderWithUpdatedContext.actionFlags = updatedActionFlags; // Atualizar contexto
+            } else if (!stockResult.success) {
+              toast.error(`Erro ao baixar estoque: ${stockResult.message}`);
+              return;
+            } else {
+              actionsExecuted.push(`ℹ️ ${stockResult.message}`);
             }
-            updatedActionFlags.stockReduced = true;
-            updatedActionFlags.stockReductionId = stockResult.movementId;
-            orderWithUpdatedContext.actionFlags = updatedActionFlags; // Atualizar contexto
-          } else if (!stockResult.success) {
-            toast.error(`Erro ao baixar estoque: ${stockResult.message}`);
-            return;
           } else {
-            actionsExecuted.push(`ℹ️ ${stockResult.message}`);
+            // Backend já criou stock_movements
+            actionsExecuted.push(`✅ Estoque atualizado pelo backend (lotes consumidos)`);
+            updatedActionFlags.stockReduced = true;
+            orderWithUpdatedContext.actionFlags = updatedActionFlags;
           }
           break;
 
