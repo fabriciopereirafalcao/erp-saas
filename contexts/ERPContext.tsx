@@ -3742,7 +3742,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     toast.success(`${movementType} de ${Math.abs(quantity)} unidades registrada - ${reason}`);
   };
 
-  const updateInventory = (productName: string, quantityChange: number, reference?: string) => {
+  const updateInventory = (
+    productName: string, 
+    quantityChange: number, 
+    reference?: string,
+    batchInfo?: { batchId: string; batchNumber: string } // ✅ NOVO: informações de lote
+  ) => {
     const product = inventory.find(item => item.productName === productName);
     if (!product) return;
 
@@ -3765,7 +3770,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       newStock,
       reason: quantityChange > 0 ? "Pedido de Compra Recebido" : "Pedido de Venda Entregue",
       description: reference ? `Referência: ${reference}` : undefined,
-      reference
+      reference,
+      // ✅ NOVO: adicionar informações de lote se fornecidas
+      ...(batchInfo && {
+        referenceId: batchInfo.batchId,
+        referenceType: 'batch',
+        notes: `Lote: ${batchInfo.batchNumber}`
+      })
     };
     
     setStockMovements(prev => [movement, ...prev]);

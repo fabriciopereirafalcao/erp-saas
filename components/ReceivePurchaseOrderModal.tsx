@@ -258,10 +258,9 @@ export function ReceivePurchaseOrderModal({
       const result = await response.json();
       console.log('[RECEIVE-MODAL] ✅ Lotes processados:', result);
 
-      // ✅ NOVO: Chamar updatePurchaseOrderStatus para completar o fluxo
-      // Isso irá: atualizar estoque, criar transações financeiras, atualizar histórico
-      console.log('[RECEIVE-MODAL] 🔄 Atualizando status do pedido para "Recebido"...');
-      await updatePurchaseOrderStatus(order.id, 'Recebido');
+      // ✅ IMPORTANTE: Recarregar inventário para refletir mudanças do backend
+      console.log('[RECEIVE-MODAL] 🔄 Recarregando inventário do backend...');
+      window.location.reload(); // Recarrega tudo para garantir sincronização
 
       toast.success('Pedido recebido com sucesso!', {
         description: `${result.data.itemsProcessed} item(ns) processado(s), ${result.data.batchesCreated} lote(s) criado(s)`

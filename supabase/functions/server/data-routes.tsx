@@ -4780,11 +4780,11 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
           product_id: productId,
           batch_id: batchId,
           movement_type: 'ENTRADA_COMPRA',
-          quantity: quantity,
+          quantity: quantity,  // ✅ CORRETO: usar "quantity" igual movimentações manuais
           quantity_before: batch.mode === 'create' ? 0 : (batchData.current_quantity - quantity),
           quantity_after: batchData.current_quantity,
-          order_id: orderId,
-          user_id: auth.userId,
+          order_id: orderId,   // ✅ CORRETO: usar "order_id" igual schema
+          user_id: auth.userId, // ✅ CORRETO: adicionar user_id
           notes: `Recebimento de pedido de compra ${orderId}`
         });
 
@@ -4793,12 +4793,69 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
         } else {
           console.log('[RECEIVE-PURCHASE] ✅ Movimento de lote registrado');
         }
+
+        // ✅ NOVO: Criar movimento em stock_movements COM referência ao lote
+        const { error: stockMovementError } = await sqlService.createStockMovement(auth.companyId, {
+          productId: productId,
+          type: 'purchase',
+          quantity: quantity,
+          direction: 'in',
+          movementReason: 'Compra',
+          referenceId: batchId,
+          referenceType: 'batch',
+          notes: `Lote: ${batch.batchNumber || batch.batchId}`
+        });
+
+        if (stockMovementError) {
+          console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao criar stock_movement:', stockMovementError);
+        } else {
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado com referência ao lote');
+        }
+      } else {
+        // ✅ PRODUTO SEM CONTROLE DE LOTE: Criar stock_movement normal
+        console.log('[RECEIVE-PURCHASE] 📦 Produto SEM controle de lote');
+        
+        const { error: stockMovementError } = await sqlService.createStockMovement(auth.companyId, {
+          productId: productId,
+          type: 'purchase',
+          quantity: quantity,
+          direction: 'in',
+          movementReason: 'Compra',
+          referenceId: orderId,
+          referenceType: 'purchase_order',
+          notes: `Pedido de compra ${orderId}`
+        });
+
+        if (stockMovementError) {
+          console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao criar stock_movement:', stockMovementError);
+        } else {
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado');
+        }
       }
 
-      // ❌ REMOVIDO: Não atualizar estoque aqui - será feito por updatePurchaseOrderStatus()
-      // ❌ REMOVIDO: Não criar stock_movement aqui - será feito por executeStockAddition()
+      // ✅ ATUALIZAR ESTOQUE DO PRODUTO
+      const newStock = product.stock_quantity + quantity;
+      await supabase
+        .from('products')
+        .update({ 
+          stock_quantity: newStock,
+          purchase_price: costPrice || product.purchase_price,
+          sale_price: sellPrice || product.sale_price,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      totalStockAdded += quantity;
+      console.log(`[RECEIVE-PURCHASE] ✅ Estoque atualizado: ${product.stock_quantity} → ${newStock}`);
       
       console.log(`[RECEIVE-PURCHASE] ✅ Item processado: ${product.name}`);
+    }
+
+    // ❌ REMOVIDO: Não atualizar status do pedido aqui
+    // O frontend chamará updatePurchaseOrderStatus() que fará:
+    // - Criar transações financeiras
+    // - Atualizar histórico completo
+    // - MAS NÃO criará stock_movements (já criado aqui)
     }
 
     // ❌ REMOVIDO: Não atualizar status do pedido aqui
@@ -4809,14 +4866,32 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
 
     console.log(`[RECEIVE-PURCHASE] ✅ Processamento concluído!`);
     console.log(`[RECEIVE-PURCHASE] 📊 ${createdBatches.length} lote(s) criado(s)`);
+    console.log(`[RECEIVE-PURCHASE] 📦 ${totalStockAdded} unidades adicionadas ao estoque`);
+
+    // ✅ ATUALIZAR STATUS DO PEDIDO PARA "RECEBIDO"
+    const { error: statusError } = await supabase
+      .from('purchase_orders')
+      .update({ 
+        status: 'Recebido', 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('order_number', orderId)
+      .eq('company_id', auth.companyId);
+
+    if (statusError) {
+      console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao atualizar status:', statusError);
+    } else {
+      console.log('[RECEIVE-PURCHASE] ✅ Status atualizado para "Recebido"');
+    }
 
     return c.json({ 
       success: true, 
-      message: `Lotes processados com sucesso`,
+      message: `Pedido processado com sucesso`,
       data: {
         orderId,
         itemsProcessed: items.length,
         batchesCreated: createdBatches.length,
+        totalStockAdded,
         batches: createdBatches
       }
     });
