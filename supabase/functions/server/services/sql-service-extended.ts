@@ -675,6 +675,7 @@ export async function getSalesOrders(companyId: string) {
 
       return {
         id: order.order_number, // ✅ CORRIGIDO: id deve ser o código legível (PV-0001)
+        uuid: order.id, // ✅ NOVO: UUID real do banco para chamadas API
         customer: order.customer_name || '',
         customerName: order.customer_name || '',
         productName: order.product_name || '',
@@ -1153,6 +1154,7 @@ export async function getPurchaseOrders(companyId: string) {
 
       return {
         id: order.order_number, // ✅ CORRIGIDO: id deve ser o código legível (PC-0001)
+        uuid: order.id, // ✅ NOVO: UUID real do banco para chamadas API
         supplier: order.supplier_name || '',
         supplierName: order.supplier_name || '',
         productName: order.product_name || '',

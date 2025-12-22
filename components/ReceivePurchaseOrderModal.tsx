@@ -26,6 +26,7 @@ interface PurchaseOrderItem {
 
 interface PurchaseOrder {
   id: string;
+  uuid?: string; // ✅ NOVO: UUID real do banco para chamadas API
   orderNumber?: string;
   supplier: string;
   productName: string;
@@ -238,8 +239,9 @@ export function ReceivePurchaseOrderModal({
 
       // Chamar endpoint de recebimento
       const token = await getAccessToken();
+      const orderId = order.uuid || order.id; // ✅ Usar UUID se disponível, senão fallback para id
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/purchase-orders/${order.id}/receive`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/purchase-orders/${orderId}/receive`,
         {
           method: 'POST',
           headers: {

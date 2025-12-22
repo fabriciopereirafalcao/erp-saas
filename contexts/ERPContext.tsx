@@ -145,6 +145,7 @@ export interface OrderItem {
 
 export interface SalesOrder {
   id: string;
+  uuid?: string; // ✅ NOVO: UUID real do banco para chamadas API
   customer: string;
   customerId: string;
   productName: string;
@@ -172,6 +173,7 @@ export interface SalesOrder {
 
 export interface PurchaseOrder {
   id: string;
+  uuid?: string; // ✅ NOVO: UUID real do banco para chamadas API
   supplier: string;
   supplierId: string;
   productName: string;
