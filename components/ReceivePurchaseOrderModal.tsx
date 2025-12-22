@@ -264,18 +264,22 @@ export function ReceivePurchaseOrderModal({
       }
 
       const result = await response.json();
-      console.log('[RECEIVE-MODAL] ✅ Lotes processados:', result);
-
-      // ✅ IMPORTANTE: Recarregar inventário para refletir mudanças do backend
-      console.log('[RECEIVE-MODAL] 🔄 Recarregando inventário do backend...');
-      window.location.reload(); // Recarrega tudo para garantir sincronização
+      console.log('[RECEIVE-MODAL] ✅ Pedido recebido com sucesso:', result);
 
       toast.success('Pedido recebido com sucesso!', {
         description: `${result.data.itemsProcessed} item(ns) processado(s), ${result.data.batchesCreated} lote(s) criado(s)`
       });
 
+      // ✅ Chamar onSuccess para fechar modal e atualizar lista
       onSuccess();
       onClose();
+
+      // ✅ Recarregar após fechar modal (para sincronizar com backend)
+      setTimeout(() => {
+        console.log('[RECEIVE-MODAL] 🔄 Recarregando página para sincronizar com backend...');
+        window.location.reload();
+      }, 500);
+      
     } catch (error: any) {
       console.error('[RECEIVE-MODAL] ❌ Erro ao receber pedido:', error);
       toast.error(error.message || 'Erro ao receber pedido');

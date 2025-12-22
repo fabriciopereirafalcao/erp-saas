@@ -4805,45 +4805,45 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
         // ✅ NOVO: Criar movimento em stock_movements COM referência ao lote
         console.log('[RECEIVE-PURCHASE] 📝 Criando stock_movement...');
         
-        const { error: stockMovementError } = await sqlService.createStockMovement(auth.companyId, {
-          productId: productId,
-          type: 'purchase',
-          quantity: quantity,
-          direction: 'in',
-          movementReason: 'Compra',
-          referenceId: batchId,
-          referenceType: 'batch',
-          notes: `Lote: ${batch.batchNumber || batch.batchId}`
-        });
-
-        if (stockMovementError) {
-          console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar stock_movement:', stockMovementError);
-          throw new Error(`Erro ao criar movimento de estoque: ${stockMovementError}`);
+        try {
+          await sqlService.createStockMovement(auth.companyId, {
+            productId: productId,
+            type: 'purchase',
+            quantity: quantity,
+            direction: 'in',
+            movementReason: 'Compra',
+            referenceId: batchId,
+            referenceType: 'batch',
+            notes: `Lote: ${batch.batchNumber || batch.batchId}`
+          });
+          
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado com referência ao lote');
+        } catch (error: any) {
+          console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar stock_movement:', error);
+          throw new Error(`Erro ao criar movimento de estoque: ${error.message}`);
         }
-        
-        console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado com referência ao lote');
       } else {
         // ✅ PRODUTO SEM CONTROLE DE LOTE: Criar stock_movement normal
         console.log('[RECEIVE-PURCHASE] 📦 Produto SEM controle de lote');
         console.log('[RECEIVE-PURCHASE] 📝 Criando stock_movement...');
         
-        const { error: stockMovementError } = await sqlService.createStockMovement(auth.companyId, {
-          productId: productId,
-          type: 'purchase',
-          quantity: quantity,
-          direction: 'in',
-          movementReason: 'Compra',
-          referenceId: orderId,
-          referenceType: 'purchase_order',
-          notes: `Pedido de compra ${orderId}`
-        });
-
-        if (stockMovementError) {
-          console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar stock_movement:', stockMovementError);
-          throw new Error(`Erro ao criar movimento de estoque: ${stockMovementError}`);
+        try {
+          await sqlService.createStockMovement(auth.companyId, {
+            productId: productId,
+            type: 'purchase',
+            quantity: quantity,
+            direction: 'in',
+            movementReason: 'Compra',
+            referenceId: orderId,
+            referenceType: 'purchase_order',
+            notes: `Pedido de compra ${orderId}`
+          });
+          
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado');
+        } catch (error: any) {
+          console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar stock_movement:', error);
+          throw new Error(`Erro ao criar movimento de estoque: ${error.message}`);
         }
-        
-        console.log('[RECEIVE-PURCHASE] ✅ Movimento de estoque criado');
       }
 
       // ✅ ATUALIZAR ESTOQUE DO PRODUTO
