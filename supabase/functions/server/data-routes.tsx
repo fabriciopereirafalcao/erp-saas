@@ -4929,24 +4929,9 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
     console.log(`[RECEIVE-PURCHASE] 📊 ${createdBatches.length} lote(s) criado(s)`);
     console.log(`[RECEIVE-PURCHASE] 📦 ${totalStockAdded} unidades adicionadas ao estoque`);
 
-    // ✅ ATUALIZAR STATUS DO PEDIDO PARA "RECEBIDO"
-    console.log(`[RECEIVE-PURCHASE] 🔄 Atualizando status do pedido ${orderId}...`);
-    
-    const { error: statusError } = await supabase
-      .from('purchase_orders')
-      .update({ 
-        status: 'Recebido', 
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', orderId)  // ✅ CORRETO: usar 'id' pois orderId é o UUID do pedido
-      .eq('company_id', auth.companyId);
-
-    if (statusError) {
-      console.error('[RECEIVE-PURCHASE] ❌ Erro ao atualizar status:', statusError);
-      throw new Error(`Erro ao atualizar status do pedido: ${statusError.message}`);
-    }
-    
-    console.log('[RECEIVE-PURCHASE] ✅ Status atualizado para "Recebido"');
+    // ❌ NÃO atualizar status aqui - o frontend chamará updatePurchaseOrderStatus()
+    // que irá criar as transações financeiras e atualizar o histórico completo
+    console.log('[RECEIVE-PURCHASE] ℹ️ Lotes/estoque criados. Frontend irá atualizar status e criar transação financeira.');
 
     return c.json({ 
       success: true, 

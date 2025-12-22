@@ -566,7 +566,7 @@ interface ERPContextData {
   purchaseOrders: PurchaseOrder[];
   addPurchaseOrder: (order: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional?: boolean) => void;
   updatePurchaseOrder: (id: string, orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>) => void;
-  updatePurchaseOrderStatus: (id: string, status: PurchaseOrder['status']) => void;
+  updatePurchaseOrderStatus: (id: string, status: PurchaseOrder['status'], userName?: string, isExceptional?: boolean, skipStockUpdate?: boolean) => void;
   
   // Inventory Actions
   addInventoryItem: (item: Omit<InventoryItem, 'id' | 'status' | 'lastRestocked'>) => void;
@@ -5488,7 +5488,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updatePurchaseOrderStatus = async (id: string, newStatus: PurchaseOrder['status'], userName: string = 'Sistema', isExceptional: boolean = false) => {
+  const updatePurchaseOrderStatus = async (id: string, newStatus: PurchaseOrder['status'], userName: string = 'Sistema', isExceptional: boolean = false, skipStockUpdate: boolean = false) => {
     const order = purchaseOrders.find(o => o.id === id);
     if (!order) {
       toast.error('Pedido de compra não encontrado!');
@@ -5506,18 +5506,25 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const orderWithUpdatedContext = { ...order, actionFlags: updatedActionFlags };
 
     if (newStatus === 'Recebido' || (isExceptional && (newStatus === 'Recebido' || newStatus === 'Concluído'))) {
-      // Adicionar estoque
-      const stockResult = executeStockAddition(orderWithUpdatedContext);
-      if (stockResult.success && stockResult.movementId) {
-        actionsExecuted.push(`✅ ${stockResult.message}`);
-        if (stockResult.movementId) {
-          generatedIds.push({ type: 'Movimento de Estoque', id: stockResult.movementId });
+      // Adicionar estoque (pular se skipStockUpdate = true, pois backend já fez)
+      if (!skipStockUpdate) {
+        const stockResult = executeStockAddition(orderWithUpdatedContext);
+        if (stockResult.success && stockResult.movementId) {
+          actionsExecuted.push(`✅ ${stockResult.message}`);
+          if (stockResult.movementId) {
+            generatedIds.push({ type: 'Movimento de Estoque', id: stockResult.movementId });
+          }
+          updatedActionFlags.stockReduced = true;
+          updatedActionFlags.stockReductionId = stockResult.movementId;
+          orderWithUpdatedContext.actionFlags = updatedActionFlags;
+        } else if (stockResult.success) {
+          actionsExecuted.push(`ℹ️ ${stockResult.message}`);
         }
+      } else {
+        // Backend já criou stock_movements
+        actionsExecuted.push(`✅ Estoque atualizado pelo backend (lotes criados)`);
         updatedActionFlags.stockReduced = true;
-        updatedActionFlags.stockReductionId = stockResult.movementId;
         orderWithUpdatedContext.actionFlags = updatedActionFlags;
-      } else if (stockResult.success) {
-        actionsExecuted.push(`ℹ️ ${stockResult.message}`);
       }
 
       // Criar contas a pagar

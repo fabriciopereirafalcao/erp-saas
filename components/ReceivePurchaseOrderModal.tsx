@@ -266,6 +266,12 @@ export function ReceivePurchaseOrderModal({
       const result = await response.json();
       console.log('[RECEIVE-MODAL] ✅ Pedido recebido com sucesso:', result);
 
+      // ✅ NOVO: Atualizar status do pedido (cria transação financeira + atualiza histórico)
+      // IMPORTANTE: Backend já criou stock_movements, então passamos skipStockUpdate=true
+      console.log('[RECEIVE-MODAL] 🔄 Atualizando status do pedido para "Recebido"...');
+      updatePurchaseOrderStatus(orderId, 'Recebido', 'Sistema', false, true);
+      console.log('[RECEIVE-MODAL] ✅ Status atualizado e transação financeira criada');
+
       toast.success('Pedido recebido com sucesso!', {
         description: `${result.data.itemsProcessed} item(ns) processado(s), ${result.data.batchesCreated} lote(s) criado(s)`
       });
@@ -273,12 +279,6 @@ export function ReceivePurchaseOrderModal({
       // ✅ Chamar onSuccess para fechar modal e atualizar lista
       onSuccess();
       onClose();
-
-      // ✅ Recarregar após fechar modal (para sincronizar com backend)
-      setTimeout(() => {
-        console.log('[RECEIVE-MODAL] 🔄 Recarregando página para sincronizar com backend...');
-        window.location.reload();
-      }, 500);
       
     } catch (error: any) {
       console.error('[RECEIVE-MODAL] ❌ Erro ao receber pedido:', error);
