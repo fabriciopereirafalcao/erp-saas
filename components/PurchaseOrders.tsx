@@ -24,6 +24,7 @@ import { PaginationControls } from "./PaginationControls";
 import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statusTransitionValidation";
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
+import { ReceivePurchaseOrderModal } from "./ReceivePurchaseOrderModal";
 
 interface OrderItem {
   productId: string;
@@ -49,6 +50,10 @@ export function PurchaseOrders() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<typeof purchaseOrders[0] | null>(null);
   const [isExceptionalMode, setIsExceptionalMode] = useState(false);
+  
+  // ✅ NOVO: Estados para modal de recebimento
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [selectedOrderForReceive, setSelectedOrderForReceive] = useState<typeof purchaseOrders[0] | null>(null);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -480,7 +485,41 @@ export function PurchaseOrders() {
       return;
     }
 
+    // ✅ NOVO: Interceptar status "Recebido" para verificar produtos com lote
+    if (newStatus === "Recebido") {
+      console.log('[PURCHASE-ORDERS] 🔍 Verificando se pedido tem produtos com controle de lote...');
+      
+      // Determinar itens do pedido
+      const orderItems = order.items && order.items.length > 0
+        ? order.items
+        : [{ productName: order.productName, quantity: order.quantity }];
+
+      // Verificar se algum item tem controle de lote
+      const hasTrackedProducts = orderItems.some((item: any) => {
+        const product = inventory.find(p => 
+          p.productName === item.productName || p.id === item.productId
+        );
+        return product && product.trackBatches === true;
+      });
+
+      if (hasTrackedProducts) {
+        console.log('[PURCHASE-ORDERS] 📦 Pedido tem produtos com controle de lote - abrindo modal');
+        setSelectedOrderForReceive(order);
+        setIsReceiveModalOpen(true);
+        return; // ❌ NÃO mudar status ainda - esperar modal
+      }
+
+      console.log('[PURCHASE-ORDERS] ✅ Pedido SEM produtos com lote - mudando status direto');
+    }
+
+    // Mudança normal de status
     updatePurchaseOrderStatus(orderId, newStatus as any);
+  };
+
+  // ✅ NOVO: Callback após recebimento bem-sucedido
+  const handleReceiveSuccess = () => {
+    // Recarregar pedidos e inventário
+    window.location.reload(); // Solução simples - recarrega tudo
   };
 
   // Resetar formulário ao fechar o diálogo
@@ -1738,6 +1777,17 @@ export function PurchaseOrders() {
           orderId={selectedOrderForHistory.id}
         />
       )}
+
+      {/* ✅ NOVO: Modal de Recebimento com Lotes */}
+      <ReceivePurchaseOrderModal
+        isOpen={isReceiveModalOpen}
+        onClose={() => {
+          setIsReceiveModalOpen(false);
+          setSelectedOrderForReceive(null);
+        }}
+        order={selectedOrderForReceive}
+        onSuccess={handleReceiveSuccess}
+      />
     </div>
   );
 }

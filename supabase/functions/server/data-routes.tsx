@@ -4633,4 +4633,229 @@ app.get('/api/batches', async (c) => {
 console.log('[DATA-ROUTES] 🎯 ROTA AUXILIAR REGISTRADA:');
 console.log('[DATA-ROUTES]    → GET /api/batches [BUSCAR LOTES DE PRODUTO]');
 
+// ==================== POST /api/purchase-orders/:id/receive - RECEBER PEDIDO COM LOTES ====================
+
+/**
+ * POST /api/purchase-orders/:id/receive
+ * Recebe pedido de compra com suporte a criação de lotes
+ */
+app.post('/api/purchase-orders/:id/receive', async (c) => {
+  try {
+    console.log('[RECEIVE-PURCHASE] 📦 Recebendo pedido de compra...');
+    
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      console.error('[RECEIVE-PURCHASE] ❌ Autenticação falhou');
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const orderId = c.req.param('id');
+    const { items } = await c.req.json();
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, error: 'Items é obrigatório' }, 400);
+    }
+
+    console.log(`[RECEIVE-PURCHASE] 🔄 Recebendo pedido ${orderId} com ${items.length} item(ns)`);
+
+    const supabase = sqlService.getSupabaseClient();
+    const createdBatches: any[] = [];
+    let totalStockAdded = 0;
+
+    // Processar cada item
+    for (const item of items) {
+      const { productId, quantity, costPrice, sellPrice, batch } = item;
+
+      console.log(`[RECEIVE-PURCHASE] 📦 Processando item:`, { productId, quantity, hasBatch: !!batch });
+
+      // Buscar produto
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .eq('company_id', auth.companyId)
+        .single();
+
+      if (productError || !product) {
+        console.error('[RECEIVE-PURCHASE] ❌ Produto não encontrado:', productId);
+        return c.json({ success: false, error: `Produto ${productId} não encontrado` }, 404);
+      }
+
+      const productHasLotControl = product.track_batches === true;
+      console.log(`[RECEIVE-PURCHASE] 🏷️ Produto ${product.name}: trackBatches=${productHasLotControl}`);
+
+      // ========== PRODUTO COM CONTROLE DE LOTE ==========
+      if (productHasLotControl && batch) {
+        console.log('[RECEIVE-PURCHASE] 🔄 Processando COM controle de lote...');
+
+        let batchId: string;
+        let batchData: any;
+
+        // MODE: CREATE - Criar novo lote
+        if (batch.mode === 'create') {
+          console.log('[RECEIVE-PURCHASE] ➕ Criando novo lote:', batch.batchNumber);
+
+          // Verificar se lote já existe
+          const { data: existingBatch } = await supabase
+            .from('product_batches')
+            .select('id')
+            .eq('company_id', auth.companyId)
+            .eq('product_id', productId)
+            .eq('batch_number', batch.batchNumber)
+            .single();
+
+          if (existingBatch) {
+            return c.json({ success: false, error: `Lote ${batch.batchNumber} já existe` }, 400);
+          }
+
+          // Criar novo lote
+          const { data: newBatch, error: batchError } = await supabase
+            .from('product_batches')
+            .insert({
+              company_id: auth.companyId,
+              product_id: productId,
+              product_name: product.name,
+              batch_number: batch.batchNumber,
+              manufacturing_date: batch.manufacturingDate || null,
+              expiry_date: batch.expiryDate || null,
+              location_name: batch.locationName || null,
+              initial_quantity: quantity,
+              current_quantity: quantity,
+              status: 'Ativo',
+              notes: batch.notes || `Recebido do pedido ${orderId}`
+            })
+            .select()
+            .single();
+
+          if (batchError || !newBatch) {
+            console.error('[RECEIVE-PURCHASE] ❌ Erro ao criar lote:', batchError);
+            return c.json({ success: false, error: 'Erro ao criar lote' }, 500);
+          }
+
+          batchId = newBatch.id;
+          batchData = newBatch;
+          createdBatches.push(newBatch);
+          console.log('[RECEIVE-PURCHASE] ✅ Lote criado:', batchId);
+        } 
+        // MODE: SELECT - Usar lote existente
+        else if (batch.mode === 'select' && batch.batchId) {
+          console.log('[RECEIVE-PURCHASE] 🔄 Atualizando lote existente:', batch.batchId);
+
+          const { data: existingBatch, error: batchError } = await supabase
+            .from('product_batches')
+            .select('*')
+            .eq('id', batch.batchId)
+            .eq('company_id', auth.companyId)
+            .eq('product_id', productId)
+            .single();
+
+          if (batchError || !existingBatch) {
+            return c.json({ success: false, error: 'Lote não encontrado' }, 404);
+          }
+
+          const newQuantity = existingBatch.current_quantity + quantity;
+          const { error: updateError } = await supabase
+            .from('product_batches')
+            .update({ current_quantity: newQuantity, updated_at: new Date().toISOString() })
+            .eq('id', batch.batchId);
+
+          if (updateError) {
+            console.error('[RECEIVE-PURCHASE] ❌ Erro ao atualizar lote:', updateError);
+            return c.json({ success: false, error: 'Erro ao atualizar lote' }, 500);
+          }
+
+          batchId = batch.batchId;
+          batchData = { ...existingBatch, current_quantity: newQuantity };
+          console.log('[RECEIVE-PURCHASE] ✅ Lote atualizado:', batchId);
+        } else {
+          return c.json({ success: false, error: 'Dados de lote inválidos' }, 400);
+        }
+
+        // Registrar movimento em batch_movements
+        await supabase.from('batch_movements').insert({
+          company_id: auth.companyId,
+          product_id: productId,
+          batch_id: batchId,
+          movement_type: 'ENTRADA_COMPRA',
+          quantity: quantity,
+          quantity_before: batch.mode === 'create' ? 0 : (batchData.current_quantity - quantity),
+          quantity_after: batchData.current_quantity,
+          order_id: orderId,
+          user_id: auth.userId,
+          notes: `Recebimento de pedido de compra ${orderId}`
+        });
+
+        console.log('[RECEIVE-PURCHASE] ✅ Movimento de lote registrado');
+      }
+
+      // ========== ATUALIZAR ESTOQUE DO PRODUTO ==========
+      const newStock = product.stock_quantity + quantity;
+      await supabase
+        .from('products')
+        .update({ 
+          stock_quantity: newStock,
+          purchase_price: costPrice || product.purchase_price,
+          sale_price: sellPrice || product.sale_price,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      totalStockAdded += quantity;
+      console.log(`[RECEIVE-PURCHASE] ✅ Estoque atualizado: ${product.stock_quantity} → ${newStock}`);
+
+      // ========== CRIAR MOVIMENTO EM stock_movements ==========
+      try {
+        await sqlService.createStockMovement(auth.companyId, {
+          productId: productId,
+          type: 'purchase',
+          quantity: quantity,
+          direction: 'in',
+          movementReason: 'Compra',
+          referenceId: orderId,
+          referenceType: 'purchase_order',
+          notes: productHasLotControl && batch 
+            ? `Pedido ${orderId} - Lote: ${batch.batchNumber || batch.batchId}` 
+            : `Pedido de compra ${orderId}`
+        });
+        console.log('[RECEIVE-PURCHASE] ✅ Movimento em stock_movements criado');
+      } catch (histError) {
+        console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao criar histórico:', histError);
+      }
+    }
+
+    // Atualizar status do pedido para "Recebido"
+    const { error: statusError } = await supabase
+      .from('purchase_orders')
+      .update({ status: 'Recebido', stock_increased: true, updated_at: new Date().toISOString() })
+      .eq('order_number', orderId)
+      .eq('company_id', auth.companyId);
+
+    if (statusError) {
+      console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao atualizar status:', statusError);
+    }
+
+    console.log(`[RECEIVE-PURCHASE] ✅ Pedido ${orderId} recebido!`);
+    console.log(`[RECEIVE-PURCHASE] 📊 ${createdBatches.length} lote(s) criado(s)`);
+
+    return c.json({ 
+      success: true, 
+      message: `Pedido recebido com sucesso`,
+      data: {
+        orderId,
+        itemsProcessed: items.length,
+        batchesCreated: createdBatches.length,
+        totalStockAdded,
+        batches: createdBatches
+      }
+    });
+
+  } catch (error) {
+    console.error('[RECEIVE-PURCHASE] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA DE RECEBIMENTO REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/purchase-orders/:id/receive [RECEBER PEDIDO COM LOTES]');
+
 export default app;
