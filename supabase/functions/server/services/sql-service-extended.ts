@@ -1543,70 +1543,124 @@ export async function getStockMovementsWithCalculatedStocks(companyId: string) {
 export async function saveStockMovements(companyId: string, movements: any[]) {
   const supabase = getSupabaseClient();
 
-  // Deletar movimentos antigos
-  const { error: deleteError } = await supabase
-    .from('stock_movements')
-    .delete()
-    .eq('company_id', companyId);
+  // ✅ NOVO: Fazer UPSERT em vez de deletar tudo
+  // Isso preserva o created_at dos registros existentes
+  
+  if (movements.length === 0) {
+    // Se não há movimentos, deletar todos
+    const { error: deleteError } = await supabase
+      .from('stock_movements')
+      .delete()
+      .eq('company_id', companyId);
 
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar stock movements:', deleteError);
-    throw new Error(deleteError.message);
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar stock movements:', deleteError);
+      throw new Error(deleteError.message);
+    }
+    
+    console.log('[SQL_SERVICE] ✅ Todos stock movements deletados (array vazio)');
+    return { success: true, count: 0 };
   }
 
-  // Inserir novos movimentos
-  if (movements.length > 0) {
-    const rows = await Promise.all(
-      movements.map(async (movement: any) => {
-        // ✅ Calcular movement_date (usar movementDate se enviado, senão extrair de 'date', senão hoje)
-        let movementDateStr = movement.movementDate;
-        if (!movementDateStr && movement.date) {
-          // Se tem 'date' (formato YYYY-MM-DD ou DD/MM/YYYY), extrair apenas a data
-          const dateMatch = movement.date.match(/(\d{4})-(\d{2})-(\d{2})|(\d{2})\/(\d{2})\/(\d{4})/);
-          if (dateMatch) {
-            if (dateMatch[1]) {
-              // Formato YYYY-MM-DD
-              movementDateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
-            } else {
-              // Formato DD/MM/YYYY
-              movementDateStr = `${dateMatch[6]}-${dateMatch[5]}-${dateMatch[4]}`;
-            }
-          }
-        }
-        if (!movementDateStr) {
-          // Padrão: hoje em GMT-3
-          const now = new Date();
-          const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-          const year = brazilDate.getFullYear();
-          const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
-          const day = String(brazilDate.getDate()).padStart(2, '0');
-          movementDateStr = `${year}-${month}-${day}`;
-        }
+  // 1️⃣ Buscar IDs existentes no banco
+  const { data: existingMovements, error: fetchError } = await supabase
+    .from('stock_movements')
+    .select('id')
+    .eq('company_id', companyId);
 
-        return {
-          company_id: companyId,
-          product_id: await resolveProductId(companyId, movement.productId),
-          type: movement.type,
-          quantity: movement.quantity,
-          movement_date: movementDateStr,  // ✅ NOVO: Sempre incluir
-          reference_id: movement.referenceId,
-          reference_type: movement.referenceType,
-          notes: movement.notes || ''
-        };
-      })
-    );
+  if (fetchError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar stock movements:', fetchError);
+    throw new Error(fetchError.message);
+  }
 
-    const { error: insertError } = await supabase
+  const existingIds = new Set(existingMovements?.map(m => m.id) || []);
+  const newMovementIds = new Set(movements.map(m => m.id).filter(Boolean));
+
+  // 2️⃣ Deletar apenas os que não estão no novo array
+  const idsToDelete = Array.from(existingIds).filter(id => !newMovementIds.has(id));
+  
+  if (idsToDelete.length > 0) {
+    console.log(`[SQL_SERVICE] 🗑️ Deletando ${idsToDelete.length} movimentos obsoletos`);
+    const { error: deleteError } = await supabase
       .from('stock_movements')
-      .insert(rows);
+      .delete()
+      .in('id', idsToDelete);
 
-    if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir stock movements:', insertError);
-      throw new Error(insertError.message);
+    if (deleteError) {
+      console.error('[SQL_SERVICE] ❌ Erro ao deletar movimentos obsoletos:', deleteError);
+      // Não throw - continuar com o upsert
     }
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${movements.length} stock movements salvos`);
+  // 3️⃣ Fazer UPSERT dos movimentos (preserva created_at se já existe)
+  if (movements.length > 0) {
+  const rows = await Promise.all(
+    movements.map(async (movement: any) => {
+      // ✅ Calcular movement_date (usar movementDate se enviado, senão extrair de 'date', senão hoje)
+      let movementDateStr = movement.movementDate;
+      if (!movementDateStr && movement.date) {
+        // Se tem 'date' (formato YYYY-MM-DD ou DD/MM/YYYY), extrair apenas a data
+        const dateMatch = movement.date.match(/(\d{4})-(\d{2})-(\d{2})|(\d{2})\/(\d{2})\/(\d{4})/);
+        if (dateMatch) {
+          if (dateMatch[1]) {
+            // Formato YYYY-MM-DD
+            movementDateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+          } else {
+            // Formato DD/MM/YYYY
+            movementDateStr = `${dateMatch[6]}-${dateMatch[5]}-${dateMatch[4]}`;
+          }
+        }
+      }
+      if (!movementDateStr) {
+        // Padrão: hoje em GMT-3
+        const now = new Date();
+        const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+        const year = brazilDate.getFullYear();
+        const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+        const day = String(brazilDate.getDate()).padStart(2, '0');
+        movementDateStr = `${year}-${month}-${day}`;
+      }
+
+      // ✅ NOVO: Estruturar notes com [REASON]|notes
+      const movementReason = movement.reason || movement.movementReason || 'Ajuste';
+      const baseNotes = movement.notes || '';
+      const structuredNotes = baseNotes 
+        ? `[${movementReason}]|${baseNotes}`
+        : `[${movementReason}]`;
+
+      const row: any = {
+        company_id: companyId,
+        product_id: await resolveProductId(companyId, movement.productId),
+        type: movement.type,
+        quantity: movement.quantity,
+        movement_date: movementDateStr,  // ✅ NOVO: Sempre incluir
+        reference_id: movement.referenceId,
+        reference_type: movement.referenceType,
+        notes: structuredNotes  // ✅ CORRIGIDO: Incluir [REASON]
+      };
+      
+      // ✅ IMPORTANTE: Incluir id para UPSERT funcionar (preservar created_at)
+      if (movement.id) {
+        row.id = movement.id;
+      }
+      
+      return row;
+    })
+  );
+
+  // ✅ UPSERT: onConflict garante que created_at seja preservado
+  const { error: upsertError } = await supabase
+    .from('stock_movements')
+    .upsert(rows, { onConflict: 'id' });
+
+  if (upsertError) {
+    console.error('[SQL_SERVICE] ❌ Erro ao fazer upsert stock movements:', upsertError);
+    throw new Error(upsertError.message);
+  }
+
+  console.log(`[SQL_SERVICE] ✅ ${movements.length} stock movements salvos (UPSERT - preserva created_at)`);
+  return { success: true, count: movements.length };
+}
   return { success: true, count: movements.length };
 }
 
