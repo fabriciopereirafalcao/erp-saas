@@ -474,6 +474,12 @@ app.get('/purchase-orders', async (c) => {
     const purchaseOrders = await sqlService.getPurchaseOrders(auth.companyId);
     
     console.log(`[PURCHASE ORDERS] ✅ ${purchaseOrders.length} purchase orders carregados`);
+    console.log(`[PURCHASE ORDERS] 🔍 Primeiro pedido (sample):`, purchaseOrders[0] ? {
+      id: purchaseOrders[0].id,
+      uuid: purchaseOrders[0].uuid,
+      status: purchaseOrders[0].status
+    } : 'Nenhum pedido');
+    
     return c.json({
       success: true,
       data: purchaseOrders
@@ -4651,6 +4657,9 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
 
     const orderId = c.req.param('id');
     const { items } = await c.req.json();
+
+    console.log(`[RECEIVE-PURCHASE] 🔍 orderId recebido do frontend:`, orderId);
+    console.log(`[RECEIVE-PURCHASE] 🔍 Tipo do orderId:`, typeof orderId);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return c.json({ success: false, error: 'Items é obrigatório' }, 400);
