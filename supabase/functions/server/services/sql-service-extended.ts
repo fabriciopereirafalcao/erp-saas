@@ -1646,10 +1646,12 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
         notes: structuredNotes  // ✅ CORRIGIDO: Incluir [REASON]
       };
       
-      // ✅ IMPORTANTE: Incluir id APENAS se for UUID válido (preservar created_at)
-      // IDs como "MOV-xxx" são ignorados, deixando o Supabase gerar UUID
+      // ✅ IMPORTANTE: Se ID for UUID válido, preservar (mantém created_at)
+      // Se não for válido (ex: "MOV-xxx"), gerar novo UUID
       if (movement.id && isValidUUID(movement.id)) {
-        row.id = movement.id;
+        row.id = movement.id;  // Preservar UUID existente
+      } else {
+        row.id = crypto.randomUUID();  // Gerar novo UUID
       }
       
       return row;
