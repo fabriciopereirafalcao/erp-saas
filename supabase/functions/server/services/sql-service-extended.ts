@@ -1345,6 +1345,13 @@ export async function savePurchaseOrders(companyId: string, orders: any[]) {
 
 // ==================== STOCK MOVEMENTS ====================
 
+// Helper: Validar se é UUID válido
+function isValidUUID(value: any): boolean {
+  if (!value || typeof value !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
 export async function getStockMovements(companyId: string) {
   const supabase = getSupabaseClient();
   
@@ -1639,8 +1646,9 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
         notes: structuredNotes  // ✅ CORRIGIDO: Incluir [REASON]
       };
       
-      // ✅ IMPORTANTE: Incluir id para UPSERT funcionar (preservar created_at)
-      if (movement.id) {
+      // ✅ IMPORTANTE: Incluir id APENAS se for UUID válido (preservar created_at)
+      // IDs como "MOV-xxx" são ignorados, deixando o Supabase gerar UUID
+      if (movement.id && isValidUUID(movement.id)) {
         row.id = movement.id;
       }
       
@@ -1659,8 +1667,6 @@ export async function saveStockMovements(companyId: string, movements: any[]) {
   }
 
   console.log(`[SQL_SERVICE] ✅ ${movements.length} stock movements salvos (UPSERT - preserva created_at)`);
-  return { success: true, count: movements.length };
-}
   return { success: true, count: movements.length };
 }
 
