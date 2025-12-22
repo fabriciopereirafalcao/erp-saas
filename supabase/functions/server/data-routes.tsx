@@ -4775,7 +4775,7 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
         }
 
         // Registrar movimento em batch_movements
-        await supabase.from('batch_movements').insert({
+        const { error: batchMovementError } = await supabase.from('batch_movements').insert({
           company_id: auth.companyId,
           product_id: productId,
           batch_id: batchId,
@@ -4788,7 +4788,11 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
           notes: `Recebimento de pedido de compra ${orderId}`
         });
 
-        console.log('[RECEIVE-PURCHASE] ✅ Movimento de lote registrado');
+        if (batchMovementError) {
+          console.error('[RECEIVE-PURCHASE] ⚠️ Erro ao criar batch_movement:', batchMovementError);
+        } else {
+          console.log('[RECEIVE-PURCHASE] ✅ Movimento de lote registrado');
+        }
       }
 
       // ❌ REMOVIDO: Não atualizar estoque aqui - será feito por updatePurchaseOrderStatus()
