@@ -5426,6 +5426,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           partyType: "Fornecedor",
           partyId: order.supplierId,
           partyName: order.supplier,
+          category: category?.name || 'Despesas Gerais',  // ✅ NOVO: Categoria exibida na tabela
           categoryId: category?.id || '',
           categoryName: category?.name || 'Despesas Gerais',
           // ✅ CORREÇÃO: Usar vazio ao invés de SKU inválido (BANK-001) para UUID
