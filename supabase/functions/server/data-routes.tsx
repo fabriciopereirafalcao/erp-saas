@@ -3847,6 +3847,11 @@ app.get('/api/available-batches/:productId', async (c) => {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Buscar lotes disponíveis via VIEW v_available_batches (já ordenados por FIFO)
     const { data, error } = await supabase
       .from('v_available_batches')
@@ -3889,6 +3894,11 @@ app.post('/api/allocate-batches-fifo', async (c) => {
     if (!productId || !quantityNeeded || quantityNeeded <= 0) {
       return c.json({ error: 'Dados inválidos' }, 400);
     }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Buscar lotes disponíveis ordenados por FIFO
     const { data: availableBatches, error: fetchError } = await supabase

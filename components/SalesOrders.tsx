@@ -363,13 +363,6 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     const item = orderItems[index];
     const product = safeInventory.find(p => p.id === item.productId);
     
-    console.log(`🔍 [DEBUG-OPEN-BATCH-MODAL] Abrindo modal de lotes:`, {
-      index,
-      item,
-      product,
-      trackBatches: product?.trackBatches
-    });
-    
     if (!product?.trackBatches) {
       toast.error('Este produto não possui controle de lotes ativado');
       return;
@@ -377,7 +370,6 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
 
     setSelectedItemForBatch({ index, item });
     setIsBatchModalOpen(true);
-    console.log(`✅ [DEBUG-OPEN-BATCH-MODAL] Modal aberto!`);
   };
 
   // ✅ SPRINT 2: Confirmar alocações de lotes
@@ -1703,12 +1695,6 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                       {/* ✅ SPRINT 2: Botão Alocar Lotes */}
                                       {(() => {
                                         const product = safeInventory.find(p => p.id === item.productId);
-                                        console.log(`🔍 [DEBUG-BATCH-BUTTON] Produto:`, {
-                                          itemProductId: item.productId,
-                                          productFound: !!product,
-                                          trackBatches: product?.trackBatches,
-                                          productName: product?.productName
-                                        });
                                         
                                         if (product?.trackBatches === true) {
                                           return (
