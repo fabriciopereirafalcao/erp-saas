@@ -10,6 +10,8 @@ import { Package, Calendar, AlertTriangle, CheckCircle2, Sparkles, Trash2 } from
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { projectId } from '../utils/supabase/info';
+import { getAccessToken } from '../utils/authFetch';
 
 interface BatchAllocation {
   batchId: string;
@@ -73,11 +75,10 @@ export function BatchAllocationModal({
   const fetchAvailableBatches = async () => {
     setLoading(true);
     try {
-      const { getAccessToken } = await import('../utils/authFetch');
       const accessToken = await getAccessToken();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/data/api/available-batches/${productId}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/available-batches/${productId}`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -103,11 +104,10 @@ export function BatchAllocationModal({
   const handleFifoAutomatic = async () => {
     setLoading(true);
     try {
-      const { getAccessToken } = await import('../utils/authFetch');
       const accessToken = await getAccessToken();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/data/api/allocate-batches-fifo`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/allocate-batches-fifo`,
         {
           method: 'POST',
           headers: {
