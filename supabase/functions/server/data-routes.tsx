@@ -5122,7 +5122,7 @@ app.post('/api/sales-orders/:id/ship', async (c) => {
             product_id: productId,
             batch_id: batchId,
             movement_type: 'SAIDA_VENDA',
-            quantity: -quantityAllocated,  // ✅ Negativo para saída
+            quantity: quantityAllocated,  // ✅ POSITIVO: constraint exige positivo, movement_type indica direção
             quantity_before: existingBatch.current_quantity,
             quantity_after: newQuantity,
             order_id: null,  // UUID do pedido (futuro)
