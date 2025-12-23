@@ -515,25 +515,14 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
         });
       }
 
-      // ✅ SPRINT 2: Validar alocações de lotes
-      if (product.trackBatches) {
-        if (!item.batchAllocations || item.batchAllocations.length === 0) {
-          toast.error(`Produto \"${item.productName}\" requer alocação de lotes!`, {
-            description: 'Use o botão "Alocar Lotes" no menu do item'
-          });
-          return;
-        }
-
-        // Validar quantidade total alocada
-        const totalAllocated = item.batchAllocations.reduce((sum, alloc) => sum + alloc.quantityAllocated, 0);
-        if (Math.abs(totalAllocated - item.quantity) > 0.001) {
-          toast.error(`Quantidade alocada (${totalAllocated.toFixed(3)}) difere da quantidade do item (${item.quantity.toFixed(3)})`, {
-            description: `Produto: ${item.productName}`
-          });
-          return;
-        }
-
-        console.log(`✅ SPRINT 2: Item "${item.productName}" possui ${item.batchAllocations.length} lotes alocados corretamente`);
+      // ✅ NOVA LÓGICA: Validar lotes APENAS se status inicial >= "Enviado"
+      // Pedidos normais (Processando/Confirmado) NÃO precisam de lotes na criação
+      // Alocação de lotes acontece na expedição via ShipSalesOrderModal
+      if (product.trackBatches && (orderHeader.status === "Enviado" || orderHeader.status === "Entregue")) {
+        toast.error(`Não é possível criar pedidos com status "${orderHeader.status}" diretamente!`, {
+          description: 'Para enviar um pedido, crie-o como "Processando" ou "Confirmado" e depois use a opção "Expedir Pedido"'
+        });
+        return;
       }
     }
 
@@ -625,6 +614,38 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
         `🚫 [PROTEÇÃO] Tentativa bloqueada de alterar manualmente pedido ${orderId} para "${newStatus}"`
       );
       return;
+    }
+
+    // ✅ NOVA PROTEÇÃO: Bloquear mudança manual para "Enviado"
+    // Deve usar o modal de expedição para alocar lotes
+    if (newStatus === "Enviado") {
+      let hasTrackedBatches = false;
+      
+      // Verificar pedidos multi-item
+      if (order.items && order.items.length > 0) {
+        hasTrackedBatches = order.items.some(item => {
+          const product = safeInventory.find(p => p.id === item.productId || p.productName === item.productName);
+          return product?.trackBatches;
+        });
+      } else {
+        // Verificar pedidos single-item
+        const product = safeInventory.find(p => p.productName === order.productName);
+        hasTrackedBatches = product?.trackBatches || false;
+      }
+
+      if (hasTrackedBatches) {
+        toast.error(
+          `Este pedido possui produtos com controle de lotes`,
+          {
+            description: 'Use a opção "Expedir Pedido" no menu de ações para alocar lotes',
+            duration: 6000
+          }
+        );
+        console.warn(
+          `🚫 [PROTEÇÃO] Tentativa bloqueada de alterar manualmente pedido ${orderId} para "Enviado" - requer alocação de lotes`
+        );
+        return;
+      }
     }
 
     // Se passou pelas validações, chamar a função do contexto
@@ -1443,6 +1464,14 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
 
                   {/* ABA 2: ITENS DO PEDIDO */}
                   <TabsContent value="items" className="space-y-4 p-6">
+                    {/* ✅ AVISO: Alocação de lotes na expedição */}
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800">
+                        <strong>📦 Controle de Lotes:</strong> Produtos com controle de lotes não precisam ter lotes alocados na criação do pedido. A alocação será feita automaticamente no momento da expedição (status "Enviado") através da opção <strong>"Expedir Pedido"</strong> no menu de ações.
+                      </AlertDescription>
+                    </Alert>
+
                     {/* Seleção de Produto */}
                     <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
                       <div className="flex items-center gap-2 mb-5">
@@ -1692,25 +1721,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                         <Edit className="w-4 h-4 mr-2" />
                                         Editar Quantidade
                                       </DropdownMenuItem>
-                                      {/* ✅ SPRINT 2: Botão Alocar Lotes */}
-                                      {(() => {
-                                        const product = safeInventory.find(p => p.id === item.productId);
-                                        
-                                        if (product?.trackBatches === true) {
-                                          return (
-                                            <DropdownMenuItem onClick={() => handleOpenBatchModal(index)}>
-                                              <Package className="w-4 h-4 mr-2" />
-                                              Alocar Lotes
-                                              {item.batchAllocations && item.batchAllocations.length > 0 && (
-                                                <Badge variant="secondary" className="ml-2">
-                                                  {item.batchAllocations.length}
-                                                </Badge>
-                                              )}
-                                            </DropdownMenuItem>
-                                          );
-                                        }
-                                        return null;
-                                      })()}
+                                      {/* ✅ REMOVIDO: Alocação de lotes agora é feita na expedição, não na criação */}
                                       <DropdownMenuItem 
                                         onClick={() => handleRemoveItem(index)}
                                         className="text-red-600 focus:text-red-600"
@@ -1723,16 +1734,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                 </TableCell>
                                 <TableCell className="py-4">
                                   <div>
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-gray-900">{item.productName}</p>
-                                      {/* ✅ SPRINT 2: Badge de lotes alocados */}
-                                      {item.batchAllocations && item.batchAllocations.length > 0 && (
-                                        <Badge variant="outline" className="text-xs gap-1">
-                                          <Package className="w-3 h-3" />
-                                          {item.batchAllocations.length} lote(s)
-                                        </Badge>
-                                      )}
-                                    </div>
+                                    <p className="text-gray-900">{item.productName}</p>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                       {/* Buscar SKU do produto ao invés de mostrar UUID */}
                                       {(() => {
@@ -1740,16 +1742,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                                         return product?.sku || item.productId;
                                       })()}
                                     </p>
-                                    {/* ✅ SPRINT 2: Mostrar lotes alocados */}
-                                    {item.batchAllocations && item.batchAllocations.length > 0 && (
-                                      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                                        {item.batchAllocations.map((alloc, idx) => (
-                                          <div key={idx}>
-                                            Lote {alloc.batchNumber}: {alloc.quantityAllocated.toFixed(3)}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
+                                    {/* ✅ REMOVIDO: Não mostra lotes alocados na criação, pois alocação é feita na expedição */}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right py-4">
@@ -2334,29 +2327,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ SPRINT 2: Modal de Alocação de Lotes */}
-      {selectedItemForBatch && (
-        <BatchAllocationModal
-          isOpen={isBatchModalOpen}
-          onClose={() => {
-            setIsBatchModalOpen(false);
-            setSelectedItemForBatch(null);
-          }}
-          productId={selectedItemForBatch.item.productId}
-          productName={selectedItemForBatch.item.productName}
-          quantityNeeded={selectedItemForBatch.item.quantity}
-          currentAllocations={selectedItemForBatch.item.batchAllocations || []}
-          onConfirmAllocations={handleConfirmBatchAllocations}
-          trackBatches={(() => {
-            const product = safeInventory.find(p => p.id === selectedItemForBatch.item.productId);
-            return product?.trackBatches || false;
-          })()}
-          batchFifoAuto={(() => {
-            const product = safeInventory.find(p => p.id === selectedItemForBatch.item.productId);
-            return product?.batchFifoAuto || false;
-          })()}
-        />
-      )}
+      {/* ✅ REMOVIDO: Modal de alocação de lotes na criação - agora é feito apenas na expedição */}
       
       {/* Modal de Expedição */}
       {selectedOrderForShip && (

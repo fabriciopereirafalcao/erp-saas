@@ -23,7 +23,7 @@ import {
 import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate } from '../utils/dateUtils';
-import { authGet, authPost, authPatch, authFetch } from '../utils/authFetch';
+import { authGet, authPost, authPatch, authFetch, getAccessToken } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
@@ -3256,13 +3256,53 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Estornar operações ao cancelar pedido
-  const executeOrderCancellation = (order: SalesOrder): { success: boolean; message: string } => {
+  const executeOrderCancellation = async (order: SalesOrder): Promise<{ success: boolean; message: string }> => {
     const actions: string[] = [];
 
-    // Estornar baixa de estoque se foi executada
-    if (order.actionFlags?.stockReduced) {
-      updateInventory(order.productName, order.quantity, `${order.id}-CANCELAMENTO`);
-      actions.push(`Estoque restaurado: +${order.quantity} unidades`);
+    // ✅ NOVA LÓGICA: Se pedido foi expedido (status >= Enviado), chamar endpoint de cancelamento
+    // para devolver lotes ao estoque
+    if (order.status === "Enviado" || order.status === "Entregue" || order.actionFlags?.stockReduced) {
+      try {
+        console.log(`[CANCEL] 🔄 Chamando endpoint de cancelamento para pedido ${order.id}...`);
+        
+        const token = await getAccessToken();
+        const orderId = order.uuid || order.id;
+        
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/sales-orders/${orderId}/cancel`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('[CANCEL] ✅ Lotes devolvidos ao estoque:', result);
+          
+          if (result.data.batchesRestored > 0) {
+            actions.push(`Lotes devolvidos: ${result.data.batchesRestored} lote(s), ${result.data.totalStockRestored} unidades`);
+          } else {
+            actions.push(`Estoque restaurado: +${result.data.totalStockRestored} unidades`);
+          }
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('[CANCEL] ❌ Erro ao devolver lotes:', errorData);
+          actions.push(`⚠️ Erro ao devolver lotes: ${errorData.error || 'Erro desconhecido'}`);
+        }
+      } catch (error: any) {
+        console.error('[CANCEL] ❌ Erro ao chamar endpoint de cancelamento:', error);
+        actions.push(`⚠️ Erro ao devolver lotes: ${error.message}`);
+        
+        // Fallback: restaurar estoque manualmente se backend falhar
+        if (order.actionFlags?.stockReduced) {
+          updateInventory(order.productName, order.quantity, `${order.id}-CANCELAMENTO`);
+          actions.push(`Estoque restaurado manualmente: +${order.quantity} unidades`);
+        }
+      }
     }
 
     // Cancelar transação financeira se existe
@@ -3401,7 +3441,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
         case "Cancelado":
           // Estornar operações
-          const cancelResult = executeOrderCancellation(orderWithUpdatedContext);
+          const cancelResult = await executeOrderCancellation(orderWithUpdatedContext);
           actionsExecuted.push(`⚠️ ${cancelResult.message}`);
           break;
       }

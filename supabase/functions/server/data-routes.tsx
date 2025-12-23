@@ -5233,4 +5233,200 @@ app.post('/api/sales-orders/:id/ship', async (c) => {
 console.log('[DATA-ROUTES] 🎯 ROTA DE EXPEDIÇÃO REGISTRADA:');
 console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/ship [EXPEDIR PEDIDO COM LOTES]');
 
+// ==================== POST /api/sales-orders/:id/cancel - CANCELAR PEDIDO E DEVOLVER LOTES ====================
+
+/**
+ * POST /api/sales-orders/:id/cancel
+ * Cancela pedido de venda e devolve lotes ao estoque (se foi expedido)
+ */
+app.post('/api/sales-orders/:id/cancel', async (c) => {
+  try {
+    console.log('[CANCEL-SALES] 🚫 Cancelando pedido de venda...');
+    
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      console.error('[CANCEL-SALES] ❌ Autenticação falhou');
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const orderIdParam = c.req.param('id');
+    console.log(`[CANCEL-SALES] 🔍 orderId recebido do frontend:`, orderIdParam);
+
+    // ✅ RESOLVER UUID: Aceitar tanto UUID quanto order_number (PV-0001)
+    let orderId = orderIdParam;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdParam);
+    
+    if (!isUUID) {
+      console.log(`[CANCEL-SALES] 🔄 Parâmetro não é UUID, buscando por order_number: ${orderIdParam}`);
+      
+      const supabaseTemp = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: orderData, error: orderError } = await supabaseTemp
+        .from('sales_orders')
+        .select('id')
+        .eq('order_number', orderIdParam)
+        .eq('company_id', auth.companyId)
+        .single();
+      
+      if (orderError || !orderData) {
+        console.error('[CANCEL-SALES] ❌ Pedido não encontrado:', orderError);
+        return c.json({ 
+          success: false, 
+          error: `Pedido ${orderIdParam} não encontrado` 
+        }, 404);
+      }
+      
+      orderId = orderData.id; // ✅ Usar o UUID real
+      console.log(`[CANCEL-SALES] ✅ UUID resolvido: ${orderId}`);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // ✅ Buscar movimentações de estoque do pedido (saídas)
+    const { data: stockMovements, error: movementsError } = await supabase
+      .from('stock_movements')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('reference_type', 'sales_order')
+      .eq('reference_id', orderId)
+      .eq('movement_type', 'saida');
+
+    if (movementsError) {
+      console.error('[CANCEL-SALES] ❌ Erro ao buscar movimentações:', movementsError);
+      return c.json({ success: false, error: 'Erro ao buscar movimentações de estoque' }, 500);
+    }
+
+    console.log(`[CANCEL-SALES] 📦 Encontradas ${stockMovements?.length || 0} movimentações de saída para reverter`);
+
+    const revertedBatches: any[] = [];
+    let totalStockRestored = 0;
+
+    if (stockMovements && stockMovements.length > 0) {
+      // Processar cada movimentação de saída
+      for (const movement of stockMovements) {
+        const { product_id, batch_id, quantity } = movement;
+
+        console.log(`[CANCEL-SALES] 🔄 Revertendo movimentação:`, { product_id, batch_id, quantity });
+
+        // Se tem batch_id, devolver ao lote
+        if (batch_id) {
+          // Buscar lote
+          const { data: existingBatch, error: batchError } = await supabase
+            .from('product_batches')
+            .select('*')
+            .eq('id', batch_id)
+            .eq('company_id', auth.companyId)
+            .single();
+
+          if (batchError || !existingBatch) {
+            console.error(`[CANCEL-SALES] ⚠️ Lote ${batch_id} não encontrado, pulando...`);
+            continue;
+          }
+
+          // Restaurar quantidade do lote
+          const newQuantity = existingBatch.current_quantity + quantity;
+          const { error: updateError } = await supabase
+            .from('product_batches')
+            .update({ 
+              current_quantity: newQuantity,
+              status: 'Ativo', // Reativar lote se estava esgotado
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', batch_id);
+
+          if (updateError) {
+            console.error('[CANCEL-SALES] ❌ Erro ao restaurar lote:', updateError);
+            return c.json({ success: false, error: 'Erro ao restaurar lote' }, 500);
+          }
+
+          console.log(`[CANCEL-SALES] ✅ Lote restaurado: ${existingBatch.current_quantity} → ${newQuantity}`);
+          revertedBatches.push({
+            batchId: batch_id,
+            batchNumber: existingBatch.batch_number,
+            quantityBefore: existingBatch.current_quantity,
+            quantityAfter: newQuantity
+          });
+
+          // Registrar movimento de devolução em batch_movements
+          await supabase.from('batch_movements').insert({
+            company_id: auth.companyId,
+            product_id: product_id,
+            batch_id: batch_id,
+            batch_number: existingBatch.batch_number,
+            movement_type: 'entrada',
+            movement_subtype: 'cancelamento',
+            quantity: quantity,
+            reference_type: 'sales_order',
+            reference_id: orderId,
+            notes: `Cancelamento de pedido ${orderIdParam}`,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        // Restaurar estoque geral do produto
+        const { data: product, error: productError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', product_id)
+          .eq('company_id', auth.companyId)
+          .single();
+
+        if (product && !productError) {
+          const newStock = product.current_stock + quantity;
+          await supabase
+            .from('products')
+            .update({ 
+              current_stock: newStock,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', product_id);
+
+          console.log(`[CANCEL-SALES] ✅ Estoque produto restaurado: ${product.current_stock} → ${newStock}`);
+          totalStockRestored += quantity;
+        }
+
+        // Marcar movimentação original como cancelada (criar movimento inverso)
+        await supabase.from('stock_movements').insert({
+          company_id: auth.companyId,
+          product_id: product_id,
+          batch_id: batch_id,
+          movement_type: 'entrada',
+          movement_subtype: 'cancelamento',
+          quantity: quantity,
+          reference_type: 'sales_order',
+          reference_id: orderId,
+          notes: `Devolução por cancelamento de pedido ${orderIdParam}`,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    console.log(`[CANCEL-SALES] ✅ Cancelamento concluído!`);
+
+    return c.json({
+      success: true,
+      data: {
+        orderId,
+        movementsReverted: stockMovements?.length || 0,
+        batchesRestored: revertedBatches.length,
+        totalStockRestored,
+        batches: revertedBatches
+      }
+    });
+
+  } catch (error) {
+    console.error('[CANCEL-SALES] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA DE CANCELAMENTO REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/cancel [CANCELAR PEDIDO E DEVOLVER LOTES]');
+
 export default app;
