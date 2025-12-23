@@ -77,7 +77,7 @@ export function BatchAllocationModal({
       const accessToken = await getAccessToken();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/api/available-batches/${productId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/data/api/available-batches/${productId}`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -107,7 +107,7 @@ export function BatchAllocationModal({
       const accessToken = await getAccessToken();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/api/allocate-batches-fifo`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-686b5e88/data/api/allocate-batches-fifo`,
         {
           method: 'POST',
           headers: {
