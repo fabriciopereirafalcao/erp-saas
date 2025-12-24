@@ -16,7 +16,7 @@ import { useERP } from "../contexts/ERPContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { formatDateLocal, addDaysToDate } from "../utils/dateUtils";
+import { formatDateLocal, addDaysToDate, dateToLocalString } from "../utils/dateUtils";
 
 export function FinancialTransactions() {
   const {
@@ -223,7 +223,8 @@ export function FinancialTransactions() {
     const transferCategory = safeAccountCategories.find(c => c.name.toLowerCase().includes("transferência")) || safeAccountCategories[0];
     const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
 
-    const transactionDate = transferData.date.toISOString().split('T')[0];
+    // ✅ Converter Date para string local (evita problema de timezone)
+    const transactionDate = dateToLocalString(transferData.date);
 
     // Gerar ID único para vincular as duas transações
     const transferPairId = `TRANSFER-${Date.now()}`;
@@ -324,10 +325,13 @@ export function FinancialTransactions() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // ✅ Converter Date para string local (evita problema de timezone)
+    const baseDateString = dateToLocalString(formData.date);
+    
     for (let i = 0; i < numInstallments; i++) {
       // Calcular data de vencimento de cada parcela usando addDaysToDate
       const daysToAdd = formData.firstInstallmentDays + (i * 30);
-      const dueDate = addDaysToDate(formData.date.toISOString().split('T')[0], daysToAdd);
+      const dueDate = addDaysToDate(baseDateString, daysToAdd);
       
       // Calcular valor da parcela (última parcela ajusta diferenças de arredondamento)
       const amount = i === numInstallments - 1 
@@ -341,7 +345,7 @@ export function FinancialTransactions() {
 
       const transactionData = {
         type: formData.type,
-        date: formData.date.toISOString().split('T')[0],
+        date: baseDateString,
         dueDate: dueDate,
         partyType: formData.partyType,
         partyId: formData.partyId || undefined,
@@ -420,7 +424,8 @@ export function FinancialTransactions() {
       return;
     }
 
-    const formattedDate = effectiveDate.toISOString().split('T')[0];
+    // ✅ Converter Date para string local (evita problema de timezone)
+    const formattedDate = dateToLocalString(effectiveDate);
     const bankAccount = safeBankAccounts.find(b => b.id === receiveBankAccountId);
     const paymentMethod = safePaymentMethods.find(pm => pm.id === receivePaymentMethodId);
     
@@ -675,15 +680,18 @@ export function FinancialTransactions() {
         const bankAccount = safeBankAccounts[0];
         const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
 
+        // ✅ Converter Date para string local (evita problema de timezone)
+        const baseDateString = dateToLocalString(formData.date);
+        
         for (let i = 0; i < parcelasACriar; i++) {
           const installmentNumber = currentMaxInstallment + i + 1;
           const daysToAdd = formData.firstInstallmentDays + ((installmentNumber - 1) * 30);
-          const dueDate = addDaysToDate(formData.date.toISOString().split('T')[0], daysToAdd);
+          const dueDate = addDaysToDate(baseDateString, daysToAdd);
 
           const newTransaction = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
             type: formData.type,
-            date: formData.date.toISOString().split('T')[0],
+            date: baseDateString,
             dueDate: dueDate,
             partyType: formData.partyType,
             partyId: formData.partyId,
@@ -1526,7 +1534,8 @@ export function FinancialTransactions() {
                               : installmentAmount;
                             
                             const daysToAdd = formData.firstInstallmentDays + (i * 30);
-                            const dueDate = addDaysToDate(formData.date.toISOString().split('T')[0], daysToAdd);
+                            // ✅ Converter Date para string local (evita problema de timezone)
+                            const dueDate = addDaysToDate(dateToLocalString(formData.date), daysToAdd);
                             
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);

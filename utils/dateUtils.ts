@@ -132,3 +132,16 @@ export const daysBetween = (date1: string, date2: string): number => {
   
   return diffDays;
 };
+
+/**
+ * Converte um objeto Date para string YYYY-MM-DD no timezone local
+ * @param date - Objeto Date
+ * @returns String no formato YYYY-MM-DD
+ */
+export const dateToLocalString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
