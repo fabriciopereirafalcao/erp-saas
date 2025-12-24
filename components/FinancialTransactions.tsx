@@ -51,7 +51,6 @@ export function FinancialTransactions() {
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
   const [showDialog, setShowDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [editingInstallmentMode, setEditingInstallmentMode] = useState<"single" | "all">("single");
   const [settledInstallmentsCount, setSettledInstallmentsCount] = useState<number>(0);
@@ -65,6 +64,7 @@ export function FinancialTransactions() {
   const [formData, setFormData] = useState({
     type: "Despesa" as "Receita" | "Despesa",
     date: new Date(),
+    dueDate: new Date(), // ✅ ADICIONADO: campo para data de vencimento
     partyType: "Outro" as "Cliente" | "Fornecedor" | "Outro",
     partyId: "",
     partyName: "",
@@ -138,32 +138,71 @@ export function FinancialTransactions() {
 
   const saldo = totalReceitas - totalDespesas;
 
-  const handleOpenDialog = (transactionId?: string, transferMode: boolean = false) => {
+  const handleOpenDialog = (transactionId?: string, transferMode: boolean = false, editMode: "single" | "all" = "single") => {
     setIsTransferMode(transferMode);
     
     if (transactionId) {
       const transaction = safeFinancialTransactions.find(t => t.id === transactionId);
       if (transaction) {
         setEditingTransaction(transactionId);
-        setFormData({
-          type: transaction.type,
-          date: new Date(transaction.date),
-          partyType: transaction.partyType,
-          partyId: transaction.partyId || "",
-          partyName: transaction.partyName,
-          categoryId: transaction.categoryId,
-          amount: (transaction.amount * 100).toString(),
-          costCenterId: transaction.costCenterId || "",
-          description: transaction.description,
-          installments: "1",
-          firstInstallmentDays: 0
-        });
+        setEditingInstallmentMode(editMode);
+        
+        // Se for edição de parcelamento completo
+        if (editMode === "all" && transaction.totalInstallments && transaction.totalInstallments > 1) {
+          const allInstallments = findRelatedInstallments(transaction);
+          const unsettledInstallments = allInstallments.filter(t => 
+            t.status !== "Recebido" && t.status !== "Pago" && t.status !== "Cancelado"
+          );
+          const totalAmount = unsettledInstallments.reduce((sum, t) => sum + t.amount, 0);
+          const firstUnsettledInstallment = unsettledInstallments.sort((a, b) => 
+            (a.installmentNumber || 0) - (b.installmentNumber || 0)
+          )[0];
+          const baseDate = new Date(transaction.date);
+          const firstDueDate = new Date(firstUnsettledInstallment.dueDate);
+          const daysDiff = Math.floor((firstDueDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
+          const settledCount = allInstallments.filter(t => 
+            t.status === "Recebido" || t.status === "Pago"
+          ).length;
+          setSettledInstallmentsCount(settledCount);
+          
+          setFormData({
+            type: transaction.type,
+            date: new Date(transaction.date),
+            partyType: transaction.partyType,
+            partyId: transaction.partyId || "",
+            partyName: transaction.partyName,
+            categoryId: transaction.categoryId,
+            amount: (totalAmount * 100).toString(),
+            costCenterId: transaction.costCenterId || "",
+            description: transaction.description,
+            installments: unsettledInstallments.length.toString(),
+            firstInstallmentDays: daysDiff >= 0 ? daysDiff : 0
+          });
+        } else {
+          // Transação única ou edição single
+          setSettledInstallmentsCount(0);
+          setFormData({
+            type: transaction.type,
+            date: new Date(transaction.date),
+            dueDate: new Date(transaction.dueDate), // ✅ ADICIONADO: carregar dueDate
+            partyType: transaction.partyType,
+            partyId: transaction.partyId || "",
+            partyName: transaction.partyName,
+            categoryId: transaction.categoryId,
+            amount: (transaction.amount * 100).toString(),
+            costCenterId: transaction.costCenterId || "",
+            description: transaction.description,
+            installments: "1",
+            firstInstallmentDays: 0
+          });
+        }
       }
     } else {
       setEditingTransaction(null);
       setFormData({
         type: "Despesa",
         date: new Date(),
+        dueDate: new Date(), // ✅ ADICIONADO: inicializar dueDate
         partyType: "Outro",
         partyId: "",
         partyName: "",
@@ -314,9 +353,9 @@ export function FinancialTransactions() {
     const totalAmount = parseFloat(formData.amount) / 100;
     const installmentAmount = totalAmount / numInstallments;
 
-    // Se for edição, não permitir criar múltiplas parcelas
+    // ✅ Se for edição, chamar função de atualização
     if (editingTransaction) {
-      toast.warning("Edição de transações manuais não está disponível. Por favor, exclua e crie uma nova.");
+      handleSaveEdit();
       return;
     }
 
@@ -493,7 +532,9 @@ export function FinancialTransactions() {
     return [transaction];
   };
 
-  const handleOpenEditDialog = (transactionId: string, mode: "single" | "all" = "single") => {
+  // ✅ REMOVIDO: handleOpenEditDialog - agora usa handleOpenDialog
+  
+  const _handleOpenEditDialog_REMOVIDO = (transactionId: string, mode: "single" | "all" = "single") => {
     const transaction = safeFinancialTransactions.find(t => t.id === transactionId);
     if (!transaction) {
       toast.error("Transação não encontrada");
@@ -749,6 +790,18 @@ export function FinancialTransactions() {
       }
     } else {
       // Edição de uma única transação/parcela
+      // ✅ Converter dueDate para string local
+      const dueDateString = dateToLocalString(formData.dueDate);
+      
+      // ✅ Verificar se vencimento está no passado e ajustar status
+      const today = getTodayString();
+      const isOverdue = compareDates(dueDateString, today) < 0;
+      const newStatus = (transaction.status === "Recebido" || transaction.status === "Pago" || transaction.status === "Cancelado")
+        ? transaction.status // Manter status se já foi liquidado ou cancelado
+        : isOverdue 
+          ? "Vencido" 
+          : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+      
       updateFinancialTransaction(editingTransaction, {
         ...transaction,
         partyType: formData.partyType,
@@ -760,13 +813,16 @@ export function FinancialTransactions() {
         costCenterId: formData.costCenterId,
         costCenterName: costCenter?.name || "",
         description: formData.description,
+        dueDate: dueDateString, // ✅ ADICIONADO: atualizar dueDate
+        status: newStatus as any, // ✅ ADICIONADO: atualizar status baseado na nova data
       });
 
       toast.success("Transação atualizada com sucesso");
     }
 
-    setShowEditDialog(false);
+    setShowDialog(false); // ✅ Usar showDialog ao invés de showEditDialog
     setEditingTransaction(null);
+    setEditingInstallmentMode("single");
   };
 
   const getStatusColor = (status: string) => {
@@ -994,13 +1050,13 @@ export function FinancialTransactions() {
                                 {txn.totalInstallments && txn.totalInstallments > 1 ? (
                                   <>
                                     <DropdownMenuItem 
-                                      onClick={() => handleOpenEditDialog(txn.id, "single")}
+                                      onClick={() => handleOpenDialog(txn.id, false, "single")}
                                     >
                                       <Edit2 className="mr-2 h-4 w-4" />
                                       Editar Esta Parcela
                                     </DropdownMenuItem>
                                     <DropdownMenuItem 
-                                      onClick={() => handleOpenEditDialog(txn.id, "all")}
+                                      onClick={() => handleOpenDialog(txn.id, false, "all")}
                                     >
                                       <Edit2 className="mr-2 h-4 w-4" />
                                       Editar Toda a Transação
@@ -1008,7 +1064,7 @@ export function FinancialTransactions() {
                                   </>
                                 ) : (
                                   <DropdownMenuItem 
-                                    onClick={() => handleOpenEditDialog(txn.id, "single")}
+                                    onClick={() => handleOpenDialog(txn.id, false, "single")}
                                   >
                                     <Edit2 className="mr-2 h-4 w-4" />
                                     Editar Transação
@@ -1141,10 +1197,18 @@ export function FinancialTransactions() {
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>
-              {editingTransaction ? "Editar Transação" : isTransferMode ? "Transferência entre Contas" : "Nova Transação Manual"}
+              {editingTransaction 
+                ? (editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação") 
+                : isTransferMode ? "Transferência entre Contas" : "Nova Transação Manual"}
             </DialogTitle>
             <DialogDescription>
-              {isTransferMode ? "Realize transferências de valores entre suas contas bancárias" : "Registre receitas e despesas não vinculadas a pedidos"}
+              {editingTransaction 
+                ? (editingInstallmentMode === "all" 
+                    ? `Editando todas as parcelas não liquidadas. ${settledInstallmentsCount > 0 ? `${settledInstallmentsCount} parcela(s) já liquidada(s) não será(ão) alterada(s).` : ''}` 
+                    : "Editando apenas esta parcela")
+                : isTransferMode 
+                  ? "Realize transferências de valores entre suas contas bancárias" 
+                  : "Registre receitas e despesas não vinculadas a pedidos"}
             </DialogDescription>
           </DialogHeader>
 
@@ -1474,6 +1538,34 @@ export function FinancialTransactions() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  {/* ✅ ADICIONADO: Mostrar campo dueDate quando editando transação única */}
+                  {editingTransaction && formData.installments === "1" ? (
+                    <>
+                      <div className="col-span-2">
+                        <Label>Data de Vencimento *</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(formData.dueDate, "PPP", { locale: ptBR })}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={formData.dueDate}
+                              onSelect={(date) => date && setFormData({ ...formData, dueDate: date })}
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Defina a data de vencimento desta transação
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
                   {/* Número de Parcelas */}
                   <div>
                     <Label>Número de Parcelas *</Label>
@@ -1509,7 +1601,8 @@ export function FinancialTransactions() {
                     </p>
                   </div>
 
-                  {/* Tabela de Parcelas Calculadas */}
+                  {/* Tabela de Parcelas Calculadas - Mostrar apenas quando não for edição de transação única */}
+                  {!(editingTransaction && formData.installments === "1") && (
                   <div className="col-span-2">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
                       <div className="flex items-center justify-between text-sm">
@@ -1583,6 +1676,9 @@ export function FinancialTransactions() {
                       </Table>
                     </Card>
                   </div>
+                  )}
+                  </>
+                  )}
                 </div>
               </TabsContent>
             </div>
@@ -1593,7 +1689,9 @@ export function FinancialTransactions() {
               Cancelar
             </Button>
             <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-              Criar {parseInt(formData.installments) > 1 ? `${formData.installments} Transações` : "Transação"}
+              {editingTransaction 
+                ? "Salvar Alterações" 
+                : `Criar ${parseInt(formData.installments) > 1 ? `${formData.installments} Transações` : "Transação"}`}
             </Button>
           </DialogFooter>
           </>
@@ -1759,291 +1857,6 @@ export function FinancialTransactions() {
             <Button onClick={handleMarkAsReceived} className="bg-green-600 hover:bg-green-700">
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Confirmar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para Editar Transação */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingInstallmentMode === "all" 
-                ? "Edite a transação completa. Você pode alterar o número de parcelas - o sistema irá criar, cancelar ou recalcular conforme necessário."
-                : "Edite as informações da transação. Valores já recebidos/pagos não podem ser alterados."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Alerta informativo sobre parcelas liquidadas */}
-          {editingInstallmentMode === "all" && settledInstallmentsCount > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="text-amber-900 mb-1">
-                    <strong>Importante:</strong> Esta transação possui <strong>{settledInstallmentsCount}</strong> parcela{settledInstallmentsCount > 1 ? 's' : ''} já liquidada{settledInstallmentsCount > 1 ? 's' : ''}.
-                  </p>
-                  <p className="text-amber-700 text-xs">
-                    O valor total exibido refere-se apenas às <strong>{formData.installments} parcela{parseInt(formData.installments) > 1 ? 's' : ''} não liquidada{parseInt(formData.installments) > 1 ? 's' : ''}</strong> que podem ser editadas.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {/* Tipo e Data - Apenas para modo "all" */}
-            {editingInstallmentMode === "all" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Tipo *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: any) => setFormData({ ...formData, type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Receita">Receita</SelectItem>
-                      <SelectItem value="Despesa">Despesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Data *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(formData.date, "PPP", { locale: ptBR })}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={formData.date}
-                        onSelect={(date) => date && setFormData({ ...formData, date })}
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-            )}
-
-            {/* Parceiro Comercial */}
-            <div>
-              <Label>Tipo de Parceiro *</Label>
-              <Select
-                value={formData.partyType}
-                onValueChange={(value: any) => setFormData({ ...formData, partyType: value, partyId: "", partyName: "" })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cliente">Cliente</SelectItem>
-                  <SelectItem value="Fornecedor">Fornecedor</SelectItem>
-                  <SelectItem value="Outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Parceiro Comercial *</Label>
-              {formData.partyType === "Cliente" ? (
-                <Select
-                  value={formData.partyId}
-                  onValueChange={(value) => {
-                    const customer = customers.find(c => c.id === value);
-                    setFormData({ ...formData, partyId: value, partyName: customer?.name || "" });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : formData.partyType === "Fornecedor" ? (
-                <Select
-                  value={formData.partyId}
-                  onValueChange={(value) => {
-                    const supplier = suppliers.find(s => s.id === value);
-                    setFormData({ ...formData, partyId: value, partyName: supplier?.name || "" });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um fornecedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(supplier => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={formData.partyName}
-                  onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
-                  placeholder="Nome do parceiro"
-                />
-              )}
-            </div>
-
-            {/* Categoria */}
-            <div>
-              <Label>Categoria *</Label>
-              <Select
-                value={formData.categoryId}
-                onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {safeAccountCategories
-                    .filter(cat => cat.type === formData.type)
-                    .map(category => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Valor */}
-            <div>
-              <Label>Valor Total *</Label>
-              <Input
-                type="text"
-                value={formData.amount === '' || formData.amount === '0' ? '' : (parseFloat(formData.amount) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  setFormData({ ...formData, amount: value });
-                }}
-                onFocus={(e) => {
-                  if (formData.amount === '' || formData.amount === '0') {
-                    setFormData({ ...formData, amount: '' });
-                  }
-                }}
-                placeholder="0,00"
-              />
-              {editingInstallmentMode === "all" && parseInt(formData.installments) > 1 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Valor por parcela: R$ {(parseFloat(formData.amount || "0") / 100 / parseInt(formData.installments)).toFixed(2)}
-                </p>
-              )}
-            </div>
-
-            {/* Campos de Parcelamento - Apenas para modo "all" */}
-            {editingInstallmentMode === "all" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Número de Parcelas *</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="360"
-                    value={formData.installments}
-                    onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Altere para adicionar ou remover parcelas
-                  </p>
-                </div>
-
-                <div>
-                  <Label>Dias para 1ª Parcela</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.firstInstallmentDays}
-                    onChange={(e) => setFormData({ ...formData, firstInstallmentDays: parseInt(e.target.value) || 0 })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Parcelas subsequentes: +30 dias cada
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Centro de Custo */}
-            {safeCostCenters.length > 0 && (
-              <div>
-                <Label>Centro de Custo</Label>
-                <Select
-                  value={formData.costCenterId}
-                  onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um centro de custo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
-                    {safeCostCenters.map(center => (
-                      <SelectItem key={center.id} value={center.id}>
-                        {center.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Descrição */}
-            <div>
-              <Label>Descrição</Label>
-              <Input
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descrição da transação"
-              />
-            </div>
-
-            {editingInstallmentMode === "all" && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-2">
-                <p className="text-blue-800">
-                  ℹ️ <strong>Edição de transação parcelada:</strong>
-                </p>
-                {settledInstallmentsCount > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded p-2 text-xs">
-                    <p className="text-green-800">
-                      ✓ <strong>{settledInstallmentsCount}</strong> parcela{settledInstallmentsCount > 1 ? 's' : ''} já liquidada{settledInstallmentsCount > 1 ? 's' : ''} (não será{settledInstallmentsCount > 1 ? 'm' : ''} alterada{settledInstallmentsCount > 1 ? 's' : ''})
-                    </p>
-                  </div>
-                )}
-                <ul className="text-blue-700 text-xs space-y-1 ml-4">
-                  <li>• Você está editando apenas as {formData.installments} parcela{parseInt(formData.installments) > 1 ? 's' : ''} não liquidada{parseInt(formData.installments) > 1 ? 's' : ''}</li>
-                  <li>• Ao reduzir parcelas: as últimas serão canceladas</li>
-                  <li>• Ao aumentar parcelas: novas serão criadas automaticamente</li>
-                  <li>• Os valores serão recalculados proporcionalmente</li>
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveEdit}>
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Salvar Alterações
             </Button>
           </DialogFooter>
         </DialogContent>
