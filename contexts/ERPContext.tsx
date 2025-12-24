@@ -2007,11 +2007,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ✅ ENRIQUECIMENTO: Adicionar categoryName às transações que não têm
   useEffect(() => {
     if (!accountCategories || accountCategories.length === 0) {
+      console.log('[ENRICHMENT] ⏸️ Aguardando categorias serem carregadas...');
       return;
     }
 
+    console.log(`[ENRICHMENT] 🔍 Verificando ${internalFinancialTransactions.length} transações...`);
+    console.log(`[ENRICHMENT] 📋 ${accountCategories.length} categorias disponíveis`);
+
     setFinancialTransactions(prev => {
       let hasChanges = false;
+      let enrichedCount = 0;
       
       const enriched = prev.map(txn => {
         // Se já tem categoryName, não precisa enriquecer
@@ -2024,11 +2029,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           const category = accountCategories.find(c => c.id === txn.categoryId);
           if (category) {
             hasChanges = true;
+            enrichedCount++;
+            console.log(`[ENRICHMENT] ✅ Enriquecendo ${txn.id}: categoryId=${txn.categoryId} → categoryName="${category.name}"`);
             return {
               ...txn,
               categoryName: category.name
             };
+          } else {
+            console.log(`[ENRICHMENT] ⚠️ Categoria não encontrada para ${txn.id}: categoryId=${txn.categoryId}`);
           }
+        } else {
+          console.log(`[ENRICHMENT] ⚠️ Transação ${txn.id} sem categoryId`);
         }
         
         return txn;
@@ -2036,10 +2047,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Só atualizar se houve mudanças
       if (hasChanges) {
-        console.log('[ENRICHMENT] 🔄 Transações enriquecidas com categoryName');
+        console.log(`[ENRICHMENT] 🔄 ${enrichedCount} transações enriquecidas com categoryName`);
         return enriched;
       }
       
+      console.log('[ENRICHMENT] ℹ️ Nenhuma transação precisa ser enriquecida');
       return prev;
     });
   }, [accountCategories, internalFinancialTransactions.length]); // Executar quando categorias ou número de transações mudar

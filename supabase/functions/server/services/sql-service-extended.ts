@@ -1042,24 +1042,24 @@ export async function createFinancialTransaction(companyId: string, transactionD
     due_date: transactionData.dueDate,
     effective_date: transactionData.effectiveDate,
     party_type: partyType, // ✅ CHECK: 'Cliente' | 'Fornecedor' | 'Outro' | null
-    party_id: transactionData.partyId,
+    party_id: isValidUUID(transactionData.partyId) ? transactionData.partyId : null, // ✅ Validar UUID
     party_name: transactionData.partyName,
-    category_id: transactionData.categoryId,
+    category_id: isValidUUID(transactionData.categoryId) ? transactionData.categoryId : null, // ✅ Validar UUID
     category_name: transactionData.categoryName,
-    cost_center_id: transactionData.costCenterId,
+    cost_center_id: isValidUUID(transactionData.costCenterId) ? transactionData.costCenterId : null, // ✅ Validar UUID
     cost_center_name: transactionData.costCenterName,
     bank_account_id: isValidUUID(transactionData.bankAccountId) ? transactionData.bankAccountId : null,
     bank_account_name: transactionData.bankAccountName,
-    payment_method_id: transactionData.paymentMethodId,
+    payment_method_id: isValidUUID(transactionData.paymentMethodId) ? transactionData.paymentMethodId : null, // ✅ Validar UUID
     payment_method_name: transactionData.paymentMethodName,
     status, // ✅ CHECK: 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado'
     origin, // ✅ CHECK: 'Manual' | 'Pedido'
     installment_number: transactionData.installmentNumber,
     total_installments: transactionData.totalInstallments,
     payment_date: transactionData.paymentDate,
-    parent_transaction_id: transactionData.parentTransactionId,
+    parent_transaction_id: isValidUUID(transactionData.parentTransactionId) ? transactionData.parentTransactionId : null, // ✅ Validar UUID
     is_transfer: transactionData.isTransfer || false,
-    transfer_pair_id: transactionData.transferPairId,
+    transfer_pair_id: isValidUUID(transactionData.transferPairId) ? transactionData.transferPairId : null, // ✅ Validar UUID
     transfer_direction: transferDirection // ✅ CHECK: 'origem' | 'destino' | null
   };
 
