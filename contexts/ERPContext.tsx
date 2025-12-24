@@ -22,7 +22,7 @@ import {
 } from '../utils/auditLogger';
 import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
-import { addDaysToDate } from '../utils/dateUtils';
+import { addDaysToDate, getTodayString, compareDates } from '../utils/dateUtils';
 import { authGet, authPost, authPatch, authFetch, getAccessToken } from '../utils/authFetch';
 import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
@@ -258,7 +258,7 @@ export interface FinancialTransaction {
   paymentMethodId: string;
   paymentMethodName: string;
   amount: number;
-  status: "A Receber" | "Recebido" | "A Pagar" | "Pago" | "Cancelado";
+  status: "A Receber" | "Recebido" | "A Pagar" | "Pago" | "Cancelado" | "Vencido";
   costCenterId?: string;
   costCenterName?: string;
   description: string;
@@ -2977,6 +2977,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           ? `Pedido de venda ${order.id} - Parcela única`
           : `Pedido de venda ${order.id} - Parcela ${i + 1}/${numberOfInstallments}`;
         
+        // ✅ CORREÇÃO: Determinar status baseado na data de vencimento
+        const today = getTodayString();
+        const isOverdue = compareDates(dueDate, today) < 0; // dueDate < today
+        const transactionStatus = isOverdue ? "Vencido" : "A Receber";
+        
         const transactionData = {
           type: "Receita",
           date: transactionDate,
@@ -2995,7 +3000,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || '',
           amount: installmentAmount,
-          status: "A Receber",
+          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A Receber"
           description,
           origin: "Pedido",
           reference: order.id,
@@ -5534,6 +5539,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           ? `Pedido de compra ${order.id} - Parcela única`
           : `Pedido de compra ${order.id} - Parcela ${i + 1}/${numberOfInstallments}`;
         
+        // ✅ CORREÇÃO: Determinar status baseado na data de vencimento
+        const today = getTodayString();
+        const isOverdue = compareDates(dueDate, today) < 0; // dueDate < today
+        const transactionStatus = isOverdue ? "Vencido" : "A Pagar";
+        
         const transactionData = {
           type: "Despesa",
           date: transactionDate,
@@ -5552,7 +5562,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || 'Dinheiro',
           amount: installmentAmount,
-          status: "A Pagar",
+          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A Pagar"
           description,
           origin: "Pedido",
           reference: order.id,

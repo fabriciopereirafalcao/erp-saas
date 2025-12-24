@@ -33,7 +33,7 @@ function normalizeTransactionType(type: string): 'income' | 'expense' {
 
 /**
  * ✅ HELPER: Normalizar status de Accounts Receivable/Payable (PT → EN)
- * Frontend envia: "A Vencer" | "A Receber" | "Vencido" | "Recebido" | "Parcial" | "Cancelado"
+ * Frontend envia: "A Vencer" | "A Receber" | "A Pagar" | "Vencido" | "Recebido" | "Pago" | "Parcial" | "Cancelado"
  * Backend precisa: "pending" | "paid" | "overdue" | "cancelled"
  */
 function normalizeAccountStatus(status: string): 'pending' | 'paid' | 'overdue' | 'cancelled' {
@@ -41,7 +41,7 @@ function normalizeAccountStatus(status: string): 'pending' | 'paid' | 'overdue' 
   const normalized = status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   
   // Mapeamento PT → EN
-  if (normalized === 'a vencer' || normalized === 'a receber' || normalized === 'pending') return 'pending';
+  if (normalized === 'a vencer' || normalized === 'a receber' || normalized === 'a pagar' || normalized === 'pending') return 'pending';
   if (normalized === 'recebido' || normalized === 'pago' || normalized === 'paid') return 'paid';
   if (normalized === 'vencido' || normalized === 'overdue') return 'overdue';
   if (normalized === 'cancelado' || normalized === 'cancelled') return 'cancelled';

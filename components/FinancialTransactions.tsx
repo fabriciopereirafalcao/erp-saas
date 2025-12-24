@@ -16,7 +16,7 @@ import { useERP } from "../contexts/ERPContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { formatDateLocal, addDaysToDate, dateToLocalString } from "../utils/dateUtils";
+import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates } from "../utils/dateUtils";
 
 export function FinancialTransactions() {
   const {
@@ -341,7 +341,10 @@ export function FinancialTransactions() {
       // Determinar status baseado na data de vencimento
       const dueDateObj = new Date(dueDate);
       dueDateObj.setHours(0, 0, 0, 0);
-      const status = dueDateObj < today ? "Vencido" : "A Vencer";
+      // ✅ CORREÇÃO: Usar "A Receber" ou "A Pagar" baseado no tipo, ou "Vencido" se data passada
+      const status = dueDateObj < today 
+        ? "Vencido" 
+        : (formData.type === "Receita" ? "A Receber" : "A Pagar");
 
       const transactionData = {
         type: formData.type,
@@ -688,6 +691,13 @@ export function FinancialTransactions() {
           const daysToAdd = formData.firstInstallmentDays + ((installmentNumber - 1) * 30);
           const dueDate = addDaysToDate(baseDateString, daysToAdd);
 
+          // ✅ CORREÇÃO: Verificar se vencimento está no passado
+          const today = getTodayString();
+          const isOverdue = compareDates(dueDate, today) < 0;
+          const installmentStatus = isOverdue 
+            ? "Vencido" 
+            : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+
           const newTransaction = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
             type: formData.type,
@@ -703,7 +713,7 @@ export function FinancialTransactions() {
             paymentMethodId: paymentMethod?.id || "",
             paymentMethodName: paymentMethod?.name || "",
             amount: newInstallmentAmount,
-            status: (formData.type === "Receita" ? "A Receber" : "A Pagar") as any,
+            status: installmentStatus as any,
             costCenterId: formData.costCenterId,
             costCenterName: costCenter?.name || "",
             description: formData.description,
