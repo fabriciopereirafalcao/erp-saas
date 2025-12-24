@@ -2004,6 +2004,46 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // Ref para rastrear se já executou validação inicial
   const hasRunInitialValidation = useRef(false);
   
+  // ✅ ENRIQUECIMENTO: Adicionar categoryName às transações que não têm
+  useEffect(() => {
+    if (!accountCategories || accountCategories.length === 0) {
+      return;
+    }
+
+    setFinancialTransactions(prev => {
+      let hasChanges = false;
+      
+      const enriched = prev.map(txn => {
+        // Se já tem categoryName, não precisa enriquecer
+        if (txn.categoryName) {
+          return txn;
+        }
+        
+        // Buscar categoria pelo categoryId
+        if (txn.categoryId) {
+          const category = accountCategories.find(c => c.id === txn.categoryId);
+          if (category) {
+            hasChanges = true;
+            return {
+              ...txn,
+              categoryName: category.name
+            };
+          }
+        }
+        
+        return txn;
+      });
+      
+      // Só atualizar se houve mudanças
+      if (hasChanges) {
+        console.log('[ENRICHMENT] 🔄 Transações enriquecidas com categoryName');
+        return enriched;
+      }
+      
+      return prev;
+    });
+  }, [accountCategories, internalFinancialTransactions.length]); // Executar quando categorias ou número de transações mudar
+  
   // Validação de integridade após carregamento (apenas log informativo)
   useEffect(() => {
     if (hasRunInitialValidation.current || internalFinancialTransactions.length === 0) {
