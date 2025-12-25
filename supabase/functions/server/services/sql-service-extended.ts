@@ -1762,6 +1762,7 @@ export async function getFinancialTransactions(companyId: string) {
     type: row.type === 'income' ? 'Receita' : 'Despesa', // ✅ CONVERTER PARA PT-BR
     category: row.category_name || row.category,
     categoryId: row.category_id,
+    categoryName: row.category_name || row.category, // ✅ NOVO: campo esperado pelo frontend
     description: row.description,
     amount: parseFloat(row.amount),
     date: row.transaction_date,

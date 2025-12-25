@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   acquireLock,
@@ -2005,9 +2005,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const hasRunInitialValidation = useRef(false);
   
   // ✅ ENRIQUECIMENTO: Adicionar categoryName às transações que não têm
+  // Criar hash dos IDs das transações para usar como dependência (evita loop infinito)
+  const transactionsHash = useMemo(() => 
+    internalFinancialTransactions.map(t => t.id).join(','),
+    [internalFinancialTransactions]
+  );
+
   useEffect(() => {
     if (!accountCategories || accountCategories.length === 0) {
       console.log('[ENRICHMENT] ⏸️ Aguardando categorias serem carregadas...');
+      return;
+    }
+
+    if (internalFinancialTransactions.length === 0) {
+      console.log('[ENRICHMENT] ℹ️ Nenhuma transação para enriquecer');
       return;
     }
 
@@ -2054,7 +2065,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       console.log('[ENRICHMENT] ℹ️ Nenhuma transação precisa ser enriquecida');
       return prev;
     });
-  }, [accountCategories, internalFinancialTransactions.length]); // Executar quando categorias ou número de transações mudar
+  }, [accountCategories, transactionsHash]); // ✅ Usar hash dos IDs ao invés do array completo
   
   // Validação de integridade após carregamento (apenas log informativo)
   useEffect(() => {
