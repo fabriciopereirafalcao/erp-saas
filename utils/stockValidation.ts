@@ -186,15 +186,34 @@ export const calculateAvailableStock = (
   currentStock: number,
   allOrders: SalesOrder[]
 ): number => {
-  // Calcular total reservado por pedidos em andamento
-  const reserved = allOrders
-    .filter(order => 
-      order.productName === productName &&
-      order.status !== "Cancelado" &&
-      order.status !== "Pago" &&
-      !order.actionFlags?.stockReduced // Não contar se já baixou
-    )
-    .reduce((sum, order) => sum + order.quantity, 0);
+  // ✅ CORRIGIDO: Calcular total reservado considerando pedidos multi-item
+  let reserved = 0;
+  
+  allOrders.forEach(order => {
+    // Pular pedidos cancelados, pagos ou com estoque já reduzido
+    if (
+      order.status === "Cancelado" ||
+      order.status === "Pago" ||
+      order.actionFlags?.stockReduced
+    ) {
+      return;
+    }
+    
+    // ✅ Verificar se é pedido multi-item ou single-item
+    if (order.items && order.items.length > 0) {
+      // Pedido multi-item: somar quantidades de todos os itens do produto
+      order.items.forEach(item => {
+        if (item.productName === productName) {
+          reserved += item.quantity;
+        }
+      });
+    } else {
+      // Pedido single-item: verificar produto principal
+      if (order.productName === productName) {
+        reserved += order.quantity;
+      }
+    }
+  });
   
   return Math.max(0, currentStock - reserved);
 };
@@ -209,16 +228,53 @@ export const validateStockAvailability = (
   allOrders: SalesOrder[],
   excludeOrderId?: string // Para excluir pedido atual do cálculo
 ): StockValidationResult => {
-  // Calcular reservas (excluindo o pedido atual se fornecido)
-  const reserved = allOrders
-    .filter(order => 
-      order.productName === productName &&
-      order.status !== "Cancelado" &&
-      order.status !== "Pago" &&
-      !order.actionFlags?.stockReduced &&
-      order.id !== excludeOrderId // Excluir pedido atual
-    )
-    .reduce((sum, order) => sum + order.quantity, 0);
+  // ✅ CORRIGIDO: Calcular reservas considerando pedidos multi-item
+  let reserved = 0;
+  const ordersReservingStock: Array<{id: string, status: string, quantity: number, stockReduced: boolean}> = [];
+  
+  allOrders.forEach(order => {
+    // Pular pedidos cancelados, pagos ou com estoque já reduzido
+    if (
+      order.status === "Cancelado" ||
+      order.status === "Pago" ||
+      order.actionFlags?.stockReduced ||
+      order.id === excludeOrderId
+    ) {
+      return;
+    }
+    
+    // ✅ Verificar se é pedido multi-item ou single-item
+    if (order.items && order.items.length > 0) {
+      // Pedido multi-item: verificar cada item
+      order.items.forEach(item => {
+        if (item.productName === productName) {
+          reserved += item.quantity;
+          ordersReservingStock.push({
+            id: order.id,
+            status: order.status,
+            quantity: item.quantity,
+            stockReduced: !!order.actionFlags?.stockReduced
+          });
+        }
+      });
+    } else {
+      // Pedido single-item: verificar produto principal
+      if (order.productName === productName) {
+        reserved += order.quantity;
+        ordersReservingStock.push({
+          id: order.id,
+          status: order.status,
+          quantity: order.quantity,
+          stockReduced: !!order.actionFlags?.stockReduced
+        });
+      }
+    }
+  });
+  
+  // ✅ DEBUG: Log para diagnosticar problema de reservas
+  if (ordersReservingStock.length > 0) {
+    console.log(`[STOCK VALIDATION] 🔍 Pedidos reservando "${productName}":`, ordersReservingStock);
+  }
   
   const available = Math.max(0, currentStock - reserved);
   const canProceed = available >= requestedQuantity;
