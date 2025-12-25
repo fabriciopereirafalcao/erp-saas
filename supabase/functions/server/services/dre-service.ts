@@ -87,6 +87,8 @@ async function getTaxRegime(companyId: string): Promise<string> {
 
 /**
  * Busca transações financeiras do período
+ * ✅ REGIME DE COMPETÊNCIA: Considera todas transações pela data de ocorrência,
+ *    independente de terem sido pagas ou não (exceto canceladas)
  */
 async function getFinancialTransactions(
   companyId: string,
@@ -95,11 +97,13 @@ async function getFinancialTransactions(
 ) {
   const supabase = getSupabaseClient();
   
+  // ✅ DRE usa REGIME DE COMPETÊNCIA (todas transações exceto canceladas)
   const { data, error } = await supabase
     .from('financial_transactions')
     .select('*')
     .eq('company_id', companyId)
-    .gte('date', startDate)
+    .neq('status', 'Cancelado') // Excluir apenas canceladas
+    .gte('date', startDate) // Data de competência/vencimento
     .lte('date', endDate);
 
   if (error) {
@@ -107,6 +111,7 @@ async function getFinancialTransactions(
     return [];
   }
 
+  console.log(`[DRE_SERVICE] 📊 ${data?.length || 0} transações encontradas no período (regime de competência)`);
   return data || [];
 }
 
