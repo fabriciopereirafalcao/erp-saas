@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -49,6 +49,8 @@ export function FinancialTransactions() {
   const [filterType, setFilterType] = useState<"Todas" | "Receita" | "Despesa">("Todas");
   const [filterStatus, setFilterStatus] = useState<string>("Todos");
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
+  const [filterMonth, setFilterMonth] = useState<string>("Todos"); // ✅ NOVO: filtro de mês
+  const [includeUnsettled, setIncludeUnsettled] = useState(false); // ✅ NOVO: toggle para incluir não liquidados
   const [showDialog, setShowDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export function FinancialTransactions() {
     amount: "",
     costCenterId: "",
     description: "",
+    bankAccountId: "", // ✅ NOVO: conta bancária para transações manuais
     // Campos de parcelamento
     installments: "1",
     firstInstallmentDays: 0
@@ -124,19 +127,95 @@ export function FinancialTransactions() {
     const matchesType = filterType === "Todas" || txn.type === filterType;
     const matchesStatus = filterStatus === "Todos" || txn.status === filterStatus;
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
+    
+    // ✅ NOVO: Filtro de mês
+    let matchesMonth = true;
+    if (filterMonth !== "Todos") {
+      const txnDate = new Date(txn.date);
+      const [year, month] = filterMonth.split("-");
+      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
+                     (txnDate.getMonth() + 1) === parseInt(month);
+    }
 
-    return matchesSearch && matchesType && matchesStatus && matchesOrigin;
+    return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
   });
 
+  // ✅ NOVO: Cálculos considerando toggle de não liquidados
   const totalReceitas = safeFinancialTransactions
-    .filter(t => t.type === "Receita" && (t.status === "Recebido" || t.status === "Pago"))
+    .filter(t => {
+      const isReceita = t.type === "Receita";
+      const isSettled = t.status === "Recebido" || t.status === "Pago";
+      const isUnsettled = t.status === "A Receber" || t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido";
+      
+      // Aplicar filtro de mês se selecionado
+      let matchesMonth = true;
+      if (filterMonth !== "Todos") {
+        const txnDate = new Date(t.date);
+        const [year, month] = filterMonth.split("-");
+        matchesMonth = txnDate.getFullYear() === parseInt(year) && 
+                       (txnDate.getMonth() + 1) === parseInt(month);
+      }
+      
+      return isReceita && (isSettled || (includeUnsettled && isUnsettled)) && matchesMonth;
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalDespesas = safeFinancialTransactions
-    .filter(t => t.type === "Despesa" && (t.status === "Pago" || t.status === "Recebido"))
+    .filter(t => {
+      const isDespesa = t.type === "Despesa";
+      const isSettled = t.status === "Pago" || t.status === "Recebido";
+      const isUnsettled = t.status === "A Receber" || t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido";
+      
+      // Aplicar filtro de mês se selecionado
+      let matchesMonth = true;
+      if (filterMonth !== "Todos") {
+        const txnDate = new Date(t.date);
+        const [year, month] = filterMonth.split("-");
+        matchesMonth = txnDate.getFullYear() === parseInt(year) && 
+                       (txnDate.getMonth() + 1) === parseInt(month);
+      }
+      
+      return isDespesa && (isSettled || (includeUnsettled && isUnsettled)) && matchesMonth;
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const saldo = totalReceitas - totalDespesas;
+  
+  // ✅ NOVO: Contar transações por tipo (considerando filtro de mês)
+  const countReceitas = safeFinancialTransactions.filter(t => {
+    const isReceita = t.type === "Receita";
+    let matchesMonth = true;
+    if (filterMonth !== "Todos") {
+      const txnDate = new Date(t.date);
+      const [year, month] = filterMonth.split("-");
+      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
+                     (txnDate.getMonth() + 1) === parseInt(month);
+    }
+    return isReceita && matchesMonth;
+  }).length;
+  
+  const countDespesas = safeFinancialTransactions.filter(t => {
+    const isDespesa = t.type === "Despesa";
+    let matchesMonth = true;
+    if (filterMonth !== "Todos") {
+      const txnDate = new Date(t.date);
+      const [year, month] = filterMonth.split("-");
+      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
+                     (txnDate.getMonth() + 1) === parseInt(month);
+    }
+    return isDespesa && matchesMonth;
+  }).length;
+
+  // ✅ NOVO: Gerar lista de meses disponíveis baseado nas transações
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    safeFinancialTransactions.forEach(txn => {
+      const date = new Date(txn.date);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.add(yearMonth);
+    });
+    return Array.from(months).sort().reverse(); // Mais recentes primeiro
+  }, [safeFinancialTransactions]);
 
   const handleOpenDialog = (transactionId?: string, transferMode: boolean = false, editMode: "single" | "all" = "single") => {
     setIsTransferMode(transferMode);
@@ -192,6 +271,7 @@ export function FinancialTransactions() {
             amount: (transaction.amount * 100).toString(),
             costCenterId: transaction.costCenterId || "",
             description: transaction.description,
+            bankAccountId: transaction.bankAccountId || "", // ✅ ADICIONADO: carregar conta bancária
             installments: "1",
             firstInstallmentDays: 0
           });
@@ -210,6 +290,7 @@ export function FinancialTransactions() {
         amount: "",
         costCenterId: "",
         description: "",
+        bankAccountId: safeBankAccounts[0]?.id || "", // ✅ ADICIONADO: inicializar conta bancária
         installments: "1",
         firstInstallmentDays: 0
       });
@@ -394,9 +475,9 @@ export function FinancialTransactions() {
         partyName: formData.partyName,
         categoryId: formData.categoryId,
         categoryName: category?.name || "",
-        // Conta bancária e forma de pagamento serão definidos no momento da liquidação
-        bankAccountId: "",
-        bankAccountName: "",
+        // ✅ NOVO: Incluir conta bancária se selecionada
+        bankAccountId: formData.bankAccountId || "",
+        bankAccountName: formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId)?.bankName || "" : "",
         paymentMethodId: "",
         paymentMethodName: "",
         amount: amount,
@@ -802,6 +883,9 @@ export function FinancialTransactions() {
           ? "Vencido" 
           : (formData.type === "Receita" ? "A Receber" : "A Pagar");
       
+      // ✅ Buscar nome da conta bancária
+      const bankAccount = formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId) : null;
+      
       updateFinancialTransaction(editingTransaction, {
         ...transaction,
         partyType: formData.partyType,
@@ -815,6 +899,8 @@ export function FinancialTransactions() {
         description: formData.description,
         dueDate: dueDateString, // ✅ ADICIONADO: atualizar dueDate
         status: newStatus as any, // ✅ ADICIONADO: atualizar status baseado na nova data
+        bankAccountId: formData.bankAccountId || "", // ✅ NOVO: atualizar conta bancária
+        bankAccountName: bankAccount?.bankName || "", // ✅ NOVO: atualizar nome da conta bancária
       });
 
       toast.success("Transação atualizada com sucesso");
@@ -888,6 +974,23 @@ export function FinancialTransactions() {
         </div>
 
         {/* Summary Cards */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="include-unsettled" className="text-sm text-gray-600">
+              Incluir não liquidados
+            </Label>
+            <Button
+              id="include-unsettled"
+              variant={includeUnsettled ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIncludeUnsettled(!includeUnsettled)}
+              className={includeUnsettled ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {includeUnsettled ? "Todos" : "Apenas Liquidados"}
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -929,16 +1032,19 @@ export function FinancialTransactions() {
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-purple-600" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-gray-600">Transações</p>
-                <p className="text-gray-900">{financialTransactions.length}</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-green-600">Receitas: {countReceitas}</p>
+                  <p className="text-xs text-red-600">Despesas: {countDespesas}</p>
+                </div>
               </div>
             </div>
           </Card>
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -981,6 +1087,23 @@ export function FinancialTransactions() {
               <SelectItem value="Todas">Todas as Origens</SelectItem>
               <SelectItem value="Manual">Manual</SelectItem>
               <SelectItem value="Pedido">Pedido</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger>
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todos">Todos os Meses</SelectItem>
+              {availableMonths.map(month => {
+                const [year, monthNum] = month.split('-');
+                const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                return (
+                  <SelectItem key={month} value={month}>
+                    {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -1505,6 +1628,27 @@ export function FinancialTransactions() {
                   {safeCostCenters.map(center => (
                     <SelectItem key={center.id} value={center.id}>
                       {center.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ✅ NOVO: Conta Bancária */}
+            <div>
+              <Label>Conta Bancária</Label>
+              <Select
+                value={formData.bankAccountId || "none"}
+                onValueChange={(value) => setFormData({ ...formData, bankAccountId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {safeBankAccounts.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.bankName}
                     </SelectItem>
                   ))}
                 </SelectContent>
