@@ -1077,7 +1077,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                           </SelectTrigger>
                           <SelectContent>
                             {accountCategories
-                              .filter(cat => cat.type === "Receita" && cat.isActive)
+                              .filter(cat => cat.type === "Receita" && cat.isActive && cat.isAnalytical)
                               .map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.code} - {category.name}

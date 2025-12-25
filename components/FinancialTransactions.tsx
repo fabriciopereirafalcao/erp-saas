@@ -1665,7 +1665,7 @@ export function FinancialTransactions() {
                 </SelectTrigger>
                 <SelectContent>
                   {safeAccountCategories
-                    .filter(cat => cat.type === formData.type && cat.isActive)
+                    .filter(cat => cat.type === formData.type && cat.isActive && cat.isAnalytical)
                     .map(category => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.code} - {category.name}
