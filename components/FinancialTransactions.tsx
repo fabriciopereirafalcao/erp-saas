@@ -52,7 +52,7 @@ export function FinancialTransactions() {
   const [filterStatus, setFilterStatus] = useState<string[]>([]); // ✅ ALTERADO: array para seleção múltipla
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
-  const [filterMonth, setFilterMonth] = useState<number | null>(null); // null = todos os meses
+  const [filterMonth, setFilterMonth] = useState<number[]>([]); // ✅ ALTERADO: array para seleção múltipla
   const [showDialog, setShowDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -63,6 +63,9 @@ export function FinancialTransactions() {
   const [receiveBankAccountId, setReceiveBankAccountId] = useState<string>("");
   const [receivePaymentMethodId, setReceivePaymentMethodId] = useState<string>("");
   const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+  const [showDatePopover, setShowDatePopover] = useState(false);
+  const [showDueDatePopover, setShowDueDatePopover] = useState(false);
+  const [showTransferDatePopover, setShowTransferDatePopover] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -127,12 +130,12 @@ export function FinancialTransactions() {
     const matchesStatus = filterStatus.length === 0 || filterStatus.includes(txn.status);
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
-    // ✅ NOVO: Filtro de ano e mês
+    // ✅ NOVO: Filtro de ano e mês (seleção múltipla)
     let matchesMonth = true;
     const txnDate = new Date(txn.date);
-    if (filterMonth !== null) {
+    if (filterMonth.length > 0) {
       matchesMonth = txnDate.getFullYear() === filterYear && 
-                     txnDate.getMonth() === filterMonth;
+                     filterMonth.includes(txnDate.getMonth());
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
@@ -145,12 +148,12 @@ export function FinancialTransactions() {
     .filter(t => {
       const isReceita = t.type === "Receita";
       
-      // Aplicar filtro de ano e mês
+      // Aplicar filtro de ano e mês (seleção múltipla)
       const txnDate = new Date(t.date);
       let matchesMonth = true;
-      if (filterMonth !== null) {
+      if (filterMonth.length > 0) {
         matchesMonth = txnDate.getFullYear() === filterYear && 
-                       txnDate.getMonth() === filterMonth;
+                       filterMonth.includes(txnDate.getMonth());
       } else {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
@@ -166,12 +169,12 @@ export function FinancialTransactions() {
     .filter(t => {
       const isDespesa = t.type === "Despesa";
       
-      // Aplicar filtro de ano e mês
+      // Aplicar filtro de ano e mês (seleção múltipla)
       const txnDate = new Date(t.date);
       let matchesMonth = true;
-      if (filterMonth !== null) {
+      if (filterMonth.length > 0) {
         matchesMonth = txnDate.getFullYear() === filterYear && 
-                       txnDate.getMonth() === filterMonth;
+                       filterMonth.includes(txnDate.getMonth());
       } else {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
@@ -190,9 +193,9 @@ export function FinancialTransactions() {
     const isReceita = t.type === "Receita";
     const txnDate = new Date(t.date);
     let matchesMonth = true;
-    if (filterMonth !== null) {
+    if (filterMonth.length > 0) {
       matchesMonth = txnDate.getFullYear() === filterYear && 
-                     txnDate.getMonth() === filterMonth;
+                     filterMonth.includes(txnDate.getMonth());
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
@@ -204,9 +207,9 @@ export function FinancialTransactions() {
     const isDespesa = t.type === "Despesa";
     const txnDate = new Date(t.date);
     let matchesMonth = true;
-    if (filterMonth !== null) {
+    if (filterMonth.length > 0) {
       matchesMonth = txnDate.getFullYear() === filterYear && 
-                     txnDate.getMonth() === filterMonth;
+                     filterMonth.includes(txnDate.getMonth());
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
@@ -1002,6 +1005,52 @@ export function FinancialTransactions() {
           </div>
         </div>
 
+        {/* Filtro de Ano/Mês - Centralizado no Topo */}
+        <div className="mb-6 flex items-center justify-center gap-6 bg-white p-4 rounded-lg border">
+          {/* Seletor de Ano */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilterYear(filterYear - 1)}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronDown className="h-4 w-4 rotate-90" />
+            </Button>
+            <span className="text-lg font-semibold min-w-[70px] text-center">{filterYear}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilterYear(filterYear + 1)}
+              className="h-8 w-8 p-0"
+              disabled={filterYear >= new Date().getFullYear()}
+            >
+              <ChevronDown className="h-4 w-4 -rotate-90" />
+            </Button>
+          </div>
+          
+          {/* Pills de Meses */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+              <Button
+                key={index}
+                variant={filterMonth.includes(index) ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (filterMonth.includes(index)) {
+                    setFilterMonth(filterMonth.filter(m => m !== index));
+                  } else {
+                    setFilterMonth([...filterMonth, index]);
+                  }
+                }}
+                className={`h-8 px-3 text-sm ${filterMonth.includes(index) ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+              >
+                {monthName}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
@@ -1056,7 +1105,7 @@ export function FinancialTransactions() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -1129,46 +1178,6 @@ export function FinancialTransactions() {
               <SelectItem value="Pedido">Pedido</SelectItem>
             </SelectContent>
           </Select>
-          
-          {/* Filtro de Ano/Mês Visual */}
-          <div className="col-span-2 flex flex-col gap-2">
-            {/* Seletor de Ano */}
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilterYear(filterYear - 1)}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronDown className="h-4 w-4 rotate-90" />
-              </Button>
-              <span className="text-sm font-semibold min-w-[60px] text-center">{filterYear}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilterYear(filterYear + 1)}
-                className="h-8 w-8 p-0"
-                disabled={filterYear >= new Date().getFullYear()}
-              >
-                <ChevronDown className="h-4 w-4 -rotate-90" />
-              </Button>
-            </div>
-            
-            {/* Pills de Meses */}
-            <div className="flex flex-wrap gap-1">
-              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
-                <Button
-                  key={index}
-                  variant={filterMonth === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterMonth(filterMonth === index ? null : index)}
-                  className={`h-7 px-2 text-xs ${filterMonth === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  {monthName}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1447,7 +1456,7 @@ export function FinancialTransactions() {
                 {/* Data */}
                 <div>
                   <Label>Data *</Label>
-                  <Popover>
+                  <Popover open={showTransferDatePopover} onOpenChange={setShowTransferDatePopover}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start">
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1458,7 +1467,12 @@ export function FinancialTransactions() {
                       <Calendar
                         mode="single"
                         selected={transferData.date}
-                        onSelect={(date) => date && setTransferData({ ...transferData, date })}
+                        onSelect={(date) => {
+                          if (date) {
+                            setTransferData({ ...transferData, date });
+                            setShowTransferDatePopover(false);
+                          }
+                        }}
                         locale={ptBR}
                       />
                     </PopoverContent>
@@ -1545,7 +1559,7 @@ export function FinancialTransactions() {
             {/* Data */}
             <div>
               <Label>Data *</Label>
-              <Popover>
+              <Popover open={showDatePopover} onOpenChange={setShowDatePopover}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start">
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1556,7 +1570,12 @@ export function FinancialTransactions() {
                   <Calendar
                     mode="single"
                     selected={formData.date}
-                    onSelect={(date) => date && setFormData({ ...formData, date })}
+                    onSelect={(date) => {
+                      if (date) {
+                        setFormData({ ...formData, date });
+                        setShowDatePopover(false);
+                      }
+                    }}
                     locale={ptBR}
                   />
                 </PopoverContent>
@@ -1746,7 +1765,7 @@ export function FinancialTransactions() {
                     <>
                       <div className="col-span-2">
                         <Label>Data de Vencimento *</Label>
-                        <Popover>
+                        <Popover open={showDueDatePopover} onOpenChange={setShowDueDatePopover}>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start">
                               <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1757,7 +1776,12 @@ export function FinancialTransactions() {
                             <Calendar
                               mode="single"
                               selected={formData.dueDate}
-                              onSelect={(date) => date && setFormData({ ...formData, dueDate: date })}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setFormData({ ...formData, dueDate: date });
+                                  setShowDueDatePopover(false);
+                                }
+                              }}
                               locale={ptBR}
                             />
                           </PopoverContent>
@@ -1833,7 +1857,8 @@ export function FinancialTransactions() {
                         </TableHeader>
                         <TableBody>
                           {Array.from({ length: parseInt(formData.installments) }, (_, i) => {
-                            const totalAmount = parseFloat(formData.amount || "0");
+                            // ✅ FIX: Dividir por 100 pois o formData.amount está em centavos
+                            const totalAmount = parseFloat(formData.amount || "0") / 100;
                             const installmentAmount = totalAmount / parseInt(formData.installments);
                             const amount = i === parseInt(formData.installments) - 1 
                               ? totalAmount - (installmentAmount * (parseInt(formData.installments) - 1))
@@ -1843,11 +1868,9 @@ export function FinancialTransactions() {
                             // ✅ Converter Date para string local (evita problema de timezone)
                             const dueDate = addDaysToDate(dateToLocalString(formData.date), daysToAdd);
                             
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const dueDateObj = new Date(dueDate);
-                            dueDateObj.setHours(0, 0, 0, 0);
-                            const isOverdue = dueDateObj < today;
+                            const today = getTodayString();
+                            // ✅ FIX: Usar comparação de strings de data (formato YYYY-MM-DD) - vencido apenas se passou do dia
+                            const isOverdue = compareDates(dueDate, today) < 0;
                             
                             return (
                               <TableRow key={i}>
