@@ -855,7 +855,7 @@ export function PurchaseOrders() {
                           </SelectTrigger>
                           <SelectContent>
                             {accountCategories
-                              .filter(cat => cat.type === "Despesa" && cat.isActive && cat.isAnalytical)
+                              .filter(cat => cat.type === "Despesa" && cat.isActive && cat.accountType === 'analitica')
                               .map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.code} - {category.name}

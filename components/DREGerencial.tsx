@@ -121,7 +121,7 @@ export function DREGerencial() {
           setDreStructure(data.data);
         }
       } catch (error) {
-        console.error('Erro ao buscar estrutura DRE:', error);
+        // Erro ao buscar estrutura DRE
       }
     };
 
@@ -129,53 +129,6 @@ export function DREGerencial() {
   }, [accessToken]);
 
   // ==================== HANDLERS ====================
-
-  const handleDiagnostic = async () => {
-    if (!accessToken) {
-      toast.error('Você precisa estar autenticado');
-      return;
-    }
-
-    try {
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/diagnostic`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        console.log('🔍 DIAGNÓSTICO DRE:', data.data);
-        
-        // Filtrar e mostrar categorias sem DRE mapeado
-        const categoriesWithoutDRE = data.data.categories.list.filter((cat: any) => !cat.hasDRELine);
-        
-        if (categoriesWithoutDRE.length > 0) {
-          console.log('\n⚠️  CATEGORIAS SEM DRE MAPEADO:', categoriesWithoutDRE);
-          console.table(categoriesWithoutDRE.map((cat: any) => ({
-            'Código': cat.code,
-            'Nome': cat.name,
-            'Linha DRE': cat.dreLineName || '❌ NÃO MAPEADO'
-          })));
-        }
-        
-        alert(`DIAGNÓSTICO:\n\n` +
-          `Categorias: ${data.data.categories.total} total\n` +
-          `  - Com DRE mapeado: ${data.data.categories.withDRELine}\n` +
-          `  - Sem DRE mapeado: ${data.data.categories.withoutDRELine}\n\n` +
-          `Transações: ${data.data.transactions.total} últimas\n` +
-          `  - Com categoria: ${data.data.transactions.withCategory}\n` +
-          `  - Sem categoria: ${data.data.transactions.withoutCategory}\n\n` +
-          `Recomendação: ${data.data.recommendation}\n\n` +
-          `${categoriesWithoutDRE.length > 0 ? '📋 Veja o console (F12) para lista completa das categorias sem mapeamento.' : 'Veja o console (F12) para detalhes completos.'}`
-        );
-      }
-    } catch (error) {
-      console.error('Erro no diagnóstico:', error);
-      toast.error('Erro ao executar diagnóstico');
-    }
-  };
 
   const handleCalculateDRE = async () => {
     if (!startDate || !endDate) {
@@ -211,19 +164,16 @@ export function DREGerencial() {
 
       if (data.success) {
         setDreData(data.data);
-        console.log('✅ DRE calculada:', data.data);
         
         // Se modo comparativo, calcular período 2
         if (comparativeMode) {
           await calculateComparativeDRE();
         }
       } else {
-        console.error('Erro ao calcular DRE:', data);
-        alert('Erro ao calcular DRE');
+        toast.error('Erro ao calcular DRE');
       }
     } catch (error) {
-      console.error('Erro ao calcular DRE:', error);
-      alert('Erro ao calcular DRE. Verifique o console.');
+      toast.error('Erro ao calcular DRE. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -246,10 +196,9 @@ export function DREGerencial() {
 
       if (data.success) {
         setDreDataComparative(data.data);
-        console.log('✅ DRE comparativa calculada:', data.data);
       }
     } catch (error) {
-      console.error('Erro ao calcular DRE comparativa:', error);
+      // Erro silencioso - não precisa alertar o usuário
     }
   };
 
@@ -280,7 +229,6 @@ export function DREGerencial() {
         toast.error('Erro ao salvar snapshot');
       }
     } catch (error) {
-      console.error('Erro ao salvar snapshot:', error);
       toast.error('Erro ao salvar snapshot');
     }
   };
@@ -768,14 +716,6 @@ export function DREGerencial() {
 
             {/* Botão Calcular */}
             <div className="flex items-end gap-2">
-              <Button 
-                onClick={handleDiagnostic} 
-                variant="outline"
-                size="sm"
-                className="whitespace-nowrap"
-              >
-                🔍 Diagnóstico
-              </Button>
               <Button onClick={handleCalculateDRE} disabled={loading} className="w-full">
                 {loading ? (
                   <>
