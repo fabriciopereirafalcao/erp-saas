@@ -105,14 +105,14 @@ export function Reports() {
     // ✅ CORRIGIDO: Contas a receber a partir das TRANSAÇÕES FINANCEIRAS
     const receivables = safeFinancialTransactions.filter(t => 
       t.type === "Receita" && 
-      (t.status === "A Receber" || t.status === "Vencido")
+      (t.status === "A vencer" || t.status === "Vencido")
     );
     const totalAccountsReceivable = receivables.reduce((sum, t) => sum + t.amount, 0);
 
     // ✅ CORRIGIDO: Contas a pagar a partir das TRANSAÇÕES FINANCEIRAS
     const payables = safeFinancialTransactions.filter(t => 
       t.type === "Despesa" && 
-      (t.status === "A Pagar" || t.status === "Vencido")
+      (t.status === "A vencer" || t.status === "Vencido")
     );
     const totalAccountsPayable = payables.reduce((sum, t) => sum + t.amount, 0);
 
@@ -244,7 +244,7 @@ export function Reports() {
 
     // ✅ CORRIGIDO: Usar transações financeiras de Receita pendentes
     safeFinancialTransactions
-      .filter(t => t.type === "Receita" && (t.status === "A Receber" || t.status === "Vencido"))
+      .filter(t => t.type === "Receita" && (t.status === "A vencer" || t.status === "Vencido"))
       .forEach(transaction => {
         const dueDate = new Date(transaction.dueDate);
         const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -284,7 +284,7 @@ export function Reports() {
 
     // ✅ CORRIGIDO: Usar transações financeiras de Despesa pendentes
     safeFinancialTransactions
-      .filter(t => t.type === "Despesa" && (t.status === "A Pagar" || t.status === "Vencido"))
+      .filter(t => t.type === "Despesa" && (t.status === "A vencer" || t.status === "Vencido"))
       .forEach(transaction => {
         const dueDate = new Date(transaction.dueDate);
         const daysDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));

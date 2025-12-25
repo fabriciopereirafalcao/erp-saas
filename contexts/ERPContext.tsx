@@ -2639,7 +2639,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const linkedTransactions = financialTransactions.filter(t => 
         t.reference === id && 
         t.origin === "Pedido" &&
-        (t.status === "A Receber" || t.status === "A Vencer" || t.status === "Vencido")
+        (t.status === "A vencer" || t.status === "Vencido")
       );
       
       if (linkedTransactions.length > 0) {
@@ -2991,7 +2991,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // ✅ CORREÇÃO: Determinar status baseado na data de vencimento
         const today = getTodayString();
         const isOverdue = compareDates(dueDate, today) < 0; // dueDate < today
-        const transactionStatus = isOverdue ? "Vencido" : "A Receber";
+        const transactionStatus = isOverdue ? "Vencido" : "A vencer";
         
         const transactionData = {
           type: "Receita",
@@ -3011,7 +3011,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || '',
           amount: installmentAmount,
-          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A Receber"
+          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A vencer"
           description,
           origin: "Pedido",
           reference: order.id,
@@ -5295,7 +5295,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const linkedTransactions = financialTransactions.filter(t => 
         t.reference === id && 
         t.origin === "Pedido" &&
-        (t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido")
+        (t.status === "A vencer" || t.status === "Vencido")
       );
       
       if (linkedTransactions.length > 0) {
@@ -5553,7 +5553,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // ✅ CORREÇÃO: Determinar status baseado na data de vencimento
         const today = getTodayString();
         const isOverdue = compareDates(dueDate, today) < 0; // dueDate < today
-        const transactionStatus = isOverdue ? "Vencido" : "A Pagar";
+        const transactionStatus = isOverdue ? "Vencido" : "A vencer";
         
         const transactionData = {
           type: "Despesa",
@@ -5573,7 +5573,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           paymentMethodId: paymentMethod?.id || '',
           paymentMethodName: paymentMethod?.name || 'Dinheiro',
           amount: installmentAmount,
-          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A Pagar"
+          status: transactionStatus, // ✅ "Vencido" se vencimento no passado, senão "A vencer"
           description,
           origin: "Pedido",
           reference: order.id,
