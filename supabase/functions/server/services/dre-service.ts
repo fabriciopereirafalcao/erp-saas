@@ -223,10 +223,15 @@ function calculateDRETotals(
   regime: string,
   breakdown: Record<string, number>
 ): DRECalculation {
+  console.log('[DRE_SERVICE] 🔢 Iniciando cálculo de totais...');
+  console.log('[DRE_SERVICE] 📊 Breakdown recebido:', JSON.stringify(breakdown, null, 2));
+  
   // Valores base das linhas DRE
   const receita_bruta = breakdown.RB || 0;
   const deducoes_receita = breakdown.DED || 0;
   const custos = breakdown.CMV || 0;
+  
+  console.log(`[DRE_SERVICE] 💰 Valores extraídos: RB=${receita_bruta}, DED=${deducoes_receita}, CMV=${custos}`);
   
   // Despesas detalhadas
   const despesas_operacionais_total = breakdown.DO || 0;
@@ -339,6 +344,13 @@ export async function calculateDRE(
     dre.breakdownById = breakdownById;
 
     console.log('[DRE_SERVICE] ✅ DRE calculada com sucesso');
+    console.log('[DRE_SERVICE] 📋 RESULTADO FINAL:', JSON.stringify({
+      receita_bruta: dre.receita_bruta,
+      custos: dre.custos,
+      lucro_liquido: dre.lucro_liquido,
+      breakdown: dre.breakdown
+    }, null, 2));
+    
     return dre;
   } catch (error) {
     console.error('[DRE_SERVICE] ❌ Erro ao calcular DRE:', error);
