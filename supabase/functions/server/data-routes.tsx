@@ -2603,6 +2603,99 @@ app.get('/dre/structure', async (c) => {
   }
 });
 
+// 🔍 DIAGNÓSTICO: Verificar mapeamento categorias → DRE
+app.get('/dre/diagnostic', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[DRE DIAGNOSTIC] 🔍 Iniciando diagnóstico para empresa ${auth.companyId}`);
+    
+    const supabase = sqlService.getSupabaseClient();
+    
+    // 1. Buscar categorias
+    const { data: categories, error: catError } = await supabase
+      .from('account_categories')
+      .select(`
+        id,
+        name,
+        code,
+        dre_line_id,
+        is_active,
+        dre_lines:dre_line_id (
+          id,
+          code,
+          name
+        )
+      `)
+      .eq('company_id', auth.companyId)
+      .eq('is_active', true);
+    
+    if (catError) throw catError;
+    
+    // 2. Buscar transações recentes
+    const { data: transactions, error: txError } = await supabase
+      .from('financial_transactions')
+      .select('id, description, amount, type, category_id, date, status')
+      .eq('company_id', auth.companyId)
+      .neq('status', 'Cancelado')
+      .order('date', { ascending: false })
+      .limit(10);
+    
+    if (txError) throw txError;
+    
+    // 3. Análise
+    const categoriesWithDRELine = categories?.filter(c => c.dre_line_id) || [];
+    const categoriesWithoutDRELine = categories?.filter(c => !c.dre_line_id) || [];
+    
+    const txWithCategory = transactions?.filter(tx => tx.category_id) || [];
+    const txWithoutCategory = transactions?.filter(tx => !tx.category_id) || [];
+    
+    console.log(`[DRE DIAGNOSTIC] 📊 Categorias: ${categories?.length || 0} total, ${categoriesWithDRELine.length} com DRE mapeado`);
+    console.log(`[DRE DIAGNOSTIC] 📊 Transações: ${transactions?.length || 0} total, ${txWithCategory.length} com categoria`);
+    
+    return c.json({
+      success: true,
+      data: {
+        categories: {
+          total: categories?.length || 0,
+          withDRELine: categoriesWithDRELine.length,
+          withoutDRELine: categoriesWithoutDRELine.length,
+          list: categories?.map(cat => ({
+            name: cat.name,
+            code: cat.code,
+            hasDRELine: !!cat.dre_line_id,
+            dreLineCode: cat.dre_lines?.code || null,
+            dreLineName: cat.dre_lines?.name || null
+          }))
+        },
+        transactions: {
+          total: transactions?.length || 0,
+          withCategory: txWithCategory.length,
+          withoutCategory: txWithoutCategory.length,
+          sample: transactions?.slice(0, 5).map(tx => ({
+            description: tx.description,
+            amount: tx.amount,
+            type: tx.type,
+            hasCategory: !!tx.category_id,
+            date: tx.date,
+            status: tx.status
+          }))
+        },
+        recommendation: categoriesWithoutDRELine.length > 0 
+          ? `${categoriesWithoutDRELine.length} categorias precisam ter dre_line_id configurado`
+          : 'Todas as categorias estão mapeadas para linhas DRE'
+      }
+    });
+
+  } catch (error) {
+    console.error('[DRE DIAGNOSTIC] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Salvar snapshot de DRE
 app.post('/dre/snapshot', async (c) => {
   try {

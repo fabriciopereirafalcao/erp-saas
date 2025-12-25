@@ -130,6 +130,40 @@ export function DREGerencial() {
 
   // ==================== HANDLERS ====================
 
+  const handleDiagnostic = async () => {
+    if (!accessToken) {
+      toast.error('Você precisa estar autenticado');
+      return;
+    }
+
+    try {
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/dre/diagnostic`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('🔍 DIAGNÓSTICO DRE:', data.data);
+        alert(`DIAGNÓSTICO:\n\n` +
+          `Categorias: ${data.data.categories.total} total\n` +
+          `  - Com DRE mapeado: ${data.data.categories.withDRELine}\n` +
+          `  - Sem DRE mapeado: ${data.data.categories.withoutDRELine}\n\n` +
+          `Transações: ${data.data.transactions.total} últimas\n` +
+          `  - Com categoria: ${data.data.transactions.withCategory}\n` +
+          `  - Sem categoria: ${data.data.transactions.withoutCategory}\n\n` +
+          `Recomendação: ${data.data.recommendation}\n\n` +
+          `Veja o console (F12) para detalhes completos.`
+        );
+      }
+    } catch (error) {
+      console.error('Erro no diagnóstico:', error);
+      toast.error('Erro ao executar diagnóstico');
+    }
+  };
+
   const handleCalculateDRE = async () => {
     if (!startDate || !endDate) {
       toast.error('Selecione o período');
@@ -720,7 +754,15 @@ export function DREGerencial() {
             </div>
 
             {/* Botão Calcular */}
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button 
+                onClick={handleDiagnostic} 
+                variant="outline"
+                size="sm"
+                className="whitespace-nowrap"
+              >
+                🔍 Diagnóstico
+              </Button>
               <Button onClick={handleCalculateDRE} disabled={loading} className="w-full">
                 {loading ? (
                   <>
