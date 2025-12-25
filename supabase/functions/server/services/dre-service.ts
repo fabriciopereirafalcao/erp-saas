@@ -103,8 +103,8 @@ async function getFinancialTransactions(
     .select('*')
     .eq('company_id', companyId)
     .neq('status', 'Cancelado') // Excluir apenas canceladas
-    .gte('date', startDate) // Data de competência/vencimento
-    .lte('date', endDate);
+    .gte('transaction_date', startDate) // Data de competência/vencimento
+    .lte('transaction_date', endDate);
 
   if (error) {
     console.error('[DRE_SERVICE] ❌ Erro ao buscar transações:', error);

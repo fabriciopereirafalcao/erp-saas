@@ -2643,10 +2643,10 @@ app.get('/dre/diagnostic', async (c) => {
     // 3. Buscar transações recentes
     const { data: transactions, error: txError } = await supabase
       .from('financial_transactions')
-      .select('id, description, amount, type, category_id, date, status')
+      .select('id, description, amount, type, category_id, transaction_date, status')
       .eq('company_id', auth.companyId)
       .neq('status', 'Cancelado')
-      .order('date', { ascending: false })
+      .order('transaction_date', { ascending: false })
       .limit(10);
     
     if (txError) {
@@ -2694,7 +2694,7 @@ app.get('/dre/diagnostic', async (c) => {
             amount: tx.amount,
             type: tx.type,
             hasCategory: !!tx.category_id,
-            date: tx.date,
+            date: tx.transaction_date,
             status: tx.status
           }))
         },
