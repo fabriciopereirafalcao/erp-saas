@@ -2613,29 +2613,34 @@ app.get('/dre/diagnostic', async (c) => {
 
     console.log(`[DRE DIAGNOSTIC] 🔍 Iniciando diagnóstico para empresa ${auth.companyId}`);
     
-    const supabase = sqlService.getSupabaseClient();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
     
     // 1. Buscar categorias
     const { data: categories, error: catError } = await supabase
       .from('account_categories')
-      .select(`
-        id,
-        name,
-        code,
-        dre_line_id,
-        is_active,
-        dre_lines:dre_line_id (
-          id,
-          code,
-          name
-        )
-      `)
+      .select('id, name, code, dre_line_id, is_active')
       .eq('company_id', auth.companyId)
       .eq('is_active', true);
     
-    if (catError) throw catError;
+    if (catError) {
+      console.error('[DRE DIAGNOSTIC] ❌ Erro ao buscar categorias:', catError);
+      throw catError;
+    }
     
-    // 2. Buscar transações recentes
+    // 2. Buscar linhas DRE para fazer join manual
+    const { data: dreLines, error: dreError } = await supabase
+      .from('dre_lines')
+      .select('id, code, name');
+    
+    if (dreError) {
+      console.error('[DRE DIAGNOSTIC] ❌ Erro ao buscar linhas DRE:', dreError);
+      throw dreError;
+    }
+    
+    // 3. Buscar transações recentes
     const { data: transactions, error: txError } = await supabase
       .from('financial_transactions')
       .select('id, description, amount, type, category_id, date, status')
@@ -2644,9 +2649,12 @@ app.get('/dre/diagnostic', async (c) => {
       .order('date', { ascending: false })
       .limit(10);
     
-    if (txError) throw txError;
+    if (txError) {
+      console.error('[DRE DIAGNOSTIC] ❌ Erro ao buscar transações:', txError);
+      throw txError;
+    }
     
-    // 3. Análise
+    // 4. Análise
     const categoriesWithDRELine = categories?.filter(c => c.dre_line_id) || [];
     const categoriesWithoutDRELine = categories?.filter(c => !c.dre_line_id) || [];
     
@@ -2656,6 +2664,9 @@ app.get('/dre/diagnostic', async (c) => {
     console.log(`[DRE DIAGNOSTIC] 📊 Categorias: ${categories?.length || 0} total, ${categoriesWithDRELine.length} com DRE mapeado`);
     console.log(`[DRE DIAGNOSTIC] 📊 Transações: ${transactions?.length || 0} total, ${txWithCategory.length} com categoria`);
     
+    // 5. Criar mapeamento de categorias com linhas DRE
+    const dreLinesMap = new Map(dreLines?.map(dl => [dl.id, dl]) || []);
+    
     return c.json({
       success: true,
       data: {
@@ -2663,13 +2674,16 @@ app.get('/dre/diagnostic', async (c) => {
           total: categories?.length || 0,
           withDRELine: categoriesWithDRELine.length,
           withoutDRELine: categoriesWithoutDRELine.length,
-          list: categories?.map(cat => ({
-            name: cat.name,
-            code: cat.code,
-            hasDRELine: !!cat.dre_line_id,
-            dreLineCode: cat.dre_lines?.code || null,
-            dreLineName: cat.dre_lines?.name || null
-          }))
+          list: categories?.map(cat => {
+            const dreLine = dreLinesMap.get(cat.dre_line_id);
+            return {
+              name: cat.name,
+              code: cat.code,
+              hasDRELine: !!cat.dre_line_id,
+              dreLineCode: dreLine?.code || null,
+              dreLineName: dreLine?.name || null
+            };
+          })
         },
         transactions: {
           total: transactions?.length || 0,
