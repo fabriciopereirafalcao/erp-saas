@@ -147,6 +147,19 @@ export function DREGerencial() {
       const data = await response.json();
       if (data.success) {
         console.log('🔍 DIAGNÓSTICO DRE:', data.data);
+        
+        // Filtrar e mostrar categorias sem DRE mapeado
+        const categoriesWithoutDRE = data.data.categories.list.filter((cat: any) => !cat.hasDRELine);
+        
+        if (categoriesWithoutDRE.length > 0) {
+          console.log('\n⚠️  CATEGORIAS SEM DRE MAPEADO:', categoriesWithoutDRE);
+          console.table(categoriesWithoutDRE.map((cat: any) => ({
+            'Código': cat.code,
+            'Nome': cat.name,
+            'Linha DRE': cat.dreLineName || '❌ NÃO MAPEADO'
+          })));
+        }
+        
         alert(`DIAGNÓSTICO:\n\n` +
           `Categorias: ${data.data.categories.total} total\n` +
           `  - Com DRE mapeado: ${data.data.categories.withDRELine}\n` +
@@ -155,7 +168,7 @@ export function DREGerencial() {
           `  - Com categoria: ${data.data.transactions.withCategory}\n` +
           `  - Sem categoria: ${data.data.transactions.withoutCategory}\n\n` +
           `Recomendação: ${data.data.recommendation}\n\n` +
-          `Veja o console (F12) para detalhes completos.`
+          `${categoriesWithoutDRE.length > 0 ? '📋 Veja o console (F12) para lista completa das categorias sem mapeamento.' : 'Veja o console (F12) para detalhes completos.'}`
         );
       }
     } catch (error) {
