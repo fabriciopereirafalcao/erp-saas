@@ -12,6 +12,8 @@ import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { useERP } from "../contexts/ERPContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,10 +49,9 @@ export function FinancialTransactions() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"Todas" | "Receita" | "Despesa">("Todas");
-  const [filterStatus, setFilterStatus] = useState<string>("Todos");
+  const [filterStatus, setFilterStatus] = useState<string[]>([]); // ✅ ALTERADO: array para seleção múltipla
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
   const [filterMonth, setFilterMonth] = useState<string>("Todos"); // ✅ NOVO: filtro de mês
-  const [includeUnsettled, setIncludeUnsettled] = useState(false); // ✅ NOVO: toggle para incluir não liquidados
   const [showDialog, setShowDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -125,7 +126,8 @@ export function FinancialTransactions() {
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = filterType === "Todas" || txn.type === filterType;
-    const matchesStatus = filterStatus === "Todos" || txn.status === filterStatus;
+    // ✅ ALTERADO: Seleção múltipla de status
+    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(txn.status);
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
     // ✅ NOVO: Filtro de mês
@@ -140,12 +142,10 @@ export function FinancialTransactions() {
     return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
   });
 
-  // ✅ NOVO: Cálculos considerando toggle de não liquidados
+  // ✅ NOVO: Cálculos considerando seleção múltipla de status
   const totalReceitas = safeFinancialTransactions
     .filter(t => {
       const isReceita = t.type === "Receita";
-      const isSettled = t.status === "Recebido" || t.status === "Pago";
-      const isUnsettled = t.status === "A Receber" || t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido";
       
       // Aplicar filtro de mês se selecionado
       let matchesMonth = true;
@@ -156,15 +156,16 @@ export function FinancialTransactions() {
                        (txnDate.getMonth() + 1) === parseInt(month);
       }
       
-      return isReceita && (isSettled || (includeUnsettled && isUnsettled)) && matchesMonth;
+      // Aplicar filtro de status se selecionado
+      const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+      
+      return isReceita && matchesMonth && matchesStatus;
     })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalDespesas = safeFinancialTransactions
     .filter(t => {
       const isDespesa = t.type === "Despesa";
-      const isSettled = t.status === "Pago" || t.status === "Recebido";
-      const isUnsettled = t.status === "A Receber" || t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido";
       
       // Aplicar filtro de mês se selecionado
       let matchesMonth = true;
@@ -175,13 +176,16 @@ export function FinancialTransactions() {
                        (txnDate.getMonth() + 1) === parseInt(month);
       }
       
-      return isDespesa && (isSettled || (includeUnsettled && isUnsettled)) && matchesMonth;
+      // Aplicar filtro de status se selecionado
+      const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+      
+      return isDespesa && matchesMonth && matchesStatus;
     })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const saldo = totalReceitas - totalDespesas;
   
-  // ✅ NOVO: Contar transações por tipo (considerando filtro de mês)
+  // ✅ NOVO: Contar transações por tipo (considerando filtro de mês e status)
   const countReceitas = safeFinancialTransactions.filter(t => {
     const isReceita = t.type === "Receita";
     let matchesMonth = true;
@@ -191,7 +195,8 @@ export function FinancialTransactions() {
       matchesMonth = txnDate.getFullYear() === parseInt(year) && 
                      (txnDate.getMonth() + 1) === parseInt(month);
     }
-    return isReceita && matchesMonth;
+    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+    return isReceita && matchesMonth && matchesStatus;
   }).length;
   
   const countDespesas = safeFinancialTransactions.filter(t => {
@@ -203,7 +208,8 @@ export function FinancialTransactions() {
       matchesMonth = txnDate.getFullYear() === parseInt(year) && 
                      (txnDate.getMonth() + 1) === parseInt(month);
     }
-    return isDespesa && matchesMonth;
+    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+    return isDespesa && matchesMonth && matchesStatus;
   }).length;
 
   // ✅ NOVO: Gerar lista de meses disponíveis baseado nas transações
@@ -942,11 +948,46 @@ export function FinancialTransactions() {
       <div className="mb-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Transações Financeiras</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">Transações Financeiras</h1>
+              {/* ✅ Info Badge - Transações de Pedidos */}
+              <FeatureInfoBadge 
+                title="Transações de Pedidos" 
+                variant="blue"
+                position="inline"
+              >
+                <div className="text-sm text-gray-700 space-y-3">
+                  <p>
+                    As transações de <strong>pedidos</strong> são criadas <strong>automaticamente</strong> quando:
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <p className="flex items-start gap-2">
+                      <Package className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        Um <strong>Pedido de Venda</strong> é marcado como "Entregue" → Cria transação de <strong>Receita</strong>
+                      </span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <Package className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        Um <strong>Pedido de Compra</strong> é marcado como "Recebido" → Cria transação de <strong>Despesa</strong>
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        A liquidação (pagamento/recebimento) deve ser feita <strong>manualmente</strong> através do botão de ação
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </FeatureInfoBadge>
+            </div>
             <p className="text-gray-600">Gerencie receitas e despesas do seu negócio</p>
-            <p className="text-sm text-blue-600 mt-1">
-              💡 As transações de pedidos são criadas automaticamente na entrega e baixadas manualmente ao receber o pagamento
-            </p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => handleOpenDialog(undefined, false)} className="bg-[rgb(32,251,225)] hover:bg-[#18CBB5] text-[rgb(0,0,0)]">
@@ -974,23 +1015,6 @@ export function FinancialTransactions() {
         </div>
 
         {/* Summary Cards */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="include-unsettled" className="text-sm text-gray-600">
-              Incluir não liquidados
-            </Label>
-            <Button
-              id="include-unsettled"
-              variant={includeUnsettled ? "default" : "outline"}
-              size="sm"
-              onClick={() => setIncludeUnsettled(!includeUnsettled)}
-              className={includeUnsettled ? "bg-blue-600 hover:bg-blue-700" : ""}
-            >
-              {includeUnsettled ? "Todos" : "Apenas Liquidados"}
-            </Button>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -1064,21 +1088,49 @@ export function FinancialTransactions() {
               <SelectItem value="Despesa">Despesas</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">Todos os Status</SelectItem>
-              <SelectItem value="A Receber">A Receber</SelectItem>
-              <SelectItem value="A Pagar">A Pagar</SelectItem>
-              <SelectItem value="A Vencer">A Vencer</SelectItem>
-              <SelectItem value="Vencido">Vencido</SelectItem>
-              <SelectItem value="Pago">Pago</SelectItem>
-              <SelectItem value="Recebido">Recebido</SelectItem>
-              <SelectItem value="Cancelado">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                {filterStatus.length === 0 ? "Todos os Status" : `${filterStatus.length} selecionado(s)`}
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <div className="p-2 space-y-2">
+                {["A Receber", "A Pagar", "A Vencer", "Vencido", "Pago", "Recebido", "Cancelado"].map((status) => (
+                  <div key={status} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`status-${status}`}
+                      checked={filterStatus.includes(status)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFilterStatus([...filterStatus, status]);
+                        } else {
+                          setFilterStatus(filterStatus.filter(s => s !== status));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`status-${status}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {status}
+                    </label>
+                  </div>
+                ))}
+                {filterStatus.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => setFilterStatus([])}
+                  >
+                    Limpar seleção
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Select value={filterOrigin} onValueChange={setFilterOrigin}>
             <SelectTrigger>
               <SelectValue placeholder="Origem" />
@@ -1648,7 +1700,7 @@ export function FinancialTransactions() {
                   <SelectItem value="none">Nenhum</SelectItem>
                   {safeBankAccounts.map(account => (
                     <SelectItem key={account.id} value={account.id}>
-                      {account.bankName}
+                      {account.bankName} - {account.accountNumber}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1945,7 +1997,7 @@ export function FinancialTransactions() {
                     <SelectContent>
                       {safeBankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
-                          {account.bankName} - {account.accountType} ({account.agency}/{account.accountNumber})
+                          {account.bankName} - {account.accountNumber}
                         </SelectItem>
                       ))}
                     </SelectContent>
