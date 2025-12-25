@@ -80,6 +80,7 @@ export function FinancialTransactions() {
     costCenterId: "",
     description: "",
     bankAccountId: "", // ✅ NOVO: conta bancária para transações manuais
+    alreadyPaid: false, // ✅ NOVO: indicar se a transação já foi paga
     // Campos de parcelamento
     installments: "1",
     firstInstallmentDays: 0
@@ -247,6 +248,7 @@ export function FinancialTransactions() {
           setFormData({
             type: transaction.type,
             date: new Date(transaction.date),
+            dueDate: new Date(), // ✅ Reset dueDate
             partyType: transaction.partyType,
             partyId: transaction.partyId || "",
             partyName: transaction.partyName,
@@ -254,6 +256,8 @@ export function FinancialTransactions() {
             amount: (totalAmount * 100).toString(),
             costCenterId: transaction.costCenterId || "",
             description: transaction.description,
+            bankAccountId: "",
+            alreadyPaid: false,
             installments: unsettledInstallments.length.toString(),
             firstInstallmentDays: daysDiff >= 0 ? daysDiff : 0
           });
@@ -272,6 +276,7 @@ export function FinancialTransactions() {
             costCenterId: transaction.costCenterId || "",
             description: transaction.description,
             bankAccountId: transaction.bankAccountId || "", // ✅ ADICIONADO: carregar conta bancária
+            alreadyPaid: false,
             installments: "1",
             firstInstallmentDays: 0
           });
@@ -291,6 +296,7 @@ export function FinancialTransactions() {
         costCenterId: "",
         description: "",
         bankAccountId: safeBankAccounts[0]?.id || "", // ✅ ADICIONADO: inicializar conta bancária
+        alreadyPaid: false,
         installments: "1",
         firstInstallmentDays: 0
       });
@@ -458,13 +464,14 @@ export function FinancialTransactions() {
         ? totalAmount - (installmentAmount * (numInstallments - 1))
         : installmentAmount;
 
-      // Determinar status baseado na data de vencimento
-      const dueDateObj = new Date(dueDate);
-      dueDateObj.setHours(0, 0, 0, 0);
-      // ✅ NOVO: Status unificado - "A Vencer" ou "Vencido"
-      const status = dueDateObj < today 
-        ? "Vencido" 
-        : "A Vencer";
+      // ✅ Determinar status: se já pago, Pago; senão, verificar vencimento
+      const todayString = getTodayString();
+      const isOverdue = compareDates(dueDate, todayString) < 0; // < 0 significa dueDate é ANTERIOR a hoje
+      const status = formData.alreadyPaid
+        ? "Pago"
+        : isOverdue
+          ? "Vencido" 
+          : "A Vencer";
 
       const transactionData = {
         type: formData.type,
@@ -813,12 +820,14 @@ export function FinancialTransactions() {
           const daysToAdd = formData.firstInstallmentDays + ((installmentNumber - 1) * 30);
           const dueDate = addDaysToDate(baseDateString, daysToAdd);
 
-          // ✅ CORREÇÃO: Verificar se vencimento está no passado
+          // ✅ Definir status da parcela (já pago, vencido ou a vencer)
           const today = getTodayString();
-          const isOverdue = compareDates(dueDate, today) < 0;
-          const installmentStatus = isOverdue 
-            ? "Vencido" 
-            : "A Vencer";
+          const isOverdue = compareDates(dueDate, today) < 0; // < 0 significa dueDate é ANTERIOR a hoje
+          const installmentStatus = formData.alreadyPaid
+            ? "Pago"
+            : isOverdue 
+              ? "Vencido" 
+              : "A Vencer";
 
           const newTransaction = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
@@ -874,14 +883,8 @@ export function FinancialTransactions() {
       // ✅ Converter dueDate para string local
       const dueDateString = dateToLocalString(formData.dueDate);
       
-      // ✅ Verificar se vencimento está no passado e ajustar status
-      const today = getTodayString();
-      const isOverdue = compareDates(dueDateString, today) < 0;
-      const newStatus = (transaction.status === "Pago" || transaction.status === "Cancelado")
-        ? transaction.status // Manter status se já foi liquidado ou cancelado
-        : isOverdue 
-          ? "Vencido" 
-          : "A Vencer";
+      // ✅ NÃO recalcular status automaticamente - manter o status atual da transação
+      // O status só deve mudar através de ações explícitas do usuário (marcar como pago, cancelar, etc)
       
       // ✅ Buscar nome da conta bancária
       const bankAccount = formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId) : null;
@@ -898,7 +901,7 @@ export function FinancialTransactions() {
         costCenterName: costCenter?.name || "",
         description: formData.description,
         dueDate: dueDateString, // ✅ ADICIONADO: atualizar dueDate
-        status: newStatus as any, // ✅ ADICIONADO: atualizar status baseado na nova data
+        // ✅ NÃO atualizar status - manter o status original da transação
         bankAccountId: formData.bankAccountId || "", // ✅ NOVO: atualizar conta bancária
         bankAccountName: bankAccount?.bankName || "", // ✅ NOVO: atualizar nome da conta bancária
       });
@@ -1758,6 +1761,23 @@ export function FinancialTransactions() {
                     <li>Liquide cada parcela individualmente através do botão de ação nas transações</li>
                   </ul>
                 </div>
+
+                {/* ✅ NOVO: Checkbox para indicar se a transação já foi paga */}
+                {!editingTransaction && (
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Checkbox
+                      id="alreadyPaid"
+                      checked={formData.alreadyPaid}
+                      onCheckedChange={(checked) => setFormData({ ...formData, alreadyPaid: !!checked })}
+                    />
+                    <label
+                      htmlFor="alreadyPaid"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Esta transação já foi paga
+                    </label>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   {/* ✅ ADICIONADO: Mostrar campo dueDate quando editando transação única */}
