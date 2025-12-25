@@ -258,7 +258,7 @@ export interface FinancialTransaction {
   paymentMethodId: string;
   paymentMethodName: string;
   amount: number;
-  status: "A Receber" | "Recebido" | "A Pagar" | "Pago" | "Cancelado" | "Vencido";
+  status: "A Vencer" | "Vencido" | "Pago" | "Cancelado";
   costCenterId?: string;
   costCenterName?: string;
   description: string;

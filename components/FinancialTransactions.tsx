@@ -51,7 +51,8 @@ export function FinancialTransactions() {
   const [filterType, setFilterType] = useState<"Todas" | "Receita" | "Despesa">("Todas");
   const [filterStatus, setFilterStatus] = useState<string[]>([]); // ✅ ALTERADO: array para seleção múltipla
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
-  const [filterMonth, setFilterMonth] = useState<string>("Todos"); // ✅ NOVO: filtro de mês
+  const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
+  const [filterMonth, setFilterMonth] = useState<number | null>(null); // null = todos os meses
   const [showDialog, setShowDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -110,11 +111,7 @@ export function FinancialTransactions() {
 
   // Helper: verificar se está vencido
   const isOverdue = (txn: any) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(txn.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    return dueDate < today && (txn.status === "A Receber" || txn.status === "A Pagar" || txn.status === "A Vencer" || txn.status === "Vencido");
+    return txn.status === "Vencido";
   };
 
   const filteredTransactions = safeFinancialTransactions.filter(txn => {
@@ -130,30 +127,32 @@ export function FinancialTransactions() {
     const matchesStatus = filterStatus.length === 0 || filterStatus.includes(txn.status);
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
-    // ✅ NOVO: Filtro de mês
+    // ✅ NOVO: Filtro de ano e mês
     let matchesMonth = true;
-    if (filterMonth !== "Todos") {
-      const txnDate = new Date(txn.date);
-      const [year, month] = filterMonth.split("-");
-      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
-                     (txnDate.getMonth() + 1) === parseInt(month);
+    const txnDate = new Date(txn.date);
+    if (filterMonth !== null) {
+      matchesMonth = txnDate.getFullYear() === filterYear && 
+                     txnDate.getMonth() === filterMonth;
+    } else {
+      matchesMonth = txnDate.getFullYear() === filterYear;
     }
 
     return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
   });
 
-  // ✅ NOVO: Cálculos considerando seleção múltipla de status
+  // ✅ NOVO: Cálculos considerando seleção múltipla de status e filtro de ano/mês
   const totalReceitas = safeFinancialTransactions
     .filter(t => {
       const isReceita = t.type === "Receita";
       
-      // Aplicar filtro de mês se selecionado
+      // Aplicar filtro de ano e mês
+      const txnDate = new Date(t.date);
       let matchesMonth = true;
-      if (filterMonth !== "Todos") {
-        const txnDate = new Date(t.date);
-        const [year, month] = filterMonth.split("-");
-        matchesMonth = txnDate.getFullYear() === parseInt(year) && 
-                       (txnDate.getMonth() + 1) === parseInt(month);
+      if (filterMonth !== null) {
+        matchesMonth = txnDate.getFullYear() === filterYear && 
+                       txnDate.getMonth() === filterMonth;
+      } else {
+        matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
       // Aplicar filtro de status se selecionado
@@ -167,13 +166,14 @@ export function FinancialTransactions() {
     .filter(t => {
       const isDespesa = t.type === "Despesa";
       
-      // Aplicar filtro de mês se selecionado
+      // Aplicar filtro de ano e mês
+      const txnDate = new Date(t.date);
       let matchesMonth = true;
-      if (filterMonth !== "Todos") {
-        const txnDate = new Date(t.date);
-        const [year, month] = filterMonth.split("-");
-        matchesMonth = txnDate.getFullYear() === parseInt(year) && 
-                       (txnDate.getMonth() + 1) === parseInt(month);
+      if (filterMonth !== null) {
+        matchesMonth = txnDate.getFullYear() === filterYear && 
+                       txnDate.getMonth() === filterMonth;
+      } else {
+        matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
       // Aplicar filtro de status se selecionado
@@ -185,15 +185,16 @@ export function FinancialTransactions() {
 
   const saldo = totalReceitas - totalDespesas;
   
-  // ✅ NOVO: Contar transações por tipo (considerando filtro de mês e status)
+  // ✅ NOVO: Contar transações por tipo (considerando filtro de ano/mês e status)
   const countReceitas = safeFinancialTransactions.filter(t => {
     const isReceita = t.type === "Receita";
+    const txnDate = new Date(t.date);
     let matchesMonth = true;
-    if (filterMonth !== "Todos") {
-      const txnDate = new Date(t.date);
-      const [year, month] = filterMonth.split("-");
-      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
-                     (txnDate.getMonth() + 1) === parseInt(month);
+    if (filterMonth !== null) {
+      matchesMonth = txnDate.getFullYear() === filterYear && 
+                     txnDate.getMonth() === filterMonth;
+    } else {
+      matchesMonth = txnDate.getFullYear() === filterYear;
     }
     const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
     return isReceita && matchesMonth && matchesStatus;
@@ -201,27 +202,17 @@ export function FinancialTransactions() {
   
   const countDespesas = safeFinancialTransactions.filter(t => {
     const isDespesa = t.type === "Despesa";
+    const txnDate = new Date(t.date);
     let matchesMonth = true;
-    if (filterMonth !== "Todos") {
-      const txnDate = new Date(t.date);
-      const [year, month] = filterMonth.split("-");
-      matchesMonth = txnDate.getFullYear() === parseInt(year) && 
-                     (txnDate.getMonth() + 1) === parseInt(month);
+    if (filterMonth !== null) {
+      matchesMonth = txnDate.getFullYear() === filterYear && 
+                     txnDate.getMonth() === filterMonth;
+    } else {
+      matchesMonth = txnDate.getFullYear() === filterYear;
     }
     const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
     return isDespesa && matchesMonth && matchesStatus;
   }).length;
-
-  // ✅ NOVO: Gerar lista de meses disponíveis baseado nas transações
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
-    safeFinancialTransactions.forEach(txn => {
-      const date = new Date(txn.date);
-      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(yearMonth);
-    });
-    return Array.from(months).sort().reverse(); // Mais recentes primeiro
-  }, [safeFinancialTransactions]);
 
   const handleOpenDialog = (transactionId?: string, transferMode: boolean = false, editMode: "single" | "all" = "single") => {
     setIsTransferMode(transferMode);
@@ -467,10 +458,10 @@ export function FinancialTransactions() {
       // Determinar status baseado na data de vencimento
       const dueDateObj = new Date(dueDate);
       dueDateObj.setHours(0, 0, 0, 0);
-      // ✅ CORREÇÃO: Usar "A Receber" ou "A Pagar" baseado no tipo, ou "Vencido" se data passada
+      // ✅ NOVO: Status unificado - "A Vencer" ou "Vencido"
       const status = dueDateObj < today 
         ? "Vencido" 
-        : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+        : "A Vencer";
 
       const transactionData = {
         type: formData.type,
@@ -493,8 +484,8 @@ export function FinancialTransactions() {
         description: numInstallments > 1 
           ? `${formData.description} - Parcela ${i + 1}/${numInstallments}`
           : formData.description,
-        installmentNumber: numInstallments > 1 ? i + 1 : undefined,
-        totalInstallments: numInstallments > 1 ? numInstallments : undefined,
+        installmentNumber: i + 1, // ✅ SEMPRE mostrar parcela
+        totalInstallments: numInstallments, // ✅ SEMPRE mostrar total
         origin: "Manual" as const
       };
 
@@ -824,7 +815,7 @@ export function FinancialTransactions() {
           const isOverdue = compareDates(dueDate, today) < 0;
           const installmentStatus = isOverdue 
             ? "Vencido" 
-            : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+            : "A Vencer";
 
           const newTransaction = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
@@ -883,11 +874,11 @@ export function FinancialTransactions() {
       // ✅ Verificar se vencimento está no passado e ajustar status
       const today = getTodayString();
       const isOverdue = compareDates(dueDateString, today) < 0;
-      const newStatus = (transaction.status === "Recebido" || transaction.status === "Pago" || transaction.status === "Cancelado")
+      const newStatus = (transaction.status === "Pago" || transaction.status === "Cancelado")
         ? transaction.status // Manter status se já foi liquidado ou cancelado
         : isOverdue 
           ? "Vencido" 
-          : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+          : "A Vencer";
       
       // ✅ Buscar nome da conta bancária
       const bankAccount = formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId) : null;
@@ -919,10 +910,7 @@ export function FinancialTransactions() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      "Recebido": "bg-green-100 text-green-700",
       "Pago": "bg-green-100 text-green-700",
-      "A Receber": "bg-blue-100 text-blue-700",
-      "A Pagar": "bg-orange-100 text-orange-700",
       "A Vencer": "bg-blue-100 text-blue-700",
       "Vencido": "bg-red-100 text-red-700",
       "Cancelado": "bg-gray-100 text-gray-700"
@@ -1097,7 +1085,7 @@ export function FinancialTransactions() {
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0">
               <div className="p-2 space-y-2">
-                {["A Receber", "A Pagar", "A Vencer", "Vencido", "Pago", "Recebido", "Cancelado"].map((status) => (
+                {["A Vencer", "Vencido", "Pago", "Cancelado"].map((status) => (
                   <div key={status} className="flex items-center space-x-2">
                     <Checkbox
                       id={`status-${status}`}
@@ -1141,23 +1129,46 @@ export function FinancialTransactions() {
               <SelectItem value="Pedido">Pedido</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filterMonth} onValueChange={setFilterMonth}>
-            <SelectTrigger>
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">Todos os Meses</SelectItem>
-              {availableMonths.map(month => {
-                const [year, monthNum] = month.split('-');
-                const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                return (
-                  <SelectItem key={month} value={month}>
-                    {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          
+          {/* Filtro de Ano/Mês Visual */}
+          <div className="col-span-2 flex flex-col gap-2">
+            {/* Seletor de Ano */}
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilterYear(filterYear - 1)}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronDown className="h-4 w-4 rotate-90" />
+              </Button>
+              <span className="text-sm font-semibold min-w-[60px] text-center">{filterYear}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilterYear(filterYear + 1)}
+                className="h-8 w-8 p-0"
+                disabled={filterYear >= new Date().getFullYear()}
+              >
+                <ChevronDown className="h-4 w-4 -rotate-90" />
+              </Button>
+            </div>
+            
+            {/* Pills de Meses */}
+            <div className="flex flex-wrap gap-1">
+              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+                <Button
+                  key={index}
+                  variant={filterMonth === index ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterMonth(filterMonth === index ? null : index)}
+                  className={`h-7 px-2 text-xs ${filterMonth === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  {monthName}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1204,7 +1215,7 @@ export function FinancialTransactions() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {txn.status !== "Recebido" && txn.status !== "Pago" && (
+                            {txn.status !== "Pago" && (
                               <>
                                 <DropdownMenuItem 
                                   onClick={() => handleOpenReceiveDialog(txn.id)}
@@ -1247,23 +1258,23 @@ export function FinancialTransactions() {
                                 )}
                               </>
                             )}
-                            {(txn.status === "Recebido" || txn.status === "Pago") && (
+                            {txn.status === "Pago" && (
                               <DropdownMenuItem 
                                 onClick={() => {
                                   toast.info("Transação já liquidada", {
-                                    description: "Transações recebidas/pagas não podem ser editadas"
+                                    description: "Transações pagas não podem ser editadas"
                                   });
                                 }}
                                 className="text-gray-500"
                               >
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                                {txn.type === "Receita" ? "Recebido" : "Pago"}
+                                Pago
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {txn.origin === "Pedido" && (txn.status === "A Receber" || txn.status === "A Pagar" || txn.status === "Vencido") && (
+                      {txn.origin === "Pedido" && (txn.status === "A Vencer" || txn.status === "Vencido") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1351,13 +1362,9 @@ export function FinancialTransactions() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {txn.installmentNumber && txn.totalInstallments ? (
-                        <span className="text-sm">
-                          {txn.installmentNumber}/{txn.totalInstallments}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
+                      <span className="text-sm">
+                        {txn.installmentNumber || 1}/{txn.totalInstallments || 1}
+                      </span>
                     </TableCell>
                   </TableRow>
                 );

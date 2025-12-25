@@ -66,19 +66,17 @@ export function AccountsPayableReceivable() {
 
   // Helper: verificar se está vencido
   const isOverdue = (txn: any) => {
-    const dueDate = new Date(txn.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    return dueDate < today && (txn.status === "A Receber" || txn.status === "A Pagar" || txn.status === "A Vencer" || txn.status === "Vencido");
+    return txn.status === "Vencido";
   };
 
   // Filtrar transações a receber
   const receivableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Receita" && (t.status === "A Receber" || t.status === "A Vencer" || t.status === "Vencido")
+    t.type === "Receita" && (t.status === "A Vencer" || t.status === "Vencido")
   );
 
   // Filtrar transações a pagar
   const payableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Despesa" && (t.status === "A Pagar" || t.status === "A Vencer" || t.status === "Vencido")
+    t.type === "Despesa" && (t.status === "A Vencer" || t.status === "Vencido")
   );
 
   // Filtrar com busca - Contas a Receber
@@ -130,7 +128,7 @@ export function AccountsPayableReceivable() {
 
   const receivablesMonth = safeFinancialTransactions.filter(t =>
     t.type === "Receita" && 
-    t.status === "Recebido" && 
+    t.status === "Pago" && 
     t.paymentDate &&
     new Date(t.paymentDate).getMonth() === today.getMonth()
   ).reduce((sum, t) => sum + t.amount, 0);
@@ -217,10 +215,7 @@ export function AccountsPayableReceivable() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      "Recebido": "bg-green-100 text-green-700",
       "Pago": "bg-green-100 text-green-700",
-      "A Receber": "bg-blue-100 text-blue-700",
-      "A Pagar": "bg-orange-100 text-orange-700",
       "A Vencer": "bg-blue-100 text-blue-700",
       "Vencido": "bg-red-100 text-red-700",
       "Cancelado": "bg-gray-100 text-gray-700"
@@ -424,7 +419,7 @@ export function AccountsPayableReceivable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os Status</SelectItem>
-                <SelectItem value="A Receber">A Receber</SelectItem>
+                <SelectItem value="A Vencer">A Vencer</SelectItem>
                 <SelectItem value="Vencido">Vencido</SelectItem>
               </SelectContent>
             </Select>
@@ -576,7 +571,7 @@ export function AccountsPayableReceivable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os Status</SelectItem>
-                <SelectItem value="A Pagar">A Pagar</SelectItem>
+                <SelectItem value="A Vencer">A Vencer</SelectItem>
                 <SelectItem value="Vencido">Vencido</SelectItem>
               </SelectContent>
             </Select>

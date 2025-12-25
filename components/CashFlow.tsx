@@ -105,9 +105,9 @@ export function CashFlow() {
         );
       }
       
-      // REALIZADOS - Entradas realizadas (Recebido)
+      // REALIZADOS - Entradas realizadas (Pago)
       const realizedIncome = filteredTransactions
-        .filter(t => t.type === "Receita" && t.paymentDate === dateStr && t.status === "Recebido")
+        .filter(t => t.type === "Receita" && t.paymentDate === dateStr && t.status === "Pago")
         .reduce((sum, t) => sum + t.amount, 0);
 
       // REALIZADOS - Saídas realizadas (Pago)
@@ -120,7 +120,7 @@ export function CashFlow() {
 
       // EM ABERTO - Entradas previstas DO DIA (apenas para exibição na coluna)
       const openIncomeDay = filteredTransactions
-        .filter(t => t.type === "Receita" && t.dueDate === dateStr && t.status !== "Recebido" && t.status !== "Cancelado")
+        .filter(t => t.type === "Receita" && t.dueDate === dateStr && t.status !== "Pago" && t.status !== "Cancelado")
         .reduce((sum, t) => sum + t.amount, 0);
 
       // EM ABERTO - Saídas previstas DO DIA (apenas para exibição na coluna)
@@ -131,7 +131,7 @@ export function CashFlow() {
       // EM ABERTO ACUMULADO - Entradas previstas até a data atual (para cálculo do saldo final)
       const cumulativeOpenIncome = filteredTransactions
         .filter(t => {
-          if (t.type !== "Receita" || !t.dueDate || t.status === "Recebido" || t.status === "Cancelado") return false;
+          if (t.type !== "Receita" || !t.dueDate || t.status === "Pago" || t.status === "Cancelado") return false;
           return t.dueDate <= dateStr;
         })
         .reduce((sum, t) => sum + t.amount, 0);
@@ -148,7 +148,7 @@ export function CashFlow() {
       const hasPreviousPending = filteredTransactions
         .some(t => {
           if (!t.dueDate || t.dueDate >= dateStr) return false;
-          if (t.type === "Receita") return t.status !== "Recebido" && t.status !== "Cancelado";
+          if (t.type === "Receita") return t.status !== "Pago" && t.status !== "Cancelado";
           if (t.type === "Despesa") return t.status !== "Pago" && t.status !== "Cancelado";
           return false;
         });
@@ -235,7 +235,7 @@ export function CashFlow() {
       // REALIZADOS - Entradas realizadas no mês
       const realizedIncome = filteredTransactions
         .filter(t => {
-          if (t.type !== "Receita" || t.status !== "Recebido" || !t.paymentDate) return false;
+          if (t.type !== "Receita" || t.status !== "Pago" || !t.paymentDate) return false;
           const paymentDate = new Date(t.paymentDate + 'T00:00:00');
           return paymentDate >= monthStartDate && paymentDate <= monthEndDate;
         })
@@ -259,7 +259,7 @@ export function CashFlow() {
       // EM ABERTO - Entradas previstas no mês (transações financeiras de Receita não liquidadas)
       const openIncome = filteredTransactions
         .filter(t => {
-          if (t.type !== "Receita" || !t.dueDate || t.status === "Recebido" || t.status === "Cancelado") return false;
+          if (t.type !== "Receita" || !t.dueDate || t.status === "Pago" || t.status === "Cancelado") return false;
           const dueDate = new Date(t.dueDate + 'T00:00:00');
           return dueDate >= monthStartDate && dueDate <= monthEndDate;
         })
