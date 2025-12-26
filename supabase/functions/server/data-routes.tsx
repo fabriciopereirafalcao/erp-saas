@@ -940,13 +940,26 @@ app.get('/stock-locations', async (c) => {
       .from('stock_locations')
       .select('*')
       .eq('company_id', auth.companyId)
-      .eq('is_active', true)
       .order('code', { ascending: true });
 
     if (error) throw error;
 
-    console.log(`[STOCK LOCATIONS] ✅ ${data.length} locais carregados`);
-    return c.json({ success: true, data });
+    // Mapear snake_case para camelCase
+    const mappedData = data.map(loc => ({
+      id: loc.id,
+      code: loc.code,
+      name: loc.name,
+      description: loc.description,
+      address: loc.address,
+      type: loc.type,
+      capacityM3: loc.capacity_m3,
+      isActive: loc.is_active,
+      createdAt: loc.created_at,
+      updatedAt: loc.updated_at
+    }));
+
+    console.log(`[STOCK LOCATIONS] ✅ ${mappedData.length} locais carregados`);
+    return c.json({ success: true, data: mappedData });
 
   } catch (error) {
     console.error('[STOCK LOCATIONS] ❌ Erro ao carregar:', error);

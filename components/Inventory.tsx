@@ -135,14 +135,21 @@ export function Inventory() {
   useEffect(() => {
     const loadStockLocations = async () => {
       try {
+        console.log('[INVENTORY] 📍 Carregando localizações de estoque...');
         const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations`);
         const result = await response.json();
         
+        console.log('[INVENTORY] 📍 Resposta da API:', result);
+        
         if (result.success) {
+          console.log('[INVENTORY] ✅ Localizações carregadas:', result.data?.length || 0);
+          console.log('[INVENTORY] 📋 Dados:', result.data);
           setStockLocations(result.data || []);
+        } else {
+          console.error('[INVENTORY] ❌ Erro ao carregar localizações:', result.error);
         }
       } catch (err: any) {
-        console.error('[INVENTORY] Erro ao carregar localizações:', err);
+        console.error('[INVENTORY] ❌ Exceção ao carregar localizações:', err);
       }
     };
     
@@ -1411,17 +1418,20 @@ export function Inventory() {
                             <SelectValue placeholder="Selecione a localização" />
                           </SelectTrigger>
                           <SelectContent>
-                            {stockLocations.length === 0 && (
+                            {stockLocations.filter(loc => loc.isActive).length === 0 ? (
                               <div className="px-2 py-6 text-center text-sm text-gray-500">
-                                Nenhuma localização cadastrada.<br />
+                                Nenhuma localização ativa cadastrada.<br />
                                 Configure em Configurações → Locais de Estoque.
                               </div>
+                            ) : (
+                              <>
+                                {stockLocations.filter(loc => loc.isActive).map((location) => (
+                                  <SelectItem key={location.id} value={location.id}>
+                                    {location.code} - {location.name}
+                                  </SelectItem>
+                                ))}
+                              </>
                             )}
-                            {stockLocations.filter(loc => loc.isActive).map((location) => (
-                              <SelectItem key={location.id} value={location.id}>
-                                {location.code} - {location.name}
-                              </SelectItem>
-                            ))}
                           </SelectContent>
                         </Select>
                       </div>
