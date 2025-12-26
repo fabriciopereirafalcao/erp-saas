@@ -4181,6 +4181,7 @@ app.post('/api/product-with-initial-batch', async (c) => {
         batch_number: initialBatch.batchNumber,
         manufacturing_date: initialBatch.manufacturingDate || null,
         expiry_date: initialBatch.expiryDate || null,
+        location_id: initialBatch.locationId || null, // ✅ NOVO: Localização de estoque
         initial_quantity: initialBatch.quantity,
         current_quantity: initialBatch.quantity,
         status: 'Ativo'

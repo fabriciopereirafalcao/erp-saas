@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -88,7 +88,8 @@ export function Inventory() {
     manufacturingDate: "",
     expiryDate: "",
     entryType: "Produção",
-    otherEntryType: ""
+    otherEntryType: "",
+    locationId: "" // ✅ NOVO: Localização de estoque para lote inicial
   });
   const [editProduct, setEditProduct] = useState({
     productName: "",
@@ -126,6 +127,27 @@ export function Inventory() {
   // ===== FASE 5: Estados para controle de lotes =====
   const [isBatchMovementModalOpen, setIsBatchMovementModalOpen] = useState(false);
   const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+  
+  // ✅ NOVO: Estado para localizações de estoque
+  const [stockLocations, setStockLocations] = useState<any[]>([]);
+  
+  // ✅ NOVO: Buscar localizações ao montar componente
+  useEffect(() => {
+    const loadStockLocations = async () => {
+      try {
+        const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setStockLocations(result.data || []);
+        }
+      } catch (err: any) {
+        console.error('[INVENTORY] Erro ao carregar localizações:', err);
+      }
+    };
+    
+    loadStockLocations();
+  }, []);
 
   const filteredInventory = inventory.filter(item => {
     // Filtro de produtos inativos (soft delete)
@@ -261,6 +283,7 @@ export function Inventory() {
         manufacturingDate: newProduct.manufacturingDate,
         expiryDate: newProduct.expiryDate || undefined,
         entryType: newProduct.entryType === "Outro" ? newProduct.otherEntryType : newProduct.entryType,
+        locationId: newProduct.locationId || undefined, // ✅ NOVO: Localização de estoque
         quantity: currentStock
       } : undefined
     });
@@ -294,7 +317,8 @@ export function Inventory() {
       manufacturingDate: "",
       expiryDate: "",
       entryType: "Produção",
-      otherEntryType: ""
+      otherEntryType: "",
+      locationId: ""
     });
     setNcmError("");
     setIsDialogOpen(false);
@@ -776,7 +800,7 @@ export function Inventory() {
               </DialogHeader>
 
               <Tabs defaultValue="general" className="w-full">
-                <TabsList className={`grid w-full ${newProduct.trackBatches ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="general">
                     <Package className="w-4 h-4 mr-2" />
                     Dados Gerais
@@ -785,12 +809,10 @@ export function Inventory() {
                     <Receipt className="w-4 h-4 mr-2" />
                     Dados Fiscais
                   </TabsTrigger>
-                  {newProduct.trackBatches && (
-                    <TabsTrigger value="batch">
-                      <Box className="w-4 h-4 mr-2" />
-                      Lote Inicial
-                    </TabsTrigger>
-                  )}
+                  <TabsTrigger value="batch">
+                    <Box className="w-4 h-4 mr-2" />
+                    Controle de Lotes
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-4 mt-4">
@@ -1253,65 +1275,49 @@ export function Inventory() {
                         />
                       </div>
                     </div>
-
-                    {/* Controle de Lotes */}
-                    <div className="space-y-3 pt-4 border-t">
-                      <h4 className="text-sm text-gray-700">Controle de Lotes</h4>
-                      
-                      <div className="flex items-center space-x-2 col-span-full">
-                        <input
-                          type="checkbox"
-                          id="trackBatches"
-                          checked={newProduct.trackBatches || false}
-                          onChange={(e) => setNewProduct({...newProduct, trackBatches: e.target.checked})}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <Label htmlFor="trackBatches" className="cursor-pointer">
-                          Controlar Lotes de Fabricação
-                        </Label>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="w-3 h-3 text-gray-400" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Exigirá informar lote em compras e vendas deste produto</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-
-                      {newProduct.trackBatches && (
-                        <div className="flex items-center space-x-2 col-span-full ml-6">
-                          <input
-                            type="checkbox"
-                            id="batchFifoAuto"
-                            checked={newProduct.batchFifoAuto !== false}
-                            onChange={(e) => setNewProduct({...newProduct, batchFifoAuto: e.target.checked})}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <Label htmlFor="batchFifoAuto" className="cursor-pointer">
-                            Usar FIFO automático (consumir lotes mais antigos primeiro)
-                          </Label>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </TabsContent>
 
-                {/* ✅ FASE 1: Aba de Lote Inicial (condicional) */}
-                {newProduct.trackBatches && (
-                  <TabsContent value="batch" className="space-y-4 mt-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                      <div className="flex items-start gap-2">
-                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-blue-800">
-                          <strong>Lote Inicial Obrigatório:</strong> Produtos com controle de lotes exigem a criação de um lote para o estoque inicial.
-                        </p>
-                      </div>
+                {/* ✅ NOVA: Aba de Controle de Lotes (sempre visível) */}
+                <TabsContent value="batch" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    {/* Checkbox de ativação */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="trackBatches"
+                        checked={newProduct.trackBatches || false}
+                        onChange={(e) => setNewProduct({...newProduct, trackBatches: e.target.checked})}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <Label htmlFor="trackBatches" className="cursor-pointer">
+                        Controlar Lotes de Fabricação
+                      </Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Exigirá informar lote em compras e vendas deste produto</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
 
-                    <div className="grid gap-4">
+                    {/* Campos do lote inicial (aparecem quando checkbox marcado) */}
+                    {newProduct.trackBatches && (
+                      <>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-blue-800">
+                              <strong>Lote Inicial Obrigatório:</strong> Produtos com controle de lotes exigem a criação de um lote para o estoque inicial.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4">
                       {/* Código do Lote */}
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="batchNumber" className="text-right">
@@ -1392,6 +1398,34 @@ export function Inventory() {
                         />
                       </div>
 
+                      {/* Localização de Estoque */}
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="locationId" className="text-right">
+                          Localização de Estoque
+                        </Label>
+                        <Select
+                          value={newProduct.locationId}
+                          onValueChange={(value) => setNewProduct({...newProduct, locationId: value})}
+                        >
+                          <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Selecione a localização" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stockLocations.length === 0 && (
+                              <div className="px-2 py-6 text-center text-sm text-gray-500">
+                                Nenhuma localização cadastrada.<br />
+                                Configure em Configurações → Locais de Estoque.
+                              </div>
+                            )}
+                            {stockLocations.filter(loc => loc.isActive).map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.code} - {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* Quantidade (já preenchida) */}
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right text-gray-600">
@@ -1410,8 +1444,10 @@ export function Inventory() {
                         </div>
                       </div>
                     </div>
-                  </TabsContent>
-                )}
+                    </>
+                    )}
+                  </div>
+                </TabsContent>
               </Tabs>
 
               <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
