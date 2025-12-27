@@ -1180,6 +1180,30 @@ export function PurchaseOrders() {
                             </SelectContent>
                           </Select>
                         </div>
+                        
+                        {/* ✅ NOVO: Conta Bancária ao lado do Número de Parcelas */}
+                        <div>
+                          <Label className="text-xs text-gray-600">Conta Bancária (opcional)</Label>
+                          <Select 
+                            value={orderHeader.bankAccountId || "none"} 
+                            onValueChange={(value) => setOrderHeader({...orderHeader, bankAccountId: value === "none" ? "" : value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Nenhuma" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhuma</SelectItem>
+                              {safeBankAccounts.map(account => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.bankName} - {account.accountNumber}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            💡 Conta padrão para transações do pedido
+                          </p>
+                        </div>
                       </div>
 
                       {/* Prazo e Referência da Primeira Parcela */}
@@ -1221,30 +1245,6 @@ export function PurchaseOrders() {
                             📅 Referência para calcular vencimentos
                           </p>
                         </div>
-                      </div>
-
-                      {/* ✅ NOVO: Conta Bancária */}
-                      <div className="mt-4">
-                        <Label className="text-xs text-gray-600">Conta Bancária (opcional)</Label>
-                        <Select 
-                          value={orderHeader.bankAccountId || "none"} 
-                          onValueChange={(value) => setOrderHeader({...orderHeader, bankAccountId: value === "none" ? "" : value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Nenhuma" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nenhuma</SelectItem>
-                            {safeBankAccounts.map(account => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.bankName} - {account.accountNumber}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">
-                          💡 Conta bancária padrão para as transações financeiras deste pedido
-                        </p>
                       </div>
 
                       {/* Preview de Parcelas */}
