@@ -22,7 +22,6 @@ import { validateEmail } from "../utils/fieldValidation";
 
 // Lista de principais bancos brasileiros
 const BANCOS_BRASILEIROS = [
-  { codigo: "CAIXA", nome: "💵 Caixa / Dinheiro em Espécie", isCash: true },
   { codigo: "001", nome: "Banco do Brasil" },
   { codigo: "033", nome: "Santander" },
   { codigo: "104", nome: "Caixa Econômica Federal" },
@@ -53,12 +52,7 @@ const BANCOS_BRASILEIROS = [
   { codigo: "653", nome: "Banco Indusval" },
   { codigo: "707", nome: "Banco Daycoval" },
   { codigo: "739", nome: "Banco Cetelem" },
-].sort((a, b) => {
-  // Manter Caixa sempre no topo
-  if (a.isCash) return -1;
-  if (b.isCash) return 1;
-  return a.nome.localeCompare(b.nome);
-});
+].sort((a, b) => a.nome.localeCompare(b.nome));
 
 export function CompanySettings() {
   const {
@@ -294,18 +288,34 @@ export function CompanySettings() {
 
   const handleAddBank = () => {
     // Verificar se é Caixa em Espécie
-    const isCashAccount = newBank.bankName === "💵 Caixa / Dinheiro em Espécie";
+    const isCashAccount = newBank.accountType === "Caixa / Dinheiro em Espécie";
     
-    // Para contas bancárias normais, validar todos os campos
-    // Para caixa em espécie, apenas o nome é obrigatório
-    if (!newBank.bankName) {
-      toast.error("Selecione o banco ou Caixa");
+    // Validação de campos obrigatórios
+    if (!newBank.accountType) {
+      toast.error("Selecione o tipo de conta");
       return;
     }
     
-    if (!isCashAccount && (!newBank.agency || !newBank.accountNumber)) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
+    // Para Caixa em Espécie, validar código e nome
+    if (isCashAccount) {
+      if (!newBank.agency || newBank.agency.length !== 4) {
+        toast.error("Digite um código de 4 dígitos para o Caixa");
+        return;
+      }
+      if (!newBank.bankName) {
+        toast.error("Digite um nome para o Caixa");
+        return;
+      }
+    } else {
+      // Para contas bancárias normais, validar banco, agência e conta
+      if (!newBank.bankName) {
+        toast.error("Selecione o banco");
+        return;
+      }
+      if (!newBank.agency || !newBank.accountNumber) {
+        toast.error("Preencha todos os campos obrigatórios");
+        return;
+      }
     }
     
     addBankAccount(newBank);
@@ -988,29 +998,10 @@ export function CompanySettings() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label>Banco *</Label>
-                      <Select
-                        value={newBank.bankName}
-                        onValueChange={(value) => setNewBank({ ...newBank, bankName: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o banco" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BANCOS_BRASILEIROS.map((banco) => (
-                            <SelectItem key={banco.codigo} value={banco.nome}>
-                              {banco.codigo} - {banco.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
                       <Label>Tipo de Conta *</Label>
                       <Select
                         value={newBank.accountType}
-                        onValueChange={(value: "Conta Corrente" | "Conta Poupança") => 
+                        onValueChange={(value: "Conta Corrente" | "Conta Poupança" | "Caixa / Dinheiro em Espécie" | "Aplicação Financeira") => 
                           setNewBank({ ...newBank, accountType: value })
                         }
                       >
@@ -1020,13 +1011,59 @@ export function CompanySettings() {
                         <SelectContent>
                           <SelectItem value="Conta Corrente">Conta Corrente</SelectItem>
                           <SelectItem value="Conta Poupança">Conta Poupança</SelectItem>
+                          <SelectItem value="Aplicação Financeira">Aplicação Financeira</SelectItem>
+                          <SelectItem value="Caixa / Dinheiro em Espécie">💵 Caixa / Dinheiro em Espécie</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {/* Mostrar Agência e Conta apenas se NÃO for Caixa */}
-                    {newBank.bankName !== "💵 Caixa / Dinheiro em Espécie" && (
+                    {/* Se for Caixa, mostrar campos específicos */}
+                    {newBank.accountType === "Caixa / Dinheiro em Espécie" ? (
                       <>
+                        <div>
+                          <Label>Código do Caixa (4 dígitos) *</Label>
+                          <Input
+                            value={newBank.agency}
+                            onChange={(e) => {
+                              // Permitir apenas números e limitar a 4 dígitos
+                              const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              setNewBank({ ...newBank, agency: value });
+                            }}
+                            placeholder="0000"
+                            maxLength={4}
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Nome do Caixa *</Label>
+                          <Input
+                            value={newBank.bankName}
+                            onChange={(e) => setNewBank({ ...newBank, bankName: e.target.value })}
+                            placeholder="Ex: Caixa Principal, Caixa Loja 1"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <Label>Banco *</Label>
+                          <Select
+                            value={newBank.bankName}
+                            onValueChange={(value) => setNewBank({ ...newBank, bankName: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o banco" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BANCOS_BRASILEIROS.map((banco) => (
+                                <SelectItem key={banco.codigo} value={banco.nome}>
+                                  {banco.codigo} - {banco.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div>
                           <Label>Agência *</Label>
                           <Input
@@ -1098,11 +1135,11 @@ export function CompanySettings() {
                     </div>
                     <div className="text-sm text-gray-600 space-y-1">
                       <p>{account.accountType}</p>
-                      {/* Mostrar Agência e Conta apenas se NÃO for Caixa */}
-                      {account.bankName !== "💵 Caixa / Dinheiro em Espécie" && (
-                        <p>
-                          Ag: {account.agency} | Conta: {account.accountNumber}
-                        </p>
+                      {/* Para Caixa, mostrar código - Para outros, mostrar Ag e Conta */}
+                      {account.accountType === "Caixa / Dinheiro em Espécie" ? (
+                        <p>Código: {account.agency}</p>
+                      ) : (
+                        <p>Ag: {account.agency} | Conta: {account.accountNumber}</p>
                       )}
                       <p className="text-gray-900">
                         Saldo: R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
