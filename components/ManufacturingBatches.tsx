@@ -120,13 +120,20 @@ export function ManufacturingBatches() {
 
     if (batch) {
       setEditingBatch(batch);
+      
+      // ✅ Extrair apenas a parte da data (YYYY-MM-DD) para o input type="date"
+      const extractDate = (dateString?: string) => {
+        if (!dateString) return '';
+        return dateString.split('T')[0]; // Retorna apenas "YYYY-MM-DD"
+      };
+      
       // Para edição, não permitir mudar o produto (apenas visualizar)
       setFormData({
         productId: '', // Não usado em edição
         batchNumber: batch.batchNumber,
         quantity: batch.currentQuantity.toString(),
-        manufacturingDate: batch.manufacturingDate || '',
-        expiryDate: batch.expiryDate || '',
+        manufacturingDate: extractDate(batch.manufacturingDate),
+        expiryDate: extractDate(batch.expiryDate),
         status: batch.status,
       });
     } else {
@@ -270,8 +277,10 @@ export function ManufacturingBatches() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
+    // Extrair apenas a parte da data (YYYY-MM-DD) ignorando timezone
+    const datePart = dateString.split('T')[0];
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const getStatusColor = (status: string) => {

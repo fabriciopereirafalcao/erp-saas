@@ -1362,6 +1362,14 @@ app.post('/product-batches/create', async (c) => {
 
     console.log('[PRODUCT BATCHES] 📦 Produto validado:', product.name);
 
+    // ✅ Função auxiliar para ajustar datas para timezone UTC-3 (Brasília)
+    const adjustDateToUTC3 = (dateString: string | null | undefined) => {
+      if (!dateString) return null;
+      // Se a data vem no formato YYYY-MM-DD, adicionar horário 12:00 UTC-3
+      // Isso garante que a data não mude ao converter para UTC
+      return `${dateString}T12:00:00-03:00`;
+    };
+
     // Verificar duplicidade de lote para este produto
     const { data: duplicateBatch } = await supabase
       .from('product_batches')
@@ -1383,8 +1391,8 @@ app.post('/product-batches/create', async (c) => {
       product_id: product.id,
       product_name: product.name,
       batch_number: body.batchNumber.trim(),
-      manufacturing_date: body.manufacturingDate || null,
-      expiry_date: body.expiryDate || null,
+      manufacturing_date: adjustDateToUTC3(body.manufacturingDate),
+      expiry_date: adjustDateToUTC3(body.expiryDate),
       location_id: null,
       location_name: null,
       shelf_position: null,
@@ -1472,13 +1480,21 @@ app.put('/product-batches/:id', async (c) => {
 
     // Atualizar (NÃO permite alterar produto)
     const updateData: any = {};
+    
+    // ✅ Função auxiliar para ajustar datas para timezone UTC-3 (Brasília)
+    const adjustDateToUTC3 = (dateString: string | null | undefined) => {
+      if (!dateString) return null;
+      // Se a data vem no formato YYYY-MM-DD, adicionar horário 12:00 UTC-3
+      return `${dateString}T12:00:00-03:00`;
+    };
+    
     if (body.batchNumber !== undefined) updateData.batch_number = body.batchNumber.trim();
     if (body.quantity !== undefined) {
       updateData.current_quantity = body.quantity;
       updateData.initial_quantity = body.quantity;
     }
-    if (body.manufacturingDate !== undefined) updateData.manufacturing_date = body.manufacturingDate;
-    if (body.expiryDate !== undefined) updateData.expiry_date = body.expiryDate;
+    if (body.manufacturingDate !== undefined) updateData.manufacturing_date = adjustDateToUTC3(body.manufacturingDate);
+    if (body.expiryDate !== undefined) updateData.expiry_date = adjustDateToUTC3(body.expiryDate);
     if (body.status !== undefined) updateData.status = body.status;
 
     const { data, error } = await supabase
@@ -4297,13 +4313,21 @@ app.post('/api/product-with-initial-batch', async (c) => {
 
     // 2️⃣ CRIAR LOTE INICIAL (se aplicável)
     if (initialBatch && product.trackBatches) {
+      // ✅ Ajustar datas para timezone UTC-3 (Brasília)
+      const adjustDateToUTC3 = (dateString: string | null | undefined) => {
+        if (!dateString) return null;
+        // Se a data vem no formato YYYY-MM-DD, adicionar horário 12:00 UTC-3
+        // Isso garante que a data não mude ao converter para UTC
+        return `${dateString}T12:00:00-03:00`;
+      };
+
       const batchData = {
         company_id: companyId,
         product_id: createdProduct.id,
         product_name: createdProduct.name, // ✅ Campo obrigatório
         batch_number: initialBatch.batchNumber,
-        manufacturing_date: initialBatch.manufacturingDate || null,
-        expiry_date: initialBatch.expiryDate || null,
+        manufacturing_date: adjustDateToUTC3(initialBatch.manufacturingDate),
+        expiry_date: adjustDateToUTC3(initialBatch.expiryDate),
         location_id: initialBatch.locationId || null, // ✅ NOVO: Localização de estoque
         initial_quantity: initialBatch.quantity,
         current_quantity: initialBatch.quantity,
