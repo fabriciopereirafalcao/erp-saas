@@ -30,6 +30,8 @@ import { SalesAndPurchasePersonManagement } from "./SalesAndPurchasePersonManage
 import { BatchAllocationModal } from "./BatchAllocationModal";
 import { ShipSalesOrderModal } from "./ShipSalesOrderModal";
 import type { BatchAllocation } from "../contexts/ERPContext";
+import { projectId } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
 
 interface OrderItem {
   productId: string;
@@ -53,7 +55,9 @@ interface SalesOrdersProps {
 }
 
 export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
-  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople } = useERP();
+  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
+  const { accessToken } = useAuth();
+  const [salespeopleAPI, setSalespeopleAPI] = useState<any[]>([]); // ✅ NOVO: Lista de vendedores do banco
   
   // ✅ Proteções contra arrays undefined
   const safeSalesOrders = salesOrders || [];
@@ -62,7 +66,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   const safePriceTables = priceTables || [];
   const safeFinancialTransactions = financialTransactions || [];
   const safeAccountCategories = accountCategories || [];
-  const safeSalespeople = (salespeople || []).filter(sp => sp.isActive); // ✅ CORREÇÃO: Filtrar apenas vendedores ativos
+  const safeSalespeople = (salespeopleAPI || []).filter(sp => sp.isActive); // ✅ Usar vendedores da API e filtrar ativos
   const safeBankAccounts = companySettings?.bankAccounts || []; // ✅ CORREÇÃO: Usar companySettings?.bankAccounts
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,6 +152,40 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   // Obter informações auxiliares
   const selectedCustomer = safeCustomers.find(c => c.id === orderHeader.customerId);
   const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : safePriceTables.find(t => t.isDefault);
+
+  // ✅ NOVO: Carregar vendedores ao montar o componente
+  useEffect(() => {
+    const loadSalespeople = async () => {
+      if (!accessToken) return;
+      
+      try {
+        console.log('[SALES ORDERS] 📍 Carregando vendedores...');
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/salespeople`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const result = await response.json();
+        console.log('[SALES ORDERS] 📍 Resposta da API:', result);
+        
+        if (result.success) {
+          console.log('[SALES ORDERS] ✅ Vendedores carregados:', result.data?.length || 0);
+          setSalespeopleAPI(result.data || []);
+        } else {
+          console.error('[SALES ORDERS] ❌ Erro ao carregar vendedores:', result.error);
+        }
+      } catch (err: any) {
+        console.error('[SALES ORDERS] ❌ Exceção ao carregar vendedores:', err);
+      }
+    };
+    
+    loadSalespeople();
+  }, [accessToken]);
 
   // Helper: Obter cor do badge de status com ícone
   const getStatusColor = (status: string) => {

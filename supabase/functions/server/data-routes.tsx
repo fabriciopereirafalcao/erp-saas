@@ -1594,10 +1594,23 @@ app.get('/salespeople', async (c) => {
     console.log(`[SALESPEOPLE] 📥 Carregando salespeople da empresa ${auth.companyId}`);
     const salespeople = await sqlService.getSalespeople(auth.companyId);
     
-    console.log(`[SALESPEOPLE] ✅ ${salespeople.length} salespeople carregados`);
+    // ✅ Mapear snake_case para camelCase
+    const mappedSalespeople = salespeople.map(person => ({
+      id: person.id,
+      code: person.code,
+      name: person.name,
+      email: person.email,
+      phone: person.phone,
+      commissionRate: person.commission_rate,
+      isActive: person.is_active,
+      createdAt: person.created_at,
+      updatedAt: person.updated_at
+    }));
+    
+    console.log(`[SALESPEOPLE] ✅ ${mappedSalespeople.length} salespeople carregados e mapeados`);
     return c.json({
       success: true,
-      data: salespeople
+      data: mappedSalespeople
     });
 
   } catch (error) {
