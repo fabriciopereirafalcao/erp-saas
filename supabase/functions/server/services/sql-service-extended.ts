@@ -87,21 +87,25 @@ function denormalizeAccountPayableStatus(status: string): string {
 /**
  * ✅ HELPER: Normalizar status de Financial Transactions
  * CHECK CONSTRAINT: status IN ('A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado')
+ * IMPORTANTE: "A Vencer" e "Vencido" NÃO são aceitos pelo banco - devem ser calculados no frontend
  */
 function normalizeFinancialTransactionStatus(
   status: string | undefined,
   transactionType: 'income' | 'expense'
 ): 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado' {
-  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado', 'A Vencer', 'Vencido'];
+  // ✅ CORREÇÃO: Remover "A Vencer" e "Vencido" - banco NÃO aceita esses valores
+  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado'];
   if (status && allowedStatuses.includes(status)) return status as any;
   
-  if (status === 'pending') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
+  // ✅ Converter "A Vencer" e "Vencido" para status pendente correspondente
+  if (status === 'A Vencer' || status === 'Vencido' || status === 'pending' || status === 'overdue') {
+    return transactionType === 'income' ? 'A Receber' : 'A Pagar';
+  }
+  
   if (status === 'paid') return transactionType === 'income' ? 'Recebido' : 'Pago';
-  if (status === 'overdue') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
   if (status === 'cancelled') return 'Cancelado';
   
-  // ✅ CORREÇÃO: Fallback para status pendente ao invés de "Pago"
-  // Status "A Vencer"/"Vencido" devem ser calculados baseado na dueDate
+  // ✅ Fallback para status pendente
   console.warn(`[SQL_SERVICE] ⚠️ Status indefinido para transação tipo ${transactionType}, usando fallback pendente`);
   return transactionType === 'income' ? 'A Receber' : 'A Pagar';
 }
@@ -2042,9 +2046,16 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
 export async function getAccountsPayable(companyId: string) {
   const supabase = getSupabaseClient();
   
+  // ✅ JOIN com suppliers para obter supplier_name
   const { data, error } = await supabase
     .from('accounts_payable')
-    .select('*')
+    .select(`
+      *,
+      suppliers:supplier_id (
+        name,
+        sku
+      )
+    `)
     .eq('company_id', companyId)
     .order('due_date');
 
@@ -2055,18 +2066,24 @@ export async function getAccountsPayable(companyId: string) {
 
   return data?.map((row: any) => ({
     id: row.id,
-    supplierId: row.supplier_id,
+    supplierId: row.suppliers?.sku || row.supplier_id, // ✅ Retornar SKU se disponível
+    supplierName: row.suppliers?.name || 'Fornecedor Desconhecido', // ✅ NOVO: Nome do fornecedor
+    invoiceNumber: row.order_id || row.description?.split(' ')[2] || '', // ✅ NOVO: Extrair do order_id ou description
+    issueDate: row.created_at?.split('T')[0] || '', // ✅ NOVO: Usar data de criação
     orderId: row.order_id,
     installmentNumber: row.installment_number,
     totalInstallments: row.total_installments,
     description: row.description,
     amount: parseFloat(row.amount),
+    paidAmount: 0, // ✅ NOVO: Valor pago (sempre 0 para pendentes)
+    remainingAmount: parseFloat(row.amount), // ✅ NOVO: Valor restante
     dueDate: row.due_date,
     status: denormalizeAccountPayableStatus(row.status),
     paymentDate: row.payment_date,
     paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
     paymentMethod: row.payment_method || '',
-    notes: row.notes || ''
+    notes: row.notes || '',
+    reference: row.order_id // ✅ NOVO: Referência ao pedido
   })) || [];
 }
 
