@@ -398,7 +398,7 @@ export interface PriceTable {
 export interface BankAccount {
   id: string;
   bankName: string;
-  accountType: "Conta Corrente" | "Poupança" | "Investimentos" | "Caixa";
+  accountType: "Conta Corrente" | "Conta Poupança" | "Aplicação Financeira" | "Caixa / Dinheiro em Espécie";
   agency: string;
   accountNumber: string;
   balance: number;
