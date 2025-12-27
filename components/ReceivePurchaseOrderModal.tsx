@@ -1,3 +1,15 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { toast } from 'sonner';
+import { AlertCircle, Package, Plus, CheckCircle2 } from 'lucide-react';
+import { Alert, AlertDescription } from './ui/alert';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
 import { useERP } from '../contexts/ERPContext';
 import { projectId } from '../utils/supabase/info';
 import { useAuth } from '../contexts/AuthContext';
