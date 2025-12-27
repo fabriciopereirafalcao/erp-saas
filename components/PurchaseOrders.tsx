@@ -1467,7 +1467,9 @@ export function PurchaseOrders() {
                                   <TableCell className="py-4">
                                     <div>
                                       <p className="text-gray-900">{item.productName}</p>
-                                      <p className="text-xs text-gray-500 mt-0.5">ID: {item.productId}</p>
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        SKU: {inventory.find(p => p.id === item.productId)?.sku || 'N/A'}
+                                      </p>
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-right py-4">

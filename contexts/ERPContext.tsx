@@ -5727,6 +5727,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       } : o
     ));
 
+    // ✅ CORREÇÃO SITUAÇÃO 3: Recarregar inventory do backend após atualizar status
+    if (newStatus === 'Recebido' && !skipStockUpdate) {
+      setTimeout(async () => {
+        try {
+          const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+          if (refreshedInventory && refreshedInventory.length > 0) {
+            setInventory(refreshedInventory);
+            console.log('[PURCHASE ORDER] ✅ Inventário atualizado do backend após recebimento');
+          }
+        } catch (error) {
+          console.error('[PURCHASE ORDER] ⚠️ Erro ao atualizar inventário:', error);
+        }
+      }, 500);
+    }
+
     // Notificação
     const statusMessages = {
       'Confirmado': 'Pedido confirmado!',

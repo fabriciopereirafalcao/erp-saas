@@ -92,7 +92,7 @@ function normalizeFinancialTransactionStatus(
   status: string | undefined,
   transactionType: 'income' | 'expense'
 ): 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado' {
-  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado'];
+  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado', 'A Vencer', 'Vencido'];
   if (status && allowedStatuses.includes(status)) return status as any;
   
   if (status === 'pending') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
@@ -100,7 +100,10 @@ function normalizeFinancialTransactionStatus(
   if (status === 'overdue') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
   if (status === 'cancelled') return 'Cancelado';
   
-  return 'Pago';
+  // ✅ CORREÇÃO: Fallback para status pendente ao invés de "Pago"
+  // Status "A Vencer"/"Vencido" devem ser calculados baseado na dueDate
+  console.warn(`[SQL_SERVICE] ⚠️ Status indefinido para transação tipo ${transactionType}, usando fallback pendente`);
+  return transactionType === 'income' ? 'A Receber' : 'A Pagar';
 }
 
 /**

@@ -196,7 +196,7 @@ export function ManufacturingBatches() {
               quantity: parseFloat(formData.quantity),
               manufacturingDate: formData.manufacturingDate || null,
               expiryDate: formData.expiryDate || null,
-              status: formData.status,
+              // ✅ NÃO enviar status - será recalculado automaticamente pelo backend
             }),
           }
         );
