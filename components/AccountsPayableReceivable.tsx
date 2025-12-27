@@ -69,14 +69,14 @@ export function AccountsPayableReceivable() {
     return txn.status === "Vencido";
   };
 
-  // Filtrar transações a receber
+  // Filtrar transações a receber (status pendentes)
   const receivableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Receita" && (t.status === "A Vencer" || t.status === "Vencido")
+    t.type === "Receita" && (t.status === "A Vencer" || t.status === "Vencido" || t.status === "A Receber")
   );
 
-  // Filtrar transações a pagar
+  // Filtrar transações a pagar (status pendentes)
   const payableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Despesa" && (t.status === "A Vencer" || t.status === "Vencido")
+    t.type === "Despesa" && (t.status === "A Vencer" || t.status === "Vencido" || t.status === "A Pagar")
   );
 
   // Filtrar com busca - Contas a Receber

@@ -1291,7 +1291,7 @@ export function FinancialTransactions() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {txn.origin === "Pedido" && (txn.status === "A Vencer" || txn.status === "Vencido") && (
+                      {txn.origin === "Pedido" && (txn.status === "A Vencer" || txn.status === "Vencido" || txn.status === "A Receber" || txn.status === "A Pagar") && (
                         <Button
                           variant="ghost"
                           size="sm"

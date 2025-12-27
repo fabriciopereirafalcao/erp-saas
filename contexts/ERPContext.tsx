@@ -3052,6 +3052,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const createdTransactionsResults = await Promise.all(transactionPromises);
       const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
       
+      // ✅ VALIDAÇÃO: Verificar se todas as transações foram criadas
+      if (createdTransactions.length < numberOfInstallments) {
+        const failedCount = numberOfInstallments - createdTransactions.length;
+        console.error(`❌ CONTAS A RECEBER: ${failedCount} transação(ões) falharam ao ser criadas`);
+        toast.error(`Erro: ${failedCount} transação(ões) financeira(s) não foram criadas. Verifique os logs.`);
+      }
+      
       console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
       // ✅ NOVO: Adicionar todas as contas a receber
@@ -4595,6 +4602,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('❌ Erro ao criar transação financeira:', error);
       toast.error('Erro ao criar transação financeira');
+      return undefined; // ✅ Retornar undefined explicitamente para indicar falha
     }
   };
 
@@ -5636,6 +5644,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // Aguardar criação de todas as transações
       const createdTransactionsResults = await Promise.all(transactionPromises);
       const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
+      
+      // ✅ VALIDAÇÃO: Verificar se todas as transações foram criadas
+      if (createdTransactions.length < numberOfInstallments) {
+        const failedCount = numberOfInstallments - createdTransactions.length;
+        console.error(`❌ CONTAS A PAGAR: ${failedCount} transação(ões) falharam ao ser criadas`);
+        toast.error(`Erro: ${failedCount} transação(ões) financeira(s) não foram criadas. Verifique os logs.`);
+      }
       
       console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
