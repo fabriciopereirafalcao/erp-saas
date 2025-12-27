@@ -53,7 +53,7 @@ interface SalesOrdersProps {
 }
 
 export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
-  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople, bankAccounts } = useERP();
+  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople } = useERP();
   
   // ✅ Proteções contra arrays undefined
   const safeSalesOrders = salesOrders || [];
@@ -62,8 +62,8 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   const safePriceTables = priceTables || [];
   const safeFinancialTransactions = financialTransactions || [];
   const safeAccountCategories = accountCategories || [];
-  const safeSalespeople = salespeople || [];
-  const safeBankAccounts = bankAccounts || [];
+  const safeSalespeople = (salespeople || []).filter(sp => sp.isActive); // ✅ CORREÇÃO: Filtrar apenas vendedores ativos
+  const safeBankAccounts = companySettings?.bankAccounts || []; // ✅ CORREÇÃO: Usar companySettings?.bankAccounts
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -190,6 +190,11 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
 
     return { received, total };
   };
+
+  // ✅ DEBUG: Log de contas bancárias
+  useEffect(() => {
+    console.log('🏦 [SalesOrders] Bank Accounts carregadas:', safeBankAccounts);
+  }, [safeBankAccounts]);
 
   // MED-004: Carregar tabela de preço automaticamente ao selecionar cliente
   useEffect(() => {

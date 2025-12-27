@@ -45,7 +45,7 @@ interface PaymentInstallment {
 }
 
 export function PurchaseOrders() {
-  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, bankAccounts } = useERP();
+  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
   const { accessToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -104,7 +104,7 @@ export function PurchaseOrders() {
   const [installments, setInstallments] = useState<PaymentInstallment[]>([]);
 
   // ✅ Proteção contra arrays undefined
-  const safeBankAccounts = bankAccounts || [];
+  const safeBankAccounts = companySettings?.bankAccounts || []; // ✅ CORREÇÃO: Usar companySettings?.bankAccounts
 
   const filteredOrders = purchaseOrders
     .filter(order =>
@@ -125,6 +125,11 @@ export function PurchaseOrders() {
   // Obter informações auxiliares
   const selectedSupplier = suppliers.find(s => s.id === orderHeader.supplierId);
   const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : priceTables.find(t => t.isDefault);
+
+  // ✅ DEBUG: Log de contas bancárias
+  useEffect(() => {
+    console.log('🏦 [PurchaseOrders] Bank Accounts carregadas:', safeBankAccounts);
+  }, [safeBankAccounts]);
 
   // ✅ NOVO: Carregar compradores ao montar o componente
   useEffect(() => {
