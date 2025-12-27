@@ -300,10 +300,11 @@ export function ReceivePurchaseOrderModal({
       const result = await response.json();
       console.log('[RECEIVE-MODAL] ✅ Pedido recebido com sucesso:', result);
 
-      // ✅ NOVO: Atualizar status do pedido (cria transação financeira + atualiza histórico)
+      // ✅ Atualizar status do pedido (cria transação financeira + atualiza histórico)
       // IMPORTANTE: Backend já criou stock_movements, então passamos skipStockUpdate=true
+      // IMPORTANTE: Usar order.id (display ID) para encontrar no Context, não orderId (UUID)
       console.log('[RECEIVE-MODAL] 🔄 Atualizando status do pedido para "Recebido"...');
-      updatePurchaseOrderStatus(orderId, 'Recebido', 'Sistema', false, true);
+      updatePurchaseOrderStatus(order.id, 'Recebido', 'Sistema', false, true);
       console.log('[RECEIVE-MODAL] ✅ Status atualizado e transação financeira criada');
 
       toast.success('Pedido recebido com sucesso!', {
