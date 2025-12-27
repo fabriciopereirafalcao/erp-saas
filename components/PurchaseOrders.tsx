@@ -899,7 +899,7 @@ export function PurchaseOrders() {
                                 <div className="flex items-center gap-2">
                                   <User className="w-4 h-4" />
                                   <span>{buyer.name}</span>
-                                  <span className="text-xs text-gray-500">({buyer.cpf})</span>
+                                  <span className="text-xs text-gray-500">({buyer.code})</span>
                                 </div>
                               </SelectItem>
                             ))}
