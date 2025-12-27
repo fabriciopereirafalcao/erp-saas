@@ -100,7 +100,7 @@ export function Salespeople() {
         name: person.name,
         email: person.email || '',
         phone: person.phone || '',
-        commissionRate: person.commission_rate || 0,
+        commissionRate: person.commissionRate || 0,
       });
     } else {
       setEditingPerson(null);
@@ -240,7 +240,7 @@ export function Salespeople() {
         // ✅ ATUALIZAR estado local marcando como inativo (não remover)
         setSalespeopleFromDB(prev => prev.map(p => 
           p.id === personToDelete.id 
-            ? { ...p, is_active: false } 
+            ? { ...p, isActive: false } 
             : p
         ));
       } else {
@@ -284,7 +284,7 @@ export function Salespeople() {
   // ✅ FILTRAR VENDEDORES (PROBLEMA 2)
   const filteredSalespeople = showInactive
     ? salespeopleFromDB
-    : salespeopleFromDB.filter(p => p.is_active !== false);
+    : salespeopleFromDB.filter(p => p.isActive !== false);
 
   return (
     <div className="p-6">
@@ -358,15 +358,15 @@ export function Salespeople() {
               filteredSalespeople.map((person) => (
                 <TableRow 
                   key={person.id}
-                  className={person.is_active === false ? 'opacity-50 bg-gray-50' : ''}
+                  className={person.isActive === false ? 'opacity-50 bg-gray-50' : ''}
                 >
                   <TableCell className="font-mono text-sm">{person.code}</TableCell>
                   <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell className="text-gray-600">{person.email || '-'}</TableCell>
                   <TableCell className="text-gray-600">{person.phone || '-'}</TableCell>
-                  <TableCell>{person.commission_rate ? `${person.commission_rate}%` : '-'}</TableCell>
+                  <TableCell>{person.commissionRate ? `${person.commissionRate}%` : '-'}</TableCell>
                   <TableCell>
-                    {person.is_active === false ? (
+                    {person.isActive === false ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         Inativo
                       </span>
@@ -378,7 +378,7 @@ export function Salespeople() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {person.is_active === false ? (
+                      {person.isActive === false ? (
                         <Button
                           variant="ghost"
                           size="sm"

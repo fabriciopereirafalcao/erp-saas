@@ -1071,42 +1071,31 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                       {/* Vendedor */}
                       <div>
                         <Label>Vendedor</Label>
-                        <div className="flex gap-2">
-                          <Select 
-                            value={orderHeader.salesPerson} 
-                            onValueChange={(value) => setOrderHeader({...orderHeader, salesPerson: value})}
-                          >
-                            <SelectTrigger className="flex-1">
-                              <SelectValue placeholder="Selecione o vendedor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Vendedor Avulso">
+                        <Select 
+                          value={orderHeader.salesPerson} 
+                          onValueChange={(value) => setOrderHeader({...orderHeader, salesPerson: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o vendedor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Vendedor Avulso">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-500 italic">Vendedor Avulso</span>
+                              </div>
+                            </SelectItem>
+                            {safeSalespeople.map((person) => (
+                              <SelectItem key={person.id} value={person.name}>
                                 <div className="flex items-center gap-2">
-                                  <User className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-500 italic">Vendedor Avulso</span>
+                                  <User className="w-4 h-4" />
+                                  <span>{person.name}</span>
+                                  <span className="text-xs text-gray-500">({person.code})</span>
                                 </div>
                               </SelectItem>
-                              {safeSalespeople.map((person) => (
-                                <SelectItem key={person.id} value={person.name}>
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4" />
-                                    <span>{person.name}</span>
-                                    <span className="text-xs text-gray-500">({person.cpf})</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setIsPersonManagementOpen(true)}
-                            title="Gerenciar vendedores"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                          </Button>
-                        </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Categoria de Receita */}
