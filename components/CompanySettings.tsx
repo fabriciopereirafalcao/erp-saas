@@ -298,7 +298,7 @@ export function CompanySettings() {
     
     // Para Caixa em Espécie, validar código e nome
     if (isCashAccount) {
-      if (!newBank.agency || newBank.agency.length !== 4) {
+      if (!newBank.accountNumber || newBank.accountNumber.length !== 4) {
         toast.error("Digite um código de 4 dígitos para o Caixa");
         return;
       }
@@ -1023,11 +1023,11 @@ export function CompanySettings() {
                         <div>
                           <Label>Código do Caixa (4 dígitos) *</Label>
                           <Input
-                            value={newBank.agency}
+                            value={newBank.accountNumber}
                             onChange={(e) => {
                               // Permitir apenas números e limitar a 4 dígitos
                               const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              setNewBank({ ...newBank, agency: value });
+                              setNewBank({ ...newBank, accountNumber: value });
                             }}
                             placeholder="0000"
                             maxLength={4}
@@ -1137,7 +1137,7 @@ export function CompanySettings() {
                       <p>{account.accountType}</p>
                       {/* Para Caixa, mostrar código - Para outros, mostrar Ag e Conta */}
                       {account.accountType === "Caixa / Dinheiro em Espécie" ? (
-                        <p>Código: {account.agency}</p>
+                        <p>Código: {account.accountNumber}</p>
                       ) : (
                         <p>Ag: {account.agency} | Conta: {account.accountNumber}</p>
                       )}
