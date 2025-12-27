@@ -1181,10 +1181,32 @@ app.delete('/stock-locations/:id', async (c) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ✅ VALIDAR SE EXISTE ESTOQUE NO LOCAL
+    console.log('[STOCK LOCATIONS] 🔍 Verificando se há produtos em estoque no local...');
+    const { data: stockData, error: stockError } = await supabase
+      .from('products')
+      .select('id, name, stock_quantity')
+      .eq('company_id', auth.companyId)
+      .eq('stock_location_id', locationId)
+      .gt('stock_quantity', 0);
+
+    if (stockError) {
+      console.error('[STOCK LOCATIONS] ❌ Erro ao verificar estoque:', stockError);
+      throw stockError;
+    }
+
+    if (stockData && stockData.length > 0) {
+      console.log(`[STOCK LOCATIONS] ⚠️ Local possui ${stockData.length} produto(s) em estoque`);
+      return c.json({
+        success: false,
+        error: `Não é possível desativar este local. Existem ${stockData.length} produto(s) com estoque armazenado neste local. Transfira ou remova o estoque antes de desativar.`
+      }, 400);
+    }
+
     // Soft delete
     const { error } = await supabase
       .from('stock_locations')
-      .update({ is_active: false })
+      .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('id', locationId)
       .eq('company_id', auth.companyId);
 
@@ -1193,9 +1215,46 @@ app.delete('/stock-locations/:id', async (c) => {
       throw error;
     }
 
-    console.log('[STOCK LOCATIONS] ✅ Local deletado:', locationId);
-    return c.json({ success: true, message: 'Local removido com sucesso' });
+    console.log('[STOCK LOCATIONS] ✅ Local desativado:', locationId);
+    return c.json({ success: true, message: 'Local de estoque desativado com sucesso' });
 
+  } catch (error) {
+    console.error('[STOCK LOCATIONS] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// REACTIVATE - Reativar local de estoque
+app.post('/stock-locations/:id/reactivate', async (c) => {
+  try {
+    console.log('[STOCK LOCATIONS] 🟢 POST /stock-locations/:id/reactivate - Início');
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const locationId = c.req.param('id');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('stock_locations')
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq('id', locationId)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[STOCK LOCATIONS] ❌ Erro ao reativar:', error);
+      throw error;
+    }
+
+    console.log('[STOCK LOCATIONS] ✅ Local reativado:', locationId);
+    return c.json({
+      success: true,
+      message: 'Local de estoque reativado com sucesso'
+    });
   } catch (error) {
     console.error('[STOCK LOCATIONS] ❌ Erro:', error);
     return c.json({ error: error.message }, 500);

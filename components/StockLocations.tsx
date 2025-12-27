@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Warehouse, Plus, Pencil, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { Warehouse, Plus, Pencil, Trash2, Loader2, AlertCircle, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { Badge } from './ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from './ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -51,6 +62,9 @@ export function StockLocations() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StockLocation | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [locationToDelete, setLocationToDelete] = useState<StockLocation | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -197,14 +211,17 @@ export function StockLocations() {
     }
   };
 
-  const handleDelete = async (location: StockLocation) => {
-    if (!confirm(`Deseja realmente excluir o local "${location.name}"?`)) {
-      return;
-    }
+  const handleDeleteClick = (location: StockLocation) => {
+    setLocationToDelete(location);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!locationToDelete) return;
 
     try {
       const response = await authFetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations/${location.id}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations/${locationToDelete.id}`,
         {
           method: 'DELETE',
         }
@@ -213,16 +230,52 @@ export function StockLocations() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(`Local "${location.name}" removido com sucesso!`);
-        await loadLocations();
+        toast.success(result.message || 'Local desativado com sucesso!');
+        // Atualizar estado local marcando como inativo
+        setLocations(prev =>
+          prev.map(loc => loc.id === locationToDelete.id ? { ...loc, isActive: false } : loc)
+        );
+        setDeleteDialogOpen(false);
+        setLocationToDelete(null);
       } else {
-        throw new Error(result.error || 'Erro ao remover local');
+        toast.error(result.error || 'Erro ao desativar local');
       }
     } catch (err: any) {
       console.error('[STOCK LOCATIONS] Erro ao deletar:', err);
-      toast.error(err.message || 'Erro ao remover local');
+      toast.error(err.message || 'Erro ao desativar local');
     }
   };
+
+  const handleReactivate = async (location: StockLocation) => {
+    try {
+      const response = await authFetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations/${location.id}/reactivate`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message || 'Local reativado com sucesso!');
+        // Atualizar estado local marcando como ativo
+        setLocations(prev =>
+          prev.map(loc => loc.id === location.id ? { ...loc, isActive: true } : loc)
+        );
+      } else {
+        toast.error(result.error || 'Erro ao reativar local');
+      }
+    } catch (err: any) {
+      console.error('[STOCK LOCATIONS] Erro ao reativar:', err);
+      toast.error(err.message || 'Erro ao reativar local');
+    }
+  };
+
+  // Filtrar locais
+  const filteredLocations = showInactive
+    ? locations
+    : locations.filter(loc => loc.isActive !== false);
 
   // Loading state
   if (loading) {
@@ -266,13 +319,33 @@ export function StockLocations() {
             <Warehouse className="w-8 h-8 text-blue-600" />
             <h1 className="text-gray-900">Locais de Estoque</h1>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Local
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Toggle Mostrar Inativos */}
+            <Button
+              variant={showInactive ? "default" : "outline"}
+              onClick={() => setShowInactive(!showInactive)}
+              className="gap-2"
+            >
+              {showInactive ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  Ocultar Inativos
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Mostrar Inativos
+                </>
+              )}
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Novo Local
+            </Button>
+          </div>
         </div>
         <p className="text-gray-500">
-          Gerencie seus locais de armazenamento ({locations.length} {locations.length === 1 ? 'local' : 'locais'})
+          Gerencie seus locais de armazenamento ({filteredLocations.length} {filteredLocations.length === 1 ? 'local' : 'locais'})
         </p>
       </div>
 
@@ -285,19 +358,20 @@ export function StockLocations() {
               <TableHead>Tipo</TableHead>
               <TableHead>Endereço</TableHead>
               <TableHead>Capacidade (m³)</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {locations.length === 0 ? (
+            {filteredLocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  Nenhum local cadastrado
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  {showInactive ? 'Nenhum local cadastrado' : 'Nenhum local ativo'}
                 </TableCell>
               </TableRow>
             ) : (
-              locations.map((location) => (
-                <TableRow key={location.id}>
+              filteredLocations.map((location) => (
+                <TableRow key={location.id} className={location.isActive === false ? 'opacity-50 bg-gray-50' : ''}>
                   <TableCell className="font-mono text-sm">{location.code}</TableCell>
                   <TableCell>{location.name}</TableCell>
                   <TableCell>{location.type}</TableCell>
@@ -307,22 +381,45 @@ export function StockLocations() {
                   <TableCell>
                     {location.capacityM3 ? `${location.capacityM3.toFixed(2)} m³` : '-'}
                   </TableCell>
+                  <TableCell>
+                    {location.isActive === false ? (
+                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                        Inativo
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        Ativo
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenDialog(location)}
-                      >
-                        <Pencil className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(location)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
+                      {location.isActive !== false ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(location)}
+                          >
+                            <Pencil className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(location)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleReactivate(location)}
+                        >
+                          <RotateCcw className="w-4 h-4 text-green-600" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -436,6 +533,41 @@ export function StockLocations() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Desativação */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja realmente desativar este local de estoque?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Você está prestes a desativar o local:
+              </p>
+              <p className="font-semibold text-gray-900">
+                {locationToDelete?.name}
+              </p>
+              <p className="text-sm text-gray-600">
+                O local será desativado mas seus dados serão mantidos no sistema. 
+                Você poderá reativá-lo posteriormente se necessário.
+              </p>
+              <p className="text-sm font-medium text-orange-600">
+                ⚠️ Não é possível desativar um local que possua produtos em estoque.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLocationToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Desativar Local
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
