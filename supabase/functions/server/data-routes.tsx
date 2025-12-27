@@ -3349,10 +3349,23 @@ app.get('/buyers', async (c) => {
     console.log(`[BUYERS] 📥 Carregando compradores via sqlService.getBuyers()`);
     const buyers = await sqlService.getBuyers(auth.companyId);
     
-    console.log(`[BUYERS] ✅ ${buyers.length} buyers carregados da tabela SQL`);
+    // Mapear snake_case para camelCase
+    const mappedBuyers = buyers.map(buyer => ({
+      id: buyer.id,
+      code: buyer.code,
+      name: buyer.name,
+      email: buyer.email,
+      phone: buyer.phone,
+      department: buyer.department,
+      isActive: buyer.is_active,
+      createdAt: buyer.created_at,
+      updatedAt: buyer.updated_at
+    }));
+    
+    console.log(`[BUYERS] ✅ ${mappedBuyers.length} buyers carregados da tabela SQL`);
     return c.json({
       success: true,
-      data: buyers
+      data: mappedBuyers
     });
   } catch (error) {
     console.error('[BUYERS] ❌ Erro:', error);

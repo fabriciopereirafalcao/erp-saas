@@ -25,6 +25,8 @@ import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statu
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { ReceivePurchaseOrderModal } from "./ReceivePurchaseOrderModal";
+import { projectId } from '../utils/supabase/info';
+import { useAuth } from '../contexts/AuthContext';
 
 interface OrderItem {
   productId: string;
@@ -44,12 +46,14 @@ interface PaymentInstallment {
 
 export function PurchaseOrders() {
   const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
+  const { accessToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<typeof purchaseOrders[0] | null>(null);
   const [isExceptionalMode, setIsExceptionalMode] = useState(false);
+  const [buyers, setBuyers] = useState<any[]>([]); // ✅ NOVO: Lista de compradores
   
   // ✅ NOVO: Estados para modal de recebimento
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
@@ -117,6 +121,40 @@ export function PurchaseOrders() {
   // Obter informações auxiliares
   const selectedSupplier = suppliers.find(s => s.id === orderHeader.supplierId);
   const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : priceTables.find(t => t.isDefault);
+
+  // ✅ NOVO: Carregar compradores ao montar o componente
+  useEffect(() => {
+    const loadBuyers = async () => {
+      if (!accessToken) return;
+      
+      try {
+        console.log('[PURCHASE ORDERS] 📍 Carregando compradores...');
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/buyers`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const result = await response.json();
+        console.log('[PURCHASE ORDERS] 📍 Resposta da API:', result);
+        
+        if (result.success) {
+          console.log('[PURCHASE ORDERS] ✅ Compradores carregados:', result.data?.length || 0);
+          setBuyers(result.data || []);
+        } else {
+          console.error('[PURCHASE ORDERS] ❌ Erro ao carregar compradores:', result.error);
+        }
+      } catch (err: any) {
+        console.error('[PURCHASE ORDERS] ❌ Exceção ao carregar compradores:', err);
+      }
+    };
+    
+    loadBuyers();
+  }, [accessToken]);
 
   // Helper: Obter cor do badge de status com ícone
   const getStatusColor = (status: string) => {
@@ -832,15 +870,30 @@ export function PurchaseOrders() {
                       {/* Comprador */}
                       <div>
                         <Label>Comprador</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            className="pl-10"
-                            value={orderHeader.buyer}
-                            onChange={(e) => setOrderHeader({...orderHeader, buyer: e.target.value})}
-                            placeholder="Nome do comprador"
-                          />
-                        </div>
+                        <Select
+                          value={orderHeader.buyer}
+                          onValueChange={(value) => setOrderHeader({...orderHeader, buyer: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o comprador" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {buyers.filter(b => b.isActive).length === 0 ? (
+                              <div className="px-2 py-6 text-center text-sm text-gray-500">
+                                Nenhum comprador ativo cadastrado.<br />
+                                Configure em Configurações → Compradores.
+                              </div>
+                            ) : (
+                              <>
+                                {buyers.filter(b => b.isActive).map((buyer) => (
+                                  <SelectItem key={buyer.id} value={buyer.id}>
+                                    {buyer.name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Categoria de Despesa */}
