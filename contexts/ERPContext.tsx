@@ -1858,8 +1858,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     id: acc.id, // ✅ Backend já retorna em camelCase
     bankName: acc.bankName,
     accountType: acc.accountType === 'Corrente' ? 'Conta Corrente' : 
-                 acc.accountType === 'Poupança' ? 'Poupança' : 
-                 acc.accountType === 'Caixa' ? 'Caixa' : 'Conta Corrente',
+                 acc.accountType === 'Poupança' ? 'Conta Poupança' : 
+                 acc.accountType === 'Investimentos' ? 'Aplicação Financeira' :
+                 acc.accountType === 'Caixa' ? 'Caixa / Dinheiro em Espécie' : 'Conta Corrente',
     agency: acc.agency || '',
     accountNumber: acc.accountNumber || '',
     balance: parseFloat(acc.currentBalance) || 0,
@@ -4148,9 +4149,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     try {
       const accountTypeMap: Record<string, string> = {
         'Conta Corrente': 'Corrente',
-        'Poupança': 'Poupança',
-        'Investimentos': 'Corrente',
-        'Caixa': 'Caixa'
+        'Conta Poupança': 'Poupança',
+        'Aplicação Financeira': 'Investimentos',
+        'Caixa / Dinheiro em Espécie': 'Caixa'
       };
 
       const newAccount = {
@@ -4197,9 +4198,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       const accountTypeMap: Record<string, string> = {
         'Conta Corrente': 'Corrente',
-        'Poupança': 'Poupança',
-        'Investimentos': 'Corrente',
-        'Caixa': 'Caixa'
+        'Conta Poupança': 'Poupança',
+        'Aplicação Financeira': 'Investimentos',
+        'Caixa / Dinheiro em Espécie': 'Caixa'
       };
 
       const updatedAccount = {
@@ -4242,9 +4243,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       const accountTypeMap: Record<string, string> = {
         'Conta Corrente': 'Corrente',
-        'Poupança': 'Poupança',
-        'Investimentos': 'Corrente',
-        'Caixa': 'Caixa'
+        'Conta Poupança': 'Poupança',
+        'Aplicação Financeira': 'Investimentos',
+        'Caixa / Dinheiro em Espécie': 'Caixa'
       };
 
       const deletedAccount = {
