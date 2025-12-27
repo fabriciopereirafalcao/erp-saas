@@ -1,18 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { toast } from 'sonner';
-import { AlertCircle, Package, Plus, CheckCircle2 } from 'lucide-react';
-import { Alert, AlertDescription } from './ui/alert';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
 import { useERP } from '../contexts/ERPContext';
 import { projectId } from '../utils/supabase/info';
-import { getAccessToken } from '../utils/authFetch';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PurchaseOrderItem {
   productId: string;
@@ -67,9 +55,45 @@ export function ReceivePurchaseOrderModal({
   onSuccess
 }: ReceivePurchaseOrderModalProps) {
   const { inventory, updatePurchaseOrderStatus } = useERP();
+  const { accessToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [itemsConfig, setItemsConfig] = useState<Record<string, ItemBatchConfig>>({});
   const [availableBatches, setAvailableBatches] = useState<Record<string, any[]>>({});
+  const [stockLocations, setStockLocations] = useState<any[]>([]); // ✅ NOVO: Localizações de estoque
+
+  // ✅ NOVO: Carregar localizações de estoque
+  useEffect(() => {
+    const loadStockLocations = async () => {
+      if (!accessToken) return;
+      
+      try {
+        console.log('[RECEIVE-MODAL] 📍 Carregando localizações de estoque...');
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/stock-locations`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const result = await response.json();
+        console.log('[RECEIVE-MODAL] 📍 Resposta da API:', result);
+        
+        if (result.success) {
+          console.log('[RECEIVE-MODAL] ✅ Localizações carregadas:', result.data?.length || 0);
+          setStockLocations(result.data || []);
+        } else {
+          console.error('[RECEIVE-MODAL] ❌ Erro ao carregar localizações:', result.error);
+        }
+      } catch (err: any) {
+        console.error('[RECEIVE-MODAL] ❌ Exceção ao carregar localizações:', err);
+      }
+    };
+    
+    loadStockLocations();
+  }, [accessToken]);
 
   // Determinar itens do pedido (suporte a multi-item e single-item)
   const orderItems: PurchaseOrderItem[] = order?.items && order.items.length > 0
@@ -129,13 +153,12 @@ export function ReceivePurchaseOrderModal({
   // Buscar lotes de um produto
   const fetchProductBatches = async (productId: string) => {
     try {
-      const token = await getAccessToken();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/batches?productId=${productId}`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           }
         }
@@ -238,7 +261,6 @@ export function ReceivePurchaseOrderModal({
       });
 
       // Chamar endpoint de recebimento
-      const token = await getAccessToken();
       const orderId = order.uuid || order.id; // ✅ Usar UUID se disponível, senão fallback para id
       console.log('[RECEIVE-MODAL] 🔍 DEBUG:', { 
         orderIdDisplay: order.id, 
@@ -251,7 +273,7 @@ export function ReceivePurchaseOrderModal({
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ items })
@@ -452,14 +474,30 @@ export function ReceivePurchaseOrderModal({
                           </div>
                           <div className="col-span-2">
                             <Label htmlFor={`loc-${product.id}`}>Localização</Label>
-                            <Input
-                              id={`loc-${product.id}`}
+                            <Select
                               value={config.batch.locationName || ''}
-                              onChange={(e) => updateItemConfig(product.id, {
-                                batch: { ...config.batch, locationName: e.target.value }
+                              onValueChange={(value) => updateItemConfig(product.id, {
+                                batch: { ...config.batch, locationName: value }
                               })}
-                              placeholder="Ex: Prateleira A1"
-                            />
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a localização" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {stockLocations.filter(loc => loc.isActive).length === 0 ? (
+                                  <div className="px-2 py-6 text-center text-sm text-gray-500">
+                                    Nenhuma localização ativa cadastrada.<br />
+                                    Configure em Configurações → Localizações de Estoque.
+                                  </div>
+                                ) : (
+                                  stockLocations.filter(loc => loc.isActive).map((location) => (
+                                    <SelectItem key={location.id} value={location.name}>
+                                      {location.name}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       )}
