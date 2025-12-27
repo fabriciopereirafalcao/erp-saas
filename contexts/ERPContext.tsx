@@ -90,12 +90,14 @@ export interface Salesperson {
   id: string;
   name: string;
   cpf: string;
+  isActive: boolean; // ✅ NOVO: Status ativo/inativo
 }
 
 export interface Buyer {
   id: string;
   name: string;
   cpf: string;
+  isActive: boolean; // ✅ NOVO: Status ativo/inativo
 }
 
 // Histórico de Status de Pedido
@@ -4402,7 +4404,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     const newSalesperson: Salesperson = {
       ...salespersonData,
-      id: `SP-${String(maxId + 1).padStart(3, '0')}`
+      id: `SP-${String(maxId + 1).padStart(3, '0')}`,
+      isActive: salespersonData.isActive !== undefined ? salespersonData.isActive : true // ✅ Padrão: ativo
     };
     setSalespeople(prev => [...(prev || []), newSalesperson]);
     toast.success("Vendedor adicionado com sucesso!");
@@ -4428,7 +4431,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     const newBuyer: Buyer = {
       ...buyerData,
-      id: `BY-${String(maxId + 1).padStart(3, '0')}`
+      id: `BY-${String(maxId + 1).padStart(3, '0')}`,
+      isActive: buyerData.isActive !== undefined ? buyerData.isActive : true // ✅ Padrão: ativo
     };
     setBuyers(prev => [...(prev || []), newBuyer]);
     toast.success("Comprador adicionado com sucesso!");

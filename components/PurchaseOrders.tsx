@@ -126,10 +126,7 @@ export function PurchaseOrders() {
   const selectedSupplier = suppliers.find(s => s.id === orderHeader.supplierId);
   const selectedPriceTable = orderHeader.priceTableId ? getPriceTableById(orderHeader.priceTableId) : priceTables.find(t => t.isDefault);
 
-  // ✅ DEBUG: Log de contas bancárias
-  useEffect(() => {
-    console.log('🏦 [PurchaseOrders] Bank Accounts carregadas:', safeBankAccounts);
-  }, [safeBankAccounts]);
+
 
   // ✅ NOVO: Carregar compradores ao montar o componente
   useEffect(() => {
@@ -889,20 +886,23 @@ export function PurchaseOrders() {
                             <SelectValue placeholder="Selecione o comprador" />
                           </SelectTrigger>
                           <SelectContent>
-                            {buyers.filter(b => b.isActive).length === 0 ? (
-                              <div className="px-2 py-6 text-center text-sm text-gray-500">
-                                Nenhum comprador ativo cadastrado.<br />
-                                Configure em Configurações → Compradores.
+                            {/* ✅ Opção Comprador Avulso sempre disponível */}
+                            <SelectItem value="Comprador Avulso">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-500 italic">Comprador Avulso</span>
                               </div>
-                            ) : (
-                              <>
-                                {buyers.filter(b => b.isActive).map((buyer) => (
-                                  <SelectItem key={buyer.id} value={buyer.id}>
-                                    {buyer.name}
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
+                            </SelectItem>
+                            {/* Lista de compradores ativos */}
+                            {buyers.filter(b => b.isActive).map((buyer) => (
+                              <SelectItem key={buyer.id} value={buyer.name}>
+                                <div className="flex items-center gap-2">
+                                  <User className="w-4 h-4" />
+                                  <span>{buyer.name}</span>
+                                  <span className="text-xs text-gray-500">({buyer.cpf})</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

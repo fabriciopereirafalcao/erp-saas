@@ -191,10 +191,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     return { received, total };
   };
 
-  // ✅ DEBUG: Log de contas bancárias
-  useEffect(() => {
-    console.log('🏦 [SalesOrders] Bank Accounts carregadas:', safeBankAccounts);
-  }, [safeBankAccounts]);
+
 
   // MED-004: Carregar tabela de preço automaticamente ao selecionar cliente
   useEffect(() => {
