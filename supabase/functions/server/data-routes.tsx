@@ -1492,10 +1492,23 @@ app.put('/product-batches/:id', async (c) => {
     if (body.quantity !== undefined) {
       updateData.current_quantity = body.quantity;
       updateData.initial_quantity = body.quantity;
+      
+      // ✅ CORREÇÃO: Recalcular status quando quantidade mudar
+      // Se estava "Esgotado" e agora tem quantidade, volta para "Ativo"
+      if (body.quantity > 0 && existing.status === 'Esgotado') {
+        updateData.status = 'Ativo';
+        console.log('[PRODUCT BATCHES] 🔄 Status alterado de "Esgotado" para "Ativo" devido a nova quantidade');
+      }
+      // Se quantidade ficou zerada, marca como "Esgotado"
+      else if (body.quantity === 0 && existing.status !== 'Esgotado') {
+        updateData.status = 'Esgotado';
+        console.log('[PRODUCT BATCHES] 🔄 Status alterado para "Esgotado" devido a quantidade zero');
+      }
     }
     if (body.manufacturingDate !== undefined) updateData.manufacturing_date = adjustDateToUTC3(body.manufacturingDate);
     if (body.expiryDate !== undefined) updateData.expiry_date = adjustDateToUTC3(body.expiryDate);
-    if (body.status !== undefined) updateData.status = body.status;
+    // ✅ Status manual só sobrescreve se não foi calculado automaticamente acima
+    if (body.status !== undefined && updateData.status === undefined) updateData.status = body.status;
 
     const { data, error } = await supabase
       .from('product_batches')

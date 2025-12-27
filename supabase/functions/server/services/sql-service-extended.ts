@@ -1781,7 +1781,7 @@ export async function getFinancialTransactions(companyId: string) {
     partyName: row.party_name,
     costCenterId: row.cost_center_id,
     costCenterName: row.cost_center_name,
-    status: row.status || 'Pago',
+    status: row.status, // ✅ CORREÇÃO: Não forçar "Pago" como fallback
     bankAccountId: row.bank_account_id || null,
     bankAccountName: row.bank_account_name,
     installmentNumber: row.installment_number,
