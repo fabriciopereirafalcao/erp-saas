@@ -5088,9 +5088,21 @@ app.post('/api/purchase-orders/:id/receive', async (c) => {
           }
 
           const newQuantity = existingBatch.current_quantity + quantity;
+          
+          // ✅ CORREÇÃO: Recalcular status quando quantidade mudar de 0 para > 0
+          const updateData: any = { 
+            current_quantity: newQuantity, 
+            updated_at: new Date().toISOString() 
+          };
+          
+          if (existingBatch.current_quantity === 0 && newQuantity > 0 && existingBatch.status === 'Esgotado') {
+            updateData.status = 'Ativo';
+            console.log('[RECEIVE-PURCHASE] 🔄 Status alterado de "Esgotado" para "Ativo"');
+          }
+          
           const { error: updateError } = await supabase
             .from('product_batches')
-            .update({ current_quantity: newQuantity, updated_at: new Date().toISOString() })
+            .update(updateData)
             .eq('id', batch.batchId);
 
           if (updateError) {

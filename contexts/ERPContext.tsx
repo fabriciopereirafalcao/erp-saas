@@ -3542,6 +3542,27 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       } : o
     ));
 
+    // ✅ Recarregar dados do backend após status "Enviado" ou "Entregue"
+    if ((newStatus === 'Enviado' || newStatus === 'Entregue') && !skipStockUpdate) {
+      setTimeout(async () => {
+        try {
+          const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
+          if (refreshedInventory && refreshedInventory.length > 0) {
+            setInventory(refreshedInventory);
+            console.log('[SALES ORDER] ✅ Inventário atualizado do backend');
+          }
+          if (newStatus === 'Entregue') {
+            const refreshedTransactions = await loadEntity<FinancialTransaction[]>('financial-transactions');
+            if (refreshedTransactions) setFinancialTransactions(refreshedTransactions);
+            const refreshedAR = await loadEntity<AccountReceivable[]>('accounts-receivable');
+            if (refreshedAR) setAccountsReceivable(refreshedAR);
+          }
+        } catch (error) {
+          console.error('[SALES ORDER] ⚠️ Erro ao atualizar:', error);
+        }
+      }, 1500);
+    }
+
     // Notificação de sucesso
     const statusMessages = {
       "Confirmado": "Pedido confirmado!",
@@ -5727,19 +5748,34 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       } : o
     ));
 
-    // ✅ CORREÇÃO SITUAÇÃO 3: Recarregar inventory do backend após atualizar status
+    // ✅ CORREÇÃO SITUAÇÃO 3: Recarregar inventory e transactions do backend após atualizar status
     if (newStatus === 'Recebido' && !skipStockUpdate) {
       setTimeout(async () => {
         try {
+          // Recarregar inventário
           const refreshedInventory = await loadEntity<InventoryItem[]>('inventory');
           if (refreshedInventory && refreshedInventory.length > 0) {
             setInventory(refreshedInventory);
             console.log('[PURCHASE ORDER] ✅ Inventário atualizado do backend após recebimento');
           }
+          
+          // Recarregar transações financeiras
+          const refreshedTransactions = await loadEntity<FinancialTransaction[]>('financial-transactions');
+          if (refreshedTransactions && refreshedTransactions.length > 0) {
+            setFinancialTransactions(refreshedTransactions);
+            console.log('[PURCHASE ORDER] ✅ Transações financeiras atualizadas do backend');
+          }
+          
+          // Recarregar contas a pagar
+          const refreshedAccountsPayable = await loadEntity<AccountPayable[]>('accounts-payable');
+          if (refreshedAccountsPayable && refreshedAccountsPayable.length > 0) {
+            setAccountsPayable(refreshedAccountsPayable);
+            console.log('[PURCHASE ORDER] ✅ Contas a pagar atualizadas do backend');
+          }
         } catch (error) {
-          console.error('[PURCHASE ORDER] ⚠️ Erro ao atualizar inventário:', error);
+          console.error('[PURCHASE ORDER] ⚠️ Erro ao atualizar dados:', error);
         }
-      }, 500);
+      }, 1500); // Aumentado de 500ms para 1500ms
     }
 
     // Notificação
