@@ -234,7 +234,7 @@ export function Buyers() {
         // ✅ ATUALIZAR estado local marcando como inativo (não remover)
         setBuyersFromDB(prev => prev.map(b => 
           b.id === buyerToDelete.id 
-            ? { ...b, is_active: false } 
+            ? { ...b, isActive: false } 
             : b
         ));
       } else {
@@ -278,7 +278,7 @@ export function Buyers() {
   // ✅ FILTRAR COMPRADORES (PROBLEMA 2)
   const filteredBuyers = showInactive
     ? buyersFromDB
-    : buyersFromDB.filter(b => b.is_active !== false);
+    : buyersFromDB.filter(b => b.isActive !== false);
 
   return (
     <div className="p-6">
@@ -352,7 +352,7 @@ export function Buyers() {
               filteredBuyers.map((buyer) => (
                 <TableRow 
                   key={buyer.id}
-                  className={buyer.is_active === false ? 'opacity-50 bg-gray-50' : ''}
+                  className={buyer.isActive === false ? 'opacity-50 bg-gray-50' : ''}
                 >
                   <TableCell className="font-mono text-sm">{buyer.code}</TableCell>
                   <TableCell className="font-medium">{buyer.name}</TableCell>
@@ -360,7 +360,7 @@ export function Buyers() {
                   <TableCell className="text-gray-600">{buyer.phone || '-'}</TableCell>
                   <TableCell className="text-gray-600">{buyer.department || '-'}</TableCell>
                   <TableCell>
-                    {buyer.is_active === false ? (
+                    {buyer.isActive === false ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         Inativo
                       </span>
@@ -372,7 +372,7 @@ export function Buyers() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {buyer.is_active === false ? (
+                      {buyer.isActive === false ? (
                         <Button
                           variant="ghost"
                           size="sm"

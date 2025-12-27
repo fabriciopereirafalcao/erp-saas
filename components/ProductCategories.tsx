@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, Trash2, Loader2, AlertCircle, Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { Tags, Plus, Trash2, Loader2, AlertCircle, Eye, EyeOff, RotateCcw, Pencil } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -56,6 +56,7 @@ export function ProductCategories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
   const [categoryName, setCategoryName] = useState('');
   const [categoryDescription, setCategoryDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -90,9 +91,16 @@ export function ProductCategories() {
     }
   };
 
-  const handleOpenDialog = () => {
-    setCategoryName('');
-    setCategoryDescription('');
+  const handleOpenDialog = (category?: ProductCategory) => {
+    if (category) {
+      setEditingCategory(category);
+      setCategoryName(category.name);
+      setCategoryDescription(category.description || '');
+    } else {
+      setEditingCategory(null);
+      setCategoryName('');
+      setCategoryDescription('');
+    }
     setIsDialogOpen(true);
   };
 
@@ -100,6 +108,7 @@ export function ProductCategories() {
     setIsDialogOpen(false);
     setCategoryName('');
     setCategoryDescription('');
+    setEditingCategory(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,29 +122,57 @@ export function ProductCategories() {
     try {
       setSaving(true);
       
-      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: categoryName.trim(),
-          description: categoryDescription.trim() || null,
-        }),
-      });
+      if (editingCategory) {
+        // ==================== ATUALIZAR ====================
+        const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories/${editingCategory.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: categoryName.trim(),
+            description: categoryDescription.trim() || null,
+          }),
+        });
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (result.success) {
-        toast.success(`Categoria "${categoryName.trim()}" criada com sucesso!`);
-        handleCloseDialog();
-        await loadCategories(); // Recarregar lista
+        if (result.success) {
+          toast.success(`Categoria \"${categoryName.trim()}\" atualizada com sucesso!`);
+          // Atualizar lista local
+          setCategories(prev =>
+            prev.map(cat => cat.id === editingCategory.id ? result.data : cat)
+          );
+          handleCloseDialog();
+        } else {
+          throw new Error(result.error || 'Erro ao atualizar categoria');
+        }
       } else {
-        throw new Error(result.error || 'Erro ao criar categoria');
+        // ==================== CRIAR ====================
+        const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/product-categories/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: categoryName.trim(),
+            description: categoryDescription.trim() || null,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success(`Categoria \"${categoryName.trim()}\" criada com sucesso!`);
+          handleCloseDialog();
+          await loadCategories(); // Recarregar lista
+        } else {
+          throw new Error(result.error || 'Erro ao criar categoria');
+        }
       }
     } catch (err: any) {
-      console.error('[PRODUCT CATEGORIES] Erro ao criar:', err);
-      toast.error(err.message || 'Erro ao criar categoria');
+      console.error('[PRODUCT CATEGORIES] Erro ao salvar:', err);
+      toast.error(err.message || 'Erro ao salvar categoria');
     } finally {
       setSaving(false);
     }
@@ -309,24 +346,34 @@ export function ProductCategories() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {category.isActive !== false && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteClick(category)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    )}
-                    {category.isActive === false && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleReactivate(category)}
-                      >
-                        <RotateCcw className="w-4 h-4 text-green-600" />
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {category.isActive !== false ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(category)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(category)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleReactivate(category)}
+                        >
+                          <RotateCcw className="w-4 h-4 text-green-600" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -335,11 +382,13 @@ export function ProductCategories() {
         </Table>
       </div>
 
-      {/* Dialog de Cadastro */}
+      {/* Dialog de Cadastro/Edição */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Categoria de Produto</DialogTitle>
+            <DialogTitle>
+              {editingCategory ? 'Editar Categoria' : 'Nova Categoria de Produto'}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
@@ -383,7 +432,7 @@ export function ProductCategories() {
                     Salvando...
                   </>
                 ) : (
-                  'Cadastrar'
+                  editingCategory ? 'Salvar Alterações' : 'Cadastrar'
                 )}
               </Button>
             </DialogFooter>
