@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { toast } from 'sonner';
 import { AlertCircle, Package, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import { formatDateLocal } from '../utils/dateUtils';
 
 interface Batch {
   id: string;
@@ -230,7 +231,7 @@ export function BatchMovementModal({
                       {availableBatches.map(batch => (
                         <SelectItem key={batch.id} value={batch.id}>
                           {batch.batchNumber || 'Sem código'} - Estoque: {batch.currentQuantity ?? 0} un
-                          {batch.expiryDate && ` - Validade: ${new Date(batch.expiryDate).toLocaleDateString('pt-BR')}`}
+                          {batch.expiryDate && ` - Validade: ${formatDateLocal(batch.expiryDate)}`}
                           {batch.status && batch.status !== 'Ativo' && ` - ${batch.status}`}
                         </SelectItem>
                       ))}
@@ -243,10 +244,10 @@ export function BatchMovementModal({
                       <div><strong>Lote:</strong> {selectedBatch.batchNumber}</div>
                       <div><strong>Estoque Atual:</strong> {selectedBatch.currentQuantity} un</div>
                       {selectedBatch.manufacturingDate && (
-                        <div><strong>Fabricação:</strong> {new Date(selectedBatch.manufacturingDate).toLocaleDateString('pt-BR')}</div>
+                        <div><strong>Fabricação:</strong> {formatDateLocal(selectedBatch.manufacturingDate)}</div>
                       )}
                       {selectedBatch.expiryDate && (
-                        <div><strong>Validade:</strong> {new Date(selectedBatch.expiryDate).toLocaleDateString('pt-BR')}</div>
+                        <div><strong>Validade:</strong> {formatDateLocal(selectedBatch.expiryDate)}</div>
                       )}
                       {selectedBatch.locationName && (
                         <div><strong>Localização:</strong> {selectedBatch.locationName}</div>

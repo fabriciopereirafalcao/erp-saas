@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { projectId } from '../utils/supabase/info';
 import { getAccessToken } from '../utils/authFetch';
+import { formatDateLocal } from '../utils/dateUtils';
 
 interface BatchAllocation {
   batchId: string;
@@ -294,12 +295,12 @@ export function BatchAllocationModal({
                       <TableCell>{allocation.quantityAllocated.toFixed(3)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {allocation.manufacturingDate 
-                          ? format(new Date(allocation.manufacturingDate), "dd/MM/yyyy", { locale: ptBR })
+                          ? formatDateLocal(allocation.manufacturingDate)
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {allocation.expiryDate 
-                          ? format(new Date(allocation.expiryDate), "dd/MM/yyyy", { locale: ptBR })
+                          ? formatDateLocal(allocation.expiryDate)
                           : '-'}
                       </TableCell>
                       <TableCell>
@@ -364,13 +365,13 @@ export function BatchAllocationModal({
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {batch.manufacturing_date 
-                            ? format(new Date(batch.manufacturing_date), "dd/MM/yyyy", { locale: ptBR })
+                            ? formatDateLocal(batch.manufacturing_date)
                             : '-'}
                         </TableCell>
                         <TableCell className="text-sm">
                           {batch.expiry_date ? (
                             <div className="space-y-1">
-                              <div>{format(new Date(batch.expiry_date), "dd/MM/yyyy", { locale: ptBR })}</div>
+                              <div>{formatDateLocal(batch.expiry_date)}</div>
                               {batch.days_to_expiry !== null && batch.days_to_expiry !== undefined && (
                                 <div className={`text-xs ${batch.expiring_soon ? 'text-red-600' : 'text-muted-foreground'}`}>
                                   {batch.days_to_expiry > 0 

@@ -13,6 +13,7 @@ import { Badge } from './ui/badge';
 import { useERP } from '../contexts/ERPContext';
 import { projectId } from '../utils/supabase/info';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDateLocal } from '../utils/dateUtils';
 
 interface PurchaseOrderItem {
   productId: string;
@@ -540,7 +541,7 @@ export function ReceivePurchaseOrderModal({
                                 {batches.map((batch: any) => (
                                   <SelectItem key={batch.id} value={batch.id}>
                                     {batch.batch_number} - Estoque: {batch.current_quantity} un
-                                    {batch.expiry_date && ` - Val: ${new Date(batch.expiry_date).toLocaleDateString('pt-BR')}`}
+                                    {batch.expiry_date && ` - Val: ${formatDateLocal(batch.expiry_date)}`}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
