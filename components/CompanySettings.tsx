@@ -22,6 +22,7 @@ import { validateEmail } from "../utils/fieldValidation";
 
 // Lista de principais bancos brasileiros
 const BANCOS_BRASILEIROS = [
+  { codigo: "CAIXA", nome: "💵 Caixa / Dinheiro em Espécie", isCash: true },
   { codigo: "001", nome: "Banco do Brasil" },
   { codigo: "033", nome: "Santander" },
   { codigo: "104", nome: "Caixa Econômica Federal" },
@@ -52,7 +53,12 @@ const BANCOS_BRASILEIROS = [
   { codigo: "653", nome: "Banco Indusval" },
   { codigo: "707", nome: "Banco Daycoval" },
   { codigo: "739", nome: "Banco Cetelem" },
-].sort((a, b) => a.nome.localeCompare(b.nome));
+].sort((a, b) => {
+  // Manter Caixa sempre no topo
+  if (a.isCash) return -1;
+  if (b.isCash) return 1;
+  return a.nome.localeCompare(b.nome);
+});
 
 export function CompanySettings() {
   const {
@@ -287,10 +293,21 @@ export function CompanySettings() {
   };
 
   const handleAddBank = () => {
-    if (!newBank.bankName || !newBank.agency || !newBank.accountNumber) {
+    // Verificar se é Caixa em Espécie
+    const isCashAccount = newBank.bankName === "💵 Caixa / Dinheiro em Espécie";
+    
+    // Para contas bancárias normais, validar todos os campos
+    // Para caixa em espécie, apenas o nome é obrigatório
+    if (!newBank.bankName) {
+      toast.error("Selecione o banco ou Caixa");
+      return;
+    }
+    
+    if (!isCashAccount && (!newBank.agency || !newBank.accountNumber)) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
+    
     addBankAccount(newBank);
     setNewBank({
       bankName: "",
@@ -1007,23 +1024,28 @@ export function CompanySettings() {
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>Agência *</Label>
-                      <Input
-                        value={newBank.agency}
-                        onChange={(e) => setNewBank({ ...newBank, agency: e.target.value })}
-                        placeholder="0000"
-                      />
-                    </div>
+                    {/* Mostrar Agência e Conta apenas se NÃO for Caixa */}
+                    {newBank.bankName !== "💵 Caixa / Dinheiro em Espécie" && (
+                      <>
+                        <div>
+                          <Label>Agência *</Label>
+                          <Input
+                            value={newBank.agency}
+                            onChange={(e) => setNewBank({ ...newBank, agency: e.target.value })}
+                            placeholder="0000"
+                          />
+                        </div>
 
-                    <div>
-                      <Label>Número da Conta *</Label>
-                      <Input
-                        value={newBank.accountNumber}
-                        onChange={(e) => setNewBank({ ...newBank, accountNumber: e.target.value })}
-                        placeholder="00000-0"
-                      />
-                    </div>
+                        <div>
+                          <Label>Número da Conta *</Label>
+                          <Input
+                            value={newBank.accountNumber}
+                            onChange={(e) => setNewBank({ ...newBank, accountNumber: e.target.value })}
+                            placeholder="00000-0"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <Label>Saldo Inicial</Label>
@@ -1076,9 +1098,12 @@ export function CompanySettings() {
                     </div>
                     <div className="text-sm text-gray-600 space-y-1">
                       <p>{account.accountType}</p>
-                      <p>
-                        Ag: {account.agency} | Conta: {account.accountNumber}
-                      </p>
+                      {/* Mostrar Agência e Conta apenas se NÃO for Caixa */}
+                      {account.bankName !== "💵 Caixa / Dinheiro em Espécie" && (
+                        <p>
+                          Ag: {account.agency} | Conta: {account.accountNumber}
+                        </p>
+                      )}
                       <p className="text-gray-900">
                         Saldo: R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
