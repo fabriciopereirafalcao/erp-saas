@@ -53,7 +53,7 @@ interface SalesOrdersProps {
 }
 
 export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
-  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople } = useERP();
+  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, salespeople, bankAccounts } = useERP();
   
   // ✅ Proteções contra arrays undefined
   const safeSalesOrders = salesOrders || [];
@@ -63,6 +63,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   const safeFinancialTransactions = financialTransactions || [];
   const safeAccountCategories = accountCategories || [];
   const safeSalespeople = salespeople || [];
+  const safeBankAccounts = bankAccounts || [];
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -104,6 +105,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     paymentCondition: "1", // número de parcelas
     firstInstallmentDays: 0, // prazo em dias para primeira parcela
     dueDateReference: "issue" as "issue" | "billing" | "delivery", // referência para cálculo do vencimento
+    bankAccountId: "", // ✅ NOVO: conta bancária para as transações financeiras
     customerNotes: "",
     internalNotes: ""
   });
@@ -549,6 +551,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
       salesPerson: orderHeader.salesPerson || "Sistema",
       firstInstallmentDays: orderHeader.firstInstallmentDays,
       dueDateReference: orderHeader.dueDateReference,
+      bankAccountId: orderHeader.bankAccountId || undefined, // ✅ NOVO: incluir conta bancária
       // Incluir array de itens para pedidos multi-item
       items: orderItems.length > 1 ? orderItems : undefined
     };
@@ -676,6 +679,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
         paymentCondition: "1",
         firstInstallmentDays: 0,
         dueDateReference: "issue",
+        bankAccountId: "", // ✅ RESETAR conta bancária
         customerNotes: "",
         internalNotes: ""
       });
@@ -1396,6 +1400,30 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                             📅 Referência para calcular vencimentos
                           </p>
                         </div>
+                      </div>
+
+                      {/* ✅ NOVO: Conta Bancária */}
+                      <div className="mt-4">
+                        <Label className="text-xs text-gray-600">Conta Bancária (opcional)</Label>
+                        <Select 
+                          value={orderHeader.bankAccountId || "none"} 
+                          onValueChange={(value) => setOrderHeader({...orderHeader, bankAccountId: value === "none" ? "" : value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Nenhuma" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhuma</SelectItem>
+                            {safeBankAccounts.map(account => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.bankName} - {account.accountNumber}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          💡 Conta bancária padrão para as transações financeiras deste pedido
+                        </p>
                       </div>
 
                       {/* Preview de Parcelas */}

@@ -45,7 +45,7 @@ interface PaymentInstallment {
 }
 
 export function PurchaseOrders() {
-  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
+  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories, bankAccounts } = useERP();
   const { accessToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -79,6 +79,7 @@ export function PurchaseOrders() {
     paymentCondition: "1", // número de parcelas
     firstInstallmentDays: 0, // prazo em dias para primeira parcela
     dueDateReference: "issue" as "issue" | "billing" | "delivery", // referência para cálculo do vencimento
+    bankAccountId: "", // ✅ NOVO: conta bancária para as transações financeiras
     supplierNotes: "",
     internalNotes: ""
   });
@@ -101,6 +102,9 @@ export function PurchaseOrders() {
 
   // Parcelas de pagamento
   const [installments, setInstallments] = useState<PaymentInstallment[]>([]);
+
+  // ✅ Proteção contra arrays undefined
+  const safeBankAccounts = bankAccounts || [];
 
   const filteredOrders = purchaseOrders
     .filter(order =>
@@ -458,6 +462,7 @@ export function PurchaseOrders() {
       buyer: orderHeader.buyer || "Sistema",
       firstInstallmentDays: orderHeader.firstInstallmentDays,
       dueDateReference: orderHeader.dueDateReference,
+      bankAccountId: orderHeader.bankAccountId || undefined, // ✅ NOVO: incluir conta bancária
       // Incluir array de itens para pedidos multi-item
       items: orderItems.length > 1 ? orderItems : undefined
     };
@@ -484,6 +489,7 @@ export function PurchaseOrders() {
       paymentCondition: "1",
       firstInstallmentDays: 0,
       dueDateReference: "issue",
+      bankAccountId: "", // ✅ RESETAR conta bancária
       supplierNotes: "",
       internalNotes: ""
     });
@@ -1215,6 +1221,30 @@ export function PurchaseOrders() {
                             📅 Referência para calcular vencimentos
                           </p>
                         </div>
+                      </div>
+
+                      {/* ✅ NOVO: Conta Bancária */}
+                      <div className="mt-4">
+                        <Label className="text-xs text-gray-600">Conta Bancária (opcional)</Label>
+                        <Select 
+                          value={orderHeader.bankAccountId || "none"} 
+                          onValueChange={(value) => setOrderHeader({...orderHeader, bankAccountId: value === "none" ? "" : value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Nenhuma" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhuma</SelectItem>
+                            {safeBankAccounts.map(account => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.bankName} - {account.accountNumber}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          💡 Conta bancária padrão para as transações financeiras deste pedido
+                        </p>
                       </div>
 
                       {/* Preview de Parcelas */}

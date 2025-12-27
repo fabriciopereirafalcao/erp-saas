@@ -519,8 +519,13 @@ export function FinancialTransactions() {
   const handleOpenReceiveDialog = (transactionId: string) => {
     setReceivingTransaction(transactionId);
     setEffectiveDate(new Date());
+    
+    // ✅ CORREÇÃO: Buscar conta bancária da transação (vinda do pedido)
+    const transaction = safeFinancialTransactions.find(t => t.id === transactionId);
+    const bankAccountId = transaction?.bankAccountId || safeBankAccounts[0]?.id || "";
+    
     // Definir valores padrão para conta e forma de pagamento
-    setReceiveBankAccountId(safeBankAccounts[0]?.id || "");
+    setReceiveBankAccountId(bankAccountId);
     setReceivePaymentMethodId(safePaymentMethods.find(pm => pm.isActive)?.id || "");
     setShowReceiveDialog(true);
   };
