@@ -1721,7 +1721,7 @@ async function getProductCategories(companyId: string) {
     .from('product_categories')
     .select('*')
     .eq('company_id', companyId)
-    .eq('is_active', true)
+    // ✅ Remover filtro is_active para retornar todas as categorias (ativas e inativas)
     .order('name', { ascending: true });
 
   if (error) {

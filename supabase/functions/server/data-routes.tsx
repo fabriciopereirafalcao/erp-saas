@@ -910,9 +910,47 @@ app.delete('/product-categories/:id', async (c) => {
       throw error;
     }
 
-    console.log('[PRODUCT CATEGORIES] ✅ Categoria deletada:', categoryId);
-    return c.json({ success: true, message: 'Categoria removida com sucesso' });
+    console.log('[PRODUCT CATEGORIES] ✅ Categoria desativada:', categoryId);
+    return c.json({ success: true, message: 'Categoria desativada com sucesso' });
 
+  } catch (error) {
+    console.error('[PRODUCT CATEGORIES] ❌ Erro:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==================== REATIVAR CATEGORIA ====================
+app.post('/product-categories/:id/reactivate', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const categoryId = c.req.param('id');
+    console.log(`[PRODUCT CATEGORIES] 🔄 Reativando categoria ${categoryId}`);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error } = await supabase
+      .from('product_categories')
+      .update({ is_active: true })
+      .eq('id', categoryId)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      console.error('[PRODUCT CATEGORIES] ❌ Erro ao reativar categoria:', error);
+      throw error;
+    }
+
+    console.log(`[PRODUCT CATEGORIES] ✅ Categoria reativada com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Categoria reativada com sucesso'
+    });
   } catch (error) {
     console.error('[PRODUCT CATEGORIES] ❌ Erro:', error);
     return c.json({ error: error.message }, 500);
