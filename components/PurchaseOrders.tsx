@@ -1760,7 +1760,11 @@ export function PurchaseOrders() {
                       </div>
                     ) : '-'}
                   </TableCell>
-                  <TableCell>{order.buyer || '-'}</TableCell>
+                  <TableCell>
+                    {order.buyer ? (
+                      buyers.find(b => b.id === order.buyer)?.name || order.buyer
+                    ) : '-'}
+                  </TableCell>
                   <TableCell>
                     <Select
                       value={order.status}
