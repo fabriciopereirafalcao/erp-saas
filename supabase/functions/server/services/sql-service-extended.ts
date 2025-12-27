@@ -1122,7 +1122,7 @@ export async function createFinancialTransaction(companyId: string, transactionD
     paymentMethodId: transaction.payment_method_id,
     paymentMethodName: transaction.payment_method_name,
     amount: transaction.amount,
-    status: transactionData.status, // Manter português para frontend
+    status: transaction.status, // ✅ CORREÇÃO: Retornar status NORMALIZADO ao invés do status enviado
     description: transaction.description,
     origin: transaction.origin,
     reference: transaction.reference,
