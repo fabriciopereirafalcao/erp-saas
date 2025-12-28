@@ -27,6 +27,7 @@ import { sqlService } from './services/sql-service.ts';
 import { sqlServiceExtended } from './services/sql-service-extended.ts';
 import * as dreService from './services/dre-service.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { getSupabaseClient } from './services/sql-service.ts';
 
 console.log('🔧 [DATA-ROUTES] Módulo carregado - inicializando rotas...');
 
@@ -2390,6 +2391,39 @@ app.post('/bank-accounts', async (c) => {
 
   } catch (error) {
     console.error('[BANK ACCOUNTS] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE: Soft delete de conta bancária
+app.delete('/bank-accounts/:id', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const accountId = c.req.param('id');
+    console.log(`[BANK ACCOUNTS] 🗑️ Soft delete da conta ${accountId} da empresa ${auth.companyId}`);
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('bank_accounts')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', accountId)
+      .eq('company_id', auth.companyId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return c.json({
+      success: true,
+      message: 'Conta bancária deletada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[BANK ACCOUNTS] ❌ Erro ao deletar:', error);
     return c.json({ error: error.message }, 500);
   }
 });

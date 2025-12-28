@@ -2308,24 +2308,37 @@ export async function saveBankAccounts(companyId: string, accounts: any[]) {
   // Processar cada conta individualmente
   if (accounts.length > 0) {
     for (const account of accounts) {
-      let sku = account.id;
+      const accountId = account.id;
+      console.log(`[SQL_SERVICE] 🔍 Processando conta com ID: ${accountId} (isUUID: ${isValidUUID(accountId)})`);
       
-      // Verificar se já existe (por SKU se começar com BANK-)
+      // ✅ CORREÇÃO: Buscar conta existente por UUID (se válido) OU por SKU
       let existingAccount = null;
       
-      if (sku && sku.startsWith('BANK-')) {
+      if (accountId && isValidUUID(accountId)) {
+        // Buscar por UUID
         const { data } = await supabase
           .from('bank_accounts')
           .select('id, sku')
           .eq('company_id', companyId)
-          .eq('sku', sku)
+          .eq('id', accountId)
+          .is('deleted_at', null)
+          .single();
+        existingAccount = data;
+      } else if (accountId && accountId.startsWith('BANK-')) {
+        // Buscar por SKU (caso legado)
+        const { data } = await supabase
+          .from('bank_accounts')
+          .select('id, sku')
+          .eq('company_id', companyId)
+          .eq('sku', accountId)
           .is('deleted_at', null)
           .single();
         existingAccount = data;
       }
       
       // Gerar SKU automaticamente se for INSERT novo
-      if (!existingAccount && (!sku || !sku.startsWith('BANK-'))) {
+      let sku = existingAccount?.sku;
+      if (!existingAccount) {
         sku = await generateNextBankAccountSku(companyId);
         console.log(`[SQL_SERVICE] 🔢 Gerado novo SKU: ${sku}`);
       }
