@@ -1961,6 +1961,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           console.log(`✅ [BACKEND SYNC] Accounts Payable: ${accountsPayableRes.data.length} registros`);
         }
 
+        console.log('[BACKEND SYNC] 🏦 Resposta completa bank accounts:', bankAccountsRes);
+        console.log('[BACKEND SYNC] 🏦 bankAccountsRes.success:', bankAccountsRes.success);
+        console.log('[BACKEND SYNC] 🏦 bankAccountsRes.data:', bankAccountsRes.data);
+
         if (bankAccountsRes.success && bankAccountsRes.data) {
           console.log('[BACKEND SYNC] 🏦 Dados brutos do backend:', bankAccountsRes.data);
           
@@ -1974,6 +1978,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
             bankAccounts: mappedAccounts
           }));
           console.log(`✅ [BACKEND SYNC] Bank Accounts: ${mappedAccounts.length} registros`);
+        } else {
+          console.warn('[BACKEND SYNC] ⚠️ Bank accounts NÃO carregados:', {
+            success: bankAccountsRes.success,
+            hasData: !!bankAccountsRes.data,
+            dataLength: bankAccountsRes.data?.length,
+            error: bankAccountsRes.error
+          });
         }
 
         console.log('✅ [BACKEND SYNC] Sincronização concluída!');
