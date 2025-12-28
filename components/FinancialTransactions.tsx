@@ -127,15 +127,14 @@ export function FinancialTransactions() {
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = filterType === "Todas" || txn.type === filterType;
-    // ✅ ALTERADO: Quando selecionar "A vencer", incluir "A Pagar" e "A Receber"
+    // ✅ Mapeamento de filtros para múltiplos status
     let matchesStatus = filterStatus.length === 0;
     if (!matchesStatus) {
-      if (filterStatus.includes("A vencer")) {
-        // "A vencer" engloba "A Pagar" e "A Receber"
-        matchesStatus = txn.status === "A Pagar" || txn.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === txn.status);
-      } else {
-        matchesStatus = filterStatus.includes(txn.status);
-      }
+      matchesStatus = filterStatus.some(fs => {
+        if (fs === "A vencer") return txn.status === "A Pagar" || txn.status === "A Receber";
+        if (fs === "Pago/Recebido") return txn.status === "Pago" || txn.status === "Recebido";
+        return txn.status === fs;
+      });
     }
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
@@ -167,14 +166,14 @@ export function FinancialTransactions() {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
-      // ✅ Aplicar filtro de status - "A vencer" engloba "A Pagar" e "A Receber"
+      // ✅ Aplicar filtro de status
       let matchesStatus = filterStatus.length === 0;
       if (!matchesStatus) {
-        if (filterStatus.includes("A vencer")) {
-          matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
-        } else {
-          matchesStatus = filterStatus.includes(t.status);
-        }
+        matchesStatus = filterStatus.some(fs => {
+          if (fs === "A vencer") return t.status === "A Pagar" || t.status === "A Receber";
+          if (fs === "Pago/Recebido") return t.status === "Pago" || t.status === "Recebido";
+          return t.status === fs;
+        });
       }
       
       return isReceita && matchesMonth && matchesStatus;
@@ -195,14 +194,14 @@ export function FinancialTransactions() {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
-      // ✅ Aplicar filtro de status - "A vencer" engloba "A Pagar" e "A Receber"
+      // ✅ Aplicar filtro de status
       let matchesStatus = filterStatus.length === 0;
       if (!matchesStatus) {
-        if (filterStatus.includes("A vencer")) {
-          matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
-        } else {
-          matchesStatus = filterStatus.includes(t.status);
-        }
+        matchesStatus = filterStatus.some(fs => {
+          if (fs === "A vencer") return t.status === "A Pagar" || t.status === "A Receber";
+          if (fs === "Pago/Recebido") return t.status === "Pago" || t.status === "Recebido";
+          return t.status === fs;
+        });
       }
       
       return isDespesa && matchesMonth && matchesStatus;
@@ -222,14 +221,14 @@ export function FinancialTransactions() {
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
-    // ✅ "A vencer" engloba "A Pagar" e "A Receber"
+    // ✅ Aplicar filtro de status
     let matchesStatus = filterStatus.length === 0;
     if (!matchesStatus) {
-      if (filterStatus.includes("A vencer")) {
-        matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
-      } else {
-        matchesStatus = filterStatus.includes(t.status);
-      }
+      matchesStatus = filterStatus.some(fs => {
+        if (fs === "A vencer") return t.status === "A Pagar" || t.status === "A Receber";
+        if (fs === "Pago/Recebido") return t.status === "Pago" || t.status === "Recebido";
+        return t.status === fs;
+      });
     }
     return isReceita && matchesMonth && matchesStatus;
   }).length;
@@ -244,14 +243,14 @@ export function FinancialTransactions() {
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
-    // ✅ "A vencer" engloba "A Pagar" e "A Receber"
+    // ✅ Aplicar filtro de status
     let matchesStatus = filterStatus.length === 0;
     if (!matchesStatus) {
-      if (filterStatus.includes("A vencer")) {
-        matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
-      } else {
-        matchesStatus = filterStatus.includes(t.status);
-      }
+      matchesStatus = filterStatus.some(fs => {
+        if (fs === "A vencer") return t.status === "A Pagar" || t.status === "A Receber";
+        if (fs === "Pago/Recebido") return t.status === "Pago" || t.status === "Recebido";
+        return t.status === fs;
+      });
     }
     return isDespesa && matchesMonth && matchesStatus;
   }).length;
@@ -1180,7 +1179,7 @@ export function FinancialTransactions() {
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0">
               <div className="p-2 space-y-2">
-                {["A vencer", "Vencido", "Pago", "Recebido", "Cancelado"].map((status) => (
+                {["A vencer", "Vencido", "Pago/Recebido", "Cancelado"].map((status) => (
                   <div key={status} className="flex items-center space-x-2">
                     <Checkbox
                       id={`status-${status}`}
