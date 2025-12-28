@@ -398,7 +398,8 @@ export interface PriceTable {
 }
 
 export interface BankAccount {
-  id: string;
+  id: string; // UUID
+  sku?: string; // SKU legível (BANK-001)
   bankName: string;
   accountType: "Conta Corrente" | "Conta Poupança" | "Aplicação Financeira" | "Caixa / Dinheiro em Espécie";
   agency: string;

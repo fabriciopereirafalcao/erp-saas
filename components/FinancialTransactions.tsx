@@ -612,6 +612,7 @@ export function FinancialTransactions() {
     console.log('[LIQUIDAÇÃO] 💰 Dados da liquidação:', {
       transactionId: receivingTransaction,
       bankAccountId: receiveBankAccountId,
+      bankAccountSku: bankAccount?.sku,
       bankAccountName: bankAccount?.bankName,
       isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiveBankAccountId),
       effectiveDate: formattedDate

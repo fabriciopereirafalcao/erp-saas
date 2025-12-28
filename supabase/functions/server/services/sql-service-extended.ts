@@ -1905,7 +1905,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         cost_center_id: transaction.costCenterId,
         cost_center_name: transaction.costCenterName,
         status: normalizedStatus, // ✅ 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado'
-        bank_account_id: isValidUUID(transaction.bankAccountId) ? transaction.bankAccountId : null,
+        bank_account_id: transaction.bankAccountId ? await resolveBankAccountId(companyId, transaction.bankAccountId) : null, // ✅ RESOLVER SKU → UUID
         bank_account_name: transaction.bankAccountName,
         installment_number: transaction.installmentNumber,
         total_installments: transaction.totalInstallments,
@@ -2285,7 +2285,8 @@ export async function getBankAccounts(companyId: string) {
   }
 
   return data?.map((row: any) => ({
-    id: row.sku || row.id, // ✅ PRIORIZAR SKU (BANK-001) sobre UUID
+    id: row.id, // ✅ Retornar UUID real
+    sku: row.sku, // ✅ SKU para exibição (BANK-001)
     bankName: row.bank_name,
     bankCode: row.bank_code,
     agency: row.agency,
@@ -2293,6 +2294,8 @@ export async function getBankAccounts(companyId: string) {
     accountType: row.account_type,
     initialBalance: row.initial_balance ? parseFloat(row.initial_balance) : 0,
     currentBalance: row.current_balance ? parseFloat(row.current_balance) : 0,
+    balance: row.current_balance ? parseFloat(row.current_balance) : 0, // ✅ Alias para compatibilidade
+    isPrimary: false, // ✅ Campo legacy para compatibilidade
     isActive: row.is_active
   })) || [];
 }
