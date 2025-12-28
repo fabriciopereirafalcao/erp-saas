@@ -60,9 +60,9 @@ export function BalanceReconciliation() {
       // Filtrar transações realizadas do banco selecionado
       const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
       
-      // Entradas realizadas (Pago)
+      // Entradas realizadas (Recebido)
       const realizedIncome = filteredTransactions
-        .filter(t => t.type === "Receita" && t.paymentDate === dateStr && t.status === "Pago")
+        .filter(t => t.type === "Receita" && t.paymentDate === dateStr && t.status === "Recebido")
         .reduce((sum, t) => sum + t.amount, 0);
 
       // Saídas realizadas (Pago)

@@ -1813,6 +1813,7 @@ export async function getFinancialTransactions(companyId: string) {
     transactionDate: row.transaction_date,
     dueDate: row.due_date,
     effectiveDate: row.effective_date,
+    paymentDate: row.payment_date, // ✅ CORRIGIDO: Campo estava faltando
     account: row.account,
     paymentMethod: row.payment_method_name || row.payment_method,
     paymentMethodId: row.payment_method_id,
@@ -1892,6 +1893,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         transaction_date: transaction.date || transaction.transactionDate,
         due_date: transaction.dueDate,
         effective_date: transaction.effectiveDate,
+        payment_date: transaction.paymentDate, // ✅ CORRIGIDO: Campo estava faltando
         account: transaction.account || 'Geral',
         payment_method: transaction.paymentMethod || '',
         payment_method_id: transaction.paymentMethodId,
