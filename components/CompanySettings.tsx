@@ -64,6 +64,9 @@ export function CompanySettings() {
     deleteBankAccount,
   } = useERP();
 
+  // DEBUG: Verificar contas bancárias
+  console.log('[COMPANY SETTINGS] 🏦 Contas bancárias:', companySettings.bankAccounts);
+
   // Ref para input de upload da logo
   const logoInputRef = useRef<HTMLInputElement>(null);
 

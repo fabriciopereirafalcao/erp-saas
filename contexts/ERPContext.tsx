@@ -1857,18 +1857,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   /**
    * Helper: Mapear bank accounts do backend para formato do frontend
    */
-  const mapBankAccountFromBackend = (acc: any) => ({
-    id: acc.id, // ✅ Backend já retorna em camelCase
-    bankName: acc.bankName,
-    accountType: acc.accountType === 'Corrente' ? 'Conta Corrente' : 
-                 acc.accountType === 'Poupança' ? 'Conta Poupança' : 
-                 acc.accountType === 'Investimentos' ? 'Aplicação Financeira' :
-                 acc.accountType === 'Caixa' ? 'Caixa / Dinheiro em Espécie' : 'Conta Corrente',
-    agency: acc.agency || '',
-    accountNumber: acc.accountNumber || '',
-    balance: parseFloat(acc.currentBalance) || 0,
-    isPrimary: false
-  });
+  const mapBankAccountFromBackend = (acc: any) => {
+    console.log('[MAP BANK ACCOUNT] 🏦 Mapeando conta:', acc);
+    
+    const mapped = {
+      id: acc.id, // ✅ UUID
+      sku: acc.sku, // ✅ SKU legível (BANK-001)
+      bankName: acc.bankName,
+      accountType: acc.accountType === 'Corrente' ? 'Conta Corrente' : 
+                   acc.accountType === 'Poupança' ? 'Conta Poupança' : 
+                   acc.accountType === 'Investimentos' ? 'Aplicação Financeira' :
+                   acc.accountType === 'Caixa' ? 'Caixa / Dinheiro em Espécie' : 'Conta Corrente',
+      agency: acc.agency || '',
+      accountNumber: acc.accountNumber || '',
+      balance: acc.balance || acc.currentBalance || 0, // ✅ Ambos os formatos
+      isPrimary: acc.isPrimary || false
+    };
+    
+    console.log('[MAP BANK ACCOUNT] ✅ Mapeada:', mapped);
+    return mapped;
+  };
 
   /**
    * Carregar dados SQL do backend quando usuário faz login
@@ -1954,9 +1962,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
 
         if (bankAccountsRes.success && bankAccountsRes.data) {
+          console.log('[BACKEND SYNC] 🏦 Dados brutos do backend:', bankAccountsRes.data);
+          
           // Mapear dados SQL para formato do frontend
           const mappedAccounts = bankAccountsRes.data.map(mapBankAccountFromBackend);
 
+          console.log('[BACKEND SYNC] 🏦 Contas mapeadas:', mappedAccounts);
+          
           setCompanySettings(prev => ({
             ...prev,
             bankAccounts: mappedAccounts
