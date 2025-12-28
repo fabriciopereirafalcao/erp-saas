@@ -71,12 +71,12 @@ export function AccountsPayableReceivable() {
 
   // Filtrar transações a receber (status pendentes)
   const receivableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Receita" && (t.status === "A Vencer" || t.status === "Vencido" || t.status === "A Receber")
+    t.type === "Receita" && (t.status === "Vencido" || t.status === "A Receber")
   );
 
   // Filtrar transações a pagar (status pendentes)
   const payableTransactions = safeFinancialTransactions.filter(t => 
-    t.type === "Despesa" && (t.status === "A Vencer" || t.status === "Vencido" || t.status === "A Pagar")
+    t.type === "Despesa" && (t.status === "Vencido" || t.status === "A Pagar")
   );
 
   // Filtrar com busca - Contas a Receber
@@ -88,7 +88,15 @@ export function AccountsPayableReceivable() {
       txn.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesStatus = filterStatusReceivable === "Todos" || txn.status === filterStatusReceivable;
+    // ✅ "A vencer" engloba "A Receber" (não vencido ainda)
+    let matchesStatus = filterStatusReceivable === "Todos";
+    if (!matchesStatus) {
+      if (filterStatusReceivable === "A vencer") {
+        matchesStatus = txn.status === "A Receber";
+      } else {
+        matchesStatus = txn.status === filterStatusReceivable;
+      }
+    }
     return matchesSearch && matchesStatus;
   });
 
@@ -101,7 +109,15 @@ export function AccountsPayableReceivable() {
       txn.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesStatus = filterStatusPayable === "Todos" || txn.status === filterStatusPayable;
+    // ✅ "A vencer" engloba "A Pagar" (não vencido ainda)
+    let matchesStatus = filterStatusPayable === "Todos";
+    if (!matchesStatus) {
+      if (filterStatusPayable === "A vencer") {
+        matchesStatus = txn.status === "A Pagar";
+      } else {
+        matchesStatus = txn.status === filterStatusPayable;
+      }
+    }
     return matchesSearch && matchesStatus;
   });
 
@@ -419,7 +435,7 @@ export function AccountsPayableReceivable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os Status</SelectItem>
-                <SelectItem value="A Vencer">A Vencer</SelectItem>
+                <SelectItem value="A vencer">A vencer</SelectItem>
                 <SelectItem value="Vencido">Vencido</SelectItem>
               </SelectContent>
             </Select>
@@ -571,7 +587,7 @@ export function AccountsPayableReceivable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os Status</SelectItem>
-                <SelectItem value="A Vencer">A Vencer</SelectItem>
+                <SelectItem value="A vencer">A vencer</SelectItem>
                 <SelectItem value="Vencido">Vencido</SelectItem>
               </SelectContent>
             </Select>

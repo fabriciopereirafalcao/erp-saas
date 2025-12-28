@@ -127,8 +127,16 @@ export function FinancialTransactions() {
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = filterType === "Todas" || txn.type === filterType;
-    // ✅ ALTERADO: Seleção múltipla de status
-    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(txn.status);
+    // ✅ ALTERADO: Quando selecionar "A vencer", incluir "A Pagar" e "A Receber"
+    let matchesStatus = filterStatus.length === 0;
+    if (!matchesStatus) {
+      if (filterStatus.includes("A vencer")) {
+        // "A vencer" engloba "A Pagar" e "A Receber"
+        matchesStatus = txn.status === "A Pagar" || txn.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === txn.status);
+      } else {
+        matchesStatus = filterStatus.includes(txn.status);
+      }
+    }
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
     // ✅ NOVO: Filtro de ano e mês (seleção múltipla)
@@ -159,8 +167,15 @@ export function FinancialTransactions() {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
-      // Aplicar filtro de status se selecionado
-      const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+      // ✅ Aplicar filtro de status - "A vencer" engloba "A Pagar" e "A Receber"
+      let matchesStatus = filterStatus.length === 0;
+      if (!matchesStatus) {
+        if (filterStatus.includes("A vencer")) {
+          matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
+        } else {
+          matchesStatus = filterStatus.includes(t.status);
+        }
+      }
       
       return isReceita && matchesMonth && matchesStatus;
     })
@@ -180,8 +195,15 @@ export function FinancialTransactions() {
         matchesMonth = txnDate.getFullYear() === filterYear;
       }
       
-      // Aplicar filtro de status se selecionado
-      const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+      // ✅ Aplicar filtro de status - "A vencer" engloba "A Pagar" e "A Receber"
+      let matchesStatus = filterStatus.length === 0;
+      if (!matchesStatus) {
+        if (filterStatus.includes("A vencer")) {
+          matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
+        } else {
+          matchesStatus = filterStatus.includes(t.status);
+        }
+      }
       
       return isDespesa && matchesMonth && matchesStatus;
     })
@@ -200,7 +222,15 @@ export function FinancialTransactions() {
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
-    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+    // ✅ "A vencer" engloba "A Pagar" e "A Receber"
+    let matchesStatus = filterStatus.length === 0;
+    if (!matchesStatus) {
+      if (filterStatus.includes("A vencer")) {
+        matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
+      } else {
+        matchesStatus = filterStatus.includes(t.status);
+      }
+    }
     return isReceita && matchesMonth && matchesStatus;
   }).length;
   
@@ -214,7 +244,15 @@ export function FinancialTransactions() {
     } else {
       matchesMonth = txnDate.getFullYear() === filterYear;
     }
-    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(t.status);
+    // ✅ "A vencer" engloba "A Pagar" e "A Receber"
+    let matchesStatus = filterStatus.length === 0;
+    if (!matchesStatus) {
+      if (filterStatus.includes("A vencer")) {
+        matchesStatus = t.status === "A Pagar" || t.status === "A Receber" || filterStatus.some(s => s !== "A vencer" && s === t.status);
+      } else {
+        matchesStatus = filterStatus.includes(t.status);
+      }
+    }
     return isDespesa && matchesMonth && matchesStatus;
   }).length;
 
@@ -1142,7 +1180,7 @@ export function FinancialTransactions() {
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0">
               <div className="p-2 space-y-2">
-                {["A Vencer", "Vencido", "Pago", "Cancelado"].map((status) => (
+                {["A vencer", "Vencido", "Pago", "Recebido", "Cancelado"].map((status) => (
                   <div key={status} className="flex items-center space-x-2">
                     <Checkbox
                       id={`status-${status}`}
@@ -1291,7 +1329,7 @@ export function FinancialTransactions() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {txn.origin === "Pedido" && (txn.status === "A Vencer" || txn.status === "Vencido" || txn.status === "A Receber" || txn.status === "A Pagar") && (
+                      {txn.origin === "Pedido" && (txn.status === "Vencido" || txn.status === "A Receber" || txn.status === "A Pagar") && (
                         <Button
                           variant="ghost"
                           size="sm"
