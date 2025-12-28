@@ -608,6 +608,15 @@ export function FinancialTransactions() {
     const bankAccount = safeBankAccounts.find(b => b.id === receiveBankAccountId);
     const paymentMethod = safePaymentMethods.find(pm => pm.id === receivePaymentMethodId);
     
+    // ✅ LOG: Verificar se bankAccountId é UUID válido
+    console.log('[LIQUIDAÇÃO] 💰 Dados da liquidação:', {
+      transactionId: receivingTransaction,
+      bankAccountId: receiveBankAccountId,
+      bankAccountName: bankAccount?.bankName,
+      isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receiveBankAccountId),
+      effectiveDate: formattedDate
+    });
+    
     if (transaction.type === "Receita") {
       markTransactionAsReceived(
         receivingTransaction, 
@@ -1837,6 +1846,7 @@ export function FinancialTransactions() {
                       {/* ✅ NOVO: Campo de data de pagamento quando marcado como pago */}
                       {formData.alreadyPaid && (
                         <div className="flex-1">
+                          <Label>Data do Pagamento</Label>
                           <Popover open={showPaymentDatePopover} onOpenChange={setShowPaymentDatePopover}>
                             <PopoverTrigger asChild>
                               <Button variant="outline" className="w-full justify-start">
@@ -2125,9 +2135,10 @@ export function FinancialTransactions() {
                   <Select 
                     value={receiveBankAccountId} 
                     onValueChange={(value) => setReceiveBankAccountId(value)}
+                    required
                   >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Selecione a conta" />
+                    <SelectTrigger className={`mt-2 ${!receiveBankAccountId ? 'border-red-300' : ''}`}>
+                      <SelectValue placeholder="Selecione a conta *" />
                     </SelectTrigger>
                     <SelectContent>
                       {safeBankAccounts.map((account) => (

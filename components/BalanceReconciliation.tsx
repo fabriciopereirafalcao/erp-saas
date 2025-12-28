@@ -60,6 +60,26 @@ export function BalanceReconciliation() {
       // Filtrar transações realizadas do banco selecionado
       const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
       
+      // ✅ LOG: Debug das transações filtradas
+      if (day.getDate() === 28 && day.getMonth() === 11) { // Apenas para 28/12
+        console.log('[CONCILIAÇÃO] 🔍 Debug 28/12:', {
+          selectedBank,
+          totalTransactions: safeFinancialTransactions.length,
+          transacoesComBanco: safeFinancialTransactions.filter(t => t.bankAccountId).length,
+          transacoesSemBanco: safeFinancialTransactions.filter(t => !t.bankAccountId).length,
+          transacoesFiltradas: filteredTransactions.length,
+          dateStr,
+          samples: safeFinancialTransactions.slice(0, 3).map(t => ({
+            id: t.id,
+            bankAccountId: t.bankAccountId,
+            bankAccountName: t.bankAccountName,
+            effectiveDate: t.effectiveDate,
+            status: t.status,
+            amount: t.amount
+          }))
+        });
+      }
+      
       // Entradas realizadas (Recebido)
       const realizedIncome = filteredTransactions
         .filter(t => t.type === "Receita" && t.effectiveDate === dateStr && t.status === "Recebido")
