@@ -1912,7 +1912,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/financial-transactions`).catch(e => ({ success: false, error: e.message })),
           authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/accounts-receivable`).catch(e => ({ success: false, error: e.message })),
           authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/accounts-payable`).catch(e => ({ success: false, error: e.message })),
-          authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`).catch(e => ({ success: false, error: e.message }))
+          (async () => {
+            console.log('[BACKEND SYNC] 🏦 Iniciando requisição bank-accounts...');
+            try {
+              const result = await authGet(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`);
+              console.log('[BACKEND SYNC] 🏦 Resposta authGet bank-accounts:', result);
+              return result;
+            } catch (e) {
+              console.error('[BACKEND SYNC] 🏦 ERRO na requisição bank-accounts:', e);
+              return { success: false, error: e.message };
+            }
+          })()
         ]);
 
         // Atualizar states com dados do backend
