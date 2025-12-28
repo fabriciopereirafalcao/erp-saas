@@ -260,7 +260,7 @@ export interface FinancialTransaction {
   paymentMethodId: string;
   paymentMethodName: string;
   amount: number;
-  status: "A Vencer" | "Vencido" | "Pago" | "Cancelado";
+  status: "A Receber" | "A Pagar" | "Vencido" | "Pago" | "Recebido" | "Cancelado";
   costCenterId?: string;
   costCenterName?: string;
   description: string;
@@ -288,7 +288,7 @@ export interface AccountReceivable {
   amount: number;
   paidAmount: number;
   remainingAmount: number;
-  status: "A Vencer" | "Vencido" | "Recebido" | "Parcial" | "Cancelado";
+  status: "A Receber" | "Vencido" | "Recebido" | "Parcial" | "Cancelado";
   paymentMethodId?: string;
   bankAccountId?: string;
   installmentNumber?: number;
@@ -309,7 +309,7 @@ export interface AccountPayable {
   amount: number;
   paidAmount: number;
   remainingAmount: number;
-  status: "A Vencer" | "Vencido" | "Pago" | "Parcial" | "Cancelado";
+  status: "A Pagar" | "Vencido" | "Pago" | "Parcial" | "Cancelado";
   paymentMethodId?: string;
   bankAccountId?: string;
   installmentNumber?: number;
@@ -3036,7 +3036,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           amount: installmentAmount,
           paidAmount: 0,
           remainingAmount: installmentAmount,
-          status: "A Vencer",
+          status: "A Receber",
           installmentNumber: i + 1,
           totalInstallments: numberOfInstallments,
           description,
@@ -3130,7 +3130,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       if (existingTransactionFromContext) {
         console.log(`✅ [CONTEXTO] Usando transação passada do fluxo: ${existingTransactionFromContext.id}`);
         
-        if (existingTransactionFromContext.status === "A Vencer" || existingTransactionFromContext.status === "Vencido") {
+        if (existingTransactionFromContext.status === "A Receber" || existingTransactionFromContext.status === "Vencido") {
           console.log(`🔄 Atualizando transação ${existingTransactionFromContext.id} para "Recebido"...`);
           
           setFinancialTransactions(prev => prev.map(t => 
@@ -3162,7 +3162,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Transação encontrada pela referência (pode ser "A Vencer" ou "Vencido")
         console.log(`✅ Transação encontrada por referência: ${existingTransactionByReference.id} com status "${existingTransactionByReference.status}"`);
         
-        if (existingTransactionByReference.status === "A Vencer" || existingTransactionByReference.status === "Vencido") {
+        if (existingTransactionByReference.status === "A Receber" || existingTransactionByReference.status === "Vencido") {
           console.log(`🔄 Atualizando transação existente ${existingTransactionByReference.id} para "Recebido"...`);
           
           setFinancialTransactions(prev => prev.map(t => 
@@ -3193,7 +3193,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (existingTransaction) {
           console.log(`✅ Transação encontrada por ID: ${existingTransaction.id} com status "${existingTransaction.status}"`);
           
-          if (existingTransaction.status === "A Vencer" || existingTransaction.status === "Vencido") {
+          if (existingTransaction.status === "A Receber" || existingTransaction.status === "Vencido") {
             console.log(`🔄 Atualizando transação existente ${existingTransaction.id} para "Recebido"...`);
             
             setFinancialTransactions(prev => prev.map(t => 
@@ -5629,7 +5629,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           amount: installmentAmount,
           paidAmount: 0,
           remainingAmount: installmentAmount,
-          status: "A Vencer",
+          status: "A Pagar",
           installmentNumber: i + 1,
           totalInstallments: numberOfInstallments,
           description,

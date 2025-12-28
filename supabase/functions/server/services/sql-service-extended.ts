@@ -55,10 +55,10 @@ function normalizeAccountStatus(status: string): 'pending' | 'paid' | 'overdue' 
 /**
  * ✅ HELPER: Desnormalizar status de Accounts Receivable (EN → PT)
  * Backend retorna: "pending" | "paid" | "overdue" | "cancelled"
- * Frontend precisa: "A Vencer" | "Vencido" | "Recebido" | "Cancelado"
+ * Frontend precisa: "A Receber" | "Vencido" | "Recebido" | "Cancelado"
  */
 function denormalizeAccountReceivableStatus(status: string): string {
-  if (status === 'pending') return 'A Vencer';
+  if (status === 'pending') return 'A Receber';
   if (status === 'paid') return 'Recebido';
   if (status === 'overdue') return 'Vencido';
   if (status === 'cancelled') return 'Cancelado';
@@ -86,24 +86,27 @@ function denormalizeAccountPayableStatus(status: string): string {
 
 /**
  * ✅ HELPER: Normalizar status de Financial Transactions
- * CHECK CONSTRAINT: status IN ('A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado')
- * IMPORTANTE: "A Vencer" e "Vencido" NÃO são aceitos pelo banco - devem ser calculados no frontend
+ * CHECK CONSTRAINT: status IN ('A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado', 'Vencido')
+ * ATUALIZAÇÃO: Agora o banco aceita "Vencido" após migration
  */
 function normalizeFinancialTransactionStatus(
   status: string | undefined,
   transactionType: 'income' | 'expense'
-): 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado' {
-  // ✅ CORREÇÃO: Remover "A Vencer" e "Vencido" - banco NÃO aceita esses valores
-  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado'];
+): 'A Receber' | 'Recebido' | 'A Pagar' | 'Pago' | 'Cancelado' | 'Vencido' {
+  // ✅ Agora "Vencido" é aceito pelo banco após migration
+  const allowedStatuses = ['A Receber', 'Recebido', 'A Pagar', 'Pago', 'Cancelado', 'Vencido'];
   if (status && allowedStatuses.includes(status)) return status as any;
   
-  // ✅ Converter "A Vencer" e "Vencido" para status pendente correspondente
-  if (status === 'A Vencer' || status === 'Vencido' || status === 'pending' || status === 'overdue') {
+  // ✅ Converter status EN → PT
+  if (status === 'pending') return transactionType === 'income' ? 'A Receber' : 'A Pagar';
+  if (status === 'paid') return transactionType === 'income' ? 'Recebido' : 'Pago';
+  if (status === 'overdue') return 'Vencido';
+  if (status === 'cancelled') return 'Cancelado';
+  
+  // ✅ Converter "A Vencer" para status pendente correspondente
+  if (status === 'A Vencer') {
     return transactionType === 'income' ? 'A Receber' : 'A Pagar';
   }
-  
-  if (status === 'paid') return transactionType === 'income' ? 'Recebido' : 'Pago';
-  if (status === 'cancelled') return 'Cancelado';
   
   // ✅ Fallback para status pendente
   console.warn(`[SQL_SERVICE] ⚠️ Status indefinido para transação tipo ${transactionType}, usando fallback pendente`);
@@ -115,6 +118,40 @@ function normalizeFinancialTransactionStatus(
  */
 function normalizeFinancialTransactionOrigin(origin: string | undefined): 'Manual' | 'Pedido' {
   return (origin === 'Manual' || origin === 'Pedido') ? origin : 'Manual';
+}
+
+/**
+ * ✅ HELPER: Auto-atualizar status para "Vencido" quando passar da data
+ * Aplica-se a Financial Transactions, Accounts Payable e Accounts Receivable
+ * Usa timezone GMT-3 (Brasília)
+ */
+function autoUpdateOverdueStatus(status: string, dueDate: string | null | undefined): string {
+  // Se já está quitado ou cancelado, não alterar
+  const finalStatuses = ['Pago', 'Recebido', 'Cancelado'];
+  if (finalStatuses.includes(status)) {
+    return status;
+  }
+  
+  // Se não tem data de vencimento, manter status atual
+  if (!dueDate) {
+    return status;
+  }
+  
+  // Calcular data atual em GMT-3 (Brasília)
+  const now = new Date();
+  const brazilDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  
+  // Se passou da data de vencimento, marcar como "Vencido"
+  if (dueDate < todayStr) {
+    return 'Vencido';
+  }
+  
+  // Caso contrário, manter status atual
+  return status;
 }
 
 /**
@@ -1788,7 +1825,7 @@ export async function getFinancialTransactions(companyId: string) {
     partyName: row.party_name,
     costCenterId: row.cost_center_id,
     costCenterName: row.cost_center_name,
-    status: row.status, // ✅ CORREÇÃO: Não forçar "Pago" como fallback
+    status: autoUpdateOverdueStatus(row.status, row.due_date), // ✅ AUTO-ATUALIZAR VENCIDO
     bankAccountId: row.bank_account_id || null,
     bankAccountName: row.bank_account_name,
     installmentNumber: row.installment_number,
@@ -1963,21 +2000,29 @@ export async function getAccountsReceivable(companyId: string) {
     throw new Error(error.message);
   }
 
-  return data?.map((row: any) => ({
-    id: row.id,
-    customerId: row.customer_id,
-    orderId: row.order_id,
-    installmentNumber: row.installment_number,
-    totalInstallments: row.total_installments,
-    description: row.description,
-    amount: parseFloat(row.amount),
-    dueDate: row.due_date,
-    status: denormalizeAccountReceivableStatus(row.status),
-    paymentDate: row.payment_date,
-    paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
-    paymentMethod: row.payment_method || '',
-    notes: row.notes || ''
-  })) || [];
+  return data?.map((row: any) => {
+    // ✅ Desnormalizar status de EN para PT
+    const denormalizedStatus = denormalizeAccountReceivableStatus(row.status);
+    
+    // ✅ Auto-atualizar para "Vencido" se passou da data
+    const finalStatus = autoUpdateOverdueStatus(denormalizedStatus, row.due_date);
+    
+    return {
+      id: row.id,
+      customerId: row.customer_id,
+      orderId: row.order_id,
+      installmentNumber: row.installment_number,
+      totalInstallments: row.total_installments,
+      description: row.description,
+      amount: parseFloat(row.amount),
+      dueDate: row.due_date,
+      status: finalStatus, // ✅ AUTO-ATUALIZAR VENCIDO
+      paymentDate: row.payment_date,
+      paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      paymentMethod: row.payment_method || '',
+      notes: row.notes || ''
+    };
+  }) || [];
 }
 
 export async function saveAccountsReceivable(companyId: string, accounts: any[]) {
@@ -2064,27 +2109,35 @@ export async function getAccountsPayable(companyId: string) {
     throw new Error(error.message);
   }
 
-  return data?.map((row: any) => ({
-    id: row.id,
-    supplierId: row.suppliers?.sku || row.supplier_id, // ✅ Retornar SKU se disponível
-    supplierName: row.suppliers?.name || 'Fornecedor Desconhecido', // ✅ NOVO: Nome do fornecedor
-    invoiceNumber: row.order_id || row.description?.split(' ')[2] || '', // ✅ NOVO: Extrair do order_id ou description
-    issueDate: row.created_at?.split('T')[0] || '', // ✅ NOVO: Usar data de criação
-    orderId: row.order_id,
-    installmentNumber: row.installment_number,
-    totalInstallments: row.total_installments,
-    description: row.description,
-    amount: parseFloat(row.amount),
-    paidAmount: 0, // ✅ NOVO: Valor pago (sempre 0 para pendentes)
-    remainingAmount: parseFloat(row.amount), // ✅ NOVO: Valor restante
-    dueDate: row.due_date,
-    status: denormalizeAccountPayableStatus(row.status),
-    paymentDate: row.payment_date,
-    paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
-    paymentMethod: row.payment_method || '',
-    notes: row.notes || '',
-    reference: row.order_id // ✅ NOVO: Referência ao pedido
-  })) || [];
+  return data?.map((row: any) => {
+    // ✅ Desnormalizar status de EN para PT
+    const denormalizedStatus = denormalizeAccountPayableStatus(row.status);
+    
+    // ✅ Auto-atualizar para "Vencido" se passou da data
+    const finalStatus = autoUpdateOverdueStatus(denormalizedStatus, row.due_date);
+    
+    return {
+      id: row.id,
+      supplierId: row.suppliers?.sku || row.supplier_id, // ✅ Retornar SKU se disponível
+      supplierName: row.suppliers?.name || 'Fornecedor Desconhecido', // ✅ NOVO: Nome do fornecedor
+      invoiceNumber: row.order_id || row.description?.split(' ')[2] || '', // ✅ NOVO: Extrair do order_id ou description
+      issueDate: row.created_at?.split('T')[0] || '', // ✅ NOVO: Usar data de criação
+      orderId: row.order_id,
+      installmentNumber: row.installment_number,
+      totalInstallments: row.total_installments,
+      description: row.description,
+      amount: parseFloat(row.amount),
+      paidAmount: 0, // ✅ NOVO: Valor pago (sempre 0 para pendentes)
+      remainingAmount: parseFloat(row.amount), // ✅ NOVO: Valor restante
+      dueDate: row.due_date,
+      status: finalStatus, // ✅ AUTO-ATUALIZAR VENCIDO
+      paymentDate: row.payment_date,
+      paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      paymentMethod: row.payment_method || '',
+      notes: row.notes || '',
+      reference: row.order_id // ✅ NOVO: Referência ao pedido
+    };
+  }) || [];
 }
 
 export async function saveAccountsPayable(companyId: string, accounts: any[]) {
