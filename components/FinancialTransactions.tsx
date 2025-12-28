@@ -66,6 +66,7 @@ export function FinancialTransactions() {
   const [showDatePopover, setShowDatePopover] = useState(false);
   const [showDueDatePopover, setShowDueDatePopover] = useState(false);
   const [showTransferDatePopover, setShowTransferDatePopover] = useState(false);
+  const [showPaymentDatePopover, setShowPaymentDatePopover] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -81,6 +82,7 @@ export function FinancialTransactions() {
     description: "",
     bankAccountId: "", // ✅ NOVO: conta bancária para transações manuais
     alreadyPaid: false, // ✅ NOVO: indicar se a transação já foi paga
+    paymentDate: new Date(), // ✅ NOVO: data de pagamento para transações já pagas
     // Campos de parcelamento
     installments: "1",
     firstInstallmentDays: 0
@@ -295,6 +297,7 @@ export function FinancialTransactions() {
             description: transaction.description,
             bankAccountId: "",
             alreadyPaid: false,
+            paymentDate: new Date(),
             installments: unsettledInstallments.length.toString(),
             firstInstallmentDays: daysDiff >= 0 ? daysDiff : 0
           });
@@ -314,6 +317,7 @@ export function FinancialTransactions() {
             description: transaction.description,
             bankAccountId: transaction.bankAccountId || "", // ✅ ADICIONADO: carregar conta bancária
             alreadyPaid: false,
+            paymentDate: new Date(),
             installments: "1",
             firstInstallmentDays: 0
           });
@@ -334,6 +338,7 @@ export function FinancialTransactions() {
         description: "",
         bankAccountId: safeBankAccounts[0]?.id || "", // ✅ ADICIONADO: inicializar conta bancária
         alreadyPaid: false,
+        paymentDate: new Date(),
         installments: "1",
         firstInstallmentDays: 0
       });
@@ -501,14 +506,14 @@ export function FinancialTransactions() {
         ? totalAmount - (installmentAmount * (numInstallments - 1))
         : installmentAmount;
 
-      // ✅ Determinar status: se já pago, Pago; senão, verificar vencimento
+      // ✅ Determinar status: se já pago, usar status correto baseado no tipo
       const todayString = getTodayString();
       const isOverdue = compareDates(dueDate, todayString) < 0; // < 0 significa dueDate é ANTERIOR a hoje
       const status = formData.alreadyPaid
-        ? "Pago"
+        ? (formData.type === "Receita" ? "Recebido" : "Pago")
         : isOverdue
           ? "Vencido" 
-          : "A Vencer";
+          : (formData.type === "Receita" ? "A Receber" : "A Pagar");
 
       const transactionData = {
         type: formData.type,
@@ -526,6 +531,8 @@ export function FinancialTransactions() {
         paymentMethodName: "",
         amount: amount,
         status: status as any,
+        // ✅ NOVO: Incluir effectiveDate se transação já foi paga
+        effectiveDate: formData.alreadyPaid ? dateToLocalString(formData.paymentDate) : undefined,
         costCenterId: formData.costCenterId || undefined,
         costCenterName: costCenter?.name,
         description: numInstallments > 1 
@@ -959,6 +966,7 @@ export function FinancialTransactions() {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       "Pago": "bg-green-100 text-green-700",
+      "Recebido": "bg-green-100 text-green-700", // ✅ Mesma cor do badge "Pago"
       "A Vencer": "bg-blue-100 text-blue-700",
       "Vencido": "bg-red-100 text-red-700",
       "Cancelado": "bg-gray-100 text-gray-700"
@@ -1432,11 +1440,27 @@ export function FinancialTransactions() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>
-              {editingTransaction 
-                ? (editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação") 
-                : isTransferMode ? "Transferência entre Contas" : "Nova Transação Manual"}
-            </DialogTitle>
+            <div className="flex items-center gap-2">
+              <DialogTitle>
+                {editingTransaction 
+                  ? (editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação") 
+                  : isTransferMode ? "Transferência entre Contas" : "Nova Transação Manual"}
+              </DialogTitle>
+              {!editingTransaction && !isTransferMode && (
+                <FeatureInfoBadge 
+                  title="Como funciona" 
+                  variant="blue"
+                  position="inline"
+                >
+                  <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                    <li>Configure o parcelamento e as datas de vencimento abaixo</li>
+                    <li>Uma transação será criada para cada parcela automaticamente</li>
+                    <li>A conta bancária e forma de pagamento serão definidas <strong>no momento da liquidação manual</strong></li>
+                    <li>Liquide cada parcela individualmente através do botão de ação nas transações</li>
+                  </ul>
+                </FeatureInfoBadge>
+              )}
+            </div>
             <DialogDescription>
               {editingTransaction 
                 ? (editingInstallmentMode === "all" 
@@ -1792,32 +1816,51 @@ export function FinancialTransactions() {
 
               {/* ABA 2: CONDIÇÕES DE PAGAMENTO */}
               <TabsContent value="payment" className="space-y-4 p-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-900 mb-2">
-                    💡 <strong>Como funciona:</strong>
-                  </p>
-                  <ul className="text-sm text-blue-900 space-y-1 ml-4 list-disc">
-                    <li>Configure o parcelamento e as datas de vencimento abaixo</li>
-                    <li>Uma transação será criada para cada parcela automaticamente</li>
-                    <li>A conta bancária e forma de pagamento serão definidas <strong>no momento da liquidação manual</strong></li>
-                    <li>Liquide cada parcela individualmente através do botão de ação nas transações</li>
-                  </ul>
-                </div>
-
                 {/* ✅ NOVO: Checkbox para indicar se a transação já foi paga */}
                 {!editingTransaction && (
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Checkbox
-                      id="alreadyPaid"
-                      checked={formData.alreadyPaid}
-                      onCheckedChange={(checked) => setFormData({ ...formData, alreadyPaid: !!checked })}
-                    />
-                    <label
-                      htmlFor="alreadyPaid"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      Esta transação já foi paga
-                    </label>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="alreadyPaid"
+                          checked={formData.alreadyPaid}
+                          onCheckedChange={(checked) => setFormData({ ...formData, alreadyPaid: !!checked })}
+                        />
+                        <label
+                          htmlFor="alreadyPaid"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          Esta transação já foi paga
+                        </label>
+                      </div>
+
+                      {/* ✅ NOVO: Campo de data de pagamento quando marcado como pago */}
+                      {formData.alreadyPaid && (
+                        <div className="flex-1">
+                          <Popover open={showPaymentDatePopover} onOpenChange={setShowPaymentDatePopover}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(formData.paymentDate, "PPP", { locale: ptBR })}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={formData.paymentDate}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    setFormData({ ...formData, paymentDate: date });
+                                    setShowPaymentDatePopover(false);
+                                  }
+                                }}
+                                locale={ptBR}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
