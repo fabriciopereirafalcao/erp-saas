@@ -4658,8 +4658,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Preparar updates
     const updates: Partial<FinancialTransaction> = {
       status: "Recebido",
-      effectiveDate,
-      paymentDate: effectiveDate,
+      effectiveDate, // ✅ Data efetiva de recebimento
       markedBy: user.name,
       markedAt: new Date().toISOString()
     };
@@ -4796,8 +4795,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Preparar updates
     const updates: Partial<FinancialTransaction> = {
       status: "Pago",
-      effectiveDate,
-      paymentDate: effectiveDate,
+      effectiveDate, // ✅ Data efetiva de pagamento
       markedBy: user.name,
       markedAt: new Date().toISOString()
     };

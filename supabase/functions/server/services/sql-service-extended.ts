@@ -1812,8 +1812,7 @@ export async function getFinancialTransactions(companyId: string) {
     date: row.transaction_date,
     transactionDate: row.transaction_date,
     dueDate: row.due_date,
-    effectiveDate: row.effective_date,
-    paymentDate: row.payment_date, // ✅ CORRIGIDO: Campo estava faltando
+    effectiveDate: row.effective_date, // ✅ Data de pagamento/recebimento efetivo
     account: row.account,
     paymentMethod: row.payment_method_name || row.payment_method,
     paymentMethodId: row.payment_method_id,
@@ -1892,8 +1891,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         amount: transaction.amount,
         transaction_date: transaction.date || transaction.transactionDate,
         due_date: transaction.dueDate,
-        effective_date: transaction.effectiveDate,
-        payment_date: transaction.paymentDate, // ✅ CORRIGIDO: Campo estava faltando
+        effective_date: transaction.effectiveDate, // ✅ Data de pagamento/recebimento
         account: transaction.account || 'Geral',
         payment_method: transaction.paymentMethod || '',
         payment_method_id: transaction.paymentMethodId,

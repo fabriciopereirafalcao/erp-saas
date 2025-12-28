@@ -1397,9 +1397,9 @@ export function FinancialTransactions() {
                       <Badge className={getStatusColor(txn.status)}>
                         {txn.status}
                       </Badge>
-                      {txn.paymentDate && (
+                      {txn.effectiveDate && (txn.status === "Pago" || txn.status === "Recebido") && (
                         <p className="text-xs text-gray-500 mt-1">
-                          em {formatDateLocal(txn.paymentDate)}
+                          em {formatDateLocal(txn.effectiveDate)}
                         </p>
                       )}
                     </TableCell>

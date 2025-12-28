@@ -62,12 +62,12 @@ export function BalanceReconciliation() {
       
       // Entradas realizadas (Recebido)
       const realizedIncome = filteredTransactions
-        .filter(t => t.type === "Receita" && t.paymentDate === dateStr && t.status === "Recebido")
+        .filter(t => t.type === "Receita" && t.effectiveDate === dateStr && t.status === "Recebido")
         .reduce((sum, t) => sum + t.amount, 0);
 
       // Saídas realizadas (Pago)
       const realizedExpenses = filteredTransactions
-        .filter(t => t.type === "Despesa" && t.paymentDate === dateStr && t.status === "Pago")
+        .filter(t => t.type === "Despesa" && t.effectiveDate === dateStr && t.status === "Pago")
         .reduce((sum, t) => sum + t.amount, 0);
 
       // Atualizar saldo atual
