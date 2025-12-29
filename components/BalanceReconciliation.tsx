@@ -188,9 +188,9 @@ export function BalanceReconciliation() {
     // Variável para armazenar se conseguiu adicionar a logo
     let logoAdded = false;
     
-    if (companySettings?.companyLogo) {
+    if (companySettings?.logo) {
       try {
-        const logoData = companySettings.companyLogo;
+        const logoData = companySettings.logo;
         console.log('📷 Tentando adicionar logo ao PDF. Primeiros 100 chars:', logoData.substring(0, 100));
         
         // Determinar formato da imagem a partir do data URL
@@ -213,10 +213,10 @@ export function BalanceReconciliation() {
         console.log('✅ Logo adicionada ao PDF com sucesso! Formato:', imageFormat);
       } catch (error) {
         console.error('❌ Erro ao adicionar logo ao PDF:', error);
-        console.log('Logo data disponível:', !!companySettings?.companyLogo);
+        console.log('Logo data disponível:', !!companySettings?.logo);
       }
     } else {
-      console.warn('⚠️ Nenhuma logo configurada em companySettings.companyLogo');
+      console.warn('⚠️ Nenhuma logo configurada em companySettings.logo');
     }
 
     // Dados da empresa ao lado do logo (ou na posição da logo se não tiver logo)
