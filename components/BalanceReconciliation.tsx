@@ -48,8 +48,38 @@ export function BalanceReconciliation() {
     const bank = safeBankAccounts.find(b => b.id === selectedBank);
     if (!bank) return [];
 
+    // ✅ CORREÇÃO: Calcular saldo inicial do mês baseado em initialBalance + transações anteriores
+    const monthStartDate = format(monthStart, 'yyyy-MM-dd');
+    
+    // Filtrar transações do banco selecionado
+    const bankTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
+    
+    // Calcular transações anteriores ao início do mês
+    const transactionsBeforeMonth = bankTransactions.filter(t => 
+      t.effectiveDate && t.effectiveDate < monthStartDate && 
+      (t.status === 'Recebido' || t.status === 'Pago')
+    );
+    
+    const balanceBeforeMonth = transactionsBeforeMonth.reduce((sum, t) => {
+      if (t.type === 'Receita' && t.status === 'Recebido') {
+        return sum + t.amount;
+      } else if (t.type === 'Despesa' && t.status === 'Pago') {
+        return sum - t.amount;
+      }
+      return sum;
+    }, bank.initialBalance || 0);
+    
+    console.log('[CONCILIAÇÃO] 💰 Cálculo de saldo inicial:', {
+      bankName: bank.bankName,
+      initialBalance: bank.initialBalance,
+      currentBalance: bank.balance,
+      monthStartDate,
+      transactionsBeforeMonth: transactionsBeforeMonth.length,
+      balanceBeforeMonth
+    });
+
     const reconciliationData: any[] = [];
-    let currentBalance = bank.balance || 0;
+    let currentBalance = balanceBeforeMonth;
 
     days.forEach((day) => {
       const dateStr = format(day, 'yyyy-MM-dd');
