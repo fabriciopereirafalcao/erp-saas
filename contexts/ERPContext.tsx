@@ -404,7 +404,8 @@ export interface BankAccount {
   accountType: "Conta Corrente" | "Conta Poupança" | "Aplicação Financeira" | "Caixa / Dinheiro em Espécie";
   agency: string;
   accountNumber: string;
-  balance: number;
+  balance: number; // Current balance (saldo atual)
+  initialBalance?: number; // Initial balance (saldo inicial fixo)
   isPrimary: boolean;
 }
 
@@ -1870,7 +1871,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
                    acc.accountType === 'Caixa' ? 'Caixa / Dinheiro em Espécie' : 'Conta Corrente',
       agency: acc.agency || '',
       accountNumber: acc.accountNumber || '',
-      balance: acc.balance || acc.currentBalance || 0, // ✅ Ambos os formatos
+      balance: acc.balance || acc.currentBalance || 0, // ✅ Saldo atual
+      initialBalance: acc.initial_balance || acc.initialBalance || 0, // ✅ Saldo inicial fixo
       isPrimary: acc.isPrimary || false
     };
     
@@ -4260,6 +4262,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const existingAccount = companySettings?.bankAccounts?.find(acc => acc.id === id);
       if (!existingAccount) throw new Error('Conta não encontrada');
 
+      // ✅ CRÍTICO: Buscar dados originais do backend para preservar initialBalance
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+      const backendRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      const backendData = await backendRes.json();
+      const originalAccount = backendData.data?.find((acc: any) => acc.id === id);
+      
+      console.log('🔍 [UPDATE BANK] Conta original do backend:', originalAccount);
+
       const accountTypeMap: Record<string, string> = {
         'Conta Corrente': 'Corrente',
         'Conta Poupança': 'Poupança',
@@ -4274,10 +4290,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         agency: updates.agency || existingAccount.agency,
         accountNumber: updates.accountNumber || existingAccount.accountNumber,
         accountType: accountTypeMap[updates.accountType || existingAccount.accountType] || 'Corrente',
-        initialBalance: updates.balance !== undefined ? updates.balance : existingAccount.balance,
+        // ✅ CRÍTICO: NUNCA alterar initialBalance - sempre usar o valor original do backend
+        initialBalance: originalAccount?.initial_balance || originalAccount?.initialBalance || existingAccount.balance,
+        // ✅ Só atualizar currentBalance se o update vier com balance
         currentBalance: updates.balance !== undefined ? updates.balance : existingAccount.balance,
         isActive: true
       };
+      
+      console.log('💾 [UPDATE BANK] Conta atualizada a ser salva:', updatedAccount);
 
       const response = await authPost(
         `https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/bank-accounts`,
