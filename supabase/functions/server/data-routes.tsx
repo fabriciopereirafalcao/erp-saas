@@ -2347,9 +2347,13 @@ app.post('/accounts-payable', async (c) => {
 // ==================== ROTAS - BANK ACCOUNTS ====================
 
 app.get('/bank-accounts', async (c) => {
+  console.log('[BANK ACCOUNTS] 🔍 Rota GET /bank-accounts CHAMADA!');
+  
   try {
+    console.log('[BANK ACCOUNTS] 🔐 Autenticando...');
     const auth = await sqlService.authenticate(c.req.header('Authorization'));
     if (!auth) {
+      console.log('[BANK ACCOUNTS] ❌ Autenticação falhou!');
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
@@ -2357,10 +2361,15 @@ app.get('/bank-accounts', async (c) => {
     const bankAccounts = await sqlServiceExtended.getBankAccounts(auth.companyId);
     
     console.log(`[BANK ACCOUNTS] ✅ ${bankAccounts.length} bank accounts carregados`);
-    return c.json({
+    console.log('[BANK ACCOUNTS] 📦 Dados:', bankAccounts);
+    
+    const response = {
       success: true,
       data: bankAccounts
-    });
+    };
+    
+    console.log('[BANK ACCOUNTS] 📤 Retornando response:', response);
+    return c.json(response);
 
   } catch (error) {
     console.error('[BANK ACCOUNTS] ❌ Erro ao carregar:', error);
