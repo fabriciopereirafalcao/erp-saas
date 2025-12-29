@@ -489,6 +489,14 @@ export function FinancialTransactions() {
       toast.error("Informe um valor válido");
       return;
     }
+    
+    // ✅ VALIDAÇÃO: Se transação já foi paga, conta bancária é obrigatória
+    if (formData.alreadyPaid && !formData.bankAccountId) {
+      toast.error("Selecione a conta bancária", {
+        description: "Transações já pagas precisam ter uma conta bancária associada"
+      });
+      return;
+    }
 
     const category = safeAccountCategories.find(c => c.id === formData.categoryId);
     const costCenter = safeCostCenters.find(c => c.id === formData.costCenterId);
@@ -512,18 +520,30 @@ export function FinancialTransactions() {
     const baseDateString = dateToLocalString(formData.date);
     
     // ✅ VALIDAÇÃO: Se alreadyPaid, verificar se data de pagamento é anterior ao startDate da conta
-    if (formData.alreadyPaid && formData.bankAccountId) {
+    if (formData.alreadyPaid && formData.bankAccountId && formData.bankAccountId !== "") {
       const paymentDateString = dateToLocalString(formData.paymentDate);
+      
+      console.log('🔍 [VALIDAÇÃO CREATE] Executando validação...');
+      console.log('🔍 [VALIDAÇÃO CREATE] alreadyPaid:', formData.alreadyPaid);
+      console.log('🔍 [VALIDAÇÃO CREATE] bankAccountId:', formData.bankAccountId);
+      console.log('🔍 [VALIDAÇÃO CREATE] paymentDate:', paymentDateString);
+      console.log('🔍 [VALIDAÇÃO CREATE] paymentDate (Date):', formData.paymentDate);
+      
       const validationResult = validateSettlementDate(formData.bankAccountId, paymentDateString);
       
+      console.log('🔍 [VALIDAÇÃO CREATE] validationResult:', JSON.stringify(validationResult, null, 2));
+      console.log('🔍 [VALIDAÇÃO CREATE] needsConfirmation?', validationResult.needsConfirmation);
+      
       if (validationResult.needsConfirmation) {
+        console.log('⚠️ [VALIDAÇÃO CREATE] Dialog de confirmação DEVE abrir!');
+        
         // Armazenar dados para criação após confirmação
         setPendingCreatePaid(formData);
         
         // Abrir dialog de confirmação
         const bankAccount = safeBankAccounts.find(b => b.id === formData.bankAccountId);
         setPendingSettlement({
-          transactionId: '', // Não há transactionId ainda
+          transactionId: '',
           date: paymentDateString,
           bankAccountId: formData.bankAccountId,
           bankAccountName: bankAccount?.bankName || '',
@@ -533,7 +553,14 @@ export function FinancialTransactions() {
         });
         setShowWarningDialog(true);
         return; // Parar execução até confirmação
+      } else {
+        console.log('✅ [VALIDAÇÃO CREATE] Validação passou - criando transação normalmente');
       }
+    } else {
+      console.log('ℹ️ [VALIDAÇÃO CREATE] Validação NÃO aplicada');
+      console.log('   - alreadyPaid:', formData.alreadyPaid);
+      console.log('   - bankAccountId:', formData.bankAccountId);
+      console.log('   - bankAccountId type:', typeof formData.bankAccountId);
     }
     
     for (let i = 0; i < numInstallments; i++) {
