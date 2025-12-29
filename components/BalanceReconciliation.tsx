@@ -182,7 +182,7 @@ export function BalanceReconciliation() {
 
     // ===== CABEÇALHO COM LOGO =====
     const logoSize = 25;
-    const logoX = 15;
+    const logoX = pageWidth - 15 - logoSize; // Posicionar logo no canto direito
     const logoY = yPosition;
     
     // Variável para armazenar se conseguiu adicionar a logo
@@ -207,7 +207,7 @@ export function BalanceReconciliation() {
           }
         }
         
-        // Tentar adicionar a imagem
+        // Tentar adicionar a imagem no canto direito
         doc.addImage(logoData, imageFormat, logoX, logoY, logoSize, logoSize);
         logoAdded = true;
         console.log('✅ Logo adicionada ao PDF com sucesso! Formato:', imageFormat);
@@ -219,8 +219,8 @@ export function BalanceReconciliation() {
       console.warn('⚠️ Nenhuma logo configurada em companySettings.logo');
     }
 
-    // Dados da empresa ao lado do logo (ou na posição da logo se não tiver logo)
-    const textX = logoAdded ? logoX + logoSize + 5 : logoX;
+    // Dados da empresa à esquerda (independente da logo)
+    const textX = 15;
     
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
