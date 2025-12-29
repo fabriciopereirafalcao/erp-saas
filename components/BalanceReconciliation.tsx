@@ -9,6 +9,8 @@ import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangl
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 
 export function BalanceReconciliation() {
   const {
@@ -170,15 +172,12 @@ export function BalanceReconciliation() {
 
   // ✅ Função para gerar PDF profissional
   const handleGeneratePDF = async () => {
-    const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    
-    const doc = new jsPDF('p', 'mm', 'a4');
     const bank = safeBankAccounts.find(b => b.id === selectedBank);
     if (!bank) return;
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const pageHeight = 297;
     let yPosition = 20;
 
     // ===== CABEÇALHO COM LOGO =====
