@@ -658,6 +658,16 @@ interface ERPContextData {
   // Reconciliation Actions
   reconciliationStatus: Record<string, boolean>;
   toggleReconciliationStatus: (reconciliationKey: string) => void;
+  
+  // Validation Actions
+  validateSettlementDate: (bankAccountId: string, settlementDate: string) => {
+    isValid: boolean;
+    warning?: {
+      accountName: string;
+      accountStartDate: string;
+      settlementDate: string;
+    };
+  };
 }
 
 const ERPContext = createContext<ERPContextData | undefined>(undefined);
@@ -4370,6 +4380,47 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ Validação de Data de Liquidação vs. Data de Início da Conta
+  const validateSettlementDate = (bankAccountId: string, settlementDate: string): {
+    isValid: boolean;
+    warning?: {
+      accountName: string;
+      accountStartDate: string;
+      settlementDate: string;
+    };
+  } => {
+    const bank = companySettings?.bankAccounts?.find(b => b.id === bankAccountId);
+    
+    if (!bank) {
+      return { isValid: true }; // Conta não encontrada, não validar
+    }
+
+    if (!bank.startDate) {
+      return { isValid: true }; // Conta sem data de início, permitir qualquer data
+    }
+
+    // Verificar se settlementDate < startDate
+    if (settlementDate < bank.startDate) {
+      console.warn('⚠️ [VALIDAÇÃO] Data de liquidação anterior à data de início da conta:', {
+        conta: bank.bankName,
+        startDate: bank.startDate,
+        settlementDate,
+        diferenca: `${Math.abs(new Date(bank.startDate).getTime() - new Date(settlementDate).getTime()) / (1000 * 60 * 60 * 24)} dias`
+      });
+
+      return {
+        isValid: false,
+        warning: {
+          accountName: bank.bankName,
+          accountStartDate: bank.startDate,
+          settlementDate
+        }
+      };
+    }
+
+    return { isValid: true };
+  };
+
   // Revenue Groups
   const addRevenueGroup = (groupData: Omit<RevenueGroup, 'id'>) => {
     // Encontrar o maior ID numérico existente
@@ -6024,7 +6075,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     updateCashFlowEntry,
     deleteCashFlowEntry,
     reconciliationStatus,
-    toggleReconciliationStatus
+    toggleReconciliationStatus,
+    validateSettlementDate
   };
 
   return <ERPContext.Provider value={value}>{children}</ERPContext.Provider>;

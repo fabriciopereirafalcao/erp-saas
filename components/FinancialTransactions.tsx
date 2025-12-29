@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
+import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
 import { useERP } from "../contexts/ERPContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,7 +34,8 @@ export function FinancialTransactions() {
     markTransactionAsReceived,
     markTransactionAsPaid,
     salesOrders,
-    purchaseOrders
+    purchaseOrders,
+    validateSettlementDate
   } = useERP();
 
   // ✅ Proteções contra arrays undefined
@@ -66,6 +68,18 @@ export function FinancialTransactions() {
   const [showDatePopover, setShowDatePopover] = useState(false);
   const [showDueDatePopover, setShowDueDatePopover] = useState(false);
   const [showTransferDatePopover, setShowTransferDatePopover] = useState(false);
+  
+  // ✅ Estados para validação de data de liquidação
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [pendingSettlement, setPendingSettlement] = useState<{
+    transactionId: string;
+    date: string;
+    bankAccountId: string;
+    bankAccountName: string;
+    paymentMethodId: string;
+    paymentMethodName: string;
+    type: "Receita" | "Despesa";
+  } | null>(null);
   const [showPaymentDatePopover, setShowPaymentDatePopover] = useState(false);
 
   // Form state
@@ -608,6 +622,24 @@ export function FinancialTransactions() {
     const bankAccount = safeBankAccounts.find(b => b.id === receiveBankAccountId);
     const paymentMethod = safePaymentMethods.find(pm => pm.id === receivePaymentMethodId);
     
+    // ✅ VALIDAR DATA DE LIQUIDAÇÃO vs. DATA DE INÍCIO DA CONTA
+    const validation = validateSettlementDate(receiveBankAccountId, formattedDate);
+    
+    if (!validation.isValid && validation.warning) {
+      // Guardar dados pendentes e mostrar dialog de confirmação
+      setPendingSettlement({
+        transactionId: receivingTransaction,
+        date: formattedDate,
+        bankAccountId: receiveBankAccountId,
+        bankAccountName: bankAccount?.bankName || "",
+        paymentMethodId: receivePaymentMethodId,
+        paymentMethodName: paymentMethod?.name || "",
+        type: transaction.type
+      });
+      setShowWarningDialog(true);
+      return; // Parar execução e aguardar confirmação
+    }
+    
     // ✅ LOG: Verificar se bankAccountId é UUID válido
     console.log('[LIQUIDAÇÃO] 💰 Dados da liquidação:', {
       transactionId: receivingTransaction,
@@ -638,6 +670,39 @@ export function FinancialTransactions() {
       );
     }
 
+    setShowReceiveDialog(false);
+    setReceivingTransaction(null);
+  };
+
+  // ✅ Confirmar liquidação após validação
+  const handleConfirmSettlement = () => {
+    if (!pendingSettlement) return;
+    
+    console.log('⚠️ [OVERRIDE] Usuário confirmou liquidação com data anterior:', pendingSettlement);
+    
+    if (pendingSettlement.type === "Receita") {
+      markTransactionAsReceived(
+        pendingSettlement.transactionId,
+        pendingSettlement.date,
+        pendingSettlement.bankAccountId,
+        pendingSettlement.bankAccountName,
+        pendingSettlement.paymentMethodId,
+        pendingSettlement.paymentMethodName
+      );
+    } else {
+      markTransactionAsPaid(
+        pendingSettlement.transactionId,
+        pendingSettlement.date,
+        pendingSettlement.bankAccountId,
+        pendingSettlement.bankAccountName,
+        pendingSettlement.paymentMethodId,
+        pendingSettlement.paymentMethodName
+      );
+    }
+    
+    // Limpar estados
+    setShowWarningDialog(false);
+    setPendingSettlement(null);
     setShowReceiveDialog(false);
     setReceivingTransaction(null);
   };
@@ -2204,6 +2269,25 @@ export function FinancialTransactions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ✅ Dialog de Validação de Data de Liquidação */}
+      {pendingSettlement && (
+        <SettlementDateWarningDialog
+          open={showWarningDialog}
+          onOpenChange={(open) => {
+            setShowWarningDialog(open);
+            if (!open) {
+              setPendingSettlement(null);
+            }
+          }}
+          onConfirm={handleConfirmSettlement}
+          warning={{
+            accountName: pendingSettlement.bankAccountName,
+            accountStartDate: companySettings?.bankAccounts?.find(b => b.id === pendingSettlement.bankAccountId)?.startDate || '',
+            settlementDate: pendingSettlement.date
+          }}
+        />
+      )}
     </div>
   );
 }
