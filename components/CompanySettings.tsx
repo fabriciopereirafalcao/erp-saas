@@ -102,6 +102,7 @@ export function CompanySettings() {
     agency: "",
     accountNumber: "",
     balance: 0,
+    startDate: undefined,
     isPrimary: false
   });
 
@@ -328,6 +329,7 @@ export function CompanySettings() {
       agency: "",
       accountNumber: "",
       balance: 0,
+      startDate: undefined,
       isPrimary: false
     });
     setBankDialogOpen(false);
@@ -1088,6 +1090,19 @@ export function CompanySettings() {
                     )}
 
                     <div>
+                      <Label>Data de Início do Rastreamento</Label>
+                      <Input
+                        type="date"
+                        value={newBank.startDate || ''}
+                        onChange={(e) => setNewBank({ ...newBank, startDate: e.target.value || undefined })}
+                        placeholder="dd/mm/aaaa"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Saldos anteriores a esta data serão zerados no relatório
+                      </p>
+                    </div>
+
+                    <div>
                       <Label>Saldo Inicial</Label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1100,6 +1115,9 @@ export function CompanySettings() {
                           step="0.01"
                         />
                       </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Saldo na data de início do rastreamento
+                      </p>
                     </div>
 
                     <div className="flex items-center justify-between">

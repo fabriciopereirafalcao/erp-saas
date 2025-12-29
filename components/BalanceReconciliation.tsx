@@ -54,11 +54,15 @@ export function BalanceReconciliation() {
     // Filtrar transações do banco selecionado
     const bankTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
     
-    // Calcular transações anteriores ao início do mês
-    const transactionsBeforeMonth = bankTransactions.filter(t => 
-      t.effectiveDate && t.effectiveDate < monthStartDate && 
-      (t.status === 'Recebido' || t.status === 'Pago')
-    );
+    // Calcular transações anteriores ao início do mês (mas depois da startDate se existir)
+    const transactionsBeforeMonth = bankTransactions.filter(t => {
+      if (!t.effectiveDate) return false;
+      if (t.effectiveDate >= monthStartDate) return false;
+      if (t.status !== 'Recebido' && t.status !== 'Pago') return false;
+      // ✅ Se tem startDate, só considerar transações depois da startDate
+      if (bank.startDate && t.effectiveDate < bank.startDate) return false;
+      return true;
+    });
     
     const balanceBeforeMonth = transactionsBeforeMonth.reduce((sum, t) => {
       if (t.type === 'Receita' && t.status === 'Recebido') {
@@ -73,6 +77,7 @@ export function BalanceReconciliation() {
       bankName: bank.bankName,
       initialBalance: bank.initialBalance,
       currentBalance: bank.balance,
+      startDate: bank.startDate,
       monthStartDate,
       transactionsBeforeMonth: transactionsBeforeMonth.length,
       balanceBeforeMonth
@@ -84,44 +89,29 @@ export function BalanceReconciliation() {
     days.forEach((day) => {
       const dateStr = format(day, 'yyyy-MM-dd');
       
-      // Saldo inicial do dia
-      const dayInitialBalance = currentBalance;
+      // ✅ VERIFICAR SE DIA É ANTERIOR À DATA DE INÍCIO
+      const isBeforeStartDate = bank.startDate && dateStr < bank.startDate;
+      
+      // Saldo inicial do dia (zerar se anterior à data de início)
+      const dayInitialBalance = isBeforeStartDate ? 0 : currentBalance;
       
       // Filtrar transações realizadas do banco selecionado
       const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
       
-      // ✅ LOG: Debug das transações filtradas
-      if (day.getDate() === 28 && day.getMonth() === 11) { // Apenas para 28/12
-        console.log('[CONCILIAÇÃO] 🔍 Debug 28/12:', {
-          selectedBank,
-          totalTransactions: safeFinancialTransactions.length,
-          transacoesComBanco: safeFinancialTransactions.filter(t => t.bankAccountId).length,
-          transacoesSemBanco: safeFinancialTransactions.filter(t => !t.bankAccountId).length,
-          transacoesFiltradas: filteredTransactions.length,
-          dateStr,
-          samples: safeFinancialTransactions.slice(0, 3).map(t => ({
-            id: t.id,
-            bankAccountId: t.bankAccountId,
-            bankAccountName: t.bankAccountName,
-            effectiveDate: t.effectiveDate,
-            status: t.status,
-            amount: t.amount
-          }))
-        });
-      }
-      
-      // Entradas realizadas (Recebido)
-      const realizedIncome = filteredTransactions
+      // Entradas realizadas (Recebido) - zerar se antes da data de início
+      const realizedIncome = isBeforeStartDate ? 0 : filteredTransactions
         .filter(t => t.type === "Receita" && t.effectiveDate === dateStr && t.status === "Recebido")
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Saídas realizadas (Pago)
-      const realizedExpenses = filteredTransactions
+      // Saídas realizadas (Pago) - zerar se antes da data de início
+      const realizedExpenses = isBeforeStartDate ? 0 : filteredTransactions
         .filter(t => t.type === "Despesa" && t.effectiveDate === dateStr && t.status === "Pago")
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Atualizar saldo atual
-      currentBalance += realizedIncome - realizedExpenses;
+      // Atualizar saldo atual (não atualizar se antes da data de início)
+      if (!isBeforeStartDate) {
+        currentBalance += realizedIncome - realizedExpenses;
+      }
 
       // Buscar status de conciliação
       const reconciliationKey = `${selectedBank}-${dateStr}`;
@@ -133,9 +123,10 @@ export function BalanceReconciliation() {
         initialBalance: dayInitialBalance || 0,
         realizedIncome: realizedIncome || 0,
         realizedExpenses: realizedExpenses || 0,
-        finalBalance: currentBalance || 0,
+        finalBalance: isBeforeStartDate ? 0 : (currentBalance || 0), // ✅ Zerar saldo final se antes da data de início
         isReconciled,
-        reconciliationKey
+        reconciliationKey,
+        isBeforeStartDate // ✅ Flag para destacar visualmente (opcional)
       });
     });
 
@@ -290,7 +281,7 @@ export function BalanceReconciliation() {
                 {reconciliationData.map((day, index) => (
                   <tr 
                     key={index} 
-                    className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
+                    className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors ${day.isBeforeStartDate ? 'opacity-40' : ''}`}
                   >
                     <td className="px-3 py-2.5 text-sm text-gray-900">{day.date}</td>
                     <td className="px-3 py-2.5 text-sm text-right text-gray-900">

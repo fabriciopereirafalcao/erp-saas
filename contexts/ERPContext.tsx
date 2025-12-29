@@ -406,6 +406,7 @@ export interface BankAccount {
   accountNumber: string;
   balance: number; // Current balance (saldo atual)
   initialBalance?: number; // Initial balance (saldo inicial fixo)
+  startDate?: string; // Data de início do rastreamento (yyyy-MM-dd)
   isPrimary: boolean;
 }
 
@@ -1873,6 +1874,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       accountNumber: acc.accountNumber || '',
       balance: acc.balance || acc.currentBalance || 0, // ✅ Saldo atual
       initialBalance: acc.initial_balance || acc.initialBalance || 0, // ✅ Saldo inicial fixo
+      startDate: acc.start_date || acc.startDate || null, // ✅ Data de início
       isPrimary: acc.isPrimary || false
     };
     
@@ -4229,6 +4231,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         accountType: accountTypeMap[accountData.accountType] || 'Corrente',
         initialBalance: accountData.balance || 0,
         currentBalance: accountData.balance || 0,
+        startDate: accountData.startDate || null,
         isActive: true
       };
 
@@ -4294,6 +4297,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         initialBalance: originalAccount?.initial_balance || originalAccount?.initialBalance || existingAccount.balance,
         // ✅ Só atualizar currentBalance se o update vier com balance
         currentBalance: updates.balance !== undefined ? updates.balance : existingAccount.balance,
+        // ✅ Permitir atualizar startDate
+        startDate: updates.startDate !== undefined ? updates.startDate : (originalAccount?.start_date || originalAccount?.startDate || null),
         isActive: true
       };
       

@@ -2295,6 +2295,7 @@ export async function getBankAccounts(companyId: string) {
     initialBalance: row.initial_balance ? parseFloat(row.initial_balance) : 0,
     currentBalance: row.current_balance ? parseFloat(row.current_balance) : 0,
     balance: row.current_balance ? parseFloat(row.current_balance) : 0, // ✅ Alias para compatibilidade
+    startDate: row.start_date || null, // ✅ Data de início do rastreamento
     isPrimary: false, // ✅ Campo legacy para compatibilidade
     isActive: row.is_active
   })) || [];
@@ -2353,6 +2354,7 @@ export async function saveBankAccounts(companyId: string, accounts: any[]) {
         account_type: account.accountType || 'Corrente',
         initial_balance: account.initialBalance || 0,
         current_balance: account.currentBalance || 0,
+        start_date: account.startDate || null, // ✅ Data de início do rastreamento
         is_active: account.isActive !== undefined ? account.isActive : true
       };
 
