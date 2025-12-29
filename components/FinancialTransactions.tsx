@@ -1478,7 +1478,7 @@ export function FinancialTransactions() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {txn.status !== "Pago" && (
+                            {txn.status !== "Pago" && txn.status !== "Recebido" && (
                               <>
                                 <DropdownMenuItem 
                                   onClick={() => handleOpenReceiveDialog(txn.id)}
@@ -1521,7 +1521,7 @@ export function FinancialTransactions() {
                                 )}
                               </>
                             )}
-                            {txn.status === "Pago" && (
+                            {(txn.status === "Pago" || txn.status === "Recebido") && (
                               <DropdownMenuItem 
                                 onClick={() => {
                                   toast.info("Transação já liquidada", {
@@ -1531,7 +1531,7 @@ export function FinancialTransactions() {
                                 className="text-gray-500"
                               >
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Pago
+                                {txn.status === "Recebido" ? "Recebido" : "Pago"}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
