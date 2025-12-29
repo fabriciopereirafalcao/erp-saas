@@ -4,8 +4,6 @@ import { Card } from "./ui/card";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Calendar } from "./ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Badge } from "./ui/badge";
 import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
@@ -233,45 +231,61 @@ export function BalanceReconciliation() {
       </div>
 
       <Card className="p-6">
-        {/* Filtros */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Competência */}
-          <div>
-            <Label className="text-sm mb-2 block">Competência</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(selectedMonth, "MM/yyyy", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedMonth}
-                  onSelect={(date) => date && setSelectedMonth(date)}
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+        {/* Filtro de Ano/Mês - Seleção Única */}
+        <div className="mb-6 flex items-center justify-center gap-6 bg-gray-50 p-4 rounded-lg border">
+          {/* Seletor de Ano */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1))}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronDown className="h-4 w-4 rotate-90" />
+            </Button>
+            <span className="text-lg font-semibold min-w-[70px] text-center">{selectedMonth.getFullYear()}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1))}
+              className="h-8 w-8 p-0"
+              disabled={selectedMonth.getFullYear() >= new Date().getFullYear()}
+            >
+              <ChevronDown className="h-4 w-4 -rotate-90" />
+            </Button>
           </div>
+          
+          {/* Pills de Meses - Seleção Única */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+              <Button
+                key={index}
+                variant={selectedMonth.getMonth() === index && selectedMonth.getFullYear() === selectedMonth.getFullYear() ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
+                className={`h-8 px-3 text-sm ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+              >
+                {monthName}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-          {/* Banco/Caixa */}
-          <div>
-            <Label className="text-sm mb-2 block">Banco / Caixa *</Label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um banco" />
-              </SelectTrigger>
-              <SelectContent>
-                {safeBankAccounts.map(bank => (
-                  <SelectItem key={bank.id} value={bank.id}>
-                    {bank.bankName} - {bank.accountNumber}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Filtro de Banco */}
+        <div className="mb-6">
+          <Label className="text-sm mb-2 block">Banco / Caixa *</Label>
+          <Select value={selectedBank} onValueChange={setSelectedBank}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um banco" />
+            </SelectTrigger>
+            <SelectContent>
+              {safeBankAccounts.map(bank => (
+                <SelectItem key={bank.id} value={bank.id}>
+                  {bank.bankName} - {bank.accountNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Botão GERAR PDF */}
