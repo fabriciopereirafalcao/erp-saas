@@ -187,13 +187,23 @@ export function BalanceReconciliation() {
     
     if (companySettings?.companyLogo) {
       try {
-        // Converter base64 para formato adequado se necessário
         const logoData = companySettings.companyLogo;
-        const imageFormat = logoData.includes('image/png') ? 'PNG' : 'JPEG';
+        
+        // Determinar formato da imagem
+        let imageFormat = 'PNG';
+        if (logoData.includes('data:image/jpeg') || logoData.includes('data:image/jpg')) {
+          imageFormat = 'JPEG';
+        } else if (logoData.includes('data:image/png')) {
+          imageFormat = 'PNG';
+        }
+        
         doc.addImage(logoData, imageFormat, logoX, logoY, logoSize, logoSize);
+        console.log('✅ Logo adicionada ao PDF com formato:', imageFormat);
       } catch (error) {
-        console.error('Erro ao adicionar logo:', error);
+        console.error('❌ Erro ao adicionar logo ao PDF:', error);
       }
+    } else {
+      console.warn('⚠️ Nenhuma logo configurada em companySettings');
     }
 
     // Dados da empresa ao lado do logo
@@ -431,13 +441,53 @@ export function BalanceReconciliation() {
       </div>
 
       <Card className="p-6">
-        {/* Filtros de Competência e Banco - Layout Otimizado */}
-        <div className="mb-6 space-y-4">
-          {/* Filtro de Banco */}
-          <div className="flex items-center gap-4">
-            <Label className="text-sm whitespace-nowrap">Banco / Caixa *</Label>
+        {/* Filtros - Seletor de Mês (esquerda) e Banco (direita) lado a lado */}
+        <div className="mb-6 flex items-start gap-4">
+          {/* Filtro de Competência - Ano e Meses */}
+          <div className="flex-1 flex items-center gap-4 bg-gray-50 p-3 rounded-lg border">
+            {/* Seletor de Ano */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1))}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronDown className="h-4 w-4 rotate-90" />
+              </Button>
+              <span className="font-semibold min-w-[60px] text-center">{selectedMonth.getFullYear()}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1))}
+                className="h-7 w-7 p-0"
+                disabled={selectedMonth.getFullYear() >= new Date().getFullYear()}
+              >
+                <ChevronDown className="h-4 w-4 -rotate-90" />
+              </Button>
+            </div>
+            
+            {/* Pills de Meses - Compactos */}
+            <div className="flex gap-1.5">
+              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+                <Button
+                  key={index}
+                  variant={selectedMonth.getMonth() === index ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
+                  className={`h-7 px-2.5 text-xs whitespace-nowrap ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  {monthName}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtro de Banco - Direita */}
+          <div className="flex items-center gap-3">
+            <Label className="text-sm whitespace-nowrap">Banco / Caixa</Label>
             <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger className="w-[300px]">
+              <SelectTrigger className="w-[280px]">
                 <SelectValue placeholder="Selecione um banco" />
               </SelectTrigger>
               <SelectContent>
@@ -448,46 +498,6 @@ export function BalanceReconciliation() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Filtro de Competência - Ano e Meses em linha única */}
-          <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-lg border">
-            {/* Seletor de Ano */}
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1))}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronDown className="h-4 w-4 rotate-90" />
-              </Button>
-              <span className="text-lg font-semibold min-w-[70px] text-center">{selectedMonth.getFullYear()}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1))}
-                className="h-8 w-8 p-0"
-                disabled={selectedMonth.getFullYear() >= new Date().getFullYear()}
-              >
-                <ChevronDown className="h-4 w-4 -rotate-90" />
-              </Button>
-            </div>
-            
-            {/* Pills de Meses - Todos em uma linha */}
-            <div className="flex gap-2">
-              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
-                <Button
-                  key={index}
-                  variant={selectedMonth.getMonth() === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
-                  className={`h-8 px-3 text-sm whitespace-nowrap ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  {monthName}
-                </Button>
-              ))}
-            </div>
           </div>
         </div>
 
