@@ -4619,10 +4619,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // Adicionar transação ao state local
       setFinancialTransactions(prev => [newTransaction, ...prev]);
       
-      // Atualizar saldo bancário se pago/recebido
-      if (transactionData.paymentDate && transactionData.bankAccountId) {
+      // ✅ CORREÇÃO: Atualizar saldo bancário se pago/recebido
+      // Verifica effectiveDate (quando criada como paga) OU paymentDate (campo antigo)
+      const isPaidOrReceived = newTransaction.status === 'Pago' || newTransaction.status === 'Recebido';
+      if (isPaidOrReceived && transactionData.bankAccountId) {
         const bankAccount = companySettings.bankAccounts.find(b => b.id === transactionData.bankAccountId);
         if (bankAccount) {
+          console.log(`💰 [ADD TRANSACTION] Atualizando saldo da conta ${bankAccount.bankName}:`, {
+            saldoAtual: bankAccount.balance,
+            valor: transactionData.amount,
+            tipo: transactionData.type,
+            novoSaldo: bankAccount.balance + (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
+          });
+          
           updateBankAccount(transactionData.bankAccountId, {
             balance: bankAccount.balance + 
               (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
