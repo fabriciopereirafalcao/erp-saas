@@ -80,6 +80,7 @@ export function FinancialTransactions() {
     paymentMethodName: string;
     type: "Receita" | "Despesa";
   } | null>(null);
+  const [pendingCreatePaid, setPendingCreatePaid] = useState<typeof formData | null>(null);
   const [showPaymentDatePopover, setShowPaymentDatePopover] = useState(false);
 
   // Form state
@@ -510,6 +511,31 @@ export function FinancialTransactions() {
     // ✅ Converter Date para string local (evita problema de timezone)
     const baseDateString = dateToLocalString(formData.date);
     
+    // ✅ VALIDAÇÃO: Se alreadyPaid, verificar se data de pagamento é anterior ao startDate da conta
+    if (formData.alreadyPaid && formData.bankAccountId) {
+      const paymentDateString = dateToLocalString(formData.paymentDate);
+      const validationResult = validateSettlementDate(formData.bankAccountId, paymentDateString);
+      
+      if (validationResult.needsConfirmation) {
+        // Armazenar dados para criação após confirmação
+        setPendingCreatePaid(formData);
+        
+        // Abrir dialog de confirmação
+        const bankAccount = safeBankAccounts.find(b => b.id === formData.bankAccountId);
+        setPendingSettlement({
+          transactionId: '', // Não há transactionId ainda
+          date: paymentDateString,
+          bankAccountId: formData.bankAccountId,
+          bankAccountName: bankAccount?.bankName || '',
+          paymentMethodId: '',
+          paymentMethodName: '',
+          type: formData.type
+        });
+        setShowWarningDialog(true);
+        return; // Parar execução até confirmação
+      }
+    }
+    
     for (let i = 0; i < numInstallments; i++) {
       // Calcular data de vencimento de cada parcela usando addDaysToDate
       const daysToAdd = formData.firstInstallmentDays + (i * 30);
@@ -680,33 +706,104 @@ export function FinancialTransactions() {
     
     console.log('⚠️ [OVERRIDE] Usuário confirmou liquidação com data anterior:', pendingSettlement);
     
-    if (pendingSettlement.type === "Receita") {
-      markTransactionAsReceived(
-        pendingSettlement.transactionId,
-        pendingSettlement.date,
-        pendingSettlement.bankAccountId,
-        pendingSettlement.bankAccountName,
-        pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName,
-        true // ✅ Flag de override
-      );
-    } else {
-      markTransactionAsPaid(
-        pendingSettlement.transactionId,
-        pendingSettlement.date,
-        pendingSettlement.bankAccountId,
-        pendingSettlement.bankAccountName,
-        pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName,
-        true // ✅ Flag de override
-      );
+    // CASO 1: Criação de transação já paga com override
+    if (pendingCreatePaid) {
+      const formData = pendingCreatePaid;
+      const category = safeAccountCategories.find(c => c.id === formData.categoryId);
+      const costCenter = safeCostCenters.find(c => c.id === formData.costCenterId);
+      const numInstallments = parseInt(formData.installments);
+      const totalAmount = parseFloat(formData.amount) / 100;
+      const installmentAmount = totalAmount / numInstallments;
+      const baseDateString = dateToLocalString(formData.date);
+      const todayString = getTodayString();
+      
+      for (let i = 0; i < numInstallments; i++) {
+        const daysToAdd = formData.firstInstallmentDays + (i * 30);
+        const dueDate = addDaysToDate(baseDateString, daysToAdd);
+        const amount = i === numInstallments - 1 
+          ? totalAmount - (installmentAmount * (numInstallments - 1))
+          : installmentAmount;
+        const isOverdue = compareDates(dueDate, todayString) < 0;
+        const status = formData.alreadyPaid
+          ? (formData.type === "Receita" ? "Recebido" : "Pago")
+          : isOverdue
+            ? "Vencido" 
+            : (formData.type === "Receita" ? "A Receber" : "A Pagar");
+
+        const transactionData = {
+          type: formData.type,
+          date: baseDateString,
+          dueDate: dueDate,
+          partyType: formData.partyType,
+          partyId: formData.partyId || undefined,
+          partyName: formData.partyName,
+          categoryId: formData.categoryId,
+          categoryName: category?.name || "",
+          bankAccountId: formData.bankAccountId || "",
+          bankAccountName: formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId)?.bankName || "" : "",
+          paymentMethodId: "",
+          paymentMethodName: "",
+          amount: amount,
+          status: status as any,
+          effectiveDate: formData.alreadyPaid ? dateToLocalString(formData.paymentDate) : undefined,
+          hasStartDateOverride: true,
+          costCenterId: formData.costCenterId || undefined,
+          costCenterName: costCenter?.name,
+          description: numInstallments > 1 
+            ? `${formData.description} - Parcela ${i + 1}/${numInstallments}`
+            : formData.description,
+          installmentNumber: i + 1,
+          totalInstallments: numInstallments,
+          origin: "Manual" as const
+        };
+
+        addFinancialTransaction(transactionData);
+      }
+
+      if (numInstallments > 1) {
+        toast.success(`${numInstallments} transações criadas com sucesso!`, {
+          description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        });
+      } else {
+        toast.success("Transação criada com sucesso!", {
+          description: "Transação liquidada com data anterior ao início da conta"
+        });
+      }
+
+      setShowDialog(false);
+      setPendingCreatePaid(null);
+    }
+    // CASO 2: Liquidação de transação existente com override
+    else if (pendingSettlement.transactionId) {
+      if (pendingSettlement.type === "Receita") {
+        markTransactionAsReceived(
+          pendingSettlement.transactionId,
+          pendingSettlement.date,
+          pendingSettlement.bankAccountId,
+          pendingSettlement.bankAccountName,
+          pendingSettlement.paymentMethodId,
+          pendingSettlement.paymentMethodName,
+          true
+        );
+      } else {
+        markTransactionAsPaid(
+          pendingSettlement.transactionId,
+          pendingSettlement.date,
+          pendingSettlement.bankAccountId,
+          pendingSettlement.bankAccountName,
+          pendingSettlement.paymentMethodId,
+          pendingSettlement.paymentMethodName,
+          true
+        );
+      }
+      
+      setShowReceiveDialog(false);
+      setReceivingTransaction(null);
     }
     
     // Limpar estados
     setShowWarningDialog(false);
     setPendingSettlement(null);
-    setShowReceiveDialog(false);
-    setReceivingTransaction(null);
   };
 
   // Função auxiliar para encontrar todas as parcelas relacionadas

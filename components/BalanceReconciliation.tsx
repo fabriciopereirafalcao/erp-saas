@@ -391,7 +391,7 @@ export function BalanceReconciliation() {
                                     {t.hasStartDateOverride && (
                                       <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-300 text-xs">
                                         <AlertTriangle className="w-3 h-3 mr-1" />
-                                        Data Anterior ao Início
+                                        Data Anterior ao Início da conta
                                       </Badge>
                                     )}
                                   </div>

@@ -76,8 +76,8 @@ export function SettlementDateWarningDialog({
                 <strong>⚠️ Consequências:</strong>
               </p>
               <ul className="text-sm text-orange-700 space-y-1 list-disc list-inside">
-                <li>Esta transação <strong>não aparecerá</strong> nos relatórios de conciliação para períodos anteriores a {formatDate(warning.accountStartDate)}</li>
-                <li>O saldo será zerado para datas anteriores ao início da conta</li>
+                <li>Esta transação <strong>aparecerá com badge de auditoria</strong> nos relatórios de conciliação</li>
+                <li>O saldo da conta será atualizado normalmente incluindo esta transação</li>
                 <li>A diferença é de <strong>{daysDifference} dia{daysDifference !== 1 ? 's' : ''}</strong></li>
               </ul>
             </div>
