@@ -2692,6 +2692,57 @@ app.post('/reconciliation-status', async (c) => {
   }
 });
 
+// ==================== ROTAS - RECONCILIATION AUDIT ====================
+
+app.get('/reconciliation-audit', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[RECONCILIATION AUDIT] 📥 Carregando auditoria de reconciliação da empresa ${auth.companyId}`);
+    const reconciliationAudit = await sqlService.getReconciliationAudit(auth.companyId);
+    
+    console.log(`[RECONCILIATION AUDIT] ✅ ${reconciliationAudit.length} registros de auditoria carregados`);
+    return c.json({
+      success: true,
+      data: reconciliationAudit
+    });
+
+  } catch (error) {
+    console.error('[RECONCILIATION AUDIT] ❌ Erro ao carregar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/reconciliation-audit', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const { data } = await c.req.json();
+    
+    if (!Array.isArray(data)) {
+      return c.json({ error: 'Dados devem ser um array' }, 400);
+    }
+
+    console.log(`[RECONCILIATION AUDIT] 💾 Salvando ${data.length} registros de auditoria para empresa ${auth.companyId}`);
+    const result = await sqlService.saveReconciliationAudit(auth.companyId, data);
+    
+    return c.json({
+      success: true,
+      message: `${result.count} registros de auditoria salvos com sucesso`
+    });
+
+  } catch (error) {
+    console.error('[RECONCILIATION AUDIT] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - LAST ANALYSIS DATE ====================
 
 app.get('/last-analysis-date', async (c) => {
@@ -3007,7 +3058,7 @@ app.get('/health', (c) => {
       'product-batches', 'salespeople', 'buyers', 'payment-methods', 'account-categories',
       'financial-transactions', 'accounts-receivable', 'accounts-payable', 'bank-accounts',
       'bank-movements', 'cash-flow-entries', 'audit-issues', 'company-history',
-      'reconciliation-status', 'last-analysis-date', 'dre'
+      'reconciliation-status', 'reconciliation-audit', 'last-analysis-date', 'dre'
     ]
   });
 });

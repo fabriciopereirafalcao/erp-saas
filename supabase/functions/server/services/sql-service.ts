@@ -999,6 +999,8 @@ export const sqlService = {
   saveCompanyHistory,
   getReconciliationStatus,
   saveReconciliationStatus,
+  getReconciliationAudit,
+  saveReconciliationAudit,
   getLastAnalysisDate,
   saveLastAnalysisDate
 };
@@ -1953,6 +1955,19 @@ async function saveReconciliationStatus(companyId: string, reconciliationStatus:
   settings.reconciliationStatus = reconciliationStatus;
   await saveCompanySettings(companyId, settings);
   return { success: true, count: reconciliationStatus.length };
+}
+
+// RECONCILIATION AUDIT
+async function getReconciliationAudit(companyId: string) {
+  const settings = await getCompanySettings(companyId);
+  return settings.reconciliationAudit || [];
+}
+
+async function saveReconciliationAudit(companyId: string, reconciliationAudit: any[]) {
+  const settings = await getCompanySettings(companyId);
+  settings.reconciliationAudit = reconciliationAudit;
+  await saveCompanySettings(companyId, settings);
+  return { success: true, count: reconciliationAudit.length };
 }
 
 // LAST ANALYSIS DATE

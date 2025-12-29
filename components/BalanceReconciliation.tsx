@@ -5,29 +5,41 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 export function BalanceReconciliation() {
   const {
     financialTransactions,
     companySettings,
     reconciliationStatus,
-    toggleReconciliationStatus
+    reconciliationAudit,
+    toggleReconciliationStatus,
+    getReconciliationHistory
   } = useERP();
 
   // ✅ Proteções contra arrays undefined
   const safeFinancialTransactions = financialTransactions || [];
   const safeBankAccounts = companySettings?.bankAccounts || [];
   const safeReconciliationStatus = reconciliationStatus || {};
+  const safeReconciliationAudit = reconciliationAudit || [];
 
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedBank, setSelectedBank] = useState<string>("");
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [selectedReconciliationKey, setSelectedReconciliationKey] = useState<string>("");
 
   // Ao carregar, seleciona automaticamente a conta principal (isPrimary) ou a primeira conta
   useEffect(() => {
@@ -153,9 +165,30 @@ export function BalanceReconciliation() {
   const totalDays = reconciliationData.length;
   const reconciliationPercentage = totalDays > 0 ? (totalReconciled / totalDays * 100).toFixed(0) : 0;
 
-  const handleToggleReconciliation = (reconciliationKey: string) => {
-    toggleReconciliationStatus(reconciliationKey);
+  const handleToggleReconciliation = (reconciliationKey: string, dayData: any) => {
+    const bank = safeBankAccounts.find(b => b.id === selectedBank);
+    if (!bank) return;
+
+    toggleReconciliationStatus(reconciliationKey, {
+      bankAccountId: selectedBank,
+      bankName: bank.bankName,
+      date: dayData.dateStr,
+      initialBalance: dayData.initialBalance,
+      finalBalance: dayData.finalBalance,
+      realizedIncome: dayData.realizedIncome,
+      realizedExpenses: dayData.realizedExpenses,
+      transactionCount: dayData.transactions?.length || 0
+    });
   };
+
+  // ✅ Abrir modal de histórico
+  const handleOpenHistory = (reconciliationKey: string) => {
+    setSelectedReconciliationKey(reconciliationKey);
+    setHistoryDialogOpen(true);
+  };
+
+  // ✅ Obter histórico da chave selecionada
+  const currentHistory = selectedReconciliationKey ? getReconciliationHistory(selectedReconciliationKey) : [];
 
   // ✅ Toggle expansão de detalhes do dia
   const toggleDayExpansion = (dateStr: string) => {
@@ -533,6 +566,7 @@ export function BalanceReconciliation() {
                   <th className="px-3 py-3 text-right text-sm text-gray-700">Saídas</th>
                   <th className="px-3 py-3 text-right text-sm text-gray-700">Saldo Final</th>
                   <th className="px-3 py-3 text-center text-sm text-gray-700">Status</th>
+                  <th className="px-3 py-3 text-center text-sm text-gray-700">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -585,7 +619,7 @@ export function BalanceReconciliation() {
                         </td>
                         <td className="px-3 py-2.5 text-sm text-center">
                           <button
-                            onClick={() => handleToggleReconciliation(day.reconciliationKey)}
+                            onClick={() => handleToggleReconciliation(day.reconciliationKey, day)}
                             className="inline-flex items-center gap-1 hover:opacity-70 transition-opacity"
                           >
                             {day.isReconciled ? (
@@ -601,12 +635,23 @@ export function BalanceReconciliation() {
                             )}
                           </button>
                         </td>
+                        <td className="px-3 py-2.5 text-sm text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenHistory(day.reconciliationKey)}
+                            className="h-8 gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <History className="w-4 h-4" />
+                            Ver Histórico
+                          </Button>
+                        </td>
                       </tr>
                       
                       {/* ✅ Linha expansível com detalhes das transações */}
                       {isExpanded && hasTransactions && (
                         <tr className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                          <td colSpan={7} className="px-8 py-3">
+                          <td colSpan={8} className="px-8 py-3">
                             <div className="space-y-2">
                               <p className="text-xs text-gray-500 mb-2">Transações do dia:</p>
                               {day.transactions.map((t: any) => (
@@ -640,7 +685,7 @@ export function BalanceReconciliation() {
                 })}
                 {reconciliationData.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                       Nenhum dado encontrado para o período selecionado
                     </td>
                   </tr>
@@ -650,6 +695,136 @@ export function BalanceReconciliation() {
           </div>
         )}
       </Card>
+
+      {/* Modal de Histórico de Auditoria */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-blue-600" />
+              Histórico de Auditoria
+            </DialogTitle>
+            <DialogDescription>
+              Registro completo de todas as ações de conciliação realizadas
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentHistory.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <History className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg">Nenhum histórico encontrado</p>
+              <p className="text-sm mt-2">Esta conciliação ainda não possui registros de auditoria.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Informações da Conciliação */}
+              {currentHistory[0] && (
+                <Card className="p-4 bg-blue-50 border-blue-200">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-600 font-medium">Conta Bancária</p>
+                      <p className="text-gray-900">{currentHistory[0].bankName}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600 font-medium">Data</p>
+                      <p className="text-gray-900">
+                        {format(new Date(currentHistory[0].date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Timeline de Ações */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  Histórico de Ações ({currentHistory.length})
+                </h3>
+
+                <div className="relative border-l-2 border-gray-200 ml-3 pl-6 space-y-4">
+                  {currentHistory.map((entry, index) => (
+                    <div key={entry.id} className="relative">
+                      {/* Marcador da timeline */}
+                      <div className={`absolute -left-[1.6rem] w-6 h-6 rounded-full flex items-center justify-center ${
+                        entry.isReconciled 
+                          ? 'bg-green-100 border-2 border-green-600' 
+                          : 'bg-orange-100 border-2 border-orange-600'
+                      }`}>
+                        {entry.isReconciled ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 text-orange-600" />
+                        )}
+                      </div>
+
+                      {/* Card da ação */}
+                      <Card className={`p-4 ${index === 0 ? 'border-2 border-blue-500' : ''}`}>
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <Badge 
+                              variant={entry.isReconciled ? "default" : "secondary"}
+                              className={entry.isReconciled ? "bg-green-600" : "bg-orange-600"}
+                            >
+                              {entry.isReconciled ? "✓ Conciliado" : "○ Não Conciliado"}
+                            </Badge>
+                            {index === 0 && (
+                              <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-300">
+                                Mais Recente
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-right text-sm">
+                            <p className="text-gray-900 font-medium">
+                              {format(new Date(entry.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </p>
+                            <p className="text-gray-600 text-xs">{entry.user}</p>
+                          </div>
+                        </div>
+
+                        {/* Valores da Conciliação */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-200">
+                          <div>
+                            <p className="text-xs text-gray-500">Saldo Inicial</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              R$ {entry.initialBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Entradas</p>
+                            <p className="text-sm font-medium text-green-600">
+                              R$ {entry.realizedIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Saídas</p>
+                            <p className="text-sm font-medium text-red-600">
+                              R$ {entry.realizedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Saldo Final</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              R$ {entry.finalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Transações */}
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <p className="text-xs text-gray-500">
+                            {entry.transactionCount} {entry.transactionCount === 1 ? 'transação' : 'transações'} neste dia
+                          </p>
+                        </div>
+                      </Card>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

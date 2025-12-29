@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
   COMPANY_SETTINGS: `${STORAGE_PREFIX}company_settings`,
   COMPANY_HISTORY: `${STORAGE_PREFIX}company_history`,
   RECONCILIATION_STATUS: `${STORAGE_PREFIX}reconciliation_status`,
+  RECONCILIATION_AUDIT: `${STORAGE_PREFIX}reconciliation_audit`,
   AUDIT_ISSUES: `${STORAGE_PREFIX}audit_issues`,
   LAST_ANALYSIS_DATE: `${STORAGE_PREFIX}last_analysis_date`,
 };

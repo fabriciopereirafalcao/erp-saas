@@ -527,6 +527,25 @@ export interface CompanyHistoryEntry {
   section: string; // Ex: "Dados Gerais", "Endereço", "Fiscal", etc.
 }
 
+// Auditoria de Conciliação Bancária
+export interface ReconciliationAuditEntry {
+  id: string;
+  reconciliationKey: string; // Ex: "bankId-2025-12-01"
+  bankAccountId: string;
+  bankName: string;
+  date: string; // YYYY-MM-DD
+  isReconciled: boolean;
+  timestamp: string; // ISO timestamp
+  user: string; // email do usuário
+  userId: string;
+  // Valores no momento da conciliação
+  initialBalance: number;
+  finalBalance: number;
+  realizedIncome: number;
+  realizedExpenses: number;
+  transactionCount: number;
+}
+
 // ==================== CONTEXT ====================
 
 interface ERPContextData {
@@ -658,7 +677,21 @@ interface ERPContextData {
   
   // Reconciliation Actions
   reconciliationStatus: Record<string, boolean>;
-  toggleReconciliationStatus: (reconciliationKey: string) => void;
+  reconciliationAudit: ReconciliationAuditEntry[];
+  toggleReconciliationStatus: (
+    reconciliationKey: string,
+    auditData: {
+      bankAccountId: string;
+      bankName: string;
+      date: string;
+      initialBalance: number;
+      finalBalance: number;
+      realizedIncome: number;
+      realizedExpenses: number;
+      transactionCount: number;
+    }
+  ) => void;
+  getReconciliationHistory: (reconciliationKey: string) => ReconciliationAuditEntry[];
   
   // Validation Actions
   validateSettlementDate: (bankAccountId: string, settlementDate: string) => {
@@ -1169,6 +1202,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Estado de conciliação de saldos
   const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>({});
+  const [reconciliationAudit, setReconciliationAudit] = useState<ReconciliationAuditEntry[]>([]);
 
   // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
   
@@ -1217,6 +1251,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries, setCashFlowEntries);
     migrateIfNeeded(STORAGE_KEYS.COMPANY_HISTORY, companyHistory, setCompanyHistory);
     migrateIfNeeded(STORAGE_KEYS.RECONCILIATION_STATUS, reconciliationStatus, setReconciliationStatus);
+    migrateIfNeeded(STORAGE_KEYS.RECONCILIATION_AUDIT, reconciliationAudit, setReconciliationAudit);
 
     console.log(`✅ Migração concluída para company_id: ${companyId}`);
   }, [profile?.company_id]); // Executar apenas quando company_id mudar
@@ -1304,6 +1339,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     setAuditIssues(loadCached(STORAGE_KEYS.AUDIT_ISSUES, []));
     setCompanyHistory(loadCached(STORAGE_KEYS.COMPANY_HISTORY, []));
     setReconciliationStatus(loadCached(STORAGE_KEYS.RECONCILIATION_STATUS, {}));
+    setReconciliationAudit(loadCached(STORAGE_KEYS.RECONCILIATION_AUDIT, []));
     
     const lastAnalysisStr = loadFromStorage<string | null>(
       getStorageKey(STORAGE_KEYS.LAST_ANALYSIS_DATE, profile.company_id), 
@@ -1535,10 +1571,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         }
         
         // Carregar status de reconciliação
-        const reconciliationStatusData = await loadEntity<Record<string, boolean>>('reconciliation-status');
+        const reconciliationStatusData = await loadEntity<any[]>('reconciliation-status');
         if (isSubscribed && reconciliationStatusData) {
-          console.log(`[SUPABASE] ✅ Status de reconciliação carregado`);
-          setReconciliationStatus(reconciliationStatusData);
+          console.log(`[SUPABASE] ✅ Status de reconciliação carregado (${reconciliationStatusData.length} registros)`);
+          // ✅ Converter array para Record<string, boolean>
+          const statusRecord: Record<string, boolean> = {};
+          reconciliationStatusData.forEach((item: any) => {
+            if (item.key && typeof item.isReconciled === 'boolean') {
+              statusRecord[item.key] = item.isReconciled;
+            }
+          });
+          setReconciliationStatus(statusRecord);
+        }
+        
+        // Carregar auditoria de reconciliação
+        const reconciliationAuditData = await loadEntity<ReconciliationAuditEntry[]>('reconciliation-audit');
+        if (isSubscribed && reconciliationAuditData && reconciliationAuditData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${reconciliationAuditData.length} entradas de auditoria de reconciliação carregadas`);
+          setReconciliationAudit(reconciliationAuditData);
         }
         
         console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
@@ -1662,7 +1712,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     throttleMs: 2000 
   });
   useEntityPersistence({ entityName: 'company-history', data: companyHistory, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
-  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatus, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
+  
+  // ✅ Converter reconciliationStatus de Record para Array antes de salvar
+  const reconciliationStatusArray = useMemo(() => {
+    return Object.entries(reconciliationStatus).map(([key, isReconciled]) => ({
+      key,
+      isReconciled,
+      updatedAt: new Date().toISOString(),
+      updatedBy: profile?.email || 'unknown'
+    }));
+  }, [reconciliationStatus, profile?.email]);
+  
+  useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatusArray, enabled: initialDataLoaded && !!profile?.company_id && reconciliationStatusArray.length > 0, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'reconciliation-audit', data: reconciliationAudit, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
 
   // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
   
@@ -1773,6 +1835,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     if (!profile?.company_id) return;
     saveToStorage(getStorageKey(STORAGE_KEYS.RECONCILIATION_STATUS, profile.company_id), reconciliationStatus);
   }, [reconciliationStatus, profile?.company_id]);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.RECONCILIATION_AUDIT, profile.company_id), reconciliationAudit);
+  }, [reconciliationAudit, profile?.company_id]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -6005,11 +6072,56 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // ==================== RECONCILIATION ACTIONS ====================
 
-  const toggleReconciliationStatus = (reconciliationKey: string) => {
+  const toggleReconciliationStatus = (
+    reconciliationKey: string,
+    auditData: {
+      bankAccountId: string;
+      bankName: string;
+      date: string;
+      initialBalance: number;
+      finalBalance: number;
+      realizedIncome: number;
+      realizedExpenses: number;
+      transactionCount: number;
+    }
+  ) => {
+    // Atualizar status
+    const newStatus = !reconciliationStatus[reconciliationKey];
+    
     setReconciliationStatus(prev => ({
       ...prev,
-      [reconciliationKey]: !prev[reconciliationKey]
+      [reconciliationKey]: newStatus
     }));
+
+    // Criar registro de auditoria
+    const auditEntry: ReconciliationAuditEntry = {
+      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      reconciliationKey,
+      bankAccountId: auditData.bankAccountId,
+      bankName: auditData.bankName,
+      date: auditData.date,
+      isReconciled: newStatus,
+      timestamp: new Date().toISOString(),
+      user: profile?.email || 'Sistema',
+      userId: profile?.id || 'system',
+      initialBalance: auditData.initialBalance,
+      finalBalance: auditData.finalBalance,
+      realizedIncome: auditData.realizedIncome,
+      realizedExpenses: auditData.realizedExpenses,
+      transactionCount: auditData.transactionCount
+    };
+
+    setReconciliationAudit(prev => [...prev, auditEntry]);
+
+    // Log da ação
+    console.log(`[CONCILIAÇÃO] ${newStatus ? '✅ Conciliado' : '⚠️ Desmarcado'}: ${auditData.bankName} - ${auditData.date}`);
+    console.log(`[AUDITORIA] Registro criado:`, auditEntry);
+  };
+
+  const getReconciliationHistory = (reconciliationKey: string): ReconciliationAuditEntry[] => {
+    return reconciliationAudit
+      .filter(entry => entry.reconciliationKey === reconciliationKey)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
 
   // ==================== CONTEXT VALUE ====================
@@ -6104,7 +6216,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     updateCashFlowEntry,
     deleteCashFlowEntry,
     reconciliationStatus,
+    reconciliationAudit,
     toggleReconciliationStatus,
+    getReconciliationHistory,
     validateSettlementDate
   };
 
