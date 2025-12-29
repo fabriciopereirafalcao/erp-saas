@@ -60,7 +60,8 @@ export function BalanceReconciliation() {
       if (t.effectiveDate >= monthStartDate) return false;
       if (t.status !== 'Recebido' && t.status !== 'Pago') return false;
       // ✅ Se tem startDate, só considerar transações depois da startDate
-      if (bank.startDate && t.effectiveDate < bank.startDate) return false;
+      // EXCETO se tem flag de override (então incluir para auditoria)
+      if (bank.startDate && t.effectiveDate < bank.startDate && !t.hasStartDateOverride) return false;
       return true;
     });
     

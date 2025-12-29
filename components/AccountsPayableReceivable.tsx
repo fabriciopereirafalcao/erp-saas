@@ -274,7 +274,8 @@ export function AccountsPayableReceivable() {
         pendingSettlement.bankAccountId,
         pendingSettlement.bankAccountName,
         pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName
+        pendingSettlement.paymentMethodName,
+        true // ✅ Flag de override
       );
     } else {
       markTransactionAsPaid(
@@ -283,7 +284,8 @@ export function AccountsPayableReceivable() {
         pendingSettlement.bankAccountId,
         pendingSettlement.bankAccountName,
         pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName
+        pendingSettlement.paymentMethodName,
+        true // ✅ Flag de override
       );
     }
     

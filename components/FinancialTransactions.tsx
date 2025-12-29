@@ -687,7 +687,8 @@ export function FinancialTransactions() {
         pendingSettlement.bankAccountId,
         pendingSettlement.bankAccountName,
         pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName
+        pendingSettlement.paymentMethodName,
+        true // ✅ Flag de override
       );
     } else {
       markTransactionAsPaid(
@@ -696,7 +697,8 @@ export function FinancialTransactions() {
         pendingSettlement.bankAccountId,
         pendingSettlement.bankAccountName,
         pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName
+        pendingSettlement.paymentMethodName,
+        true // ✅ Flag de override
       );
     }
     

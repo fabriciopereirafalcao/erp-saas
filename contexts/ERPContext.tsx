@@ -274,6 +274,7 @@ export interface FinancialTransaction {
   isTransfer?: boolean; // Indica se é uma transferência entre contas
   transferPairId?: string; // ID da transação par da transferência
   transferDirection?: "origem" | "destino"; // Direção da transferência
+  hasStartDateOverride?: boolean; // ✅ Flag: liquidação com data anterior ao início da conta (para auditoria)
 }
 
 // Conta a Receber
@@ -4755,7 +4756,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Marcar transação como recebida
-  const markTransactionAsReceived = (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => {
+  const markTransactionAsReceived = (
+    id: string, 
+    effectiveDate: string, 
+    bankAccountId?: string, 
+    bankAccountName?: string, 
+    paymentMethodId?: string, 
+    paymentMethodName?: string,
+    hasStartDateOverride?: boolean // ✅ NOVO: Flag de override de validação
+  ) => {
     const transaction = (financialTransactions || []).find(t => t.id === id);
     if (!transaction) {
       toast.error("Transação não encontrada!");
@@ -4787,6 +4796,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     if (bankAccountName) updates.bankAccountName = bankAccountName;
     if (paymentMethodId) updates.paymentMethodId = paymentMethodId;
     if (paymentMethodName) updates.paymentMethodName = paymentMethodName;
+
+    // ✅ Adicionar flag de override se fornecida
+    if (hasStartDateOverride !== undefined) {
+      updates.hasStartDateOverride = hasStartDateOverride;
+    }
 
     // Atualizar transação
     updateFinancialTransaction(id, updates);
@@ -4887,12 +4901,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
 
     toast.success(`Transação marcada como recebida!`, {
-      description: `R$ ${transaction.amount.toFixed(2)} recebido em ${new Date(effectiveDate).toLocaleDateString('pt-BR')}`
+      description: `R$ ${(transaction.amount / 100).toFixed(2)} recebido em ${effectiveDate.split('-').reverse().join('/')}`
     });
   };
 
   // Marcar transação como paga
-  const markTransactionAsPaid = (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => {
+  const markTransactionAsPaid = (
+    id: string, 
+    effectiveDate: string, 
+    bankAccountId?: string, 
+    bankAccountName?: string, 
+    paymentMethodId?: string, 
+    paymentMethodName?: string,
+    hasStartDateOverride?: boolean // ✅ NOVO: Flag de override de validação
+  ) => {
     const transaction = (financialTransactions || []).find(t => t.id === id);
     if (!transaction) {
       toast.error("Transação não encontrada!");
@@ -4924,6 +4946,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     if (bankAccountName) updates.bankAccountName = bankAccountName;
     if (paymentMethodId) updates.paymentMethodId = paymentMethodId;
     if (paymentMethodName) updates.paymentMethodName = paymentMethodName;
+
+    // ✅ Adicionar flag de override se fornecida
+    if (hasStartDateOverride !== undefined) {
+      updates.hasStartDateOverride = hasStartDateOverride;
+    }
 
     // Atualizar transação
     updateFinancialTransaction(id, updates);
@@ -5095,7 +5122,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
 
     toast.success(`Transação marcada como paga!`, {
-      description: `R$ ${transaction.amount.toFixed(2)} pago em ${new Date(effectiveDate).toLocaleDateString('pt-BR')}`
+      description: `R$ ${(transaction.amount / 100).toFixed(2)} pago em ${effectiveDate.split('-').reverse().join('/')}`
     });
   };
 

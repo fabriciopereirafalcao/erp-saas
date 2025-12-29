@@ -9,8 +9,6 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface SettlementDateWarningDialogProps {
   open: boolean;
@@ -31,15 +29,27 @@ export function SettlementDateWarningDialog({
 }: SettlementDateWarningDialogProps) {
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "dd/MM/yyyy", { locale: ptBR });
+      // ✅ Parse manual para evitar problema de timezone
+      // dateStr vem no formato "YYYY-MM-DD"
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
     } catch {
       return dateStr;
     }
   };
 
-  const daysDifference = Math.abs(
-    Math.floor((new Date(warning.accountStartDate).getTime() - new Date(warning.settlementDate).getTime()) / (1000 * 60 * 60 * 24))
-  );
+  const daysDifference = (() => {
+    try {
+      // ✅ Parse manual para calcular diferença sem problema de timezone
+      const [y1, m1, d1] = warning.accountStartDate.split('-').map(Number);
+      const [y2, m2, d2] = warning.settlementDate.split('-').map(Number);
+      const date1 = new Date(y1, m1 - 1, d1);
+      const date2 = new Date(y2, m2 - 1, d2);
+      return Math.abs(Math.floor((date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 1;
+    }
+  })();
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
