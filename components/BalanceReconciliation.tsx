@@ -168,12 +168,202 @@ export function BalanceReconciliation() {
     });
   };
 
+  // ✅ Função para gerar PDF profissional
+  const handleGeneratePDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const bank = safeBankAccounts.find(b => b.id === selectedBank);
+    if (!bank) return;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPosition = 20;
+
+    // ===== CABEÇALHO COM LOGO =====
+    if (companySettings?.companyLogo) {
+      try {
+        doc.addImage(companySettings.companyLogo, 'PNG', 15, yPosition, 30, 30);
+      } catch (error) {
+        console.error('Erro ao adicionar logo:', error);
+      }
+    }
+
+    // Dados da empresa
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings?.companyName || 'Empresa', companySettings?.companyLogo ? 50 : 15, yPosition + 5);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    if (companySettings?.cnpj) {
+      doc.text(`CNPJ: ${companySettings.cnpj}`, companySettings?.companyLogo ? 50 : 15, yPosition + 12);
+    }
+    if (companySettings?.address) {
+      doc.text(companySettings.address, companySettings?.companyLogo ? 50 : 15, yPosition + 17);
+    }
+    if (companySettings?.phone) {
+      doc.text(`Tel: ${companySettings.phone}`, companySettings?.companyLogo ? 50 : 15, yPosition + 22);
+    }
+
+    yPosition += 40;
+
+    // ===== TÍTULO DO RELATÓRIO =====
+    doc.setFillColor(59, 130, 246); // Blue
+    doc.rect(0, yPosition, pageWidth, 15, 'F');
+    
+    doc.setTextColor(255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONCILIAÇÃO BANCÁRIA', pageWidth / 2, yPosition + 10, { align: 'center' });
+
+    yPosition += 20;
+
+    // ===== INFORMAÇÕES DO PERÍODO =====
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Informações do Relatório', 15, yPosition);
+    
+    yPosition += 7;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const monthName = monthNames[selectedMonth.getMonth()];
+    
+    doc.text(`Período: ${monthName} de ${selectedMonth.getFullYear()}`, 15, yPosition);
+    yPosition += 5;
+    doc.text(`Conta: ${bank.bankName} - ${bank.accountNumber}`, 15, yPosition);
+    yPosition += 5;
+    doc.text(`Data de Geração: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 15, yPosition);
+    
+    yPosition += 10;
+
+    // ===== RESUMO ESTATÍSTICO =====
+    doc.setFillColor(243, 244, 246);
+    doc.rect(15, yPosition, pageWidth - 30, 25, 'F');
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resumo do Período', 20, yPosition + 7);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
+    const col1X = 20;
+    const col2X = pageWidth / 2 + 10;
+    
+    doc.text(`Total de Dias: ${totalDays}`, col1X, yPosition + 14);
+    doc.text(`Dias Conciliados: ${totalReconciled}`, col1X, yPosition + 19);
+    
+    doc.setTextColor(34, 197, 94); // Green
+    doc.text(`Taxa de Conciliação: ${reconciliationPercentage}%`, col2X, yPosition + 14);
+    
+    doc.setTextColor(249, 115, 22); // Orange
+    doc.text(`Dias Pendentes: ${totalDays - totalReconciled}`, col2X, yPosition + 19);
+    
+    doc.setTextColor(0);
+    yPosition += 32;
+
+    // ===== TABELA DE CONCILIAÇÃO =====
+    const tableData = reconciliationData.map(day => [
+      day.date,
+      `R$ ${day.initialBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      day.realizedIncome > 0 ? `R$ ${day.realizedIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-',
+      day.realizedExpenses > 0 ? `R$ ${day.realizedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-',
+      `R$ ${day.finalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      day.isReconciled ? '✓ Conciliado' : '✗ Pendente'
+    ]);
+
+    (doc as any).autoTable({
+      startY: yPosition,
+      head: [['Data', 'Saldo Inicial', 'Entradas', 'Saídas', 'Saldo Final', 'Status']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: 50
+      },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 25 },
+        1: { halign: 'right', cellWidth: 28 },
+        2: { halign: 'right', cellWidth: 28 },
+        3: { halign: 'right', cellWidth: 28 },
+        4: { halign: 'right', cellWidth: 30 },
+        5: { halign: 'center', cellWidth: 30 }
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251]
+      },
+      didParseCell: (data: any) => {
+        // Destacar dias conciliados em verde e pendentes em laranja
+        if (data.column.index === 5 && data.section === 'body') {
+          if (data.cell.raw === '✓ Conciliado') {
+            data.cell.styles.textColor = [34, 197, 94]; // Green
+            data.cell.styles.fontStyle = 'bold';
+          } else {
+            data.cell.styles.textColor = [249, 115, 22]; // Orange
+          }
+        }
+        // Destacar saldos negativos em vermelho
+        if (data.column.index === 4 && data.section === 'body') {
+          const value = parseFloat(data.cell.raw.replace('R$', '').replace(/\./g, '').replace(',', '.'));
+          if (value < 0) {
+            data.cell.styles.textColor = [239, 68, 68]; // Red
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+      margin: { left: 15, right: 15 },
+      tableWidth: 'auto'
+    });
+
+    // ===== RODAPÉ =====
+    const finalY = (doc as any).lastAutoTable.finalY || yPosition + 100;
+    
+    if (finalY < pageHeight - 30) {
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Este relatório foi gerado automaticamente pelo sistema ERP.', pageWidth / 2, pageHeight - 15, { align: 'center' });
+      doc.text(`Página 1 de 1`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
+
+    // ===== SALVAR PDF =====
+    const fileName = `Conciliacao_${bank.bankName.replace(/\s+/g, '_')}_${monthName}_${selectedMonth.getFullYear()}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6">
-        <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Conciliação de Saldos</h1>
-          <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Conciliação de Saldos</h1>
+            <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
+          </div>
+          
+          {/* Botão GERAR PDF - Canto Superior Direito */}
+          {selectedBank && (
+            <Button 
+              onClick={handleGeneratePDF}
+              variant="outline" 
+              className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <FileText className="w-4 h-4" />
+              GERAR PDF
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -231,72 +421,65 @@ export function BalanceReconciliation() {
       </div>
 
       <Card className="p-6">
-        {/* Filtro de Ano/Mês - Seleção Única */}
-        <div className="mb-6 flex items-center justify-center gap-6 bg-gray-50 p-4 rounded-lg border">
-          {/* Seletor de Ano */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1))}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronDown className="h-4 w-4 rotate-90" />
-            </Button>
-            <span className="text-lg font-semibold min-w-[70px] text-center">{selectedMonth.getFullYear()}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1))}
-              className="h-8 w-8 p-0"
-              disabled={selectedMonth.getFullYear() >= new Date().getFullYear()}
-            >
-              <ChevronDown className="h-4 w-4 -rotate-90" />
-            </Button>
-          </div>
-          
-          {/* Pills de Meses - Seleção Única */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+        {/* Filtros de Competência e Banco - Lado a Lado */}
+        <div className="mb-6 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+          {/* Filtro de Ano/Mês - Esquerda */}
+          <div className="flex items-center justify-center gap-6 bg-gray-50 p-4 rounded-lg border">
+            {/* Seletor de Ano */}
+            <div className="flex items-center gap-3">
               <Button
-                key={index}
-                variant={selectedMonth.getMonth() === index && selectedMonth.getFullYear() === selectedMonth.getFullYear() ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
-                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
-                className={`h-8 px-3 text-sm ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1))}
+                className="h-8 w-8 p-0"
               >
-                {monthName}
+                <ChevronDown className="h-4 w-4 rotate-90" />
               </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filtro de Banco */}
-        <div className="mb-6">
-          <Label className="text-sm mb-2 block">Banco / Caixa *</Label>
-          <Select value={selectedBank} onValueChange={setSelectedBank}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione um banco" />
-            </SelectTrigger>
-            <SelectContent>
-              {safeBankAccounts.map(bank => (
-                <SelectItem key={bank.id} value={bank.id}>
-                  {bank.bankName} - {bank.accountNumber}
-                </SelectItem>
+              <span className="text-lg font-semibold min-w-[70px] text-center">{selectedMonth.getFullYear()}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1))}
+                className="h-8 w-8 p-0"
+                disabled={selectedMonth.getFullYear() >= new Date().getFullYear()}
+              >
+                <ChevronDown className="h-4 w-4 -rotate-90" />
+              </Button>
+            </div>
+            
+            {/* Pills de Meses - Seleção Única */}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
+                <Button
+                  key={index}
+                  variant={selectedMonth.getMonth() === index ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
+                  className={`h-8 px-3 text-sm ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  {monthName}
+                </Button>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Botão GERAR PDF */}
-        {selectedBank && (
-          <div className="flex gap-3 mb-6">
-            <Button variant="outline" className="gap-2">
-              <FileText className="w-4 h-4" />
-              GERAR PDF
-            </Button>
+            </div>
           </div>
-        )}
+
+          {/* Filtro de Banco - Direita */}
+          <div className="flex flex-col justify-center">
+            <Label className="text-sm mb-2 block">Banco / Caixa *</Label>
+            <Select value={selectedBank} onValueChange={setSelectedBank}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um banco" />
+              </SelectTrigger>
+              <SelectContent>
+                {safeBankAccounts.map(bank => (
+                  <SelectItem key={bank.id} value={bank.id}>
+                    {bank.bankName} - {bank.accountNumber}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Tabela */}
         {!selectedBank ? (
