@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import React from "react";
 import { Card } from "./ui/card";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,6 +27,7 @@ export function BalanceReconciliation() {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedBank, setSelectedBank] = useState<string>("");
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
   // Ao carregar, seleciona automaticamente a conta principal (isPrimary) ou a primeira conta
   useEffect(() => {
@@ -99,24 +102,31 @@ export function BalanceReconciliation() {
       // Filtrar transações realizadas do banco selecionado
       const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
       
-      // Entradas realizadas (Recebido) - zerar se antes da data de início
-      const realizedIncome = isBeforeStartDate ? 0 : filteredTransactions
-        .filter(t => t.type === "Receita" && t.effectiveDate === dateStr && t.status === "Recebido")
+      // ✅ Transações do dia (incluindo overrides)
+      const dayTransactions = filteredTransactions.filter(t => 
+        t.effectiveDate === dateStr && 
+        (t.status === "Recebido" || t.status === "Pago")
+      );
+
+      // Entradas realizadas (Recebido) - incluir overrides
+      const realizedIncome = dayTransactions
+        .filter(t => t.type === "Receita" && t.status === "Recebido")
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Saídas realizadas (Pago) - zerar se antes da data de início
-      const realizedExpenses = isBeforeStartDate ? 0 : filteredTransactions
-        .filter(t => t.type === "Despesa" && t.effectiveDate === dateStr && t.status === "Pago")
+      // Saídas realizadas (Pago) - incluir overrides
+      const realizedExpenses = dayTransactions
+        .filter(t => t.type === "Despesa" && t.status === "Pago")
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Atualizar saldo atual (não atualizar se antes da data de início)
-      if (!isBeforeStartDate) {
-        currentBalance += realizedIncome - realizedExpenses;
-      }
+      // Atualizar saldo atual
+      currentBalance += realizedIncome - realizedExpenses;
 
       // Buscar status de conciliação
       const reconciliationKey = `${selectedBank}-${dateStr}`;
       const isReconciled = safeReconciliationStatus[reconciliationKey] || false;
+
+      // ✅ Verificar se há transações com override
+      const hasOverrideTransactions = dayTransactions.some(t => t.hasStartDateOverride);
 
       reconciliationData.push({
         date: format(day, 'dd/MM/yyyy'),
@@ -124,10 +134,12 @@ export function BalanceReconciliation() {
         initialBalance: dayInitialBalance || 0,
         realizedIncome: realizedIncome || 0,
         realizedExpenses: realizedExpenses || 0,
-        finalBalance: isBeforeStartDate ? 0 : (currentBalance || 0), // ✅ Zerar saldo final se antes da data de início
+        finalBalance: currentBalance || 0,
         isReconciled,
         reconciliationKey,
-        isBeforeStartDate // ✅ Flag para destacar visualmente (opcional)
+        isBeforeStartDate, // ✅ Flag para destacar visualmente (opcional)
+        transactions: dayTransactions, // ✅ NOVO: Transações do dia
+        hasOverrideTransactions // ✅ NOVO: Flag de override
       });
     });
 
@@ -143,6 +155,19 @@ export function BalanceReconciliation() {
 
   const handleToggleReconciliation = (reconciliationKey: string) => {
     toggleReconciliationStatus(reconciliationKey);
+  };
+
+  // ✅ Toggle expansão de detalhes do dia
+  const toggleDayExpansion = (dateStr: string) => {
+    setExpandedDays(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dateStr)) {
+        newSet.delete(dateStr);
+      } else {
+        newSet.add(dateStr);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -270,6 +295,7 @@ export function BalanceReconciliation() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-200 border-b">
+                  <th className="px-3 py-3 text-left text-sm text-gray-700 w-10"></th>
                   <th className="px-3 py-3 text-left text-sm text-gray-700">Data</th>
                   <th className="px-3 py-3 text-right text-sm text-gray-700">Saldo Inicial</th>
                   <th className="px-3 py-3 text-right text-sm text-gray-700">Entradas</th>
@@ -279,47 +305,111 @@ export function BalanceReconciliation() {
                 </tr>
               </thead>
               <tbody>
-                {reconciliationData.map((day, index) => (
-                  <tr 
-                    key={index} 
-                    className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors ${day.isBeforeStartDate ? 'opacity-40' : ''}`}
-                  >
-                    <td className="px-3 py-2.5 text-sm text-gray-900">{day.date}</td>
-                    <td className="px-3 py-2.5 text-sm text-right text-gray-900">
-                      R$ {(day.initialBalance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-right text-green-600">
-                      {(day.realizedIncome ?? 0) > 0 ? `R$ ${(day.realizedIncome ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-right text-red-600">
-                      {(day.realizedExpenses ?? 0) > 0 ? `R$ ${(day.realizedExpenses ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-                    </td>
-                    <td className={`px-3 py-2.5 text-sm text-right ${(day.finalBalance ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                      R$ {(day.finalBalance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-center">
-                      <button
-                        onClick={() => handleToggleReconciliation(day.reconciliationKey)}
-                        className="inline-flex items-center gap-1 hover:opacity-70 transition-opacity"
+                {reconciliationData.map((day, index) => {
+                  const isExpanded = expandedDays.has(day.dateStr);
+                  const hasTransactions = day.transactions && day.transactions.length > 0;
+                  
+                  return (
+                    <React.Fragment key={index}>
+                      <tr 
+                        className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors ${day.isBeforeStartDate ? 'opacity-40' : ''}`}
                       >
-                        {day.isReconciled ? (
-                          <>
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            <span className="text-green-600">Conciliado</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-5 h-5 text-orange-600" />
-                            <span className="text-orange-600">Não Conciliado</span>
-                          </>
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-3 py-2.5 text-sm">
+                          {hasTransactions && (
+                            <button
+                              onClick={() => toggleDayExpansion(day.dateStr)}
+                              className="text-gray-500 hover:text-gray-700 transition-colors"
+                              title={isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {day.date}
+                            {day.hasOverrideTransactions && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                Override
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-right text-gray-900">
+                          R$ {(day.initialBalance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-right text-green-600">
+                          {(day.realizedIncome ?? 0) > 0 ? `R$ ${(day.realizedIncome ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-right text-red-600">
+                          {(day.realizedExpenses ?? 0) > 0 ? `R$ ${(day.realizedExpenses ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                        </td>
+                        <td className={`px-3 py-2.5 text-sm text-right ${(day.finalBalance ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                          R$ {(day.finalBalance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-center">
+                          <button
+                            onClick={() => handleToggleReconciliation(day.reconciliationKey)}
+                            className="inline-flex items-center gap-1 hover:opacity-70 transition-opacity"
+                          >
+                            {day.isReconciled ? (
+                              <>
+                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                <span className="text-green-600">Conciliado</span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-5 h-5 text-orange-600" />
+                                <span className="text-orange-600">Não Conciliado</span>
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      
+                      {/* ✅ Linha expansível com detalhes das transações */}
+                      {isExpanded && hasTransactions && (
+                        <tr className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                          <td colSpan={7} className="px-8 py-3">
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-500 mb-2">Transações do dia:</p>
+                              {day.transactions.map((t: any) => (
+                                <div 
+                                  key={t.id} 
+                                  className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded text-xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded ${t.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                      {t.type}
+                                    </span>
+                                    <span className="text-gray-900">{t.description || t.partyName}</span>
+                                    {t.hasStartDateOverride && (
+                                      <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-300 text-xs">
+                                        <AlertTriangle className="w-3 h-3 mr-1" />
+                                        Data Anterior ao Início
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <span className={`font-medium ${t.type === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {t.type === 'Receita' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
                 {reconciliationData.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       Nenhum dado encontrado para o período selecionado
                     </td>
                   </tr>

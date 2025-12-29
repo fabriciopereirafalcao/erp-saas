@@ -4901,7 +4901,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
 
     toast.success(`Transação marcada como recebida!`, {
-      description: `R$ ${(transaction.amount / 100).toFixed(2)} recebido em ${effectiveDate.split('-').reverse().join('/')}`
+      description: `R$ ${transaction.amount.toFixed(2)} recebido em ${effectiveDate.split('-').reverse().join('/')}`
     });
   };
 
@@ -5122,7 +5122,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     });
 
     toast.success(`Transação marcada como paga!`, {
-      description: `R$ ${(transaction.amount / 100).toFixed(2)} pago em ${effectiveDate.split('-').reverse().join('/')}`
+      description: `R$ ${transaction.amount.toFixed(2)} pago em ${effectiveDate.split('-').reverse().join('/')}`
     });
   };
 
