@@ -185,29 +185,42 @@ export function BalanceReconciliation() {
     const logoX = 15;
     const logoY = yPosition;
     
+    // Variável para armazenar se conseguiu adicionar a logo
+    let logoAdded = false;
+    
     if (companySettings?.companyLogo) {
       try {
         const logoData = companySettings.companyLogo;
+        console.log('📷 Tentando adicionar logo ao PDF. Primeiros 100 chars:', logoData.substring(0, 100));
         
-        // Determinar formato da imagem
+        // Determinar formato da imagem a partir do data URL
         let imageFormat = 'PNG';
         if (logoData.includes('data:image/jpeg') || logoData.includes('data:image/jpg')) {
           imageFormat = 'JPEG';
         } else if (logoData.includes('data:image/png')) {
           imageFormat = 'PNG';
+        } else if (logoData.includes('data:image/')) {
+          // Tentar extrair o formato do data URL
+          const match = logoData.match(/data:image\/([^;]+);/);
+          if (match) {
+            imageFormat = match[1].toUpperCase();
+          }
         }
         
+        // Tentar adicionar a imagem
         doc.addImage(logoData, imageFormat, logoX, logoY, logoSize, logoSize);
-        console.log('✅ Logo adicionada ao PDF com formato:', imageFormat);
+        logoAdded = true;
+        console.log('✅ Logo adicionada ao PDF com sucesso! Formato:', imageFormat);
       } catch (error) {
         console.error('❌ Erro ao adicionar logo ao PDF:', error);
+        console.log('Logo data disponível:', !!companySettings?.companyLogo);
       }
     } else {
-      console.warn('⚠️ Nenhuma logo configurada em companySettings');
+      console.warn('⚠️ Nenhuma logo configurada em companySettings.companyLogo');
     }
 
-    // Dados da empresa ao lado do logo
-    const textX = companySettings?.companyLogo ? logoX + logoSize + 5 : logoX;
+    // Dados da empresa ao lado do logo (ou na posição da logo se não tiver logo)
+    const textX = logoAdded ? logoX + logoSize + 5 : logoX;
     
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -344,20 +357,21 @@ export function BalanceReconciliation() {
           }
         }
       },
-      margin: { left: 15, right: 15 },
+      // ✅ Adicionar rodapé em TODAS as páginas com numeração correta
+      didDrawPage: (data: any) => {
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        const currentPage = data.pageNumber;
+        
+        // Rodapé com texto e numeração
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Este relatório foi gerado automaticamente pelo META ERP.', pageWidth / 2, pageHeight - 15, { align: 'center' });
+        doc.text(`Página ${currentPage} de ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      },
+      margin: { left: 15, right: 15, bottom: 25 },
       tableWidth: 'auto'
     });
-
-    // ===== RODAPÉ =====
-    const finalY = (doc as any).lastAutoTable.finalY || yPosition + 100;
-    
-    if (finalY < pageHeight - 30) {
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Este relatório foi gerado automaticamente pelo sistema ERP.', pageWidth / 2, pageHeight - 15, { align: 'center' });
-      doc.text(`Página 1 de 1`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    }
 
     // ===== SALVAR PDF =====
     const fileName = `Conciliacao_${bank.bankName.replace(/\s+/g, '_')}_${monthName}_${selectedMonth.getFullYear()}.pdf`;
