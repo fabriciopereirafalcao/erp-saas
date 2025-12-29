@@ -4384,6 +4384,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   // ✅ Validação de Data de Liquidação vs. Data de Início da Conta
   const validateSettlementDate = (bankAccountId: string, settlementDate: string): {
     isValid: boolean;
+    needsConfirmation?: boolean;
     warning?: {
       accountName: string;
       accountStartDate: string;
@@ -4411,6 +4412,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       return {
         isValid: false,
+        needsConfirmation: true,
         warning: {
           accountName: bank.bankName,
           accountStartDate: bank.startDate,
