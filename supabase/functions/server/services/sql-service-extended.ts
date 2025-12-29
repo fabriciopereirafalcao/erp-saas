@@ -1104,7 +1104,8 @@ export async function createFinancialTransaction(companyId: string, transactionD
     parent_transaction_id: isValidUUID(transactionData.parentTransactionId) ? transactionData.parentTransactionId : null, // ✅ Validar UUID
     is_transfer: transactionData.isTransfer || false,
     transfer_pair_id: isValidUUID(transactionData.transferPairId) ? transactionData.transferPairId : null, // ✅ Validar UUID
-    transfer_direction: transferDirection // ✅ CHECK: 'origem' | 'destino' | null
+    transfer_direction: transferDirection, // ✅ CHECK: 'origem' | 'destino' | null
+    has_start_date_override: transactionData.hasStartDateOverride || false // ✅ Flag para auditoria de override
   };
 
   // ✅ LOG DETALHADO: Dados que serão inseridos (para debug)
@@ -1169,7 +1170,8 @@ export async function createFinancialTransaction(companyId: string, transactionD
     reference: transaction.reference,
     notes: transaction.notes,
     installmentNumber: transaction.installment_number,
-    totalInstallments: transaction.total_installments
+    totalInstallments: transaction.total_installments,
+    hasStartDateOverride: transaction.has_start_date_override // ✅ Flag para auditoria
   };
 }
 
@@ -1829,7 +1831,8 @@ export async function getFinancialTransactions(companyId: string) {
     bankAccountId: row.bank_account_id || null,
     bankAccountName: row.bank_account_name,
     installmentNumber: row.installment_number,
-    totalInstallments: row.total_installments
+    totalInstallments: row.total_installments,
+    hasStartDateOverride: row.has_start_date_override || false // ✅ Flag para auditoria
   })) || [];
 }
 
@@ -1912,7 +1915,8 @@ export async function saveFinancialTransactions(companyId: string, transactions:
         parent_transaction_id: transaction.parentTransactionId,
         is_transfer: transaction.isTransfer || false,
         transfer_pair_id: transaction.transferPairId,
-        transfer_direction: normalizedTransferDirection // ✅ 'origem' | 'destino' | null
+        transfer_direction: normalizedTransferDirection, // ✅ 'origem' | 'destino' | null
+        has_start_date_override: transaction.hasStartDateOverride || false // ✅ Flag para auditoria
       };
 
       if (existingTransaction) {

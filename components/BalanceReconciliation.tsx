@@ -64,23 +64,7 @@ export function BalanceReconciliation() {
       if (t.status !== 'Recebido' && t.status !== 'Pago') return false;
       // ✅ Se tem startDate, só considerar transações depois da startDate
       // EXCETO se tem flag de override (então incluir para auditoria)
-      if (bank.startDate && t.effectiveDate < bank.startDate && !t.hasStartDateOverride) {
-        console.log('[CONCILIAÇÃO] ❌ Transação EXCLUÍDA do saldo inicial:', {
-          id: t.id,
-          description: t.description,
-          effectiveDate: t.effectiveDate,
-          hasStartDateOverride: t.hasStartDateOverride,
-          amount: t.amount
-        });
-        return false;
-      }
-      console.log('[CONCILIAÇÃO] ✅ Transação INCLUÍDA no saldo inicial:', {
-        id: t.id,
-        description: t.description,
-        effectiveDate: t.effectiveDate,
-        hasStartDateOverride: t.hasStartDateOverride,
-        amount: t.amount
-      });
+      if (bank.startDate && t.effectiveDate < bank.startDate && !t.hasStartDateOverride) return false;
       return true;
     });
     
