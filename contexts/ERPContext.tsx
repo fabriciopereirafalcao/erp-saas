@@ -546,6 +546,39 @@ export interface ReconciliationAuditEntry {
   transactionCount: number;
 }
 
+// Períodos Fechados
+export interface ClosedPeriod {
+  id: string;
+  month: number; // 1-12
+  year: number; // 2024, 2025, etc.
+  closedBy: string; // nome do admin
+  closedByUserId: string; // ID do usuário
+  closedAt: string; // ISO timestamp
+  firstPeriod: boolean; // true se é o período inicial (ponto de partida)
+  justification?: string; // Opcional: motivo do fechamento
+}
+
+// Auditoria de Ajustes em Períodos Fechados
+export interface ClosedPeriodAdjustmentAudit {
+  id: string;
+  periodId: string; // ID do período fechado
+  month: number;
+  year: number;
+  adjustmentType: 'transaction_created' | 'transaction_edited' | 'transaction_deleted';
+  transactionId: string;
+  transactionDescription: string;
+  adminUser: string;
+  adminUserId: string;
+  justification: string; // obrigatória
+  timestamp: string; // ISO timestamp
+  affectedDates: string[]; // Datas que foram desconciliadas
+  impactSummary: {
+    oldBalance?: number;
+    newBalance?: number;
+    difference?: number;
+  };
+}
+
 // ==================== CONTEXT ====================
 
 interface ERPContextData {
@@ -692,6 +725,39 @@ interface ERPContextData {
     }
   ) => void;
   getReconciliationHistory: (reconciliationKey: string) => ReconciliationAuditEntry[];
+  
+  // Closed Periods Actions
+  closedPeriods: ClosedPeriod[];
+  closedPeriodAdjustments: ClosedPeriodAdjustmentAudit[];
+  closePeriod: (month: number, year: number, justification?: string) => Promise<boolean>;
+  reopenPeriod: (periodId: string, justification: string) => Promise<boolean>;
+  isMonthClosed: (date: Date | string) => boolean;
+  canClosePeriod: (month: number, year: number) => { 
+    canClose: boolean; 
+    reason?: string;
+    missingDays?: number;
+    unconciliatedDays?: string[];
+  };
+  getMonthReconciliationStatus: (month: number, year: number) => {
+    totalDays: number;
+    reconciledDays: number;
+    percentage: number;
+  };
+  validateTransactionDate: (date: Date | string) => {
+    allowed: boolean;
+    isPeriodClosed: boolean;
+    requiresAdminAuth: boolean;
+    period?: { month: number; year: number };
+  };
+  recordClosedPeriodAdjustment: (
+    periodId: string,
+    adjustmentType: 'transaction_created' | 'transaction_edited' | 'transaction_deleted',
+    transactionId: string,
+    transactionDescription: string,
+    justification: string,
+    affectedDates: string[],
+    impactSummary?: { oldBalance?: number; newBalance?: number; difference?: number }
+  ) => Promise<void>;
   
   // Validation Actions
   validateSettlementDate: (bankAccountId: string, settlementDate: string) => {
@@ -1204,6 +1270,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const [reconciliationStatus, setReconciliationStatus] = useState<Record<string, boolean>>({});
   const [reconciliationAudit, setReconciliationAudit] = useState<ReconciliationAuditEntry[]>([]);
 
+  // Estado de períodos fechados
+  const [closedPeriods, setClosedPeriods] = useState<ClosedPeriod[]>([]);
+  const [closedPeriodAdjustments, setClosedPeriodAdjustments] = useState<ClosedPeriodAdjustmentAudit[]>([]);
+
   // ==================== MIGRAÇÃO DE DADOS POR COMPANY_ID ====================
   
   /**
@@ -1591,6 +1661,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setReconciliationAudit(reconciliationAuditData);
         }
         
+        // Carregar períodos fechados
+        const closedPeriodsData = await loadEntity<ClosedPeriod[]>('closed-periods');
+        if (isSubscribed && closedPeriodsData && closedPeriodsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${closedPeriodsData.length} períodos fechados carregados`);
+          setClosedPeriods(closedPeriodsData);
+        }
+        
+        // Carregar ajustes em períodos fechados
+        const closedPeriodAdjustmentsData = await loadEntity<ClosedPeriodAdjustmentAudit[]>('closed-period-adjustments');
+        if (isSubscribed && closedPeriodAdjustmentsData && closedPeriodAdjustmentsData.length > 0) {
+          console.log(`[SUPABASE] ✅ ${closedPeriodAdjustmentsData.length} ajustes em períodos fechados carregados`);
+          setClosedPeriodAdjustments(closedPeriodAdjustmentsData);
+        }
+        
         console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
         
         // ✅ Marcar que o carregamento inicial foi concluído
@@ -1725,6 +1809,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   
   useEntityPersistence({ entityName: 'reconciliation-status', data: reconciliationStatusArray, enabled: initialDataLoaded && !!profile?.company_id && reconciliationStatusArray.length > 0, throttleMs: 2000 });
   useEntityPersistence({ entityName: 'reconciliation-audit', data: reconciliationAudit, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'closed-periods', data: closedPeriods, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
+  useEntityPersistence({ entityName: 'closed-period-adjustments', data: closedPeriodAdjustments, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 2000 });
 
   // ==================== PERSISTÊNCIA LOCAL (CACHE) ====================
   
@@ -1840,6 +1926,16 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     if (!profile?.company_id) return;
     saveToStorage(getStorageKey(STORAGE_KEYS.RECONCILIATION_AUDIT, profile.company_id), reconciliationAudit);
   }, [reconciliationAudit, profile?.company_id]);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.CLOSED_PERIODS, profile.company_id), closedPeriods);
+  }, [closedPeriods, profile?.company_id]);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    saveToStorage(getStorageKey(STORAGE_KEYS.CLOSED_PERIOD_ADJUSTMENTS, profile.company_id), closedPeriodAdjustments);
+  }, [closedPeriodAdjustments, profile?.company_id]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -6124,6 +6220,257 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
 
+  // ==================== CLOSED PERIODS ACTIONS ====================
+
+  /**
+   * Verifica se um mês está fechado
+   */
+  const isMonthClosed = (date: Date | string): boolean => {
+    const checkDate = typeof date === 'string' ? new Date(date) : date;
+    const month = checkDate.getMonth() + 1; // 0-11 -> 1-12
+    const year = checkDate.getFullYear();
+    
+    return closedPeriods.some(period => period.month === month && period.year === year);
+  };
+
+  /**
+   * Calcula status de conciliação de um mês
+   */
+  const getMonthReconciliationStatus = (month: number, year: number) => {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    
+    // Contar dias conciliados
+    const reconciledDaysCount = Object.keys(reconciliationStatus).filter(key => {
+      const parts = key.split('-');
+      if (parts.length !== 3) return false;
+      
+      const keyDate = new Date(parts[2]); // "bankId-2024-12-01" -> "2024-12-01"
+      if (isNaN(keyDate.getTime())) return false;
+      
+      const keyMonth = keyDate.getMonth() + 1;
+      const keyYear = keyDate.getFullYear();
+      
+      return keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
+    }).length;
+    
+    return {
+      totalDays: daysInMonth,
+      reconciledDays: reconciledDaysCount,
+      percentage: Math.round((reconciledDaysCount / daysInMonth) * 100)
+    };
+  };
+
+  /**
+   * Verifica se um período pode ser fechado
+   */
+  const canClosePeriod = (month: number, year: number) => {
+    // Verificar se todos os dias do mês estão conciliados
+    const status = getMonthReconciliationStatus(month, year);
+    
+    if (status.reconciledDays < status.totalDays) {
+      return {
+        canClose: false,
+        reason: `Apenas ${status.reconciledDays} de ${status.totalDays} dias estão conciliados (${status.percentage}%)`,
+        missingDays: status.totalDays - status.reconciledDays
+      };
+    }
+    
+    // Verificar se o período anterior está fechado (exceto primeiro período)
+    const previousMonth = month === 1 ? 12 : month - 1;
+    const previousYear = month === 1 ? year - 1 : year;
+    
+    const previousPeriodClosed = closedPeriods.some(
+      p => p.month === previousMonth && p.year === previousYear
+    );
+    
+    // Se existe algum período fechado e o anterior não está fechado
+    const hasAnyClosedPeriod = closedPeriods.length > 0;
+    const isFirstPeriod = closedPeriods.some(p => p.firstPeriod);
+    
+    if (hasAnyClosedPeriod && !isFirstPeriod && !previousPeriodClosed) {
+      // Verificar se este seria o primeiro período
+      const wouldBeFirstPeriod = closedPeriods.length === 0;
+      
+      if (!wouldBeFirstPeriod) {
+        return {
+          canClose: false,
+          reason: `O período anterior (${previousMonth.toString().padStart(2, '0')}/${previousYear}) precisa ser fechado primeiro`
+        };
+      }
+    }
+    
+    return {
+      canClose: true
+    };
+  };
+
+  /**
+   * Fecha um período contábil
+   */
+  const closePeriod = async (month: number, year: number, justification?: string): Promise<boolean> => {
+    try {
+      // Validar se pode fechar
+      const validation = canClosePeriod(month, year);
+      if (!validation.canClose) {
+        toast.error(`Não é possível fechar o período: ${validation.reason}`);
+        return false;
+      }
+      
+      // Verificar se já está fechado
+      if (isMonthClosed(new Date(year, month - 1, 1))) {
+        toast.error('Este período já está fechado');
+        return false;
+      }
+      
+      // Determinar se é o primeiro período
+      const isFirstPeriod = closedPeriods.length === 0;
+      
+      const newPeriod: ClosedPeriod = {
+        id: `period-${year}-${month}-${Date.now()}`,
+        month,
+        year,
+        closedBy: profile?.name || profile?.email || 'Admin',
+        closedByUserId: profile?.id || 'system',
+        closedAt: new Date().toISOString(),
+        firstPeriod: isFirstPeriod,
+        justification
+      };
+      
+      setClosedPeriods(prev => [...prev, newPeriod]);
+      
+      toast.success(`Período ${month.toString().padStart(2, '0')}/${year} fechado com sucesso`);
+      
+      console.log('[PERÍODO FECHADO] ✅', newPeriod);
+      
+      return true;
+    } catch (error) {
+      console.error('[PERÍODO FECHADO] ❌ Erro:', error);
+      toast.error('Erro ao fechar período');
+      return false;
+    }
+  };
+
+  /**
+   * Reabre um período fechado (apenas Admin)
+   */
+  const reopenPeriod = async (periodId: string, justification: string): Promise<boolean> => {
+    try {
+      const period = closedPeriods.find(p => p.id === periodId);
+      if (!period) {
+        toast.error('Período não encontrado');
+        return false;
+      }
+      
+      // Verificar se há períodos posteriores fechados
+      const hasLaterPeriods = closedPeriods.some(p => {
+        if (p.year > period.year) return true;
+        if (p.year === period.year && p.month > period.month) return true;
+        return false;
+      });
+      
+      if (hasLaterPeriods) {
+        toast.error('Não é possível reabrir este período pois existem períodos posteriores fechados');
+        return false;
+      }
+      
+      setClosedPeriods(prev => prev.filter(p => p.id !== periodId));
+      
+      toast.success(`Período ${period.month.toString().padStart(2, '0')}/${period.year} reaberto`);
+      
+      console.log('[PERÍODO REABERTO] ✅', period, 'Justificativa:', justification);
+      
+      return true;
+    } catch (error) {
+      console.error('[PERÍODO REABERTO] ❌ Erro:', error);
+      toast.error('Erro ao reabrir período');
+      return false;
+    }
+  };
+
+  /**
+   * Valida se uma transação pode ser lançada em uma data
+   */
+  const validateTransactionDate = (date: Date | string) => {
+    const checkDate = typeof date === 'string' ? new Date(date) : date;
+    const month = checkDate.getMonth() + 1;
+    const year = checkDate.getFullYear();
+    
+    const periodClosed = closedPeriods.find(p => p.month === month && p.year === year);
+    
+    if (periodClosed) {
+      return {
+        allowed: false,
+        isPeriodClosed: true,
+        requiresAdminAuth: true,
+        period: { month, year }
+      };
+    }
+    
+    return {
+      allowed: true,
+      isPeriodClosed: false,
+      requiresAdminAuth: false
+    };
+  };
+
+  /**
+   * Registra ajuste em período fechado (após autenticação Admin)
+   */
+  const recordClosedPeriodAdjustment = async (
+    periodId: string,
+    adjustmentType: 'transaction_created' | 'transaction_edited' | 'transaction_deleted',
+    transactionId: string,
+    transactionDescription: string,
+    justification: string,
+    affectedDates: string[],
+    impactSummary?: { oldBalance?: number; newBalance?: number; difference?: number }
+  ): Promise<void> => {
+    const period = closedPeriods.find(p => p.id === periodId);
+    if (!period) {
+      throw new Error('Período não encontrado');
+    }
+    
+    const adjustment: ClosedPeriodAdjustmentAudit = {
+      id: `adjustment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      periodId,
+      month: period.month,
+      year: period.year,
+      adjustmentType,
+      transactionId,
+      transactionDescription,
+      adminUser: profile?.name || profile?.email || 'Admin',
+      adminUserId: profile?.id || 'system',
+      justification,
+      timestamp: new Date().toISOString(),
+      affectedDates,
+      impactSummary: impactSummary || {}
+    };
+    
+    setClosedPeriodAdjustments(prev => [...prev, adjustment]);
+    
+    // Desconciliar datas afetadas
+    const keysToUpdate: Record<string, boolean> = {};
+    affectedDates.forEach(dateStr => {
+      // Encontrar todas as chaves que contêm esta data
+      Object.keys(reconciliationStatus).forEach(key => {
+        if (key.includes(dateStr)) {
+          keysToUpdate[key] = false;
+        }
+      });
+    });
+    
+    if (Object.keys(keysToUpdate).length > 0) {
+      setReconciliationStatus(prev => ({
+        ...prev,
+        ...keysToUpdate
+      }));
+      
+      console.log(`[AJUSTE PERÍODO FECHADO] ⚠️ ${Object.keys(keysToUpdate).length} datas desconciliadas`);
+    }
+    
+    console.log('[AJUSTE PERÍODO FECHADO] ✅ Registrado:', adjustment);
+  };
+
   // ==================== CONTEXT VALUE ====================
 
   const value: ERPContextData = {
@@ -6219,6 +6566,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     reconciliationAudit,
     toggleReconciliationStatus,
     getReconciliationHistory,
+    closedPeriods,
+    closedPeriodAdjustments,
+    closePeriod,
+    reopenPeriod,
+    isMonthClosed,
+    canClosePeriod,
+    getMonthReconciliationStatus,
+    validateTransactionDate,
+    recordClosedPeriodAdjustment,
     validateSettlementDate
   };
 

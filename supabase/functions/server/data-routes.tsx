@@ -2743,6 +2743,102 @@ app.post('/reconciliation-audit', async (c) => {
   }
 });
 
+// ==================== ROTAS - CLOSED PERIODS ====================
+
+app.get('/closed-periods', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[CLOSED PERIODS] 📥 Carregando períodos fechados da empresa ${auth.companyId}`);
+    const closedPeriods = await sqlService.getClosedPeriods(auth.companyId);
+    
+    console.log(`[CLOSED PERIODS] ✅ ${closedPeriods.length} períodos fechados carregados`);
+    return c.json({
+      success: true,
+      data: closedPeriods
+    });
+
+  } catch (error) {
+    console.error('[CLOSED PERIODS] ❌ Erro ao carregar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/closed-periods', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const closedPeriods = await c.req.json();
+    console.log(`[CLOSED PERIODS] 💾 Salvando ${closedPeriods.length} períodos fechados para empresa ${auth.companyId}`);
+
+    await sqlService.saveClosedPeriods(auth.companyId, closedPeriods);
+    
+    console.log(`[CLOSED PERIODS] ✅ Períodos fechados salvos com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Períodos fechados salvos com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[CLOSED PERIODS] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==================== ROTAS - CLOSED PERIOD ADJUSTMENTS ====================
+
+app.get('/closed-period-adjustments', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    console.log(`[CLOSED PERIOD ADJUSTMENTS] 📥 Carregando ajustes em períodos fechados da empresa ${auth.companyId}`);
+    const adjustments = await sqlService.getClosedPeriodAdjustments(auth.companyId);
+    
+    console.log(`[CLOSED PERIOD ADJUSTMENTS] ✅ ${adjustments.length} ajustes carregados`);
+    return c.json({
+      success: true,
+      data: adjustments
+    });
+
+  } catch (error) {
+    console.error('[CLOSED PERIOD ADJUSTMENTS] ❌ Erro ao carregar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/closed-period-adjustments', async (c) => {
+  try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
+    const adjustments = await c.req.json();
+    console.log(`[CLOSED PERIOD ADJUSTMENTS] 💾 Salvando ${adjustments.length} ajustes para empresa ${auth.companyId}`);
+
+    await sqlService.saveClosedPeriodAdjustments(auth.companyId, adjustments);
+    
+    console.log(`[CLOSED PERIOD ADJUSTMENTS] ✅ Ajustes salvos com sucesso`);
+    return c.json({
+      success: true,
+      message: 'Ajustes salvos com sucesso'
+    });
+
+  } catch (error) {
+    console.error('[CLOSED PERIOD ADJUSTMENTS] ❌ Erro ao salvar:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ==================== ROTAS - LAST ANALYSIS DATE ====================
 
 app.get('/last-analysis-date', async (c) => {

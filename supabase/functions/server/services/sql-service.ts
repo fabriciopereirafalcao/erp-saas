@@ -1001,6 +1001,10 @@ export const sqlService = {
   saveReconciliationStatus,
   getReconciliationAudit,
   saveReconciliationAudit,
+  getClosedPeriods,
+  saveClosedPeriods,
+  getClosedPeriodAdjustments,
+  saveClosedPeriodAdjustments,
   getLastAnalysisDate,
   saveLastAnalysisDate
 };
@@ -1968,6 +1972,32 @@ async function saveReconciliationAudit(companyId: string, reconciliationAudit: a
   settings.reconciliationAudit = reconciliationAudit;
   await saveCompanySettings(companyId, settings);
   return { success: true, count: reconciliationAudit.length };
+}
+
+// CLOSED PERIODS
+async function getClosedPeriods(companyId: string) {
+  const settings = await getCompanySettings(companyId);
+  return settings.closedPeriods || [];
+}
+
+async function saveClosedPeriods(companyId: string, closedPeriods: any[]) {
+  const settings = await getCompanySettings(companyId);
+  settings.closedPeriods = closedPeriods;
+  await saveCompanySettings(companyId, settings);
+  return { success: true, count: closedPeriods.length };
+}
+
+// CLOSED PERIOD ADJUSTMENTS
+async function getClosedPeriodAdjustments(companyId: string) {
+  const settings = await getCompanySettings(companyId);
+  return settings.closedPeriodAdjustments || [];
+}
+
+async function saveClosedPeriodAdjustments(companyId: string, adjustments: any[]) {
+  const settings = await getCompanySettings(companyId);
+  settings.closedPeriodAdjustments = adjustments;
+  await saveCompanySettings(companyId, settings);
+  return { success: true, count: adjustments.length };
 }
 
 // LAST ANALYSIS DATE

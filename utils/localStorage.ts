@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   COMPANY_HISTORY: `${STORAGE_PREFIX}company_history`,
   RECONCILIATION_STATUS: `${STORAGE_PREFIX}reconciliation_status`,
   RECONCILIATION_AUDIT: `${STORAGE_PREFIX}reconciliation_audit`,
+  CLOSED_PERIODS: `${STORAGE_PREFIX}closed_periods`,
+  CLOSED_PERIOD_ADJUSTMENTS: `${STORAGE_PREFIX}closed_period_adjustments`,
   AUDIT_ISSUES: `${STORAGE_PREFIX}audit_issues`,
   LAST_ANALYSIS_DATE: `${STORAGE_PREFIX}last_analysis_date`,
 };

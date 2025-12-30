@@ -5,7 +5,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { ClosedPeriodsManagement } from "./ClosedPeriodsManagement";
+import { ClosedPeriodAdjustmentsHistory } from "./ClosedPeriodAdjustmentsHistory";
 
 export function BalanceReconciliation() {
   const {
@@ -26,7 +28,8 @@ export function BalanceReconciliation() {
     reconciliationStatus,
     reconciliationAudit,
     toggleReconciliationStatus,
-    getReconciliationHistory
+    getReconciliationHistory,
+    isMonthClosed
   } = useERP();
 
   // ✅ Proteções contra arrays undefined
@@ -433,6 +436,16 @@ export function BalanceReconciliation() {
           )}
         </div>
 
+        {/* Gestão de Períodos Fechados */}
+        <div className="mb-6">
+          <ClosedPeriodsManagement />
+        </div>
+
+        {/* Histórico de Ajustes em Períodos Fechados */}
+        <div className="mb-6">
+          <ClosedPeriodAdjustmentsHistory />
+        </div>
+
         {/* Summary Cards */}
         {selectedBank && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -516,19 +529,41 @@ export function BalanceReconciliation() {
             
             {/* Pills de Meses - Compactos */}
             <div className="flex gap-1.5">
-              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => (
-                <Button
-                  key={index}
-                  variant={selectedMonth.getMonth() === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
-                  className={`h-7 px-2.5 text-xs whitespace-nowrap ${selectedMonth.getMonth() === index ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  {monthName}
-                </Button>
-              ))}
+              {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((monthName, index) => {
+                const monthDate = new Date(selectedMonth.getFullYear(), index, 1);
+                const isClosed = isMonthClosed(monthDate);
+                
+                return (
+                  <Button
+                    key={index}
+                    variant={selectedMonth.getMonth() === index ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), index, 1))}
+                    className={`h-7 px-2.5 text-xs whitespace-nowrap flex items-center gap-1 ${
+                      selectedMonth.getMonth() === index 
+                        ? isClosed 
+                          ? "bg-gray-600 hover:bg-gray-700" 
+                          : "bg-blue-600 hover:bg-blue-700" 
+                        : isClosed
+                          ? "bg-gray-100 text-gray-700"
+                          : ""
+                    }`}
+                  >
+                    {isClosed && <Lock className="w-3 h-3" />}
+                    {monthName}
+                  </Button>
+                );
+              })}
             </div>
           </div>
+          
+          {/* Badge de Período Fechado */}
+          {isMonthClosed(selectedMonth) && (
+            <Badge className="bg-red-100 text-red-700 border-red-300 flex items-center gap-1.5">
+              <Lock className="w-3 h-3" />
+              Período Fechado - Somente Leitura
+            </Badge>
+          )}
 
           {/* Filtro de Banco - Direita */}
           <div className="flex items-center gap-3">
