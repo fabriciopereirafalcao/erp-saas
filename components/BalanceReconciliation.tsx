@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 
 export function BalanceReconciliation() {
   const {
@@ -31,9 +32,10 @@ export function BalanceReconciliation() {
     isMonthClosed,
     closePeriod,
     canClosePeriod,
-    getMonthReconciliationStatus,
-    currentUser
+    getMonthReconciliationStatus
   } = useERP();
+  
+  const { profile } = useAuth();
 
   // ✅ Proteções contra arrays undefined
   const safeFinancialTransactions = financialTransactions || [];
@@ -458,7 +460,7 @@ export function BalanceReconciliation() {
           {selectedBank && (
             <div className="flex items-center gap-3">
               {/* Botão Fechar Período - Apenas para Owner/Admin */}
-              {(currentUser?.role === 'Owner' || currentUser?.role === 'Administrador') && (
+              {(profile?.role === 'Owner' || profile?.role === 'Administrador') && (
                 <Button 
                   onClick={() => {
                     const month = selectedMonth.getMonth() + 1;
