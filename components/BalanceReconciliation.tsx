@@ -5,7 +5,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock, Info } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -18,8 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { ClosedPeriodsManagement } from "./ClosedPeriodsManagement";
-import { ClosedPeriodAdjustmentsHistory } from "./ClosedPeriodAdjustmentsHistory";
+import { toast } from "sonner";
 
 export function BalanceReconciliation() {
   const {
@@ -29,7 +28,11 @@ export function BalanceReconciliation() {
     reconciliationAudit,
     toggleReconciliationStatus,
     getReconciliationHistory,
-    isMonthClosed
+    isMonthClosed,
+    closePeriod,
+    canClosePeriod,
+    getMonthReconciliationStatus,
+    currentUser
   } = useERP();
 
   // ✅ Proteções contra arrays undefined
@@ -43,6 +46,8 @@ export function BalanceReconciliation() {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [selectedReconciliationKey, setSelectedReconciliationKey] = useState<string>("");
+  const [closePeriodDialogOpen, setClosePeriodDialogOpen] = useState(false);
+  const [closePeriodJustification, setClosePeriodJustification] = useState("");
 
   // Ao carregar, seleciona automaticamente a conta principal (isPrimary) ou a primeira conta
   useEffect(() => {
@@ -169,6 +174,15 @@ export function BalanceReconciliation() {
   const reconciliationPercentage = totalDays > 0 ? (totalReconciled / totalDays * 100).toFixed(0) : 0;
 
   const handleToggleReconciliation = (reconciliationKey: string, dayData: any) => {
+    // ✅ Bloquear alteração em períodos fechados
+    const dayDate = new Date(dayData.dateStr);
+    if (isMonthClosed(dayDate)) {
+      toast.error('Período fechado', {
+        description: 'Não é possível alterar conciliações em períodos fechados'
+      });
+      return;
+    }
+    
     const bank = safeBankAccounts.find(b => b.id === selectedBank);
     if (!bank) return;
 
@@ -418,32 +432,68 @@ export function BalanceReconciliation() {
     <div className="p-6">
       <div className="mb-6">
         <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Conciliação de Saldos</h1>
-            <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">Conciliação de Saldos</h1>
+              <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
+            </div>
+            
+            {/* Info Badge Explicativo */}
+            <div className="group relative">
+              <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center cursor-help">
+                <Info className="w-3 h-3 text-blue-600" />
+              </div>
+              <div className="absolute left-0 top-8 w-96 p-4 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <h4 className="font-semibold text-gray-900 mb-2">Como funciona?</h4>
+                <div className="text-xs text-gray-600 space-y-2">
+                  <p><strong>Conciliação:</strong> Marque cada dia como conciliado após conferir com o extrato bancário real.</p>
+                  <p><strong>Períodos Fechados:</strong> Após 100% de conciliação do mês, feche o período para bloquear alterações e garantir a integridade contábil.</p>
+                  <p><strong>Permissões:</strong> Apenas Owners e Administradores podem fechar períodos.</p>
+                </div>
+              </div>
+            </div>
           </div>
           
-          {/* Botão GERAR PDF - Canto Superior Direito */}
+          {/* Botões - Canto Superior Direito */}
           {selectedBank && (
-            <Button 
-              onClick={handleGeneratePDF}
-              variant="outline" 
-              className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              <FileText className="w-4 h-4" />
-              GERAR PDF
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* Botão Fechar Período - Apenas para Owner/Admin */}
+              {(currentUser?.role === 'Owner' || currentUser?.role === 'Administrador') && (
+                <Button 
+                  onClick={() => {
+                    const month = selectedMonth.getMonth() + 1;
+                    const year = selectedMonth.getFullYear();
+                    
+                    // Verificar se período já está fechado
+                    if (isMonthClosed(selectedMonth)) {
+                      toast.info('Período já fechado', {
+                        description: `O período ${month.toString().padStart(2, '0')}/${year} já se encontra fechado`
+                      });
+                      return;
+                    }
+                    
+                    // Abrir dialog de confirmação
+                    setClosePeriodDialogOpen(true);
+                  }}
+                  variant="outline" 
+                  className="gap-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+                >
+                  <Lock className="w-4 h-4" />
+                  FECHAR PERÍODO
+                </Button>
+              )}
+              
+              {/* Botão Gerar PDF */}
+              <Button 
+                onClick={handleGeneratePDF}
+                variant="outline" 
+                className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+              >
+                <FileText className="w-4 h-4" />
+                GERAR PDF
+              </Button>
+            </div>
           )}
-        </div>
-
-        {/* Gestão de Períodos Fechados */}
-        <div className="mb-6">
-          <ClosedPeriodsManagement />
-        </div>
-
-        {/* Histórico de Ajustes em Períodos Fechados */}
-        <div className="mb-6">
-          <ClosedPeriodAdjustmentsHistory />
         </div>
 
         {/* Summary Cards */}
@@ -858,6 +908,111 @@ export function BalanceReconciliation() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Fechamento de Período */}
+      <Dialog open={closePeriodDialogOpen} onOpenChange={setClosePeriodDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-600" />
+              Fechar Período
+            </DialogTitle>
+            <DialogDescription>
+              Confirme o fechamento do período para garantir a integridade dos dados
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Informações do Período */}
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600 font-medium">Período</p>
+                  <p className="text-gray-900">
+                    {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 font-medium">Status</p>
+                  <p className="text-gray-900">
+                    {isMonthClosed(selectedMonth) ? "Fechado" : "Aberto"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Justificativa para Fechamento */}
+            <div className="space-y-2">
+              <Label className="text-sm whitespace-nowrap">Justificativa para Fechamento</Label>
+              <textarea
+                value={closePeriodJustification}
+                onChange={(e) => setClosePeriodJustification(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+                placeholder="Digite a justificativa para o fechamento do período"
+              />
+            </div>
+
+            {/* Resumo de Conciliação */}
+            <div className="space-y-2">
+              <Label className="text-sm whitespace-nowrap">Resumo de Conciliação</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500">Total de Dias</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {totalDays}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Dias Conciliados</p>
+                  <p className="text-sm font-medium text-green-600">
+                    {totalReconciled}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Dias Pendentes</p>
+                  <p className="text-sm font-medium text-red-600">
+                    {totalDays - totalReconciled}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Taxa de Conciliação</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {reconciliationPercentage}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div className="flex items-center justify-end gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setClosePeriodDialogOpen(false)}
+                className="h-8 gap-1.5 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  if (canClosePeriod(selectedMonth)) {
+                    closePeriod(selectedMonth, closePeriodJustification);
+                    setClosePeriodDialogOpen(false);
+                    toast.success("Período fechado com sucesso!");
+                  } else {
+                    toast.error("Não é possível fechar o período. Verifique as conciliações pendentes.");
+                  }
+                }}
+                className="h-8 gap-1.5 text-white hover:bg-blue-700"
+              >
+                Fechar Período
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
