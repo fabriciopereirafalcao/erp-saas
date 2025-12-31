@@ -38,17 +38,7 @@ export function BalanceReconciliation() {
   
   const { profile } = useAuth();
 
-  // 🐛 DEBUG: Verificar profile
-  useEffect(() => {
-    console.log('[CONCILIAÇÃO] 🔍 DEBUG Profile:', {
-      profile,
-      role: profile?.role,
-      roleLower: profile?.role?.toLowerCase(),
-      isOwner: profile?.role?.toLowerCase() === 'owner',
-      isAdmin: profile?.role?.toLowerCase() === 'administrador',
-      shouldShowButton: profile?.role?.toLowerCase() === 'owner' || profile?.role?.toLowerCase() === 'administrador'
-    });
-  }, [profile]);
+
 
   // ✅ Proteções contra arrays undefined
   const safeFinancialTransactions = financialTransactions || [];
@@ -111,16 +101,6 @@ export function BalanceReconciliation() {
       }
       return sum;
     }, bank.initialBalance || 0);
-    
-    console.log('[CONCILIAÇÃO] 💰 Cálculo de saldo inicial:', {
-      bankName: bank.bankName,
-      initialBalance: bank.initialBalance,
-      currentBalance: bank.balance,
-      startDate: bank.startDate,
-      monthStartDate,
-      transactionsBeforeMonth: transactionsBeforeMonth.length,
-      balanceBeforeMonth
-    });
 
     const reconciliationData: any[] = [];
     let currentBalance = balanceBeforeMonth;

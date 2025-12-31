@@ -20,8 +20,11 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates } from "../utils/dateUtils";
+import { withClosedPeriodValidation, WithClosedPeriodValidationProps } from "./withClosedPeriodValidation";
 
-export function FinancialTransactions() {
+interface FinancialTransactionsProps extends WithClosedPeriodValidationProps {}
+
+function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTransactionsProps) {
   const {
     financialTransactions,
     customers,
@@ -82,6 +85,18 @@ export function FinancialTransactions() {
   } | null>(null);
   const [pendingCreatePaid, setPendingCreatePaid] = useState<typeof formData | null>(null);
   const [showPaymentDatePopover, setShowPaymentDatePopover] = useState(false);
+
+  // ✅ Estados para validação de períodos fechados
+  const [showClosedPeriodBlockModal, setShowClosedPeriodBlockModal] = useState(false);
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
+  const [closedPeriodData, setClosedPeriodData] = useState<{
+    month: number;
+    year: number;
+    closedBy: string;
+    closedAt: string;
+    periodId: string;
+  } | null>(null);
+  const [pendingTransactionData, setPendingTransactionData] = useState<any>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -458,15 +473,18 @@ export function FinancialTransactions() {
       transferDirection: "destino" as const
     };
 
-    // Adicionar as duas transações
-    addFinancialTransaction(outgoingTransaction);
-    addFinancialTransaction(incomingTransaction);
+    // ✅ Validar período fechado antes de criar transferência
+    validateBeforeAction?.('create', outgoingTransaction, () => {
+      // Adicionar as duas transações
+      addFinancialTransaction(outgoingTransaction);
+      addFinancialTransaction(incomingTransaction);
 
-    toast.success("Transferência realizada com sucesso!", {
-      description: `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} transferidos de ${sourceAccount.bankName} para ${destinationAccount.bankName}`
+      toast.success("Transferência realizada com sucesso!", {
+        description: `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} transferidos de ${sourceAccount.bankName} para ${destinationAccount.bankName}`
+      });
+
+      setShowDialog(false);
     });
-
-    setShowDialog(false);
   };
 
   const handleSave = () => {
@@ -522,20 +540,9 @@ export function FinancialTransactions() {
     // ✅ VALIDAÇÃO: Se alreadyPaid, verificar se data de pagamento é anterior ao startDate da conta
     if (formData.alreadyPaid && formData.bankAccountId && formData.bankAccountId !== "") {
       const paymentDateString = dateToLocalString(formData.paymentDate);
-      
-      console.log('🔍 [VALIDAÇÃO CREATE] Executando validação...');
-      console.log('🔍 [VALIDAÇÃO CREATE] alreadyPaid:', formData.alreadyPaid);
-      console.log('🔍 [VALIDAÇÃO CREATE] bankAccountId:', formData.bankAccountId);
-      console.log('🔍 [VALIDAÇÃO CREATE] paymentDate:', paymentDateString);
-      console.log('🔍 [VALIDAÇÃO CREATE] paymentDate (Date):', formData.paymentDate);
-      
       const validationResult = validateSettlementDate(formData.bankAccountId, paymentDateString);
       
-      console.log('🔍 [VALIDAÇÃO CREATE] validationResult:', JSON.stringify(validationResult, null, 2));
-      console.log('🔍 [VALIDAÇÃO CREATE] needsConfirmation?', validationResult.needsConfirmation);
-      
       if (validationResult.needsConfirmation) {
-        console.log('⚠️ [VALIDAÇÃO CREATE] Dialog de confirmação DEVE abrir!');
         
         // Armazenar dados para criação após confirmação
         setPendingCreatePaid(formData);
@@ -553,16 +560,11 @@ export function FinancialTransactions() {
         });
         setShowWarningDialog(true);
         return; // Parar execução até confirmação
-      } else {
-        console.log('✅ [VALIDAÇÃO CREATE] Validação passou - criando transação normalmente');
       }
-    } else {
-      console.log('ℹ️ [VALIDAÇÃO CREATE] Validação NÃO aplicada');
-      console.log('   - alreadyPaid:', formData.alreadyPaid);
-      console.log('   - bankAccountId:', formData.bankAccountId);
-      console.log('   - bankAccountId type:', typeof formData.bankAccountId);
     }
     
+    // ✅ Preparar dados de todas as parcelas
+    const transactionsToCreate = [];
     for (let i = 0; i < numInstallments; i++) {
       // Calcular data de vencimento de cada parcela usando addDaysToDate
       const daysToAdd = formData.firstInstallmentDays + (i * 30);
@@ -610,21 +612,30 @@ export function FinancialTransactions() {
         origin: "Manual" as const
       };
 
-      addFinancialTransaction(transactionData);
+      transactionsToCreate.push(transactionData);
     }
 
-    if (numInstallments > 1) {
-      toast.success(`${numInstallments} transações criadas com sucesso!`, {
-        description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - Liquidar manualmente cada parcela`
+    // ✅ Validar período fechado antes de criar transações
+    // Usar a primeira transação como referência para validação
+    validateBeforeAction?.('create', transactionsToCreate[0], () => {
+      // Criar todas as transações apenas se aprovado
+      transactionsToCreate.forEach(txnData => {
+        addFinancialTransaction(txnData);
       });
-    } else {
-      toast.success("Transação criada com sucesso!", {
-        description: "Liquidar manualmente quando necessário"
-      });
-    }
 
-    setShowDialog(false);
-    setEditingTransaction(null);
+      if (numInstallments > 1) {
+        toast.success(`${numInstallments} transações criadas com sucesso!`, {
+          description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - Liquidar manualmente cada parcela`
+        });
+      } else {
+        toast.success("Transação criada com sucesso!", {
+          description: "Liquidar manualmente quando necessário"
+        });
+      }
+
+      setShowDialog(false);
+      setEditingTransaction(null);
+    });
   };
 
   const handleOpenReceiveDialog = (transactionId: string) => {
@@ -1009,124 +1020,133 @@ export function FinancialTransactions() {
           .sort((a, b) => (b.installmentNumber || 0) - (a.installmentNumber || 0))
           .slice(0, unsettledInstallments.length - newInstallmentCount + settledInstallments.length);
 
-        toCancel.forEach(txn => {
-          updateFinancialTransaction(txn.id, {
-            ...txn,
-            status: "Cancelado" as any
+        // ✅ Validar período fechado antes de editar (usar primeira transação como referência)
+        validateBeforeAction?.('edit', transaction, () => {
+          toCancel.forEach(txn => {
+            updateFinancialTransaction(txn.id, {
+              ...txn,
+              status: "Cancelado" as any
+            });
           });
-        });
 
-        // Atualizar parcelas restantes
-        const remaining = unsettledInstallments.filter(t => !toCancel.find(c => c.id === t.id));
-        remaining.forEach((txn, index) => {
-          updateFinancialTransaction(txn.id, {
-            ...txn,
-            partyType: formData.partyType,
-            partyId: formData.partyId,
-            partyName: formData.partyName,
-            categoryId: formData.categoryId,
-            categoryName: category?.name || "",
-            amount: newInstallmentAmount,
-            costCenterId: formData.costCenterId,
-            costCenterName: costCenter?.name || "",
-            description: formData.description,
-            totalInstallments: newInstallmentCount,
+          // Atualizar parcelas restantes
+          const remaining = unsettledInstallments.filter(t => !toCancel.find(c => c.id === t.id));
+          remaining.forEach((txn, index) => {
+            updateFinancialTransaction(txn.id, {
+              ...txn,
+              partyType: formData.partyType,
+              partyId: formData.partyId,
+              partyName: formData.partyName,
+              categoryId: formData.categoryId,
+              categoryName: category?.name || "",
+              amount: newInstallmentAmount,
+              costCenterId: formData.costCenterId,
+              costCenterName: costCenter?.name || "",
+              description: formData.description,
+              totalInstallments: newInstallmentCount,
+            });
           });
-        });
 
-        toast.success(`${toCancel.length} parcela(s) cancelada(s) e ${remaining.length} atualizada(s)`);
+          toast.success(`${toCancel.length} parcela(s) cancelada(s) e ${remaining.length} atualizada(s)`);
+        });
       }
       // Caso 2: Aumento de parcelas
       else if (newInstallmentCount > currentInstallmentCount) {
         const parcelasACriar = newInstallmentCount - currentInstallmentCount;
 
-        // Atualizar parcelas existentes não liquidadas
-        unsettledInstallments.forEach(txn => {
-          updateFinancialTransaction(txn.id, {
-            ...txn,
-            partyType: formData.partyType,
-            partyId: formData.partyId,
-            partyName: formData.partyName,
-            categoryId: formData.categoryId,
-            categoryName: category?.name || "",
-            amount: newInstallmentAmount,
-            costCenterId: formData.costCenterId,
-            costCenterName: costCenter?.name || "",
-            description: formData.description,
-            totalInstallments: newInstallmentCount,
+        // ✅ Validar período fechado antes de editar
+        validateBeforeAction?.('edit', transaction, () => {
+          // Atualizar parcelas existentes não liquidadas
+          unsettledInstallments.forEach(txn => {
+            updateFinancialTransaction(txn.id, {
+              ...txn,
+              partyType: formData.partyType,
+              partyId: formData.partyId,
+              partyName: formData.partyName,
+              categoryId: formData.categoryId,
+              categoryName: category?.name || "",
+              amount: newInstallmentAmount,
+              costCenterId: formData.costCenterId,
+              costCenterName: costCenter?.name || "",
+              description: formData.description,
+              totalInstallments: newInstallmentCount,
+            });
           });
+
+          // Criar novas parcelas
+          const currentMaxInstallment = Math.max(...allInstallments.map(t => t.installmentNumber || 0));
+          const bankAccount = safeBankAccounts[0];
+          const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
+
+          // ✅ Converter Date para string local (evita problema de timezone)
+          const baseDateString = dateToLocalString(formData.date);
+          
+          for (let i = 0; i < parcelasACriar; i++) {
+            const installmentNumber = currentMaxInstallment + i + 1;
+            const daysToAdd = formData.firstInstallmentDays + ((installmentNumber - 1) * 30);
+            const dueDate = addDaysToDate(baseDateString, daysToAdd);
+
+            // ✅ Definir status da parcela (já pago, vencido ou a vencer)
+            const today = getTodayString();
+            const isOverdue = compareDates(dueDate, today) < 0; // < 0 significa dueDate é ANTERIOR a hoje
+            const installmentStatus = formData.alreadyPaid
+              ? "Pago"
+              : isOverdue 
+                ? "Vencido" 
+                : "A Vencer";
+
+            const newTransaction = {
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
+              type: formData.type,
+              date: baseDateString,
+              dueDate: dueDate,
+              partyType: formData.partyType,
+              partyId: formData.partyId,
+              partyName: formData.partyName,
+              categoryId: formData.categoryId,
+              categoryName: category?.name || "",
+              bankAccountId: bankAccount?.id || "",
+              bankAccountName: bankAccount?.bankName || "",
+              paymentMethodId: paymentMethod?.id || "",
+              paymentMethodName: paymentMethod?.name || "",
+              amount: newInstallmentAmount,
+              status: installmentStatus as any,
+              costCenterId: formData.costCenterId,
+              costCenterName: costCenter?.name || "",
+              description: formData.description,
+              installmentNumber: installmentNumber,
+              totalInstallments: newInstallmentCount,
+              parentTransactionId: parentId,
+              origin: "Manual" as any,
+            };
+
+            addFinancialTransaction(newTransaction);
+          }
+
+          toast.success(`${parcelasACriar} nova(s) parcela(s) criada(s) e existentes atualizadas`);
         });
-
-        // Criar novas parcelas
-        const currentMaxInstallment = Math.max(...allInstallments.map(t => t.installmentNumber || 0));
-        const bankAccount = safeBankAccounts[0];
-        const paymentMethod = safePaymentMethods.find(pm => pm.isActive);
-
-        // ✅ Converter Date para string local (evita problema de timezone)
-        const baseDateString = dateToLocalString(formData.date);
-        
-        for (let i = 0; i < parcelasACriar; i++) {
-          const installmentNumber = currentMaxInstallment + i + 1;
-          const daysToAdd = formData.firstInstallmentDays + ((installmentNumber - 1) * 30);
-          const dueDate = addDaysToDate(baseDateString, daysToAdd);
-
-          // ✅ Definir status da parcela (já pago, vencido ou a vencer)
-          const today = getTodayString();
-          const isOverdue = compareDates(dueDate, today) < 0; // < 0 significa dueDate é ANTERIOR a hoje
-          const installmentStatus = formData.alreadyPaid
-            ? "Pago"
-            : isOverdue 
-              ? "Vencido" 
-              : "A Vencer";
-
-          const newTransaction = {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
-            type: formData.type,
-            date: baseDateString,
-            dueDate: dueDate,
-            partyType: formData.partyType,
-            partyId: formData.partyId,
-            partyName: formData.partyName,
-            categoryId: formData.categoryId,
-            categoryName: category?.name || "",
-            bankAccountId: bankAccount?.id || "",
-            bankAccountName: bankAccount?.bankName || "",
-            paymentMethodId: paymentMethod?.id || "",
-            paymentMethodName: paymentMethod?.name || "",
-            amount: newInstallmentAmount,
-            status: installmentStatus as any,
-            costCenterId: formData.costCenterId,
-            costCenterName: costCenter?.name || "",
-            description: formData.description,
-            installmentNumber: installmentNumber,
-            totalInstallments: newInstallmentCount,
-            parentTransactionId: parentId,
-            origin: "Manual" as any,
-          };
-
-          addFinancialTransaction(newTransaction);
-        }
-
-        toast.success(`${parcelasACriar} nova(s) parcela(s) criada(s) e existentes atualizadas`);
       }
       // Caso 3: Mesmo número de parcelas, apenas atualizar
       else {
-        unsettledInstallments.forEach(txn => {
-          updateFinancialTransaction(txn.id, {
-            ...txn,
-            partyType: formData.partyType,
-            partyId: formData.partyId,
-            partyName: formData.partyName,
-            categoryId: formData.categoryId,
-            categoryName: category?.name || "",
-            amount: newInstallmentAmount,
-            costCenterId: formData.costCenterId,
-            costCenterName: costCenter?.name || "",
-            description: formData.description,
+        // ✅ Validar período fechado antes de editar
+        validateBeforeAction?.('edit', transaction, () => {
+          unsettledInstallments.forEach(txn => {
+            updateFinancialTransaction(txn.id, {
+              ...txn,
+              partyType: formData.partyType,
+              partyId: formData.partyId,
+              partyName: formData.partyName,
+              categoryId: formData.categoryId,
+              categoryName: category?.name || "",
+              amount: newInstallmentAmount,
+              costCenterId: formData.costCenterId,
+              costCenterName: costCenter?.name || "",
+              description: formData.description,
+            });
           });
-        });
 
-        toast.success(`${unsettledInstallments.length} parcela(s) atualizada(s) com sucesso`);
+          toast.success(`${unsettledInstallments.length} parcela(s) atualizada(s) com sucesso`);
+        });
       }
     } else {
       // Edição de uma única transação/parcela
@@ -1139,7 +1159,7 @@ export function FinancialTransactions() {
       // ✅ Buscar nome da conta bancária
       const bankAccount = formData.bankAccountId ? safeBankAccounts.find(b => b.id === formData.bankAccountId) : null;
       
-      updateFinancialTransaction(editingTransaction, {
+      const updatedTransactionData = {
         ...transaction,
         partyType: formData.partyType,
         partyId: formData.partyId,
@@ -1154,9 +1174,13 @@ export function FinancialTransactions() {
         // ✅ NÃO atualizar status - manter o status original da transação
         bankAccountId: formData.bankAccountId || "", // ✅ NOVO: atualizar conta bancária
         bankAccountName: bankAccount?.bankName || "", // ✅ NOVO: atualizar nome da conta bancária
-      });
+      };
 
-      toast.success("Transação atualizada com sucesso");
+      // ✅ Validar período fechado antes de editar
+      validateBeforeAction?.('edit', updatedTransactionData, () => {
+        updateFinancialTransaction(editingTransaction, updatedTransactionData);
+        toast.success("Transação atualizada com sucesso");
+      });
     }
 
     setShowDialog(false); // ✅ Usar showDialog ao invés de showEditDialog
@@ -2417,3 +2441,6 @@ export function FinancialTransactions() {
     </div>
   );
 }
+
+// ✅ Exportar com HOC de validação de períodos fechados
+export const FinancialTransactions = withClosedPeriodValidation(FinancialTransactionsComponent);

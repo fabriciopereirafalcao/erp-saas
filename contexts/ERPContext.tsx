@@ -6209,9 +6209,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     setReconciliationAudit(prev => [...prev, auditEntry]);
 
-    // Log da ação
-    console.log(`[CONCILIAÇÃO] ${newStatus ? '✅ Conciliado' : '⚠️ Desmarcado'}: ${auditData.bankName} - ${auditData.date}`);
-    console.log(`[AUDITORIA] Registro criado:`, auditEntry);
+
   };
 
   const getReconciliationHistory = (reconciliationKey: string): ReconciliationAuditEntry[] => {
@@ -6274,7 +6272,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Validar se os números são válidos
       if (isNaN(keyYear) || isNaN(keyMonth) || isNaN(keyDay)) {
-        console.log('[PERÍODO FECHADO] ⚠️ Data inválida:', { key, dateStr, parts });
         return;
       }
       
@@ -6337,11 +6334,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
    */
   const closePeriod = async (month: number, year: number, justification?: string): Promise<boolean> => {
     try {
-      console.log('[PERÍODO FECHADO] 🔒 Iniciando fechamento:', { month, year, justification });
-      
       // Validar se pode fechar
       const validation = canClosePeriod(month, year);
-      console.log('[PERÍODO FECHADO] 🔍 Validação:', validation);
       
       if (!validation.canClose) {
         toast.error(`Não é possível fechar o período: ${validation.reason}`);
@@ -6350,7 +6344,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Verificar se já está fechado
       const alreadyClosed = isMonthClosed(new Date(year, month - 1, 1));
-      console.log('[PERÍODO FECHADO] 🔍 Já está fechado?', alreadyClosed);
       
       if (alreadyClosed) {
         toast.error('Este período já está fechado');
@@ -6359,7 +6352,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Determinar se é o primeiro período
       const isFirstPeriod = closedPeriods.length === 0;
-      console.log('[PERÍODO FECHADO] 🔍 É primeiro período?', isFirstPeriod, 'Total períodos fechados:', closedPeriods.length);
       
       const newPeriod: ClosedPeriod = {
         id: `period-${year}-${month}-${Date.now()}`,
@@ -6372,18 +6364,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         justification
       };
       
-      console.log('[PERÍODO FECHADO] 📝 Novo período:', newPeriod);
-      
-      setClosedPeriods(prev => {
-        const updated = [...prev, newPeriod];
-        console.log('[PERÍODO FECHADO] 💾 Atualizando estado:', { antes: prev.length, depois: updated.length });
-        return updated;
-      });
+      setClosedPeriods(prev => [...prev, newPeriod]);
       
       toast.success(`Período ${month.toString().padStart(2, '0')}/${year} fechado com sucesso`);
-      
-      console.log('[PERÍODO FECHADO] ✅ Fechamento concluído!');
-      
       return true;
     } catch (error) {
       console.error('[PERÍODO FECHADO] ❌ Erro:', error);
@@ -6418,9 +6401,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       setClosedPeriods(prev => prev.filter(p => p.id !== periodId));
       
       toast.success(`Período ${period.month.toString().padStart(2, '0')}/${period.year} reaberto`);
-      
-      console.log('[PERÍODO REABERTO] ✅', period, 'Justificativa:', justification);
-      
       return true;
     } catch (error) {
       console.error('[PERÍODO REABERTO] ❌ Erro:', error);
@@ -6506,11 +6486,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         ...prev,
         ...keysToUpdate
       }));
-      
-      console.log(`[AJUSTE PERÍODO FECHADO] ⚠️ ${Object.keys(keysToUpdate).length} datas desconciliadas`);
     }
-    
-    console.log('[AJUSTE PERÍODO FECHADO] ✅ Registrado:', adjustment);
   };
 
   // ==================== CONTEXT VALUE ====================
