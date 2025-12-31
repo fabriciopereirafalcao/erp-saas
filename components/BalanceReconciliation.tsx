@@ -5,7 +5,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock, Info } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +20,7 @@ import {
 } from "./ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { FeatureInfoBadge } from "./FeatureInfoBadge";
 
 export function BalanceReconciliation() {
   const {
@@ -36,6 +37,17 @@ export function BalanceReconciliation() {
   } = useERP();
   
   const { profile } = useAuth();
+
+  // 🐛 DEBUG: Verificar profile
+  useEffect(() => {
+    console.log('[CONCILIAÇÃO] 🔍 DEBUG Profile:', {
+      profile,
+      role: profile?.role,
+      isOwner: profile?.role === 'Owner',
+      isAdmin: profile?.role === 'Administrador',
+      shouldShowButton: profile?.role === 'Owner' || profile?.role === 'Administrador'
+    });
+  }, [profile]);
 
   // ✅ Proteções contra arrays undefined
   const safeFinancialTransactions = financialTransactions || [];
@@ -441,19 +453,25 @@ export function BalanceReconciliation() {
             </div>
             
             {/* Info Badge Explicativo */}
-            <div className="group relative">
-              <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center cursor-help">
-                <Info className="w-3 h-3 text-blue-600" />
+            <FeatureInfoBadge 
+              title="Conciliações & Períodos Fechados" 
+              variant="blue"
+              position="inline"
+            >
+              <div className="text-sm text-gray-700 space-y-3">
+                <p>
+                  <strong>Conciliação:</strong> Marque cada dia como conciliado após conferir com o extrato bancário real.
+                </p>
+                
+                <p>
+                  <strong>Períodos Fechados:</strong> Após 100% de conciliação do mês, feche o período para bloquear alterações e garantir a integridade contábil.
+                </p>
+                
+                <p>
+                  <strong>Permissões:</strong> Apenas usuários com perfis de Owner ou Administrador podem fechar períodos.
+                </p>
               </div>
-              <div className="absolute left-0 top-8 w-96 p-4 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <h4 className="font-semibold text-gray-900 mb-2">Como funciona?</h4>
-                <div className="text-xs text-gray-600 space-y-2">
-                  <p><strong>Conciliação:</strong> Marque cada dia como conciliado após conferir com o extrato bancário real.</p>
-                  <p><strong>Períodos Fechados:</strong> Após 100% de conciliação do mês, feche o período para bloquear alterações e garantir a integridade contábil.</p>
-                  <p><strong>Permissões:</strong> Apenas Owners e Administradores podem fechar períodos.</p>
-                </div>
-              </div>
-            </div>
+            </FeatureInfoBadge>
           </div>
           
           {/* Botões - Canto Superior Direito */}
