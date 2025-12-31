@@ -23,7 +23,7 @@
 
 import React, { ComponentType, useCallback } from 'react';
 import { useERP } from '../../contexts/ERPContext';
-import { withClosedPeriodValidation, ClosedPeriodValidationProps } from './withClosedPeriodValidation';
+import { withClosedPeriodValidation, ClosedPeriodValidationProps } from '../withClosedPeriodValidation';
 import { withReconciliationValidation, ReconciliationValidationProps } from './withReconciliationValidation';
 import { withReconciliationWarning, ReconciliationWarningProps } from './withReconciliationWarning';
 
