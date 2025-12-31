@@ -43,9 +43,10 @@ export function BalanceReconciliation() {
     console.log('[CONCILIAÇÃO] 🔍 DEBUG Profile:', {
       profile,
       role: profile?.role,
-      isOwner: profile?.role === 'Owner',
-      isAdmin: profile?.role === 'Administrador',
-      shouldShowButton: profile?.role === 'Owner' || profile?.role === 'Administrador'
+      roleLower: profile?.role?.toLowerCase(),
+      isOwner: profile?.role?.toLowerCase() === 'owner',
+      isAdmin: profile?.role?.toLowerCase() === 'administrador',
+      shouldShowButton: profile?.role?.toLowerCase() === 'owner' || profile?.role?.toLowerCase() === 'administrador'
     });
   }, [profile]);
 
@@ -478,7 +479,7 @@ export function BalanceReconciliation() {
           {selectedBank && (
             <div className="flex items-center gap-3">
               {/* Botão Fechar Período - Apenas para Owner/Admin */}
-              {(profile?.role === 'Owner' || profile?.role === 'Administrador') && (
+              {(profile?.role?.toLowerCase() === 'owner' || profile?.role?.toLowerCase() === 'administrador') && (
                 <Button 
                   onClick={() => {
                     const month = selectedMonth.getMonth() + 1;
