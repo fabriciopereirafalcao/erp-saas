@@ -6241,6 +6241,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     console.log('[PERÍODO FECHADO] 📊 Iniciando contagem:', { month, year, daysInMonth, totalKeys: Object.keys(reconciliationStatus).length });
     
+    // 🔥 MOSTRAR TODAS AS CHAVES NO ESTADO (primeiras 10)
+    console.log('[PERÍODO FECHADO] 🔑 Primeiras 10 chaves:', Object.keys(reconciliationStatus).slice(0, 10));
+    
     // Contar dias conciliados
     const reconciledDays: string[] = [];
     const allKeys = Object.keys(reconciliationStatus);
@@ -6287,10 +6290,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     });
     
+    // 🔥 NOVO: Identificar quais dias estão faltando
+    const reconciledDayNumbers = reconciledDays.map(d => parseInt(d.split('-')[2]));
+    const missingDays: number[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      if (!reconciledDayNumbers.includes(day)) {
+        missingDays.push(day);
+      }
+    }
+    
     console.log('[PERÍODO FECHADO] 📊 Resultado final:', { 
       totalDays: daysInMonth, 
       reconciledDays: reconciledDays.length,
       reconciledDates: reconciledDays.sort(),
+      missingDays: missingDays, // 🔥 NOVO
       percentage: Math.round((reconciledDays.length / daysInMonth) * 100) 
     });
     
