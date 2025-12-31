@@ -6259,16 +6259,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       // Reconstruir a data dos últimos 3 elementos
       const dateStr = parts.slice(-3).join('-'); // ["2025", "01", "15"] -> "2025-01-15"
-      const keyDate = new Date(dateStr);
       
-      if (isNaN(keyDate.getTime())) {
+      // 🔥 FIX: Parsing explícito para evitar problemas de timezone
+      // Não usar new Date(dateStr) diretamente pois interpreta como UTC meia-noite
+      const [yearStr, monthStr, dayStr] = dateStr.split('-');
+      const keyYear = parseInt(yearStr);
+      const keyMonth = parseInt(monthStr);
+      const keyDay = parseInt(dayStr);
+      
+      // Validar se os números são válidos
+      if (isNaN(keyYear) || isNaN(keyMonth) || isNaN(keyDay)) {
         console.log('[PERÍODO FECHADO] ⚠️ Data inválida:', { key, dateStr, parts });
         return;
       }
-      
-      const keyMonth = keyDate.getMonth() + 1; // 0-11 -> 1-12
-      const keyYear = keyDate.getFullYear();
-      const keyDay = keyDate.getDate();
       
       const isReconciled = reconciliationStatus[key] === true;
       const matchesMonth = keyMonth === month && keyYear === year;
