@@ -453,14 +453,12 @@ export function BalanceReconciliation() {
     <div className="p-6">
       <div className="mb-6">
         <div className="mb-4 flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div>
+          <div>
+            <div className="flex items-center gap-2">
               <h1 className="text-2xl font-semibold text-gray-900 mb-2">Conciliação de Saldos</h1>
-              <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
-            </div>
-            
-            {/* Info Badge Explicativo */}
-            <FeatureInfoBadge 
+              
+              {/* Info Badge Explicativo */}
+              <FeatureInfoBadge 
               title="Conciliações & Períodos Fechados" 
               variant="blue"
               position="inline"
@@ -479,6 +477,8 @@ export function BalanceReconciliation() {
                 </p>
               </div>
             </FeatureInfoBadge>
+            </div>
+            <p className="text-gray-600">Compare os saldos do ERP com os extratos bancários reais</p>
           </div>
           
           {/* Botões - Canto Superior Direito */}

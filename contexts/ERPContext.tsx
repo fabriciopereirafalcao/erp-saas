@@ -6239,32 +6239,65 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const getMonthReconciliationStatus = (month: number, year: number) => {
     const daysInMonth = new Date(year, month, 0).getDate();
     
+    console.log('[PERÍODO FECHADO] 📊 Iniciando contagem:', { month, year, daysInMonth, totalKeys: Object.keys(reconciliationStatus).length });
+    
     // Contar dias conciliados
-    const reconciledDaysCount = Object.keys(reconciliationStatus).filter(key => {
+    const reconciledDays: string[] = [];
+    const allKeys = Object.keys(reconciliationStatus);
+    
+    allKeys.forEach(key => {
       // Formato da chave: "bankId-YYYY-MM-DD"
       // Exemplo: "uuid-abc-123-2025-01-15"
       const parts = key.split('-');
       
       // A chave tem formato: uuid-...-YYYY-MM-DD
       // Precisamos pegar os últimos 3 elementos (YYYY-MM-DD)
-      if (parts.length < 3) return false;
+      if (parts.length < 3) return;
       
       // Reconstruir a data dos últimos 3 elementos
       const dateStr = parts.slice(-3).join('-'); // ["2025", "01", "15"] -> "2025-01-15"
       const keyDate = new Date(dateStr);
       
-      if (isNaN(keyDate.getTime())) return false;
+      if (isNaN(keyDate.getTime())) {
+        console.log('[PERÍODO FECHADO] ⚠️ Data inválida:', { key, dateStr, parts });
+        return;
+      }
       
       const keyMonth = keyDate.getMonth() + 1; // 0-11 -> 1-12
       const keyYear = keyDate.getFullYear();
+      const keyDay = keyDate.getDate();
       
-      return keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
-    }).length;
+      const isReconciled = reconciliationStatus[key] === true;
+      const matchesMonth = keyMonth === month && keyYear === year;
+      
+      if (matchesMonth) {
+        console.log('[PERÍODO FECHADO] 🔍 Chave do mês:', { 
+          key, 
+          dateStr, 
+          keyYear, 
+          keyMonth, 
+          keyDay,
+          isReconciled,
+          status: reconciliationStatus[key]
+        });
+        
+        if (isReconciled) {
+          reconciledDays.push(dateStr);
+        }
+      }
+    });
+    
+    console.log('[PERÍODO FECHADO] 📊 Resultado final:', { 
+      totalDays: daysInMonth, 
+      reconciledDays: reconciledDays.length,
+      reconciledDates: reconciledDays.sort(),
+      percentage: Math.round((reconciledDays.length / daysInMonth) * 100) 
+    });
     
     return {
       totalDays: daysInMonth,
-      reconciledDays: reconciledDaysCount,
-      percentage: Math.round((reconciledDaysCount / daysInMonth) * 100)
+      reconciledDays: reconciledDays.length,
+      percentage: Math.round((reconciledDays.length / daysInMonth) * 100)
     };
   };
 
