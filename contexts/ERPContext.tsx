@@ -6230,11 +6230,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const month = checkDate.getMonth() + 1; // 0-11 -> 1-12
     const year = checkDate.getFullYear();
     
-    const isClosed = closedPeriods.some(period => period.month === month && period.year === year);
-    
-    console.log('[PERÍODO FECHADO] 🔍 isMonthClosed?', { month, year, isClosed, totalPeriods: closedPeriods.length, periods: closedPeriods });
-    
-    return isClosed;
+    return closedPeriods.some(period => period.month === month && period.year === year);
   };
 
   /**
@@ -6242,8 +6238,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
    */
   const getMonthReconciliationStatus = (month: number, year: number) => {
     const daysInMonth = new Date(year, month, 0).getDate();
-    
-    console.log('[PERÍODO FECHADO] 📊 getMonthReconciliationStatus:', { month, year, daysInMonth, reconciliationStatusKeys: Object.keys(reconciliationStatus).length });
     
     // Contar dias conciliados
     const reconciledDaysCount = Object.keys(reconciliationStatus).filter(key => {
@@ -6259,24 +6253,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const dateStr = parts.slice(-3).join('-'); // ["2025", "01", "15"] -> "2025-01-15"
       const keyDate = new Date(dateStr);
       
-      if (isNaN(keyDate.getTime())) {
-        console.log('[PERÍODO FECHADO] ⚠️ Data inválida na chave:', key, 'dateStr:', dateStr);
-        return false;
-      }
+      if (isNaN(keyDate.getTime())) return false;
       
       const keyMonth = keyDate.getMonth() + 1; // 0-11 -> 1-12
       const keyYear = keyDate.getFullYear();
       
-      const matches = keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
-      
-      if (matches) {
-        console.log('[PERÍODO FECHADO] ✅ Dia conciliado encontrado:', { key, dateStr, keyMonth, keyYear, isReconciled: reconciliationStatus[key] });
-      }
-      
-      return matches;
+      return keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
     }).length;
-    
-    console.log('[PERÍODO FECHADO] 📊 Resultado:', { totalDays: daysInMonth, reconciledDays: reconciledDaysCount, percentage: Math.round((reconciledDaysCount / daysInMonth) * 100) });
     
     return {
       totalDays: daysInMonth,

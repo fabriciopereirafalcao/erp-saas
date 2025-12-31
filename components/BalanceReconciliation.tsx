@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import { Card } from "./ui/card";
 import { Label } from "./ui/label";
@@ -183,10 +183,16 @@ export function BalanceReconciliation() {
 
   const reconciliationData = calculateDailyReconciliation();
 
-  // Estatísticas
-  const totalReconciled = reconciliationData.filter(d => d.isReconciled).length;
-  const totalDays = reconciliationData.length;
-  const reconciliationPercentage = totalDays > 0 ? (totalReconciled / totalDays * 100).toFixed(0) : 0;
+  // Estatísticas baseadas em getMonthReconciliationStatus (fonte única de verdade)
+  const monthStats = useMemo(() => {
+    const month = selectedMonth.getMonth() + 1; // 0-11 -> 1-12
+    const year = selectedMonth.getFullYear();
+    return getMonthReconciliationStatus(month, year);
+  }, [selectedMonth, getMonthReconciliationStatus]);
+
+  const totalReconciled = monthStats.reconciledDays;
+  const totalDays = monthStats.totalDays;
+  const reconciliationPercentage = monthStats.percentage;
 
   const handleToggleReconciliation = (reconciliationKey: string, dayData: any) => {
     // ✅ Bloquear alteração em períodos fechados
