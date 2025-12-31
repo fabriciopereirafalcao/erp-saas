@@ -2774,15 +2774,19 @@ app.post('/closed-periods', async (c) => {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
-    const closedPeriods = await c.req.json();
-    console.log(`[CLOSED PERIODS] 💾 Salvando ${closedPeriods.length} períodos fechados para empresa ${auth.companyId}`);
+    const { data } = await c.req.json();
+    
+    if (!Array.isArray(data)) {
+      return c.json({ error: 'Dados devem ser um array' }, 400);
+    }
 
-    await sqlService.saveClosedPeriods(auth.companyId, closedPeriods);
+    console.log(`[CLOSED PERIODS] 💾 Salvando ${data.length} períodos fechados para empresa ${auth.companyId}`);
+    const result = await sqlService.saveClosedPeriods(auth.companyId, data);
     
     console.log(`[CLOSED PERIODS] ✅ Períodos fechados salvos com sucesso`);
     return c.json({
       success: true,
-      message: 'Períodos fechados salvos com sucesso'
+      message: `${result.count} períodos fechados salvos com sucesso`
     });
 
   } catch (error) {
@@ -2822,15 +2826,19 @@ app.post('/closed-period-adjustments', async (c) => {
       return c.json({ error: 'Não autorizado' }, 401);
     }
 
-    const adjustments = await c.req.json();
-    console.log(`[CLOSED PERIOD ADJUSTMENTS] 💾 Salvando ${adjustments.length} ajustes para empresa ${auth.companyId}`);
+    const { data } = await c.req.json();
+    
+    if (!Array.isArray(data)) {
+      return c.json({ error: 'Dados devem ser um array' }, 400);
+    }
 
-    await sqlService.saveClosedPeriodAdjustments(auth.companyId, adjustments);
+    console.log(`[CLOSED PERIOD ADJUSTMENTS] 💾 Salvando ${data.length} ajustes para empresa ${auth.companyId}`);
+    const result = await sqlService.saveClosedPeriodAdjustments(auth.companyId, data);
     
     console.log(`[CLOSED PERIOD ADJUSTMENTS] ✅ Ajustes salvos com sucesso`);
     return c.json({
       success: true,
-      message: 'Ajustes salvos com sucesso'
+      message: `${result.count} ajustes salvos com sucesso`
     });
 
   } catch (error) {
