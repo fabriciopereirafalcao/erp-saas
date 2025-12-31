@@ -196,8 +196,10 @@ export function BalanceReconciliation() {
 
   const handleToggleReconciliation = (reconciliationKey: string, dayData: any) => {
     // ✅ Bloquear alteração em períodos fechados
-    const dayDate = new Date(dayData.dateStr);
-    if (isMonthClosed(dayDate)) {
+    // 🔥 FIX: Usar dateStr diretamente ao invés de criar Date object (evita problemas de timezone)
+    const monthClosed = isMonthClosed(dayData.dateStr);
+    
+    if (monthClosed) {
       toast.error('Período fechado', {
         description: 'Não é possível alterar conciliações em períodos fechados'
       });
@@ -579,7 +581,7 @@ export function BalanceReconciliation() {
 
       <Card className="p-6">
         {/* Filtros - Seletor de Mês (esquerda) e Banco (direita) lado a lado */}
-        <div className="mb-6 flex items-start gap-4">
+        <div className="mb-4 flex items-start gap-4">
           {/* Filtro de Competência - Ano e Meses */}
           <div className="flex-1 flex items-center gap-4 bg-gray-50 p-3 rounded-lg border">
             {/* Seletor de Ano */}
@@ -626,21 +628,12 @@ export function BalanceReconciliation() {
                           : ""
                     }`}
                   >
-                    {isClosed && <Lock className="w-3 h-3" />}
                     {monthName}
                   </Button>
                 );
               })}
             </div>
           </div>
-          
-          {/* Badge de Período Fechado */}
-          {isMonthClosed(selectedMonth) && (
-            <Badge className="bg-red-100 text-red-700 border-red-300 flex items-center gap-1.5">
-              <Lock className="w-3 h-3" />
-              Período Fechado - Somente Leitura
-            </Badge>
-          )}
 
           {/* Filtro de Banco - Direita */}
           <div className="flex items-center gap-3">
@@ -659,6 +652,16 @@ export function BalanceReconciliation() {
             </Select>
           </div>
         </div>
+        
+        {/* Badge de Período Fechado - Abaixo dos filtros */}
+        {isMonthClosed(selectedMonth) && (
+          <div className="mb-4">
+            <Badge className="bg-red-100 text-red-700 border-red-300 flex items-center gap-1.5 w-fit">
+              <Lock className="w-3 h-3" />
+              Período Fechado - Somente Leitura
+            </Badge>
+          </div>
+        )}
 
         {/* Tabela */}
         {!selectedBank ? (

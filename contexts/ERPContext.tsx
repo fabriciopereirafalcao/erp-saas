@@ -6226,9 +6226,19 @@ export function ERPProvider({ children }: { children: ReactNode }) {
    * Verifica se um mês está fechado
    */
   const isMonthClosed = (date: Date | string): boolean => {
-    const checkDate = typeof date === 'string' ? new Date(date) : date;
-    const month = checkDate.getMonth() + 1; // 0-11 -> 1-12
-    const year = checkDate.getFullYear();
+    let month: number;
+    let year: number;
+    
+    if (typeof date === 'string') {
+      // 🔥 FIX: Parsing explícito para evitar problemas de timezone
+      // String no formato "YYYY-MM-DD"
+      const [yearStr, monthStr] = date.split('-');
+      year = parseInt(yearStr);
+      month = parseInt(monthStr);
+    } else {
+      month = date.getMonth() + 1; // 0-11 -> 1-12
+      year = date.getFullYear();
+    }
     
     return closedPeriods.some(period => period.month === month && period.year === year);
   };
@@ -6238,11 +6248,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
    */
   const getMonthReconciliationStatus = (month: number, year: number) => {
     const daysInMonth = new Date(year, month, 0).getDate();
-    
-    console.log('[PERÍODO FECHADO] 📊 Iniciando contagem:', { month, year, daysInMonth, totalKeys: Object.keys(reconciliationStatus).length });
-    
-    // 🔥 MOSTRAR TODAS AS CHAVES NO ESTADO (primeiras 10)
-    console.log('[PERÍODO FECHADO] 🔑 Primeiras 10 chaves:', Object.keys(reconciliationStatus).slice(0, 10));
     
     // Contar dias conciliados
     const reconciledDays: string[] = [];
@@ -6276,38 +6281,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const isReconciled = reconciliationStatus[key] === true;
       const matchesMonth = keyMonth === month && keyYear === year;
       
-      if (matchesMonth) {
-        console.log('[PERÍODO FECHADO] 🔍 Chave do mês:', { 
-          key, 
-          dateStr, 
-          keyYear, 
-          keyMonth, 
-          keyDay,
-          isReconciled,
-          status: reconciliationStatus[key]
-        });
-        
-        if (isReconciled) {
-          reconciledDays.push(dateStr);
-        }
+      if (matchesMonth && isReconciled) {
+        reconciledDays.push(dateStr);
       }
-    });
-    
-    // 🔥 NOVO: Identificar quais dias estão faltando
-    const reconciledDayNumbers = reconciledDays.map(d => parseInt(d.split('-')[2]));
-    const missingDays: number[] = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      if (!reconciledDayNumbers.includes(day)) {
-        missingDays.push(day);
-      }
-    }
-    
-    console.log('[PERÍODO FECHADO] 📊 Resultado final:', { 
-      totalDays: daysInMonth, 
-      reconciledDays: reconciledDays.length,
-      reconciledDates: reconciledDays.sort(),
-      missingDays: missingDays, // 🔥 NOVO
-      percentage: Math.round((reconciledDays.length / daysInMonth) * 100) 
     });
     
     return {
@@ -6332,23 +6308,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       };
     }
     
-    // Verificar se o período anterior está fechado (exceto primeiro período)
-    const previousMonth = month === 1 ? 12 : month - 1;
-    const previousYear = month === 1 ? year - 1 : year;
-    
-    const previousPeriodClosed = closedPeriods.some(
-      p => p.month === previousMonth && p.year === previousYear
-    );
-    
-    // Se existe algum período fechado e o anterior não está fechado
-    const hasAnyClosedPeriod = closedPeriods.length > 0;
-    const isFirstPeriod = closedPeriods.some(p => p.firstPeriod);
-    
-    if (hasAnyClosedPeriod && !isFirstPeriod && !previousPeriodClosed) {
-      // Verificar se este seria o primeiro período
-      const wouldBeFirstPeriod = closedPeriods.length === 0;
+    // 🔥 FIX: Validar fechamento sequencial
+    // Se já existe algum período fechado, o mês anterior precisa estar fechado
+    if (closedPeriods.length > 0) {
+      const previousMonth = month === 1 ? 12 : month - 1;
+      const previousYear = month === 1 ? year - 1 : year;
       
-      if (!wouldBeFirstPeriod) {
+      const previousPeriodClosed = closedPeriods.some(
+        p => p.month === previousMonth && p.year === previousYear
+      );
+      
+      // Não permitir fechamento se o mês anterior não está fechado
+      if (!previousPeriodClosed) {
         return {
           canClose: false,
           reason: `O período anterior (${previousMonth.toString().padStart(2, '0')}/${previousYear}) precisa ser fechado primeiro`
