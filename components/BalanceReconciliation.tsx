@@ -1019,13 +1019,20 @@ export function BalanceReconciliation() {
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => {
-                  if (canClosePeriod(selectedMonth)) {
-                    closePeriod(selectedMonth, closePeriodJustification);
+                onClick={async () => {
+                  const month = selectedMonth.getMonth() + 1; // 0-11 -> 1-12
+                  const year = selectedMonth.getFullYear();
+                  
+                  const validation = canClosePeriod(month, year);
+                  if (!validation.canClose) {
+                    toast.error(`Não é possível fechar o período: ${validation.reason}`);
+                    return;
+                  }
+                  
+                  const success = await closePeriod(month, year, closePeriodJustification);
+                  if (success) {
                     setClosePeriodDialogOpen(false);
-                    toast.success("Período fechado com sucesso!");
-                  } else {
-                    toast.error("Não é possível fechar o período. Verifique as conciliações pendentes.");
+                    setClosePeriodJustification('');
                   }
                 }}
                 className="h-8 gap-1.5 text-white hover:bg-blue-700"

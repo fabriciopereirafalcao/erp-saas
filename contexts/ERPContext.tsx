@@ -6230,7 +6230,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const month = checkDate.getMonth() + 1; // 0-11 -> 1-12
     const year = checkDate.getFullYear();
     
-    return closedPeriods.some(period => period.month === month && period.year === year);
+    const isClosed = closedPeriods.some(period => period.month === month && period.year === year);
+    
+    console.log('[PERÍODO FECHADO] 🔍 isMonthClosed?', { month, year, isClosed, totalPeriods: closedPeriods.length, periods: closedPeriods });
+    
+    return isClosed;
   };
 
   /**
@@ -6309,21 +6313,29 @@ export function ERPProvider({ children }: { children: ReactNode }) {
    */
   const closePeriod = async (month: number, year: number, justification?: string): Promise<boolean> => {
     try {
+      console.log('[PERÍODO FECHADO] 🔒 Iniciando fechamento:', { month, year, justification });
+      
       // Validar se pode fechar
       const validation = canClosePeriod(month, year);
+      console.log('[PERÍODO FECHADO] 🔍 Validação:', validation);
+      
       if (!validation.canClose) {
         toast.error(`Não é possível fechar o período: ${validation.reason}`);
         return false;
       }
       
       // Verificar se já está fechado
-      if (isMonthClosed(new Date(year, month - 1, 1))) {
+      const alreadyClosed = isMonthClosed(new Date(year, month - 1, 1));
+      console.log('[PERÍODO FECHADO] 🔍 Já está fechado?', alreadyClosed);
+      
+      if (alreadyClosed) {
         toast.error('Este período já está fechado');
         return false;
       }
       
       // Determinar se é o primeiro período
       const isFirstPeriod = closedPeriods.length === 0;
+      console.log('[PERÍODO FECHADO] 🔍 É primeiro período?', isFirstPeriod, 'Total períodos fechados:', closedPeriods.length);
       
       const newPeriod: ClosedPeriod = {
         id: `period-${year}-${month}-${Date.now()}`,
@@ -6336,11 +6348,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         justification
       };
       
-      setClosedPeriods(prev => [...prev, newPeriod]);
+      console.log('[PERÍODO FECHADO] 📝 Novo período:', newPeriod);
+      
+      setClosedPeriods(prev => {
+        const updated = [...prev, newPeriod];
+        console.log('[PERÍODO FECHADO] 💾 Atualizando estado:', { antes: prev.length, depois: updated.length });
+        return updated;
+      });
       
       toast.success(`Período ${month.toString().padStart(2, '0')}/${year} fechado com sucesso`);
       
-      console.log('[PERÍODO FECHADO] ✅', newPeriod);
+      console.log('[PERÍODO FECHADO] ✅ Fechamento concluído!');
       
       return true;
     } catch (error) {
