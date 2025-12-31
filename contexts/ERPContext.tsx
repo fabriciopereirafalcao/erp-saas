@@ -6243,19 +6243,40 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   const getMonthReconciliationStatus = (month: number, year: number) => {
     const daysInMonth = new Date(year, month, 0).getDate();
     
+    console.log('[PERÍODO FECHADO] 📊 getMonthReconciliationStatus:', { month, year, daysInMonth, reconciliationStatusKeys: Object.keys(reconciliationStatus).length });
+    
     // Contar dias conciliados
     const reconciledDaysCount = Object.keys(reconciliationStatus).filter(key => {
+      // Formato da chave: "bankId-YYYY-MM-DD"
+      // Exemplo: "uuid-abc-123-2025-01-15"
       const parts = key.split('-');
-      if (parts.length !== 3) return false;
       
-      const keyDate = new Date(parts[2]); // "bankId-2024-12-01" -> "2024-12-01"
-      if (isNaN(keyDate.getTime())) return false;
+      // A chave tem formato: uuid-...-YYYY-MM-DD
+      // Precisamos pegar os últimos 3 elementos (YYYY-MM-DD)
+      if (parts.length < 3) return false;
       
-      const keyMonth = keyDate.getMonth() + 1;
+      // Reconstruir a data dos últimos 3 elementos
+      const dateStr = parts.slice(-3).join('-'); // ["2025", "01", "15"] -> "2025-01-15"
+      const keyDate = new Date(dateStr);
+      
+      if (isNaN(keyDate.getTime())) {
+        console.log('[PERÍODO FECHADO] ⚠️ Data inválida na chave:', key, 'dateStr:', dateStr);
+        return false;
+      }
+      
+      const keyMonth = keyDate.getMonth() + 1; // 0-11 -> 1-12
       const keyYear = keyDate.getFullYear();
       
-      return keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
+      const matches = keyMonth === month && keyYear === year && reconciliationStatus[key] === true;
+      
+      if (matches) {
+        console.log('[PERÍODO FECHADO] ✅ Dia conciliado encontrado:', { key, dateStr, keyMonth, keyYear, isReconciled: reconciliationStatus[key] });
+      }
+      
+      return matches;
     }).length;
+    
+    console.log('[PERÍODO FECHADO] 📊 Resultado:', { totalDays: daysInMonth, reconciledDays: reconciledDaysCount, percentage: Math.round((reconciledDaysCount / daysInMonth) * 100) });
     
     return {
       totalDays: daysInMonth,
