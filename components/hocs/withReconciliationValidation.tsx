@@ -1,0 +1,275 @@
+/**
+ * ================================================================================
+ * HOC - Nível 2: Validação de Conciliações Bancárias
+ * ================================================================================
+ * 
+ * PROTEÇÃO INTERMEDIÁRIA:
+ * - Bloqueia edições em transações conciliadas
+ * - Permite desconciliação manual (se não estiver em período fechado)
+ * - Registra auditoria de desconciliações
+ * - Avisos claros sobre impacto nas conciliações
+ * 
+ * VALIDAÇÕES:
+ * 1. Transação está conciliada?
+ * 2. Data da transação está em período fechado?
+ * 3. Usuário tem permissão para desconciliar?
+ * 
+ * USO:
+ * const ComponentWithValidation = withReconciliationValidation(Component);
+ * 
+ * PROPS INJETADAS:
+ * - validateReconciliation: (action, transaction, onApprove) => void
+ */
+
+import React, { ComponentType, useCallback } from 'react';
+import { useERP } from '../../contexts/ERPContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { AlertTriangle, Lock, CheckCircle, Info } from 'lucide-react';
+import { toast } from 'sonner';
+import { Badge } from '../ui/badge';
+
+export interface ReconciliationValidationProps {
+  validateReconciliation?: (
+    action: 'create' | 'edit' | 'delete' | 'settle',
+    transaction: any,
+    onApprove: () => void
+  ) => void;
+}
+
+interface ReconciliationValidationState {
+  showDialog: boolean;
+  action: 'create' | 'edit' | 'delete' | 'settle' | null;
+  transaction: any;
+  onApprove: (() => void) | null;
+  reconciliationInfo: {
+    isReconciled: boolean;
+    reconciliationKey: string;
+    canUnconcile: boolean;
+    isInClosedPeriod: boolean;
+  } | null;
+}
+
+export function withReconciliationValidation<P extends object>(
+  WrappedComponent: ComponentType<P>
+): ComponentType<Omit<P, keyof ReconciliationValidationProps>> {
+  return function WithReconciliationValidation(props: Omit<P, keyof ReconciliationValidationProps>) {
+    const {
+      isTransactionReconciled,
+      isMonthClosed,
+      getReconciliationKey,
+      setReconciliationStatus,
+      profile,
+      companySettings
+    } = useERP();
+
+    const [state, setState] = React.useState<ReconciliationValidationState>({
+      showDialog: false,
+      action: null,
+      transaction: null,
+      onApprove: null,
+      reconciliationInfo: null
+    });
+
+    /**
+     * Valida se a operação pode ser executada considerando conciliação
+     */
+    const validateReconciliation = useCallback((
+      action: 'create' | 'edit' | 'delete' | 'settle',
+      transaction: any,
+      onApprove: () => void
+    ) => {
+      // Se não tem bankAccountId, não há conciliação - aprovar automaticamente
+      if (!transaction.bankAccountId) {
+        onApprove();
+        return;
+      }
+
+      // Verificar se a transação está conciliada
+      const isReconciled = isTransactionReconciled(transaction);
+      
+      // Se não está conciliada, aprovar automaticamente
+      if (!isReconciled) {
+        onApprove();
+        return;
+      }
+
+      // Está conciliada - verificar se pode desconciliar
+      const transactionDate = new Date(transaction.effectiveDate || transaction.dueDate);
+      const isInClosedPeriod = isMonthClosed(transactionDate);
+      const reconciliationKey = getReconciliationKey(transaction.bankAccountId, transactionDate);
+
+      // Se está em período fechado, bloquear totalmente
+      if (isInClosedPeriod) {
+        toast.error('⛔ Operação Bloqueada', {
+          description: `Esta transação está conciliada em um período FECHADO. Reabra o período para desconciliar.`,
+          duration: 5000
+        });
+        return;
+      }
+
+      // Está conciliada mas não está em período fechado - permitir desconciliação
+      setState({
+        showDialog: true,
+        action,
+        transaction,
+        onApprove,
+        reconciliationInfo: {
+          isReconciled: true,
+          reconciliationKey,
+          canUnconcile: !isInClosedPeriod,
+          isInClosedPeriod
+        }
+      });
+    }, [isTransactionReconciled, isMonthClosed, getReconciliationKey]);
+
+    /**
+     * Desconcilia e executa a ação
+     */
+    const handleUnconcileAndProceed = useCallback(() => {
+      if (!state.reconciliationInfo || !state.transaction || !state.onApprove) {
+        return;
+      }
+
+      // Desconciliar a data
+      const { reconciliationKey } = state.reconciliationInfo;
+      
+      setReconciliationStatus(reconciliationKey, false, {
+        reason: 'Desconciliação automática para permitir edição',
+        userId: profile?.id || 'system',
+        userName: profile?.name || profile?.email || 'Usuário',
+        action: state.action || 'edit',
+        transactionId: state.transaction.id,
+        transactionDescription: state.transaction.description,
+        transactionAmount: state.transaction.amount,
+        automatic: true
+      });
+
+      toast.success('✅ Desconciliado com Sucesso', {
+        description: 'A transação foi desconciliada. Você pode prosseguir com a operação.',
+        duration: 3000
+      });
+
+      // Executar ação original
+      state.onApprove();
+
+      // Fechar dialog
+      setState({
+        showDialog: false,
+        action: null,
+        transaction: null,
+        onApprove: null,
+        reconciliationInfo: null
+      });
+    }, [state, setReconciliationStatus, profile]);
+
+    /**
+     * Cancela a operação
+     */
+    const handleCancel = useCallback(() => {
+      setState({
+        showDialog: false,
+        action: null,
+        transaction: null,
+        onApprove: null,
+        reconciliationInfo: null
+      });
+    }, []);
+
+    /**
+     * Texto descritivo da ação
+     */
+    const getActionText = () => {
+      switch (state.action) {
+        case 'create': return 'criar esta transação';
+        case 'edit': return 'editar esta transação';
+        case 'delete': return 'excluir esta transação';
+        case 'settle': return 'liquidar esta transação';
+        default: return 'realizar esta operação';
+      }
+    };
+
+    return (
+      <>
+        <WrappedComponent 
+          {...props as P} 
+          validateReconciliation={validateReconciliation}
+        />
+
+        {/* Dialog de Validação de Conciliação */}
+        <Dialog open={state.showDialog} onOpenChange={(open) => !open && handleCancel()}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg">
+                    Transação Conciliada
+                  </DialogTitle>
+                  <DialogDescription className="text-sm">
+                    Esta transação está vinculada a uma conciliação bancária
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Informações da Transação */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Transação</span>
+                  <Badge variant="outline" className="bg-white">
+                    <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                    Conciliada
+                  </Badge>
+                </div>
+                <p className="text-sm font-medium">{state.transaction?.description}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Valor</span>
+                  <span className="font-medium">
+                    R$ {state.transaction?.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Data</span>
+                  <span className="font-medium">
+                    {state.transaction?.effectiveDate || state.transaction?.dueDate}
+                  </span>
+                </div>
+              </div>
+
+              {/* Aviso */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2">
+                <Info className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium mb-1">Para {getActionText()}, você precisa desconciliar primeiro.</p>
+                  <p className="text-xs text-yellow-700">
+                    A conciliação será removida e você precisará reconciliar novamente esta data mais tarde.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleUnconcileAndProceed}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Desconciliar e Prosseguir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
+}

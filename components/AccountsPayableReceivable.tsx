@@ -1,23 +1,10 @@
-import React, { useState, useMemo } from "react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Button } from "./ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
-import { Badge } from "./ui/badge";
-import { Calendar } from "./ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Search, DollarSign, AlertTriangle, Clock, ArrowDownCircle, ArrowUpCircle, FileText, Package, Calendar as CalendarIcon, CheckCircle2 } from "lucide-react";
-import { useERP } from "../contexts/ERPContext";
-import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
-import { formatDateLocal } from "../utils/dateUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
 
-export function AccountsPayableReceivable() {
+interface AccountsPayableReceivableProps extends FullTransactionProtectionProps {}
+
+function AccountsPayableReceivableComponent({ validateBeforeAction }: AccountsPayableReceivableProps) {
   const {
     financialTransactions,
     salesOrders,
@@ -237,28 +224,41 @@ export function AccountsPayableReceivable() {
       return; // Parar execução e aguardar confirmação
     }
     
-    if (transaction.type === "Receita") {
-      markTransactionAsReceived(
-        receivingTransaction, 
-        formattedDate, 
-        receiveBankAccountId,
-        bankAccount?.bankName || "",
-        receivePaymentMethodId,
-        paymentMethod?.name || ""
-      );
-    } else {
-      markTransactionAsPaid(
-        receivingTransaction, 
-        formattedDate,
-        receiveBankAccountId,
-        bankAccount?.bankName || "",
-        receivePaymentMethodId,
-        paymentMethod?.name || ""
-      );
-    }
+    // ✅ Criar transação temporária com effectiveDate para validação
+    const transactionToValidate = {
+      ...transaction,
+      effectiveDate: formattedDate,
+      bankAccountId: receiveBankAccountId
+    };
 
-    setShowReceiveDialog(false);
-    setReceivingTransaction(null);
+    // ✅ Validar através dos 3 níveis de proteção antes de liquidar
+    if (validateBeforeAction) {
+      validateBeforeAction('settle', transactionToValidate, () => {
+        // Só executa liquidação se passar pelas 3 validações
+        if (transaction.type === "Receita") {
+          markTransactionAsReceived(
+            receivingTransaction, 
+            formattedDate, 
+            receiveBankAccountId,
+            bankAccount?.bankName || "",
+            receivePaymentMethodId,
+            paymentMethod?.name || ""
+          );
+        } else {
+          markTransactionAsPaid(
+            receivingTransaction, 
+            formattedDate,
+            receiveBankAccountId,
+            bankAccount?.bankName || "",
+            receivePaymentMethodId,
+            paymentMethod?.name || ""
+          );
+        }
+
+        setShowReceiveDialog(false);
+        setReceivingTransaction(null);
+      });
+    }
   };
 
   // ✅ Confirmar liquidação após validação
@@ -267,33 +267,49 @@ export function AccountsPayableReceivable() {
     
     console.log('⚠️ [OVERRIDE] Usuário confirmou liquidação com data anterior:', pendingSettlement);
     
-    if (pendingSettlement.type === "Receita") {
-      markTransactionAsReceived(
-        pendingSettlement.transactionId,
-        pendingSettlement.date,
-        pendingSettlement.bankAccountId,
-        pendingSettlement.bankAccountName,
-        pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName,
-        true // ✅ Flag de override
-      );
-    } else {
-      markTransactionAsPaid(
-        pendingSettlement.transactionId,
-        pendingSettlement.date,
-        pendingSettlement.bankAccountId,
-        pendingSettlement.bankAccountName,
-        pendingSettlement.paymentMethodId,
-        pendingSettlement.paymentMethodName,
-        true // ✅ Flag de override
-      );
+    // ✅ Criar transação temporária para validação
+    const transaction = safeFinancialTransactions.find(t => t.id === pendingSettlement.transactionId);
+    if (!transaction) return;
+
+    const transactionToValidate = {
+      ...transaction,
+      effectiveDate: pendingSettlement.date,
+      bankAccountId: pendingSettlement.bankAccountId
+    };
+
+    // ✅ Validar através dos 3 níveis de proteção
+    if (validateBeforeAction) {
+      validateBeforeAction('settle', transactionToValidate, () => {
+        // Só executa se passar pelas validações
+        if (pendingSettlement.type === "Receita") {
+          markTransactionAsReceived(
+            pendingSettlement.transactionId,
+            pendingSettlement.date,
+            pendingSettlement.bankAccountId,
+            pendingSettlement.bankAccountName,
+            pendingSettlement.paymentMethodId,
+            pendingSettlement.paymentMethodName,
+            true // ✅ Flag de override
+          );
+        } else {
+          markTransactionAsPaid(
+            pendingSettlement.transactionId,
+            pendingSettlement.date,
+            pendingSettlement.bankAccountId,
+            pendingSettlement.bankAccountName,
+            pendingSettlement.paymentMethodId,
+            pendingSettlement.paymentMethodName,
+            true // ✅ Flag de override
+          );
+        }
+        
+        // Limpar estados
+        setShowWarningDialog(false);
+        setPendingSettlement(null);
+        setShowReceiveDialog(false);
+        setReceivingTransaction(null);
+      });
     }
-    
-    // Limpar estados
-    setShowWarningDialog(false);
-    setPendingSettlement(null);
-    setShowReceiveDialog(false);
-    setReceivingTransaction(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -973,3 +989,5 @@ export function AccountsPayableReceivable() {
     </div>
   );
 }
+
+export const AccountsPayableReceivable = withFullTransactionProtection(AccountsPayableReceivableComponent);

@@ -20,9 +20,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates } from "../utils/dateUtils";
-import { withClosedPeriodValidation, WithClosedPeriodValidationProps } from "./withClosedPeriodValidation";
+import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
 
-interface FinancialTransactionsProps extends WithClosedPeriodValidationProps {}
+interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
 
 function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTransactionsProps) {
   const {
@@ -2442,5 +2442,5 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   );
 }
 
-// ✅ Exportar com HOC de validação de períodos fechados
-export const FinancialTransactions = withClosedPeriodValidation(FinancialTransactionsComponent);
+// ✅ Exportar com HOC de proteção completa (3 níveis: períodos fechados + conciliações + avisos)
+export const FinancialTransactions = withFullTransactionProtection(FinancialTransactionsComponent);
