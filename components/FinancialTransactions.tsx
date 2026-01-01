@@ -19,7 +19,7 @@ import { useERP } from "../contexts/ERPContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates } from "../utils/dateUtils";
+import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates, getYearMonthLocal } from "../utils/dateUtils";
 import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
 
 interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
@@ -170,14 +170,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     }
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
-    // ✅ NOVO: Filtro de ano e mês (seleção múltipla)
+    // ✅ NOVO: Filtro de ano e mês (seleção múltipla) - SEM TIMEZONE ISSUES
     let matchesMonth = true;
-    const txnDate = new Date(txn.date);
+    const { year: txnYear, month: txnMonth } = getYearMonthLocal(txn.date);
     if (filterMonth.length > 0) {
-      matchesMonth = txnDate.getFullYear() === filterYear && 
-                     filterMonth.includes(txnDate.getMonth());
+      matchesMonth = txnYear === filterYear && 
+                     filterMonth.includes(txnMonth);
     } else {
-      matchesMonth = txnDate.getFullYear() === filterYear;
+      matchesMonth = txnYear === filterYear;
     }
 
     return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
@@ -188,14 +188,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     .filter(t => {
       const isReceita = t.type === "Receita";
       
-      // Aplicar filtro de ano e mês (seleção múltipla)
-      const txnDate = new Date(t.date);
+      // Aplicar filtro de ano e mês (seleção múltipla) - SEM TIMEZONE ISSUES
+      const { year: txnYear, month: txnMonth } = getYearMonthLocal(t.date);
       let matchesMonth = true;
       if (filterMonth.length > 0) {
-        matchesMonth = txnDate.getFullYear() === filterYear && 
-                       filterMonth.includes(txnDate.getMonth());
+        matchesMonth = txnYear === filterYear && 
+                       filterMonth.includes(txnMonth);
       } else {
-        matchesMonth = txnDate.getFullYear() === filterYear;
+        matchesMonth = txnYear === filterYear;
       }
       
       // ✅ Aplicar filtro de status
@@ -216,14 +216,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     .filter(t => {
       const isDespesa = t.type === "Despesa";
       
-      // Aplicar filtro de ano e mês (seleção múltipla)
-      const txnDate = new Date(t.date);
+      // Aplicar filtro de ano e mês (seleção múltipla) - SEM TIMEZONE ISSUES
+      const { year: txnYear, month: txnMonth } = getYearMonthLocal(t.date);
       let matchesMonth = true;
       if (filterMonth.length > 0) {
-        matchesMonth = txnDate.getFullYear() === filterYear && 
-                       filterMonth.includes(txnDate.getMonth());
+        matchesMonth = txnYear === filterYear && 
+                       filterMonth.includes(txnMonth);
       } else {
-        matchesMonth = txnDate.getFullYear() === filterYear;
+        matchesMonth = txnYear === filterYear;
       }
       
       // ✅ Aplicar filtro de status
@@ -245,13 +245,13 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   // ✅ NOVO: Contar transações por tipo (considerando filtro de ano/mês e status)
   const countReceitas = safeFinancialTransactions.filter(t => {
     const isReceita = t.type === "Receita";
-    const txnDate = new Date(t.date);
+    const { year: txnYear, month: txnMonth } = getYearMonthLocal(t.date);
     let matchesMonth = true;
     if (filterMonth.length > 0) {
-      matchesMonth = txnDate.getFullYear() === filterYear && 
-                     filterMonth.includes(txnDate.getMonth());
+      matchesMonth = txnYear === filterYear && 
+                     filterMonth.includes(txnMonth);
     } else {
-      matchesMonth = txnDate.getFullYear() === filterYear;
+      matchesMonth = txnYear === filterYear;
     }
     // ✅ Aplicar filtro de status
     let matchesStatus = filterStatus.length === 0;
@@ -267,13 +267,13 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   
   const countDespesas = safeFinancialTransactions.filter(t => {
     const isDespesa = t.type === "Despesa";
-    const txnDate = new Date(t.date);
+    const { year: txnYear, month: txnMonth } = getYearMonthLocal(t.date);
     let matchesMonth = true;
     if (filterMonth.length > 0) {
-      matchesMonth = txnDate.getFullYear() === filterYear && 
-                     filterMonth.includes(txnDate.getMonth());
+      matchesMonth = txnYear === filterYear && 
+                     filterMonth.includes(txnMonth);
     } else {
-      matchesMonth = txnDate.getFullYear() === filterYear;
+      matchesMonth = txnYear === filterYear;
     }
     // ✅ Aplicar filtro de status
     let matchesStatus = filterStatus.length === 0;
