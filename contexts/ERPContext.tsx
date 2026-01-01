@@ -741,6 +741,20 @@ interface ERPContextData {
       transactionCount: number;
     }
   ) => void;
+  unconcileDate: (
+    bankAccountId: string,
+    date: string,
+    auditData: {
+      reason: string;
+      userId: string;
+      userName: string;
+      action?: string;
+      transactionId?: string;
+      transactionDescription?: string;
+      transactionAmount?: number;
+      automatic?: boolean;
+    }
+  ) => Promise<boolean>;
   getReconciliationHistory: (reconciliationKey: string) => ReconciliationAuditEntry[];
   getReconciliationKey: (bankAccountId: string, date: Date | string) => string;
   isTransactionReconciled: (transaction: any) => boolean;
@@ -6259,6 +6273,79 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   };
 
+  /**
+   * Desconciliar data específica com auditoria personalizada
+   * Usado pelos HOCs de proteção quando usuário autoriza desconciliação
+   */
+  const unconcileDate = async (
+    bankAccountId: string,
+    date: string,
+    auditData: {
+      reason: string;
+      userId: string;
+      userName: string;
+      action?: string;
+      transactionId?: string;
+      transactionDescription?: string;
+      transactionAmount?: number;
+      automatic?: boolean;
+    }
+  ) => {
+    const reconciliationKey = getReconciliationKeyFunc(bankAccountId, date);
+
+    try {
+      // ✅ Desconciliar no backend SQL
+      const result = await setReconciliationStatusSQL({
+        bankAccountId,
+        referenceDate: date,
+        status: false, // false = desconciliado
+        auditData: {
+          userName: auditData.userName,
+          reason: auditData.reason
+        }
+      });
+
+      if (!result.success) {
+        console.error('[RECONCILIATION] ❌ Erro ao desconciliar no SQL:', result.error);
+        return false;
+      }
+
+      console.log('[RECONCILIATION] ✅ Data desconciliada no SQL com sucesso');
+
+      // Atualizar estado local
+      setReconciliationStatus(prev => ({
+        ...prev,
+        [reconciliationKey]: false
+      }));
+
+      // Criar registro de auditoria local
+      const auditEntry: ReconciliationAuditEntry = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        reconciliationKey,
+        bankAccountId,
+        bankName: companySettings.bankAccounts.find(b => b.id === bankAccountId)?.bankName || '',
+        date,
+        isReconciled: false,
+        timestamp: new Date().toISOString(),
+        user: auditData.userName,
+        userId: auditData.userId,
+        initialBalance: 0,
+        finalBalance: 0,
+        realizedIncome: 0,
+        realizedExpenses: 0,
+        transactionCount: 0,
+        notes: auditData.reason
+      };
+
+      setReconciliationAudit(prev => [auditEntry, ...prev]);
+
+      return true;
+    } catch (error) {
+      console.error('[RECONCILIATION] ❌ Exceção ao desconciliar:', error);
+      return false;
+    }
+  };
+
   const getReconciliationHistory = (reconciliationKey: string): ReconciliationAuditEntry[] => {
     return reconciliationAudit
       .filter(entry => entry.reconciliationKey === reconciliationKey)
@@ -6705,6 +6792,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     reconciliationStatus,
     reconciliationAudit,
     toggleReconciliationStatus,
+    unconcileDate,
     getReconciliationHistory,
     getReconciliationKey: getReconciliationKeyFunc,
     isTransactionReconciled: isTransactionReconciledFunc,

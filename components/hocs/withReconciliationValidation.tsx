@@ -58,7 +58,7 @@ export function withReconciliationValidation<P extends object>(
       isTransactionReconciled,
       isMonthClosed,
       getReconciliationKey,
-      setReconciliationStatus,
+      unconcileDate,
       profile,
       companySettings
     } = useERP();
@@ -126,24 +126,37 @@ export function withReconciliationValidation<P extends object>(
     /**
      * Desconcilia e executa a ação
      */
-    const handleUnconcileAndProceed = useCallback(() => {
+    const handleUnconcileAndProceed = useCallback(async () => {
       if (!state.reconciliationInfo || !state.transaction || !state.onApprove) {
         return;
       }
 
       // Desconciliar a data
-      const { reconciliationKey } = state.reconciliationInfo;
+      const transactionDate = new Date(state.transaction.effectiveDate || state.transaction.dueDate);
+      const dateStr = transactionDate.toISOString().split('T')[0];
       
-      setReconciliationStatus(reconciliationKey, false, {
-        reason: 'Desconciliação automática para permitir edição',
-        userId: profile?.id || 'system',
-        userName: profile?.name || profile?.email || 'Usuário',
-        action: state.action || 'edit',
-        transactionId: state.transaction.id,
-        transactionDescription: state.transaction.description,
-        transactionAmount: state.transaction.amount,
-        automatic: true
-      });
+      const success = await unconcileDate(
+        state.transaction.bankAccountId,
+        dateStr,
+        {
+          reason: 'Desconciliação manual para permitir operação',
+          userId: profile?.id || 'system',
+          userName: profile?.name || profile?.email || 'Usuário',
+          action: state.action || 'edit',
+          transactionId: state.transaction.id,
+          transactionDescription: state.transaction.description,
+          transactionAmount: state.transaction.amount,
+          automatic: false
+        }
+      );
+
+      if (!success) {
+        toast.error('❌ Erro ao Desconciliar', {
+          description: 'Não foi possível desconciliar a data. Tente novamente.',
+          duration: 3000
+        });
+        return;
+      }
 
       toast.success('✅ Desconciliado com Sucesso', {
         description: 'A transação foi desconciliada. Você pode prosseguir com a operação.',
@@ -161,7 +174,7 @@ export function withReconciliationValidation<P extends object>(
         onApprove: null,
         reconciliationInfo: null
       });
-    }, [state, setReconciliationStatus, profile]);
+    }, [state, unconcileDate, profile]);
 
     /**
      * Cancela a operação

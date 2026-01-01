@@ -615,10 +615,33 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       transactionsToCreate.push(transactionData);
     }
 
-    // ✅ Validar período fechado antes de criar transações
-    // Usar a primeira transação como referência para validação
-    validateBeforeAction?.('create', transactionsToCreate[0], () => {
-      // Criar todas as transações apenas se aprovado
+    // ✅ IMPORTANTE: Validar conciliação APENAS se transação já foi paga
+    // Se alreadyPaid=false (status Pendente), não precisa validar conciliação na criação
+    // A validação será feita na liquidação posterior (menu de ações)
+    if (formData.alreadyPaid) {
+      // ✅ Transação já paga: validar período fechado E conciliação antes de criar
+      validateBeforeAction?.('create', transactionsToCreate[0], () => {
+        // Criar todas as transações apenas se aprovado
+        transactionsToCreate.forEach(txnData => {
+          addFinancialTransaction(txnData);
+        });
+
+        if (numInstallments > 1) {
+          toast.success(`${numInstallments} transações criadas com sucesso!`, {
+            description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          });
+        } else {
+          toast.success("Transação criada com sucesso!", {
+            description: "Transação já marcada como paga"
+          });
+        }
+
+        setShowDialog(false);
+        setEditingTransaction(null);
+      });
+    } else {
+      // ✅ Transação pendente: criar diretamente sem validar conciliação
+      // (validação será feita na liquidação posterior)
       transactionsToCreate.forEach(txnData => {
         addFinancialTransaction(txnData);
       });
@@ -635,7 +658,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
 
       setShowDialog(false);
       setEditingTransaction(null);
-    });
+    }
   };
 
   const handleOpenReceiveDialog = (transactionId: string) => {
