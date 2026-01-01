@@ -28,6 +28,23 @@ import { projectId } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
 import { useEntityPersistence, loadEntity } from '../hooks/useEntityPersistence';
+import { 
+  loadBankReconciliations, 
+  loadReconciliationAuditLogs,
+  convertReconciliationsToRecord,
+  convertAuditLogToEntry,
+  setReconciliationStatus as setReconciliationStatusSQL,
+  getReconciliationKey
+} from '../hooks/useReconciliationSQL';
+import {
+  loadClosedPeriods,
+  loadClosedPeriodAdjustments,
+  convertSQLToClosedPeriod,
+  convertSQLToAdjustment,
+  closePeriod as closePeriodSQL,
+  reopenPeriod as reopenPeriodSQL,
+  createClosedPeriodAdjustment as createAdjustmentSQL
+} from '../hooks/useClosedPeriodsSQL';
 
 // ==================== INTERFACES ====================
 
@@ -1640,39 +1657,40 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setCompanyHistory(companyHistoryData);
         }
         
-        // Carregar status de reconciliação
-        const reconciliationStatusData = await loadEntity<any[]>('reconciliation-status');
-        if (isSubscribed && reconciliationStatusData) {
-          console.log(`[SUPABASE] ✅ Status de reconciliação carregado (${reconciliationStatusData.length} registros)`);
-          // ✅ Converter array para Record<string, boolean>
-          const statusRecord: Record<string, boolean> = {};
-          reconciliationStatusData.forEach((item: any) => {
-            if (item.key && typeof item.isReconciled === 'boolean') {
-              statusRecord[item.key] = item.isReconciled;
-            }
-          });
+        // ✅ MIGRADO PARA SQL: Carregar conciliações bancárias
+        const reconciliationsData = await loadBankReconciliations();
+        if (isSubscribed && reconciliationsData) {
+          console.log(`[SUPABASE-SQL] ✅ ${reconciliationsData.length} conciliações carregadas da tabela SQL`);
+          // Converter para formato compatível (Record<string, boolean>)
+          const statusRecord = convertReconciliationsToRecord(reconciliationsData);
           setReconciliationStatus(statusRecord);
         }
         
-        // Carregar auditoria de reconciliação
-        const reconciliationAuditData = await loadEntity<ReconciliationAuditEntry[]>('reconciliation-audit');
+        // ✅ MIGRADO PARA SQL: Carregar logs de auditoria de conciliação
+        const reconciliationAuditData = await loadReconciliationAuditLogs();
         if (isSubscribed && reconciliationAuditData && reconciliationAuditData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${reconciliationAuditData.length} entradas de auditoria de reconciliação carregadas`);
-          setReconciliationAudit(reconciliationAuditData);
+          console.log(`[SUPABASE-SQL] ✅ ${reconciliationAuditData.length} logs de auditoria carregados da tabela SQL`);
+          // Converter para formato compatível
+          const auditEntries = reconciliationAuditData.map(convertAuditLogToEntry);
+          setReconciliationAudit(auditEntries);
         }
         
-        // Carregar períodos fechados
-        const closedPeriodsData = await loadEntity<ClosedPeriod[]>('closed-periods');
+        // ✅ MIGRADO PARA SQL: Carregar períodos fechados
+        const closedPeriodsData = await loadClosedPeriods();
         if (isSubscribed && closedPeriodsData && closedPeriodsData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${closedPeriodsData.length} períodos fechados carregados`);
-          setClosedPeriods(closedPeriodsData);
+          console.log(`[SUPABASE-SQL] ✅ ${closedPeriodsData.length} períodos fechados carregados da tabela SQL`);
+          // Converter para formato compatível
+          const periodsCompatible = closedPeriodsData.map(convertSQLToClosedPeriod);
+          setClosedPeriods(periodsCompatible);
         }
         
-        // Carregar ajustes em períodos fechados
-        const closedPeriodAdjustmentsData = await loadEntity<ClosedPeriodAdjustmentAudit[]>('closed-period-adjustments');
+        // ✅ MIGRADO PARA SQL: Carregar ajustes em períodos fechados
+        const closedPeriodAdjustmentsData = await loadClosedPeriodAdjustments();
         if (isSubscribed && closedPeriodAdjustmentsData && closedPeriodAdjustmentsData.length > 0) {
-          console.log(`[SUPABASE] ✅ ${closedPeriodAdjustmentsData.length} ajustes em períodos fechados carregados`);
-          setClosedPeriodAdjustments(closedPeriodAdjustmentsData);
+          console.log(`[SUPABASE-SQL] ✅ ${closedPeriodAdjustmentsData.length} ajustes carregados da tabela SQL`);
+          // Converter para formato compatível
+          const adjustmentsCompatible = closedPeriodAdjustmentsData.map(convertSQLToAdjustment);
+          setClosedPeriodAdjustments(adjustmentsCompatible);
         }
         
         console.log('[SUPABASE] ✅ Carregamento inicial concluído!');
@@ -6184,12 +6202,40 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar status
     const newStatus = !reconciliationStatus[reconciliationKey];
     
+    // ✅ MIGRADO PARA SQL: Salvar no backend (async wrapper)
+    (async () => {
+      try {
+        const result = await setReconciliationStatusSQL({
+          bankAccountId: auditData.bankAccountId,
+          referenceDate: auditData.date,
+          status: newStatus,
+          confirmedBalance: auditData.finalBalance,
+          expectedBalance: auditData.initialBalance,
+          difference: auditData.finalBalance - auditData.initialBalance,
+          transactionCount: auditData.transactionCount,
+          auditData: {
+            userName: profile?.email || 'Sistema',
+            reason: newStatus ? 'Conciliação manual' : 'Desconciliação manual'
+          }
+        });
+
+        if (!result.success) {
+          console.error('[RECONCILIATION] ❌ Erro ao salvar no SQL:', result.error);
+        } else {
+          console.log('[RECONCILIATION] ✅ Status salvo no SQL com sucesso');
+        }
+      } catch (error) {
+        console.error('[RECONCILIATION] ❌ Exceção ao salvar:', error);
+      }
+    })();
+    
+    // Atualizar estado local imediatamente (para UI responsiva)
     setReconciliationStatus(prev => ({
       ...prev,
       [reconciliationKey]: newStatus
     }));
 
-    // Criar registro de auditoria
+    // Criar registro de auditoria local
     const auditEntry: ReconciliationAuditEntry = {
       id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       reconciliationKey,
@@ -6208,7 +6254,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     };
 
     setReconciliationAudit(prev => [...prev, auditEntry]);
-
 
   };
 
@@ -6353,8 +6398,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // Determinar se é o primeiro período
       const isFirstPeriod = closedPeriods.length === 0;
       
+      // ✅ MIGRADO PARA SQL: Salvar no backend
+      const result = await closePeriodSQL({
+        month,
+        year,
+        isFirstPeriod,
+        justification
+      });
+
+      if (!result.success) {
+        toast.error(`Erro ao fechar período: ${result.error}`);
+        return false;
+      }
+
+      // Converter para formato compatível e adicionar ao estado local
       const newPeriod: ClosedPeriod = {
-        id: `period-${year}-${month}-${Date.now()}`,
+        id: result.data?.id || `period-${year}-${month}-${Date.now()}`,
         month,
         year,
         closedBy: profile?.name || profile?.email || 'Admin',
@@ -6395,6 +6454,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       if (hasLaterPeriods) {
         toast.error('Não é possível reabrir este período pois existem períodos posteriores fechados');
+        return false;
+      }
+      
+      // ✅ MIGRADO PARA SQL: Salvar no backend
+      const result = await reopenPeriodSQL({
+        month: period.month,
+        year: period.year,
+        justification
+      });
+
+      if (!result.success) {
+        toast.error(`Erro ao reabrir período: ${result.error}`);
         return false;
       }
       
@@ -6452,8 +6523,26 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       throw new Error('Período não encontrado');
     }
     
+    // ✅ MIGRADO PARA SQL: Salvar no backend
+    // Nota: Admin password não será salvo aqui, será validado no HOC antes de chamar esta função
+    const result = await createAdjustmentSQL({
+      periodId,
+      action: adjustmentType === 'transaction_created' ? 'create' :
+              adjustmentType === 'transaction_edited' ? 'edit' : 'delete',
+      transactionId,
+      transactionDescription,
+      transactionAmount: impactSummary?.newBalance,
+      transactionDate: affectedDates[0], // Primeira data afetada
+      adminPassword: 'validated-by-hoc', // Senha já foi validada no HOC
+      justification
+    });
+
+    if (!result.success) {
+      console.error('[CLOSED PERIOD ADJUSTMENT] ❌ Erro ao salvar:', result.error);
+    }
+
     const adjustment: ClosedPeriodAdjustmentAudit = {
-      id: `adjustment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: result.data?.id || `adjustment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       periodId,
       month: period.month,
       year: period.year,
