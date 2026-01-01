@@ -145,3 +145,16 @@ export const dateToLocalString = (date: Date): string => {
   
   return `${year}-${month}-${day}`;
 };
+
+/**
+ * Extrai ano e mês de uma string de data YYYY-MM-DD sem problema de timezone
+ * @param dateString - Data no formato YYYY-MM-DD
+ * @returns Objeto com { year: number, month: number } onde month é 0-11 (Janeiro = 0)
+ */
+export const getYearMonthLocal = (dateString: string): { year: number; month: number } => {
+  const [year, month] = dateString.split('-').map(Number);
+  return {
+    year,
+    month: month - 1 // Converter de 1-12 para 0-11 (padrão JavaScript)
+  };
+};
