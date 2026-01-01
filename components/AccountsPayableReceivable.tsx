@@ -1,6 +1,22 @@
+import React, { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useERP } from "../contexts/ERPContext";
 import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
+import { Search, Clock, AlertTriangle, ArrowDownCircle, ArrowUpCircle, DollarSign, FileText, Package, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { formatDateLocal } from "../utils/dateUtils";
+import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
 
 interface AccountsPayableReceivableProps extends FullTransactionProtectionProps {}
 
