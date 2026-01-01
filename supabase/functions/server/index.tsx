@@ -1660,6 +1660,28 @@ if (dataRoutes?.default) {
 }
 
 // =====================================================
+// RECONCILIATION ROUTES (SQL) - Conciliação e Períodos Fechados
+// =====================================================
+console.log('[INDEX] 🔍 Carregando módulo de conciliação (SQL)...');
+
+let reconciliationRoutes;
+try {
+  reconciliationRoutes = await import('./reconciliation-routes-sql.tsx');
+  console.log('[INDEX] ✅ Módulo reconciliation-routes-sql carregado com sucesso');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao carregar reconciliation-routes-sql:', error);
+}
+
+if (reconciliationRoutes?.default) {
+  console.log('[INDEX] 🔍 Registrando rotas de conciliação SQL...');
+  app.route('/make-server-686b5e88/reconciliation', reconciliationRoutes.default);
+  console.log('[INDEX] ✅ Rotas de conciliação registradas em /make-server-686b5e88/reconciliation/*');
+  console.log('[INDEX] 📋 Usando tabelas SQL: bank_reconciliations, financial_closed_periods');
+} else {
+  console.error('[INDEX] ❌ MÓDULO RECONCILIATION ROUTES NÃO CARREGADO!');
+}
+
+// =====================================================
 // SUBSCRIPTION ROUTES - Gestão de Assinaturas
 // =====================================================
 console.log('[INDEX] 🔍 Carregando módulo de assinaturas...');
