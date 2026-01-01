@@ -737,28 +737,38 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       effectiveDate: formattedDate
     });
     
-    if (transaction.type === "Receita") {
-      markTransactionAsReceived(
-        receivingTransaction, 
-        formattedDate, 
-        receiveBankAccountId,
-        bankAccount?.bankName || "",
-        receivePaymentMethodId,
-        paymentMethod?.name || ""
-      );
-    } else {
-      markTransactionAsPaid(
-        receivingTransaction, 
-        formattedDate,
-        receiveBankAccountId,
-        bankAccount?.bankName || "",
-        receivePaymentMethodId,
-        paymentMethod?.name || ""
-      );
-    }
+    // ✅ VALIDAR PERÍODO FECHADO E CONCILIAÇÃO antes de liquidar
+    const transactionToValidate = {
+      ...transaction,
+      effectiveDate: formattedDate,
+      bankAccountId: receiveBankAccountId
+    };
 
-    setShowReceiveDialog(false);
-    setReceivingTransaction(null);
+    validateBeforeAction?.('settle', transactionToValidate, () => {
+      // Executar liquidação apenas se aprovado
+      if (transaction.type === "Receita") {
+        markTransactionAsReceived(
+          receivingTransaction, 
+          formattedDate, 
+          receiveBankAccountId,
+          bankAccount?.bankName || "",
+          receivePaymentMethodId,
+          paymentMethod?.name || ""
+        );
+      } else {
+        markTransactionAsPaid(
+          receivingTransaction, 
+          formattedDate,
+          receiveBankAccountId,
+          bankAccount?.bankName || "",
+          receivePaymentMethodId,
+          paymentMethod?.name || ""
+        );
+      }
+
+      setShowReceiveDialog(false);
+      setReceivingTransaction(null);
+    });
   };
 
   // ✅ Confirmar liquidação após validação
