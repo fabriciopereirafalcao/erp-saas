@@ -4838,7 +4838,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     effectiveDate: string,
     transactionId: string,
     description: string,
-    amount: number
+    amount: number,
+    transactionType: 'Receita' | 'Despesa'
   ) => {
     try {
       console.log('[RECONCILIATION] 💾 Criando registro de conciliação bancária:', {
@@ -4846,13 +4847,43 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         effectiveDate,
         transactionId,
         description,
-        amount
+        amount,
+        transactionType
+      });
+
+      // Buscar saldo atual da conta bancária
+      const bankAccount = companySettings.bankAccounts.find(b => b.id === bankAccountId);
+      if (!bankAccount) {
+        console.error('[RECONCILIATION] ❌ Conta bancária não encontrada:', bankAccountId);
+        return;
+      }
+
+      // O saldo confirmado é o saldo atual da conta (já atualizado pela transação)
+      const confirmedBalance = bankAccount.balance;
+      
+      // Calcular saldo esperado (antes da transação)
+      const expectedBalance = transactionType === 'Receita' 
+        ? confirmedBalance - amount  // Se foi receita, antes estava menor
+        : confirmedBalance + amount; // Se foi despesa, antes estava maior
+      
+      // Diferença entre confirmado e esperado
+      const difference = confirmedBalance - expectedBalance;
+
+      console.log('[RECONCILIATION] 📊 Saldos calculados:', {
+        confirmedBalance,
+        expectedBalance,
+        difference,
+        accountName: bankAccount.bankName
       });
 
       const result = await setReconciliationStatusSQL({
         bankAccountId,
         referenceDate: effectiveDate,
         status: true, // true = conciliada
+        confirmedBalance,
+        expectedBalance,
+        difference,
+        transactionCount: 1,
         auditData: {
           userName: profile?.email || 'Sistema',
           reason: 'Liquidação de transação financeira',
@@ -4953,7 +4984,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           newTransaction.effectiveDate || newTransaction.date,
           newTransaction.id,
           transactionData.description,
-          transactionData.amount
+          transactionData.amount,
+          transactionData.type
         );
       }
       
@@ -5061,7 +5093,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         effectiveDate,
         id,
         transaction.description,
-        transaction.amount
+        transaction.amount,
+        'Receita'
       );
     }
 
@@ -5223,7 +5256,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           effectiveDate,
           id,
           transaction.description,
-          transaction.amount
+          transaction.amount,
+          'Despesa'
         );
       })();
     }
