@@ -742,6 +742,8 @@ interface ERPContextData {
     }
   ) => void;
   getReconciliationHistory: (reconciliationKey: string) => ReconciliationAuditEntry[];
+  getReconciliationKey: (bankAccountId: string, date: Date | string) => string;
+  isTransactionReconciled: (transaction: any) => boolean;
   
   // Closed Periods Actions
   closedPeriods: ClosedPeriod[];
@@ -6263,6 +6265,37 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
 
+  /**
+   * Gera chave de conciliação a partir de bankAccountId e date
+   */
+  const getReconciliationKeyFunc = (bankAccountId: string, date: Date | string): string => {
+    let dateStr: string;
+    
+    if (typeof date === 'string') {
+      dateStr = date;
+    } else {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    }
+    
+    return `${bankAccountId}-${dateStr}`;
+  };
+
+  /**
+   * Verifica se uma transação está em data conciliada
+   */
+  const isTransactionReconciledFunc = (transaction: any): boolean => {
+    if (!transaction.bankAccountId) return false;
+    
+    const date = transaction.effectiveDate || transaction.dueDate;
+    if (!date) return false;
+    
+    const key = getReconciliationKeyFunc(transaction.bankAccountId, date);
+    return reconciliationStatus[key] === true;
+  };
+
   // ==================== CLOSED PERIODS ACTIONS ====================
 
   /**
@@ -6673,6 +6706,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     reconciliationAudit,
     toggleReconciliationStatus,
     getReconciliationHistory,
+    getReconciliationKey: getReconciliationKeyFunc,
+    isTransactionReconciled: isTransactionReconciledFunc,
     closedPeriods,
     closedPeriodAdjustments,
     closePeriod,
