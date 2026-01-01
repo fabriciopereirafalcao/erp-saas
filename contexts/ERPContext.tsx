@@ -4832,84 +4832,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     toast.success("Categoria de conta removida!");
   };
 
-  // ✅ HELPER: Criar registro de conciliação bancária quando transação é paga/recebida
-  const createReconciliationRecord = async (
-    bankAccountId: string,
-    effectiveDate: string,
-    transactionId: string,
-    description: string,
-    amount: number,
-    transactionType: 'Receita' | 'Despesa'
-  ) => {
-    try {
-      console.log('[RECONCILIATION] 💾 Criando registro de conciliação bancária:', {
-        bankAccountId,
-        effectiveDate,
-        transactionId,
-        description,
-        amount,
-        transactionType
-      });
-
-      // Buscar saldo atual da conta bancária
-      const bankAccount = companySettings.bankAccounts.find(b => b.id === bankAccountId);
-      if (!bankAccount) {
-        console.error('[RECONCILIATION] ❌ Conta bancária não encontrada:', bankAccountId);
-        return;
-      }
-
-      // O saldo confirmado é o saldo atual da conta (já atualizado pela transação)
-      const confirmedBalance = bankAccount.balance;
-      
-      // Calcular saldo esperado (antes da transação)
-      const expectedBalance = transactionType === 'Receita' 
-        ? confirmedBalance - amount  // Se foi receita, antes estava menor
-        : confirmedBalance + amount; // Se foi despesa, antes estava maior
-      
-      // Diferença entre confirmado e esperado
-      const difference = confirmedBalance - expectedBalance;
-
-      console.log('[RECONCILIATION] 📊 Saldos calculados:', {
-        confirmedBalance,
-        expectedBalance,
-        difference,
-        accountName: bankAccount.bankName
-      });
-
-      const result = await setReconciliationStatusSQL({
-        bankAccountId,
-        referenceDate: effectiveDate,
-        status: true, // true = conciliada
-        confirmedBalance,
-        expectedBalance,
-        difference,
-        transactionCount: 1,
-        auditData: {
-          userName: profile?.email || 'Sistema',
-          reason: 'Liquidação de transação financeira',
-          transactionId,
-          transactionDescription: description,
-          transactionAmount: amount,
-          automatic: true
-        }
-      });
-
-      if (result.success) {
-        console.log('[RECONCILIATION] ✅ Registro de conciliação criado com sucesso');
-        // ✅ Atualizar estado local de conciliação
-        setReconciliationStatus(prev => ({
-          ...prev,
-          [`${bankAccountId}-${effectiveDate}`]: true
-        }));
-      } else {
-        console.error('[RECONCILIATION] ❌ Erro ao criar registro:', result.error);
-      }
-    } catch (error) {
-      console.error('[RECONCILIATION] ❌ Erro ao criar registro de conciliação:', error);
-      // Não lançar erro - a transação já foi salva, conciliação é secundária
-    }
-  };
-
   // Financial Transactions
   const addFinancialTransaction = async (transactionData: Omit<FinancialTransaction, 'id'>) => {
     // ✅ NOVO FLUXO: Chamar endpoint /create-financial-transaction que retorna a transação com SKU gerado
@@ -4977,16 +4899,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
               (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
           });
         }
-
-        // ✅ NOVO: Criar registro de conciliação bancária
-        await createReconciliationRecord(
-          transactionData.bankAccountId,
-          newTransaction.effectiveDate || newTransaction.date,
-          newTransaction.id,
-          transactionData.description,
-          transactionData.amount,
-          transactionData.type
-        );
       }
       
       toast.success("Transação financeira registrada!");
@@ -5084,18 +4996,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       updateBankAccount(transaction.bankAccountId, { 
         balance: bank.balance + transaction.amount 
       });
-    }
-
-    // ✅ NOVO: Criar registro de conciliação bancária
-    if (bankAccountId) {
-      await createReconciliationRecord(
-        bankAccountId,
-        effectiveDate,
-        id,
-        transaction.description,
-        transaction.amount,
-        'Receita'
-      );
     }
 
     // Se a transação está vinculada a um pedido, recalcular status do pedido
@@ -5246,20 +5146,6 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       updateBankAccount(transaction.bankAccountId, { 
         balance: bank.balance - transaction.amount 
       });
-    }
-
-    // ✅ NOVO: Criar registro de conciliação bancária
-    if (bankAccountId) {
-      (async () => {
-        await createReconciliationRecord(
-          bankAccountId,
-          effectiveDate,
-          id,
-          transaction.description,
-          transaction.amount,
-          'Despesa'
-        );
-      })();
     }
 
     // Se a transação está vinculada a um pedido de compra, recalcular status
