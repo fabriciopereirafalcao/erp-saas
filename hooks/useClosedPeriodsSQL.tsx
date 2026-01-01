@@ -70,7 +70,7 @@ export async function loadClosedPeriods(): Promise<FinancialClosedPeriod[]> {
     );
 
     if (!response.success || !response.data) {
-      console.log('[CLOSED-PERIODS-SQL] 📭 Nenhum período fechado encontrado');
+      console.log('[CLOSED-PERIODS-SQL] 📭 Nenhum período fechado encontrado (ou rota não disponível)');
       return [];
     }
 
@@ -78,7 +78,8 @@ export async function loadClosedPeriods(): Promise<FinancialClosedPeriod[]> {
     return response.data as FinancialClosedPeriod[];
     
   } catch (error) {
-    console.error('[CLOSED-PERIODS-SQL] ❌ Erro ao carregar períodos:', error);
+    console.warn('[CLOSED-PERIODS-SQL] ⚠️  Erro ao carregar períodos (continuando sem dados):', error);
+    // Retornar array vazio em vez de lançar erro - sistema funciona sem dados SQL
     return [];
   }
 }
@@ -95,7 +96,7 @@ export async function loadClosedPeriodAdjustments(): Promise<ClosedPeriodAdjustm
     );
 
     if (!response.success || !response.data) {
-      console.log('[CLOSED-PERIODS-SQL] 📭 Nenhum ajuste encontrado');
+      console.log('[CLOSED-PERIODS-SQL] 📭 Nenhum ajuste encontrado (ou rota não disponível)');
       return [];
     }
 
@@ -103,7 +104,8 @@ export async function loadClosedPeriodAdjustments(): Promise<ClosedPeriodAdjustm
     return response.data as ClosedPeriodAdjustment[];
     
   } catch (error) {
-    console.error('[CLOSED-PERIODS-SQL] ❌ Erro ao carregar ajustes:', error);
+    console.warn('[CLOSED-PERIODS-SQL] ⚠️  Erro ao carregar ajustes (continuando sem dados):', error);
+    // Retornar array vazio em vez de lançar erro - sistema funciona sem dados SQL
     return [];
   }
 }

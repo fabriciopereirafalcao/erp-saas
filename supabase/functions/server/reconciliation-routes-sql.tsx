@@ -52,15 +52,15 @@ async function authenticate(authHeader: string | undefined) {
     return null;
   }
 
-  // Buscar company_id do usuário
-  const { data: userCompanyRoles, error: roleError } = await supabase
-    .from('user_company_roles')
+  // Buscar company_id do usuário (tabela users)
+  const { data: userData, error: roleError } = await supabase
+    .from('users')
     .select('company_id, role')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .limit(1)
     .single();
 
-  if (roleError || !userCompanyRoles) {
+  if (roleError || !userData) {
     console.error('[AUTH] Erro ao buscar company_id:', roleError?.message);
     return null;
   }
@@ -68,8 +68,8 @@ async function authenticate(authHeader: string | undefined) {
   return {
     userId: user.id,
     userEmail: user.email,
-    companyId: userCompanyRoles.company_id,
-    role: userCompanyRoles.role
+    companyId: userData.company_id,
+    role: userData.role
   };
 }
 

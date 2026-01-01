@@ -78,7 +78,7 @@ export async function loadBankReconciliations(): Promise<BankReconciliation[]> {
     );
 
     if (!response.success || !response.data) {
-      console.log('[RECONCILIATION-SQL] 📭 Nenhuma conciliação encontrada');
+      console.log('[RECONCILIATION-SQL] 📭 Nenhuma conciliação encontrada (ou rota não disponível)');
       return [];
     }
 
@@ -86,7 +86,8 @@ export async function loadBankReconciliations(): Promise<BankReconciliation[]> {
     return response.data as BankReconciliation[];
     
   } catch (error) {
-    console.error('[RECONCILIATION-SQL] ❌ Erro ao carregar conciliações:', error);
+    console.warn('[RECONCILIATION-SQL] ⚠️  Erro ao carregar conciliações (continuando sem dados):', error);
+    // Retornar array vazio em vez de lançar erro - sistema funciona sem dados SQL
     return [];
   }
 }
@@ -103,7 +104,7 @@ export async function loadReconciliationAuditLogs(): Promise<ReconciliationAudit
     );
 
     if (!response.success || !response.data) {
-      console.log('[RECONCILIATION-SQL] 📭 Nenhum log encontrado');
+      console.log('[RECONCILIATION-SQL] 📭 Nenhum log encontrado (ou rota não disponível)');
       return [];
     }
 
@@ -111,7 +112,8 @@ export async function loadReconciliationAuditLogs(): Promise<ReconciliationAudit
     return response.data as ReconciliationAuditLog[];
     
   } catch (error) {
-    console.error('[RECONCILIATION-SQL] ❌ Erro ao carregar logs:', error);
+    console.warn('[RECONCILIATION-SQL] ⚠️  Erro ao carregar logs (continuando sem dados):', error);
+    // Retornar array vazio em vez de lançar erro - sistema funciona sem dados SQL
     return [];
   }
 }
