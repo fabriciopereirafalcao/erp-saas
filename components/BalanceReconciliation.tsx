@@ -1,3 +1,10 @@
+import { parseDateLocal } from '../utils/dateUtils';
+import { useState, useEffect, useMemo } from "react";
+import React from "react";
+import { Card } from "./ui/card";
+import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock, Unlock } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
