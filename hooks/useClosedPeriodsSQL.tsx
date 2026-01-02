@@ -242,8 +242,14 @@ export async function createClosedPeriodAdjustment(params: {
 /**
  * Converte FinancialClosedPeriod para formato antigo (ClosedPeriod)
  * Mantém compatibilidade com código existente
+ * ✅ FILTRO: Converte apenas períodos com status 'closed'
  */
-export function convertSQLToClosedPeriod(period: FinancialClosedPeriod): any {
+export function convertSQLToClosedPeriod(period: FinancialClosedPeriod): any | null {
+  // ✅ Filtrar apenas períodos fechados (não reabertos)
+  if (period.status !== 'closed') {
+    return null;
+  }
+  
   return {
     id: period.id,
     month: period.period_month,
@@ -251,6 +257,7 @@ export function convertSQLToClosedPeriod(period: FinancialClosedPeriod): any {
     closedAt: period.closed_at,
     closedBy: period.closed_by_name,
     closedByName: period.closed_by_name,
+    closedByUserId: period.closed_by || 'system',
     firstPeriod: period.is_first_period,
     justification: period.closed_justification
   };

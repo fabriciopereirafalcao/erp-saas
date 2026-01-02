@@ -1698,9 +1698,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // ✅ MIGRADO PARA SQL: Carregar períodos fechados
         const closedPeriodsData = await loadClosedPeriods();
         if (isSubscribed && closedPeriodsData && closedPeriodsData.length > 0) {
-          console.log(`[SUPABASE-SQL] ✅ ${closedPeriodsData.length} períodos fechados carregados da tabela SQL`);
-          // Converter para formato compatível
-          const periodsCompatible = closedPeriodsData.map(convertSQLToClosedPeriod);
+          console.log(`[SUPABASE-SQL] ✅ ${closedPeriodsData.length} períodos carregados da tabela SQL`);
+          // Converter para formato compatível (filtrando períodos reabertos)
+          const periodsCompatible = closedPeriodsData
+            .map(convertSQLToClosedPeriod)
+            .filter(p => p !== null); // ✅ Filtrar períodos reabertos (retornam null)
+          console.log(`[SUPABASE-SQL] 📊 ${periodsCompatible.length} períodos fechados (${closedPeriodsData.length - periodsCompatible.length} reabertos ignorados)`);
           setClosedPeriods(periodsCompatible);
         }
         
@@ -6593,9 +6596,14 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
+      // ✅ Remover período do estado local (agora tem status 'reopened' no banco)
+      // O filtro na função convertSQLToClosedPeriod garante que períodos reabertos
+      // não apareçam no array closedPeriods
       setClosedPeriods(prev => prev.filter(p => p.id !== periodId));
       
-      toast.success(`Período ${period.month.toString().padStart(2, '0')}/${period.year} reaberto`);
+      toast.success(`Período ${period.month.toString().padStart(2, '0')}/${period.year} reaberto com sucesso`, {
+        description: 'Agora você pode realizar novas liquidações e reconciliar datas neste período'
+      });
       return true;
     } catch (error) {
       console.error('[PERÍODO REABERTO] ❌ Erro:', error);

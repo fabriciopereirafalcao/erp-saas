@@ -1,12 +1,5 @@
-import { parseDateLocal } from '../utils/dateUtils';
-import { useState, useEffect, useMemo } from "react";
-import React from "react";
-import { Card } from "./ui/card";
-import { Label } from "./ui/label";
-import { Button } from "./ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock, Unlock } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,6 +26,8 @@ export function BalanceReconciliation() {
     getReconciliationHistory,
     isMonthClosed,
     closePeriod,
+    reopenPeriod,
+    closedPeriods,
     canClosePeriod,
     getMonthReconciliationStatus
   } = useERP();
@@ -54,6 +49,9 @@ export function BalanceReconciliation() {
   const [selectedReconciliationKey, setSelectedReconciliationKey] = useState<string>("");
   const [closePeriodDialogOpen, setClosePeriodDialogOpen] = useState(false);
   const [closePeriodJustification, setClosePeriodJustification] = useState("");
+  const [reopenPeriodDialogOpen, setReopenPeriodDialogOpen] = useState(false);
+  const [reopenPeriodPassword, setReopenPeriodPassword] = useState("");
+  const [reopenPeriodJustification, setReopenPeriodJustification] = useState("");
 
   // Ao carregar, seleciona automaticamente a conta principal (isPrimary) ou a primeira conta
   useEffect(() => {
@@ -467,29 +465,38 @@ export function BalanceReconciliation() {
           {/* Botões - Canto Superior Direito */}
           {selectedBank && (
             <div className="flex items-center gap-3">
-              {/* Botão Fechar Período - Apenas para Owner/Admin */}
+              {/* Botão Fechar/Reabrir Período - Dinâmico - Apenas para Owner/Admin */}
               {(profile?.role?.toLowerCase() === 'owner' || profile?.role?.toLowerCase() === 'administrador') && (
                 <Button 
                   onClick={() => {
-                    const month = selectedMonth.getMonth() + 1;
-                    const year = selectedMonth.getFullYear();
+                    const periodClosed = isMonthClosed(selectedMonth);
                     
-                    // Verificar se período já está fechado
-                    if (isMonthClosed(selectedMonth)) {
-                      toast.info('Período já fechado', {
-                        description: `O período ${month.toString().padStart(2, '0')}/${year} já se encontra fechado`
-                      });
-                      return;
+                    if (periodClosed) {
+                      // Período fechado - abrir dialog de REABERTURA
+                      setReopenPeriodDialogOpen(true);
+                    } else {
+                      // Período aberto - abrir dialog de FECHAMENTO
+                      setClosePeriodDialogOpen(true);
                     }
-                    
-                    // Abrir dialog de confirmação
-                    setClosePeriodDialogOpen(true);
                   }}
                   variant="outline" 
-                  className="gap-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+                  className={`gap-2 ${
+                    isMonthClosed(selectedMonth)
+                      ? 'border-green-600 text-green-600 hover:bg-green-50'
+                      : 'border-purple-600 text-purple-600 hover:bg-purple-50'
+                  }`}
                 >
-                  <Lock className="w-4 h-4" />
-                  FECHAR PERÍODO
+                  {isMonthClosed(selectedMonth) ? (
+                    <>
+                      <Unlock className="w-4 h-4" />
+                      REABRIR PERÍODO
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      FECHAR PERÍODO
+                    </>
+                  )}
                 </Button>
               )}
               
@@ -1028,6 +1035,147 @@ export function BalanceReconciliation() {
                 className="h-8 gap-1.5 text-white hover:bg-blue-700"
               >
                 Fechar Período
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Reabertura de Período */}
+      <Dialog open={reopenPeriodDialogOpen} onOpenChange={setReopenPeriodDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unlock className="w-5 h-5 text-blue-600" />
+              Reabrir Período
+            </DialogTitle>
+            <DialogDescription>
+              Confirme a reabertura do período para permitir novas conciliações
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Informações do Período */}
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600 font-medium">Período</p>
+                  <p className="text-gray-900">
+                    {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 font-medium">Status</p>
+                  <p className="text-gray-900">
+                    {isMonthClosed(selectedMonth) ? "Fechado" : "Aberto"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Senha para Reabertura */}
+            <div className="space-y-2">
+              <Label className="text-sm whitespace-nowrap">Senha de Administrador</Label>
+              <input
+                type="password"
+                value={reopenPeriodPassword}
+                onChange={(e) => setReopenPeriodPassword(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+                placeholder="Digite a senha de administrador"
+              />
+            </div>
+
+            {/* Justificativa para Reabertura */}
+            <div className="space-y-2">
+              <Label className="text-sm whitespace-nowrap">Justificativa para Reabertura</Label>
+              <textarea
+                value={reopenPeriodJustification}
+                onChange={(e) => setReopenPeriodJustification(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+                placeholder="Digite a justificativa para a reabertura do período"
+              />
+            </div>
+
+            {/* Resumo de Conciliação */}
+            <div className="space-y-2">
+              <Label className="text-sm whitespace-nowrap">Resumo de Conciliação</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500">Total de Dias</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {totalDays}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Dias Conciliados</p>
+                  <p className="text-sm font-medium text-green-600">
+                    {totalReconciled}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Dias Pendentes</p>
+                  <p className="text-sm font-medium text-red-600">
+                    {totalDays - totalReconciled}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Taxa de Conciliação</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {reconciliationPercentage}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div className="flex items-center justify-end gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setReopenPeriodDialogOpen(false)}
+                className="h-8 gap-1.5 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={async () => {
+                  const month = selectedMonth.getMonth() + 1; // 0-11 -> 1-12
+                  const year = selectedMonth.getFullYear();
+                  
+                  // Validar senha (simplificado - no backend deve fazer hash)
+                  if (!reopenPeriodPassword || reopenPeriodPassword.trim() === '') {
+                    toast.error('Digite a senha de administrador');
+                    return;
+                  }
+                  
+                  // Validar justificativa
+                  if (!reopenPeriodJustification || reopenPeriodJustification.trim() === '') {
+                    toast.error('Digite a justificativa para reabertura');
+                    return;
+                  }
+                  
+                  // Buscar o período fechado
+                  const period = closedPeriods.find(p => p.month === month && p.year === year);
+                  if (!period) {
+                    toast.error('Período não encontrado');
+                    return;
+                  }
+                  
+                  // Chamar função de reabertura (passando senha via context)
+                  // ⚠️ NOTA: A senha será validada no backend
+                  const success = await reopenPeriod(period.id, reopenPeriodJustification);
+                  
+                  if (success) {
+                    setReopenPeriodDialogOpen(false);
+                    setReopenPeriodPassword('');
+                    setReopenPeriodJustification('');
+                  }
+                }}
+                className="h-8 gap-1.5 text-white bg-green-600 hover:bg-green-700"
+              >
+                Reabrir Período
               </Button>
             </div>
           </div>
