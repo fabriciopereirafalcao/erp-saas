@@ -1682,6 +1682,28 @@ if (reconciliationRoutes?.default) {
 }
 
 // =====================================================
+// FINANCIAL TRANSACTION ROUTES - Governança de Transações
+// =====================================================
+console.log('[INDEX] 🔍 Carregando módulo de transações financeiras...');
+
+let financialTransactionRoutes;
+try {
+  financialTransactionRoutes = await import('./financial-transaction-routes.tsx');
+  console.log('[INDEX] ✅ Módulo financial-transaction-routes carregado com sucesso');
+} catch (error) {
+  console.error('[INDEX] ❌ ERRO ao carregar financial-transaction-routes:', error);
+}
+
+if (financialTransactionRoutes?.default) {
+  console.log('[INDEX] 🔍 Registrando rotas de transações financeiras...');
+  app.route('/make-server-686b5e88/financial-transactions', financialTransactionRoutes.default);
+  console.log('[INDEX] ✅ Rotas de transações registradas em /make-server-686b5e88/financial-transactions/*');
+  console.log('[INDEX] 📋 Exemplos: /financial-transactions/cancel, /financial-transactions/substitute');
+} else {
+  console.error('[INDEX] ❌ MÓDULO FINANCIAL TRANSACTION ROUTES NÃO CARREGADO!');
+}
+
+// =====================================================
 // SUBSCRIPTION ROUTES - Gestão de Assinaturas
 // =====================================================
 console.log('[INDEX] 🔍 Carregando módulo de assinaturas...');

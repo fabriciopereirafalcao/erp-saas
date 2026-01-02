@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useERP } from "../contexts/ERPContext";
 import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
+import { getActiveTransactions } from "../utils/transactionFilters";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -86,13 +87,13 @@ function AccountsPayableReceivableComponent({ validateBeforeAction }: AccountsPa
     return txn.status === "Vencido";
   };
 
-  // Filtrar transações a receber (status pendentes)
-  const receivableTransactions = safeFinancialTransactions.filter(t => 
+  // ✅ FASE 2: Filtrar transações a receber (status pendentes) - APENAS ATIVAS
+  const receivableTransactions = getActiveTransactions(safeFinancialTransactions).filter(t => 
     t.type === "Receita" && (t.status === "Vencido" || t.status === "A Receber")
   );
 
-  // Filtrar transações a pagar (status pendentes)
-  const payableTransactions = safeFinancialTransactions.filter(t => 
+  // ✅ FASE 2: Filtrar transações a pagar (status pendentes) - APENAS ATIVAS
+  const payableTransactions = getActiveTransactions(safeFinancialTransactions).filter(t => 
     t.type === "Despesa" && (t.status === "Vencido" || t.status === "A Pagar")
   );
 
@@ -159,7 +160,7 @@ function AccountsPayableReceivableComponent({ validateBeforeAction }: AccountsPa
     return dueDate < today;
   }).reduce((sum, t) => sum + t.amount, 0);
 
-  const receivablesMonth = safeFinancialTransactions.filter(t =>
+  const receivablesMonth = getActiveTransactions(safeFinancialTransactions).filter(t =>
     t.type === "Receita" && 
     t.status === "Pago" && 
     t.paymentDate &&
@@ -187,7 +188,7 @@ function AccountsPayableReceivableComponent({ validateBeforeAction }: AccountsPa
     return dueDate < today;
   }).reduce((sum, t) => sum + t.amount, 0);
 
-  const payablesMonth = safeFinancialTransactions.filter(t =>
+  const payablesMonth = getActiveTransactions(safeFinancialTransactions).filter(t =>
     t.type === "Despesa" && 
     t.status === "Pago" && 
     t.paymentDate &&

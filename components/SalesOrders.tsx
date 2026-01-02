@@ -16,6 +16,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus, Receipt, AlertCircle } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
+import { getActiveTransactions } from "../utils/transactionFilters";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -217,7 +218,8 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
 
   // Helper: Obter informações de parcelas do pedido
   const getInstallmentsInfo = (orderId: string) => {
-    const orderTransactions = safeFinancialTransactions.filter(
+    // ✅ FASE 2: Filtrar apenas transações ATIVAS do pedido
+    const orderTransactions = getActiveTransactions(safeFinancialTransactions).filter(
       t => t.origin === "Pedido" && t.reference === orderId && t.status !== "Cancelado"
     );
     

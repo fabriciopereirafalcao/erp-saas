@@ -10,6 +10,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Download, TrendingUp, TrendingDown, Package, DollarSign, Users, ShoppingCart, FileText, Calendar, Filter, Printer, FileSpreadsheet, FileDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useERP } from "../contexts/ERPContext";
+import { getActiveTransactions } from "../utils/transactionFilters";
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { exportToExcel, exportToPDF, formatCurrencyForExport, formatDateForExport } from "../utils/exportUtils";
@@ -102,15 +103,15 @@ export function Reports() {
     const profit = totalSales - totalPurchases;
     const margin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
 
-    // ✅ CORRIGIDO: Contas a receber a partir das TRANSAÇÕES FINANCEIRAS
-    const receivables = safeFinancialTransactions.filter(t => 
+    // ✅ FASE 2: Contas a receber a partir das TRANSAÇÕES FINANCEIRAS - APENAS ATIVAS
+    const receivables = getActiveTransactions(safeFinancialTransactions).filter(t => 
       t.type === "Receita" && 
       (t.status === "A vencer" || t.status === "Vencido")
     );
     const totalAccountsReceivable = receivables.reduce((sum, t) => sum + t.amount, 0);
 
-    // ✅ CORRIGIDO: Contas a pagar a partir das TRANSAÇÕES FINANCEIRAS
-    const payables = safeFinancialTransactions.filter(t => 
+    // ✅ FASE 2: Contas a pagar a partir das TRANSAÇÕES FINANCEIRAS - APENAS ATIVAS
+    const payables = getActiveTransactions(safeFinancialTransactions).filter(t => 
       t.type === "Despesa" && 
       (t.status === "A vencer" || t.status === "Vencido")
     );

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { CheckCircle2, XCircle, Calendar as CalendarIcon, FileText, AlertTriangle, ChevronDown, ChevronUp, History, Lock, Unlock } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
+import { getActiveTransactions } from "../utils/transactionFilters";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { jsPDF } from "jspdf";
@@ -85,8 +86,8 @@ export function BalanceReconciliation() {
     // ✅ CORREÇÃO: Calcular saldo inicial do mês baseado em initialBalance + transações anteriores
     const monthStartDate = format(monthStart, 'yyyy-MM-dd');
     
-    // Filtrar transações do banco selecionado
-    const bankTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
+    // ✅ FASE 2: Filtrar transações do banco selecionado - APENAS ATIVAS
+    const bankTransactions = getActiveTransactions(safeFinancialTransactions).filter(t => t.bankAccountId === selectedBank);
     
     // Calcular transações anteriores ao início do mês (mas depois da startDate se existir)
     const transactionsBeforeMonth = bankTransactions.filter(t => {
@@ -120,8 +121,8 @@ export function BalanceReconciliation() {
       // Saldo inicial do dia (zerar se anterior à data de início)
       const dayInitialBalance = isBeforeStartDate ? 0 : currentBalance;
       
-      // Filtrar transações realizadas do banco selecionado
-      const filteredTransactions = safeFinancialTransactions.filter(t => t.bankAccountId === selectedBank);
+      // ✅ FASE 2: Filtrar transações realizadas do banco selecionado - APENAS ATIVAS
+      const filteredTransactions = getActiveTransactions(safeFinancialTransactions).filter(t => t.bankAccountId === selectedBank);
       
       // ✅ Transações do dia (incluindo overrides)
       const dayTransactions = filteredTransactions.filter(t => 

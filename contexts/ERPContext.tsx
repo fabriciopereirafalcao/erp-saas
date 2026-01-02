@@ -735,6 +735,8 @@ interface ERPContextData {
   addFinancialTransaction: (transaction: Omit<FinancialTransaction, 'id'>) => void;
   updateFinancialTransaction: (id: string, transaction: Partial<FinancialTransaction>) => void;
   deleteFinancialTransaction: (id: string) => void;
+  cancelFinancialTransaction: (id: string, reason: string) => Promise<void>;
+  substituteFinancialTransaction: (oldId: string, newData: Omit<FinancialTransaction, 'id'>, reason: string) => Promise<void>;
   markTransactionAsReceived: (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => void;
   markTransactionAsPaid: (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => void;
   
@@ -5038,6 +5040,104 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log(`🗑️ Transação ${id} excluída com sucesso`);
   };
 
+  // ✅ FASE 2: Cancelar transação (soft delete)
+  const cancelFinancialTransaction = async (id: string, reason: string) => {
+    const user = getCurrentUser();
+    
+    try {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          transactionId: id,
+          reason,
+          userId: user.id,
+          userName: user.name
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast.error('Erro ao cancelar transação', {
+          description: data.error || 'Erro desconhecido'
+        });
+        return;
+      }
+
+      // Atualizar estado local
+      setFinancialTransactions(prev => 
+        prev.map(t => t.id === id ? data.transaction : t)
+      );
+
+      toast.success('Transação cancelada com sucesso', {
+        description: 'A transação foi marcada como cancelada e permanece no histórico para auditoria'
+      });
+
+      console.log(`✅ Transação ${id} cancelada - Motivo: ${reason}`);
+    } catch (error) {
+      console.error('❌ Erro ao cancelar transação:', error);
+      toast.error('Erro ao cancelar transação', {
+        description: 'Erro de comunicação com o servidor'
+      });
+    }
+  };
+
+  // ✅ FASE 2: Substituir transação
+  const substituteFinancialTransaction = async (
+    oldId: string,
+    newData: Omit<FinancialTransaction, 'id'>,
+    reason: string
+  ) => {
+    const user = getCurrentUser();
+    
+    try {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/substitute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          oldTransactionId: oldId,
+          newTransactionData: newData,
+          reason,
+          userId: user.id,
+          userName: user.name
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast.error('Erro ao substituir transação', {
+          description: data.error || 'Erro desconhecido'
+        });
+        return;
+      }
+
+      // Atualizar estado local (remover antiga e adicionar nova)
+      setFinancialTransactions(prev => [
+        ...prev.map(t => t.id === oldId ? data.oldTransaction : t),
+        data.newTransaction
+      ]);
+
+      toast.success('Transação substituída com sucesso', {
+        description: 'A transação antiga foi arquivada e uma nova foi criada'
+      });
+
+      console.log(`✅ Transação ${oldId} substituída por ${data.newTransaction.id} - Motivo: ${reason}`);
+    } catch (error) {
+      console.error('❌ Erro ao substituir transação:', error);
+      toast.error('Erro ao substituir transação', {
+        description: 'Erro de comunicação com o servidor'
+      });
+    }
+  };
+
   // Marcar transação como recebida
   const markTransactionAsReceived = async (
     id: string, 
@@ -6948,6 +7048,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     addFinancialTransaction,
     updateFinancialTransaction,
     deleteFinancialTransaction,
+    cancelFinancialTransaction,
+    substituteFinancialTransaction,
     markTransactionAsReceived,
     markTransactionAsPaid,
     addAccountReceivable,

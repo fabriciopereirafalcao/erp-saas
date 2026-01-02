@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates, getYearMonthLocal } from "../utils/dateUtils";
 import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
 import { useTransactionPolicy } from "../hooks/useTransactionPolicy";
+import { getActiveTransactions } from "../utils/transactionFilters";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
@@ -165,7 +166,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     return txn.status === "Vencido";
   };
 
-  const filteredTransactions = safeFinancialTransactions.filter(txn => {
+  // ✅ FASE 2: Filtrar APENAS transações ATIVAS para exibição
+  const filteredTransactions = getActiveTransactions(safeFinancialTransactions).filter(txn => {
     const matchesSearch =
       txn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       txn.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -198,8 +200,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
   });
 
-  // ✅ NOVO: Cálculos considerando seleção múltipla de status e filtro de ano/mês
-  const totalReceitas = safeFinancialTransactions
+  // ✅ FASE 2: Cálculos considerando APENAS transações ATIVAS + seleção múltipla de status e filtro de ano/mês
+  const totalReceitas = getActiveTransactions(safeFinancialTransactions)
     .filter(t => {
       const isReceita = t.type === "Receita";
       
@@ -227,7 +229,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     })
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalDespesas = safeFinancialTransactions
+  const totalDespesas = getActiveTransactions(safeFinancialTransactions)
     .filter(t => {
       const isDespesa = t.type === "Despesa";
       
