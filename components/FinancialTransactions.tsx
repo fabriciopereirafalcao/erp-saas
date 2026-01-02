@@ -737,6 +737,17 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       effectiveDate: formattedDate
     });
     
+    // ✅ SALVAR IDs antes de limpar state (serão usados no callback)
+    const transactionId = receivingTransaction;
+    const bankAccId = receiveBankAccountId;
+    const bankName = bankAccount?.bankName || "";
+    const paymentMethodId = receivePaymentMethodId;
+    const paymentMethodName = paymentMethod?.name || "";
+    
+    // ✅ FECHAR MODAL ANTES DA VALIDAÇÃO (evita modal travado se validação bloquear)
+    setShowReceiveDialog(false);
+    setReceivingTransaction(null);
+    
     // ✅ VALIDAR PERÍODO FECHADO E CONCILIAÇÃO antes de liquidar
     const transactionToValidate = {
       ...transaction,
@@ -748,26 +759,23 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       // Executar liquidação apenas se aprovado
       if (transaction.type === "Receita") {
         markTransactionAsReceived(
-          receivingTransaction, 
+          transactionId, 
           formattedDate, 
-          receiveBankAccountId,
-          bankAccount?.bankName || "",
-          receivePaymentMethodId,
-          paymentMethod?.name || ""
+          bankAccId,
+          bankName,
+          paymentMethodId,
+          paymentMethodName
         );
       } else {
         markTransactionAsPaid(
-          receivingTransaction, 
+          transactionId, 
           formattedDate,
-          receiveBankAccountId,
-          bankAccount?.bankName || "",
-          receivePaymentMethodId,
-          paymentMethod?.name || ""
+          bankAccId,
+          bankName,
+          paymentMethodId,
+          paymentMethodName
         );
       }
-
-      setShowReceiveDialog(false);
-      setReceivingTransaction(null);
     });
   };
 
