@@ -259,6 +259,15 @@ export interface DRELine {
   regime?: string; // SIMPLES | PRESUMIDO | REAL
 }
 
+// ========================================
+// ENUM - Estado Administrativo de Transação
+// ========================================
+export enum AdministrativeStatus {
+  ATIVA = 'ATIVA',
+  CANCELADA = 'CANCELADA',
+  SUBSTITUIDA = 'SUBSTITUIDA'
+}
+
 // Transação Financeira Manual
 export interface FinancialTransaction {
   id: string;
@@ -277,7 +286,27 @@ export interface FinancialTransaction {
   paymentMethodId: string;
   paymentMethodName: string;
   amount: number;
+  
+  // ========================================
+  // ESTADO FINANCEIRO (imutável após liquidação)
+  // ========================================
   status: "A Receber" | "A Pagar" | "Vencido" | "Pago" | "Recebido" | "Cancelado";
+  
+  // ========================================
+  // ESTADO ADMINISTRATIVO (pode mudar)
+  // ========================================
+  administrativeStatus?: AdministrativeStatus; // Opcional para retrocompatibilidade
+  
+  // Metadados de cancelamento
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  
+  // Metadados de substituição
+  substitutedBy?: string;   // ID da transação nova
+  substitutes?: string;     // ID da transação antiga
+  substitutionReason?: string;
+  
   costCenterId?: string;
   costCenterName?: string;
   description: string;

@@ -11,7 +11,7 @@ import { Badge } from "./ui/badge";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown } from "lucide-react";
+import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown, Info } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
@@ -21,6 +21,8 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { formatDateLocal, addDaysToDate, dateToLocalString, getTodayString, compareDates, getYearMonthLocal } from "../utils/dateUtils";
 import { withFullTransactionProtection, FullTransactionProtectionProps } from "./hocs/withFullTransactionProtection";
+import { useTransactionPolicy } from "../hooks/useTransactionPolicy";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
 
@@ -40,6 +42,9 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     purchaseOrders,
     validateSettlementDate
   } = useERP();
+
+  // ✅ Hook de validação de políticas
+  const { canEditField, canDelete, getBlockedFields } = useTransactionPolicy();
 
   // ✅ Proteções contra arrays undefined
   const safeFinancialTransactions = financialTransactions || [];
@@ -127,6 +132,16 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     date: new Date(),
     description: ""
   });
+
+  // ✅ FASE 1: Campos bloqueados por validação de policy
+  const blockedFields = useMemo(() => {
+    if (!editingTransaction) return {};
+    
+    const transaction = safeFinancialTransactions.find(t => t.id === editingTransaction);
+    if (!transaction) return {};
+    
+    return getBlockedFields(transaction);
+  }, [editingTransaction, safeFinancialTransactions, getBlockedFields]);
 
   // Helper: buscar ordem vinculada (pedido de venda ou compra)
   const getLinkedOrder = (txn: any) => {
@@ -1696,14 +1711,27 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(txn.status)}>
-                        {txn.status}
-                      </Badge>
-                      {txn.effectiveDate && (txn.status === "Pago" || txn.status === "Recebido") && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          em {formatDateLocal(txn.effectiveDate)}
-                        </p>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        <Badge className={getStatusColor(txn.status)}>
+                          {txn.status}
+                        </Badge>
+                        {txn.effectiveDate && (txn.status === "Pago" || txn.status === "Recebido") && (
+                          <p className="text-xs text-gray-500">
+                            em {formatDateLocal(txn.effectiveDate)}
+                          </p>
+                        )}
+                        {txn.origin === "Pedido" && (
+                          <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
+                            <Package className="h-3 w-3 mr-1" />
+                            Pedido
+                          </Badge>
+                        )}
+                        {txn.administrativeStatus && txn.administrativeStatus !== 'ATIVA' && (
+                          <Badge variant="secondary" className="text-xs">
+                            {txn.administrativeStatus === 'CANCELADA' ? 'Cancelada' : 'Substituída'}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {linkedOrder ? (
@@ -2037,9 +2065,24 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
 
             {/* Valor Total */}
             <div>
-              <Label>Valor *</Label>
+              <div className="flex items-center gap-2">
+                <Label>Valor *</Label>
+                {blockedFields.amount && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-sm">{blockedFields.amount}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
               <Input
                 type="text"
+                disabled={!!blockedFields.amount}
                 value={formData.amount === '' || formData.amount === '0' ? '' : (parseFloat(formData.amount) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '');
