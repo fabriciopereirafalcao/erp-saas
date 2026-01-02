@@ -5011,25 +5011,29 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar transação
     updateFinancialTransaction(id, updates);
 
-    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E DATAS SUBSEQUENTES NO MESMO MÊS
+    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
-    const month = effectiveDateObj.getMonth() + 1; // 0-11 -> 1-12
-    const year = effectiveDateObj.getFullYear();
-    const lastDayOfMonth = new Date(year, month, 0).getDate();
     
-    // Desconciliar data da liquidação e todas as datas posteriores no mesmo mês
-    const datesToUnconcile: string[] = [];
-    for (let day = effectiveDateObj.getDate(); day <= lastDayOfMonth; day++) {
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      datesToUnconcile.push(dateStr);
-    }
+    // Buscar todas as conciliações desta conta que sejam >= data de liquidação
+    const transactionBankAccountId = transaction.bankAccountId;
+    const futureConciliations = Object.keys(reconciliationStatus)
+      .filter(key => {
+        // Formato da key: "bankAccountId-YYYY-MM-DD"
+        if (!key.startsWith(transactionBankAccountId + '-')) return false;
+        
+        const dateStr = key.split('-').slice(1).join('-'); // Extrai YYYY-MM-DD
+        return dateStr >= effectiveDate && reconciliationStatus[key] === true;
+      })
+      .map(key => key.split('-').slice(1).join('-')) // Extrai apenas a data
+      .sort(); // Ordenar cronologicamente
     
-    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - RECEITA] Liquidação em ${effectiveDate} - Desconciliando ${datesToUnconcile.length} datas`);
+    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - RECEITA] Liquidação em ${effectiveDate}:`);
+    console.log(`   📅 ${futureConciliations.length} datas conciliadas futuras encontradas`);
     
     // Executar desconciliação em lote (async)
-    for (const dateToUnconcile of datesToUnconcile) {
+    for (const dateToUnconcile of futureConciliations) {
       unconcileDate(
-        transaction.bankAccountId,
+        transactionBankAccountId,
         dateToUnconcile,
         {
           reason: `Liquidação de transação afetou saldo`,
@@ -5196,25 +5200,29 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar transação
     updateFinancialTransaction(id, updates);
 
-    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E DATAS SUBSEQUENTES NO MESMO MÊS
+    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
-    const month = effectiveDateObj.getMonth() + 1; // 0-11 -> 1-12
-    const year = effectiveDateObj.getFullYear();
-    const lastDayOfMonth = new Date(year, month, 0).getDate();
     
-    // Desconciliar data da liquidação e todas as datas posteriores no mesmo mês
-    const datesToUnconcile: string[] = [];
-    for (let day = effectiveDateObj.getDate(); day <= lastDayOfMonth; day++) {
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      datesToUnconcile.push(dateStr);
-    }
+    // Buscar todas as conciliações desta conta que sejam >= data de liquidação
+    const transactionBankAccountId = transaction.bankAccountId;
+    const futureConciliations = Object.keys(reconciliationStatus)
+      .filter(key => {
+        // Formato da key: "bankAccountId-YYYY-MM-DD"
+        if (!key.startsWith(transactionBankAccountId + '-')) return false;
+        
+        const dateStr = key.split('-').slice(1).join('-'); // Extrai YYYY-MM-DD
+        return dateStr >= effectiveDate && reconciliationStatus[key] === true;
+      })
+      .map(key => key.split('-').slice(1).join('-')) // Extrai apenas a data
+      .sort(); // Ordenar cronologicamente
     
-    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - DESPESA] Liquidação em ${effectiveDate} - Desconciliando ${datesToUnconcile.length} datas`);
+    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - DESPESA] Liquidação em ${effectiveDate}:`);
+    console.log(`   📅 ${futureConciliations.length} datas conciliadas futuras encontradas`);
     
     // Executar desconciliação em lote (async)
-    for (const dateToUnconcile of datesToUnconcile) {
+    for (const dateToUnconcile of futureConciliations) {
       unconcileDate(
-        transaction.bankAccountId,
+        transactionBankAccountId,
         dateToUnconcile,
         {
           reason: `Liquidação de transação afetou saldo`,
