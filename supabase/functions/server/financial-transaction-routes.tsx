@@ -12,6 +12,7 @@
  * ROTAS:
  * - POST /cancel - Cancelar transação (soft delete)
  * - POST /substitute - Substituir transação
+ * - POST /reverse-settlement - Estornar liquidação de transação
  * 
  * SEGURANÇA:
  * - Backend NUNCA confia no frontend
@@ -282,7 +283,128 @@ app.post('/substitute', async (c) => {
     console.error('❌ [SUBSTITUTE] Erro ao substituir transação:', error);
     return c.json({
       success: false,
-      error: `Erro interno: ${error.message}`
+      error: 'Erro ao substituir transação'
+    }, 500);
+  }
+});
+
+// ================================================================================
+// POST /reverse-settlement - Estornar liquidação de transação
+// ================================================================================
+app.post('/reverse-settlement', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { transactionId, reason, userId, userName } = body;
+
+    console.log(`↩️ [REVERSE] Solicitação de estorno de liquidação - Transação: ${transactionId}`);
+
+    // Validações básicas
+    if (!transactionId || !reason || !userId) {
+      return c.json({
+        success: false,
+        error: 'Dados incompletos'
+      }, 400);
+    }
+
+    // ✅ VALIDAÇÃO LGPD - Motivo
+    const reasonValidation = validateReason(reason);
+    if (!reasonValidation.valid) {
+      console.warn(`⚠️ [REVERSE] Validação de motivo falhou: ${reasonValidation.error}`);
+      return c.json({
+        success: false,
+        error: reasonValidation.error
+      }, 400);
+    }
+
+    // Buscar transação
+    const transaction = await kv.get(`transaction-${transactionId}`);
+    if (!transaction) {
+      console.warn(`⚠️ [REVERSE] Transação não encontrada: ${transactionId}`);
+      return c.json({
+        success: false,
+        error: 'Transação não encontrada'
+      }, 404);
+    }
+
+    // ✅ VALIDAÇÃO: Transação deve estar liquidada
+    const liquidatedStatuses = ['Pago', 'Recebido'];
+    if (!liquidatedStatuses.includes(transaction.status)) {
+      console.warn(`⚠️ [REVERSE] Transação não está liquidada. Status atual: ${transaction.status}`);
+      return c.json({
+        success: false,
+        error: 'Apenas transações liquidadas podem ter estorno de liquidação'
+      }, 400);
+    }
+
+    // ✅ VALIDAÇÃO: Transação deve estar ATIVA
+    if (transaction.administrativeStatus && transaction.administrativeStatus !== 'ATIVA') {
+      console.warn(`⚠️ [REVERSE] Transação não está ativa. Status: ${transaction.administrativeStatus}`);
+      return c.json({
+        success: false,
+        error: 'Apenas transações ativas podem ter estorno de liquidação'
+      }, 400);
+    }
+
+    // Determinar novo status (volta para pendente)
+    const now = new Date();
+    const dueDate = new Date(transaction.dueDate);
+    let newStatus: string;
+    
+    if (transaction.type === 'Receita') {
+      newStatus = now > dueDate ? 'Vencido' : 'A Receber';
+    } else {
+      newStatus = now > dueDate ? 'Vencido' : 'A Pagar';
+    }
+
+    // Guardar dados da liquidação original
+    const originalSettlement = {
+      status: transaction.status,
+      paymentDate: transaction.paymentDate,
+      paymentMethod: transaction.paymentMethod,
+      bankAccountId: transaction.bankAccountId
+    };
+
+    // Reverter liquidação
+    transaction.status = newStatus;
+    delete transaction.paymentDate;
+    delete transaction.paymentMethod;
+    delete transaction.bankAccountId;
+
+    // Adicionar metadados de estorno
+    transaction.reversalHistory = transaction.reversalHistory || [];
+    transaction.reversalHistory.push({
+      reversedAt: now.toISOString(),
+      reversedBy: userId,
+      reversedByName: userName,
+      reason: reason,
+      originalSettlement: originalSettlement
+    });
+
+    transaction.lastReversedAt = now.toISOString();
+    transaction.lastReversedBy = userId;
+    transaction.reversalReason = reason;
+
+    // Salvar transação
+    await kv.set(`transaction-${transactionId}`, transaction);
+
+    console.log(`✅ [REVERSE] Estorno de liquidação concluído`);
+    console.log(`   🔄 Transação: ${transactionId}`);
+    console.log(`   📊 Status: ${originalSettlement.status} → ${newStatus}`);
+    console.log(`   💰 Valor: R$ ${(transaction.amount / 100).toFixed(2)}`);
+    console.log(`   👤 Usuário: ${userName} (${userId})`);
+    console.log(`   📝 Motivo: ${reason}`);
+
+    return c.json({
+      success: true,
+      message: 'Liquidação estornada com sucesso',
+      transaction
+    });
+
+  } catch (error) {
+    console.error('❌ [REVERSE] Erro ao estornar liquidação:', error);
+    return c.json({
+      success: false,
+      error: 'Erro ao estornar liquidação'
     }, 500);
   }
 });

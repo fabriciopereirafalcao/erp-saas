@@ -737,6 +737,7 @@ interface ERPContextData {
   deleteFinancialTransaction: (id: string) => void;
   cancelFinancialTransaction: (id: string, reason: string) => Promise<void>;
   substituteFinancialTransaction: (oldId: string, newData: Omit<FinancialTransaction, 'id'>, reason: string) => Promise<void>;
+  reverseTransactionSettlement: (id: string, reason: string) => Promise<void>;
   markTransactionAsReceived: (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => void;
   markTransactionAsPaid: (id: string, effectiveDate: string, bankAccountId?: string, bankAccountName?: string, paymentMethodId?: string, paymentMethodName?: string) => void;
   
@@ -5138,6 +5139,52 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ FASE 3: Estornar liquidação de transação
+  const reverseTransactionSettlement = async (id: string, reason: string) => {
+    const user = getCurrentUser();
+    
+    try {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/reverse-settlement`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          transactionId: id,
+          reason,
+          userId: user.id,
+          userName: user.name
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast.error('Erro ao estornar liquidação', {
+          description: data.error || 'Erro desconhecido'
+        });
+        return;
+      }
+
+      // Atualizar estado local
+      setFinancialTransactions(prev =>
+        prev.map(t => t.id === id ? data.transaction : t)
+      );
+
+      toast.success('Liquidação estornada com sucesso', {
+        description: 'A transação voltou ao status pendente'
+      });
+
+      console.log(`↩️ Liquidação da transação ${id} estornada - Motivo: ${reason}`);
+    } catch (error) {
+      console.error('❌ Erro ao estornar liquidação:', error);
+      toast.error('Erro ao estornar liquidação', {
+        description: 'Erro de comunicação com o servidor'
+      });
+    }
+  };
+
   // Marcar transação como recebida
   const markTransactionAsReceived = async (
     id: string, 
@@ -7050,6 +7097,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     deleteFinancialTransaction,
     cancelFinancialTransaction,
     substituteFinancialTransaction,
+    reverseTransactionSettlement,
     markTransactionAsReceived,
     markTransactionAsPaid,
     addAccountReceivable,

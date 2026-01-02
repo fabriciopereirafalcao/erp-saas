@@ -11,7 +11,7 @@ import { Badge } from "./ui/badge";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown, Info } from "lucide-react";
+import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown, Info, RotateCcw, X } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
@@ -24,6 +24,9 @@ import { withFullTransactionProtection, FullTransactionProtectionProps } from ".
 import { useTransactionPolicy } from "../hooks/useTransactionPolicy";
 import { getActiveTransactions } from "../utils/transactionFilters";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { CancelTransactionDialog } from "./CancelTransactionDialog";
+import { SubstituteTransactionDialog } from "./SubstituteTransactionDialog";
+import { ReverseSettlementDialog } from "./ReverseSettlementDialog";
 
 interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
 
@@ -39,6 +42,9 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     updateFinancialTransaction,
     markTransactionAsReceived,
     markTransactionAsPaid,
+    cancelFinancialTransaction,
+    substituteFinancialTransaction,
+    reverseTransactionSettlement,
     salesOrders,
     purchaseOrders,
     validateSettlementDate
@@ -91,6 +97,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   } | null>(null);
   const [pendingCreatePaid, setPendingCreatePaid] = useState<typeof formData | null>(null);
   const [showPaymentDatePopover, setShowPaymentDatePopover] = useState(false);
+
+  // ✅ FASE 2 & 3: Estados para governança de transações
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelingTransaction, setCancelingTransaction] = useState<typeof safeFinancialTransactions[0] | null>(null);
+  const [showSubstituteDialog, setShowSubstituteDialog] = useState(false);
+  const [substitutingTransaction, setSubstitutingTransaction] = useState<typeof safeFinancialTransactions[0] | null>(null);
+  const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [reversingTransaction, setReversingTransaction] = useState<typeof safeFinancialTransactions[0] | null>(null);
 
   // ✅ Estados para validação de períodos fechados
   const [showClosedPeriodBlockModal, setShowClosedPeriodBlockModal] = useState(false);
@@ -1632,18 +1646,50 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                               </>
                             )}
                             {(txn.status === "Pago" || txn.status === "Recebido") && (
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  toast.info("Transação já liquidada", {
-                                    description: "Transações pagas não podem ser editadas"
-                                  });
-                                }}
-                                className="text-gray-500"
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                {txn.status === "Recebido" ? "Recebido" : "Pago"}
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    toast.info("Transação já liquidada", {
+                                      description: "Transações pagas não podem ser editadas"
+                                    });
+                                  }}
+                                  className="text-gray-500"
+                                >
+                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  {txn.status === "Recebido" ? "Recebido" : "Pago"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setReversingTransaction(txn);
+                                    setShowReverseDialog(true);
+                                  }}
+                                  className="text-orange-600"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Estornar Liquidação
+                                </DropdownMenuItem>
+                              </>
                             )}
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSubstitutingTransaction(txn);
+                                setShowSubstituteDialog(true);
+                              }}
+                              className="text-blue-600"
+                            >
+                              <ArrowRightLeft className="mr-2 h-4 w-4" />
+                              Substituir Transação
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setCancelingTransaction(txn);
+                                setShowCancelDialog(true);
+                              }}
+                              className="text-red-600"
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Cancelar Transação
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -2552,6 +2598,30 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
           }}
         />
       )}
+
+      {/* ✅ FASE 2: Modal de Cancelamento */}
+      <CancelTransactionDialog
+        transaction={cancelingTransaction}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onConfirm={cancelFinancialTransaction}
+      />
+
+      {/* ✅ FASE 2: Modal de Substituição */}
+      <SubstituteTransactionDialog
+        transaction={substitutingTransaction}
+        open={showSubstituteDialog}
+        onOpenChange={setShowSubstituteDialog}
+        onConfirm={substituteFinancialTransaction}
+      />
+
+      {/* ✅ FASE 3: Modal de Estorno de Liquidação */}
+      <ReverseSettlementDialog
+        transaction={reversingTransaction}
+        open={showReverseDialog}
+        onOpenChange={setShowReverseDialog}
+        onConfirm={reverseTransactionSettlement}
+      />
     </div>
   );
 }
