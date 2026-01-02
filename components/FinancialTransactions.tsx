@@ -788,6 +788,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       const baseDateString = dateToLocalString(formData.date);
       const todayString = getTodayString();
       
+      // ✅ Preparar transações
+      const transactionsToCreate = [];
       for (let i = 0; i < numInstallments; i++) {
         const daysToAdd = formData.firstInstallmentDays + (i * 30);
         const dueDate = addDaysToDate(baseDateString, daysToAdd);
@@ -828,48 +830,74 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
           origin: "Manual" as const
         };
 
-        addFinancialTransaction(transactionData);
+        transactionsToCreate.push(transactionData);
       }
 
-      if (numInstallments > 1) {
-        toast.success(`${numInstallments} transações criadas com sucesso!`, {
-          description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      // ✅ IMPORTANTE: Mesmo após confirmar override, ainda precisa validar conciliação
+      validateBeforeAction?.('create', transactionsToCreate[0], () => {
+        // Criar transações apenas se aprovado (após validar conciliação)
+        transactionsToCreate.forEach(txnData => {
+          addFinancialTransaction(txnData);
         });
-      } else {
-        toast.success("Transação criada com sucesso!", {
-          description: "Transação liquidada com data anterior ao início da conta"
-        });
-      }
 
-      setShowDialog(false);
-      setPendingCreatePaid(null);
+        if (numInstallments > 1) {
+          toast.success(`${numInstallments} transações criadas com sucesso!`, {
+            description: `Valor total: R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          });
+        } else {
+          toast.success("Transação criada com sucesso!", {
+            description: "Transação liquidada com data anterior ao início da conta"
+          });
+        }
+
+        setShowDialog(false);
+        setPendingCreatePaid(null);
+      });
     }
     // CASO 2: Liquidação de transação existente com override
     else if (pendingSettlement.transactionId) {
-      if (pendingSettlement.type === "Receita") {
-        markTransactionAsReceived(
-          pendingSettlement.transactionId,
-          pendingSettlement.date,
-          pendingSettlement.bankAccountId,
-          pendingSettlement.bankAccountName,
-          pendingSettlement.paymentMethodId,
-          pendingSettlement.paymentMethodName,
-          true
-        );
-      } else {
-        markTransactionAsPaid(
-          pendingSettlement.transactionId,
-          pendingSettlement.date,
-          pendingSettlement.bankAccountId,
-          pendingSettlement.bankAccountName,
-          pendingSettlement.paymentMethodId,
-          pendingSettlement.paymentMethodName,
-          true
-        );
+      // ✅ Buscar transação original para validação de conciliação
+      const transaction = safeFinancialTransactions.find(t => t.id === pendingSettlement.transactionId);
+      if (!transaction) {
+        toast.error("Transação não encontrada");
+        return;
       }
-      
-      setShowReceiveDialog(false);
-      setReceivingTransaction(null);
+
+      // ✅ IMPORTANTE: Mesmo após confirmar override, ainda precisa validar conciliação
+      // Criar objeto de transação com dados de liquidação
+      const transactionToValidate = {
+        ...transaction,
+        effectiveDate: pendingSettlement.date,
+        bankAccountId: pendingSettlement.bankAccountId
+      };
+
+      validateBeforeAction?.('settle', transactionToValidate, () => {
+        // Executar liquidação apenas se aprovado (após validar conciliação)
+        if (pendingSettlement.type === "Receita") {
+          markTransactionAsReceived(
+            pendingSettlement.transactionId,
+            pendingSettlement.date,
+            pendingSettlement.bankAccountId,
+            pendingSettlement.bankAccountName,
+            pendingSettlement.paymentMethodId,
+            pendingSettlement.paymentMethodName,
+            true
+          );
+        } else {
+          markTransactionAsPaid(
+            pendingSettlement.transactionId,
+            pendingSettlement.date,
+            pendingSettlement.bankAccountId,
+            pendingSettlement.bankAccountName,
+            pendingSettlement.paymentMethodId,
+            pendingSettlement.paymentMethodName,
+            true
+          );
+        }
+        
+        setShowReceiveDialog(false);
+        setReceivingTransaction(null);
+      });
     }
     
     // Limpar estados
