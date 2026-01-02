@@ -344,35 +344,71 @@ app.post('/closed-periods/close', async (c) => {
 
     const supabase = getSupabaseClient();
 
-    // Verificar se já existe
+    // Verificar se já existe um período FECHADO (ignorar períodos reabertos)
     const { data: existing } = await supabase
       .from('financial_closed_periods')
-      .select('id')
+      .select('id, status')
       .eq('company_id', auth.companyId)
       .eq('period_month', month)
       .eq('period_year', year)
+      .eq('status', 'closed') // ✅ FIX: Filtrar apenas períodos fechados
       .single();
 
     if (existing) {
       return c.json({ error: 'Período já está fechado' }, 400);
     }
-
-    // Inserir novo período fechado
-    const { data, error } = await supabase
+    
+    // ✅ NOVO: Se existe período reaberto, atualizar ao invés de inserir
+    const { data: reopenedPeriod } = await supabase
       .from('financial_closed_periods')
-      .insert({
-        company_id: auth.companyId,
-        period_month: month,
-        period_year: year,
-        status: 'closed',
-        is_first_period: isFirstPeriod || false,
-        closed_at: new Date().toISOString(),
-        closed_by: auth.userId,
-        closed_by_name: auth.userEmail || 'Usuário',
-        closed_justification: justification
-      })
-      .select()
+      .select('id')
+      .eq('company_id', auth.companyId)
+      .eq('period_month', month)
+      .eq('period_year', year)
+      .eq('status', 'reopened')
       .single();
+
+    let data, error;
+    
+    if (reopenedPeriod) {
+      // Atualizar período reaberto para fechado novamente
+      const result = await supabase
+        .from('financial_closed_periods')
+        .update({
+          status: 'closed',
+          closed_at: new Date().toISOString(),
+          closed_by: auth.userId,
+          closed_by_name: auth.userEmail || 'Usuário',
+          closed_justification: justification,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reopenedPeriod.id)
+        .select()
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    } else {
+      // Inserir novo período fechado
+      const result = await supabase
+        .from('financial_closed_periods')
+        .insert({
+          company_id: auth.companyId,
+          period_month: month,
+          period_year: year,
+          status: 'closed',
+          is_first_period: isFirstPeriod || false,
+          closed_at: new Date().toISOString(),
+          closed_by: auth.userId,
+          closed_by_name: auth.userEmail || 'Usuário',
+          closed_justification: justification
+        })
+        .select()
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
       console.error('[CLOSED PERIODS] Erro ao fechar período:', error);

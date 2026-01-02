@@ -5011,6 +5011,41 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar transação
     updateFinancialTransaction(id, updates);
 
+    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E DATAS SUBSEQUENTES NO MESMO MÊS
+    const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
+    const month = effectiveDateObj.getMonth() + 1; // 0-11 -> 1-12
+    const year = effectiveDateObj.getFullYear();
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    
+    // Desconciliar data da liquidação e todas as datas posteriores no mesmo mês
+    const datesToUnconcile: string[] = [];
+    for (let day = effectiveDateObj.getDate(); day <= lastDayOfMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      datesToUnconcile.push(dateStr);
+    }
+    
+    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - RECEITA] Liquidação em ${effectiveDate} - Desconciliando ${datesToUnconcile.length} datas`);
+    
+    // Executar desconciliação em lote (async)
+    for (const dateToUnconcile of datesToUnconcile) {
+      unconcileDate(
+        transaction.bankAccountId,
+        dateToUnconcile,
+        {
+          reason: `Liquidação de transação afetou saldo`,
+          userId: user.id,
+          userName: user.name,
+          action: 'settle',
+          transactionId: id,
+          transactionDescription: transaction.description || transaction.partyName,
+          transactionAmount: transaction.amount,
+          automatic: true
+        }
+      ).catch(err => {
+        console.error(`❌ Erro ao desconciliar ${dateToUnconcile}:`, err);
+      });
+    }
+
     // Atualizar saldo bancário
     const bank = companySettings.bankAccounts.find(b => b.id === transaction.bankAccountId);
     if (bank) {
@@ -5160,6 +5195,41 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     // Atualizar transação
     updateFinancialTransaction(id, updates);
+
+    // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E DATAS SUBSEQUENTES NO MESMO MÊS
+    const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
+    const month = effectiveDateObj.getMonth() + 1; // 0-11 -> 1-12
+    const year = effectiveDateObj.getFullYear();
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    
+    // Desconciliar data da liquidação e todas as datas posteriores no mesmo mês
+    const datesToUnconcile: string[] = [];
+    for (let day = effectiveDateObj.getDate(); day <= lastDayOfMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      datesToUnconcile.push(dateStr);
+    }
+    
+    console.log(`🔄 [DESCONCILIAÇÃO CASCATA - DESPESA] Liquidação em ${effectiveDate} - Desconciliando ${datesToUnconcile.length} datas`);
+    
+    // Executar desconciliação em lote (async)
+    for (const dateToUnconcile of datesToUnconcile) {
+      unconcileDate(
+        transaction.bankAccountId,
+        dateToUnconcile,
+        {
+          reason: `Liquidação de transação afetou saldo`,
+          userId: user.id,
+          userName: user.name,
+          action: 'settle',
+          transactionId: id,
+          transactionDescription: transaction.description || transaction.partyName,
+          transactionAmount: transaction.amount,
+          automatic: true
+        }
+      ).catch(err => {
+        console.error(`❌ Erro ao desconciliar ${dateToUnconcile}:`, err);
+      });
+    }
 
     // Atualizar saldo bancário
     const bank = companySettings.bankAccounts.find(b => b.id === transaction.bankAccountId);
