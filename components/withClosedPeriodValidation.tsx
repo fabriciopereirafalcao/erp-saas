@@ -12,7 +12,8 @@
  * 1. LIQUIDAÇÃO (settle): SEMPRE bloqueia em período fechado
  * 2. EDITAR transação liquidada: BLOQUEIA em período fechado
  * 3. DELETAR transação liquidada: BLOQUEIA em período fechado
- * 4. CRIAR transação: PERMITIDO (desde que não seja "já paga")
+ * 4. CRIAR transação liquidada: BLOQUEIA em período fechado (nova validação)
+ * 5. CRIAR transação não liquidada: PERMITIDO (pode ser liquidada depois)
  * 
  * PROCESSO PARA OPERAR EM PERÍODO FECHADO:
  * 1. Admin deve reabrir o período manualmente em Conciliações
@@ -148,9 +149,37 @@ export function withClosedPeriodValidation<P extends object>(
         return;
       }
 
-      // ✅ REGRA 4: CRIAR transação - PERMITIDO (validação de "já paga" será feita no componente)
+      // ✅ REGRA 4: CRIAR transação liquidada: BLOQUEIA em período fechado (nova validação)
       if (action === 'create') {
-        onProceed();
+        // Verificar se transação está sendo criada já liquidada
+        const isSettled = data.status === 'Recebido' || data.status === 'Pago';
+        
+        if (!isSettled) {
+          onProceed(); // Transação não liquidada, prosseguir
+          return;
+        }
+
+        // Transação criada já liquidada - validar effectiveDate
+        const effectiveDate = data.effectiveDate;
+        if (!effectiveDate) {
+          onProceed(); // Sem data efetiva, prosseguir
+          return;
+        }
+
+        const { isClosed, period } = isDateInClosedPeriod(effectiveDate, closedPeriods);
+        
+        if (isClosed && period) {
+          // ⛔ BLOQUEAR - criação de transação já liquidada em período fechado
+          setBlockedPeriod({
+            month: period.month,
+            year: period.year,
+            actionType: 'settle' // Usa 'settle' porque é criação com liquidação
+          });
+          setShowBlockDialog(true);
+          return;
+        }
+
+        onProceed(); // Período aberto, prosseguir
         return;
       }
 
