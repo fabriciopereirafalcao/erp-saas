@@ -214,13 +214,18 @@ export function convertReconciliationsToRecord(
  * Mantém compatibilidade com interface existente
  */
 export function convertAuditLogToEntry(log: ReconciliationAuditLog): any {
+  // ✅ IMPORTANTE: Filtrar apenas ações de conciliação efetiva
+  // Não mostrar desconciliações no histórico para evitar confusão com valores zerados
+  // O histórico deve mostrar apenas quando a data FOI conciliada, não quando foi desconciliada
+  const isReconciled = log.action === 'reconcile' || log.action === 'close';
+  
   return {
     id: log.id,
     reconciliationKey: log.reconciliation_key,
     bankAccountId: log.bank_account_id,
     bankName: '', // Não temos no SQL, pode buscar de bankAccounts
     date: log.reference_date,
-    isReconciled: log.action === 'reconcile',
+    isReconciled: isReconciled,
     timestamp: log.timestamp,
     user: log.user_name,
     userId: log.user_id || 'system',
@@ -228,7 +233,8 @@ export function convertAuditLogToEntry(log: ReconciliationAuditLog): any {
     finalBalance: log.confirmed_balance || 0,
     realizedIncome: 0, // Pode calcular se necessário
     realizedExpenses: 0, // Pode calcular se necessário
-    transactionCount: log.transaction_count || 0
+    transactionCount: log.transaction_count || 0,
+    action: log.action // ✅ Preservar action original para filtro posterior
   };
 }
 

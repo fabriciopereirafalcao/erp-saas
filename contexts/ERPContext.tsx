@@ -1687,7 +1687,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (isSubscribed && reconciliationAuditData && reconciliationAuditData.length > 0) {
           console.log(`[SUPABASE-SQL] ✅ ${reconciliationAuditData.length} logs de auditoria carregados da tabela SQL`);
           // Converter para formato compatível
-          const auditEntries = reconciliationAuditData.map(convertAuditLogToEntry);
+          const auditEntries = reconciliationAuditData
+            .map(convertAuditLogToEntry)
+            // ✅ FILTRO: Mostrar apenas conciliações efetivas, não desconciliações
+            // Evita confusão no histórico com registros de valores zerados
+            .filter(entry => entry.action === 'reconcile' || entry.action === 'close');
           setReconciliationAudit(auditEntries);
         }
         

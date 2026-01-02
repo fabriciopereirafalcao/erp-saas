@@ -1,3 +1,4 @@
+import { parseDateLocal } from '../utils/dateUtils';
 import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import { Card } from "./ui/card";
@@ -823,7 +824,7 @@ export function BalanceReconciliation() {
                     <div>
                       <p className="text-gray-600 font-medium">Data</p>
                       <p className="text-gray-900">
-                        {format(new Date(currentHistory[0].date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        {format(parseDateLocal(currentHistory[0].date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </p>
                     </div>
                   </div>
