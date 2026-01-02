@@ -99,16 +99,45 @@ export function withReconciliationValidation<P extends object>(
       const isInClosedPeriod = isMonthClosed(transactionDate);
       const reconciliationKey = getReconciliationKey(transaction.bankAccountId, transactionDate);
 
-      // Se está em período fechado, bloquear totalmente
+      // ✅ IMPORTANTE: Se o fluxo chegou até aqui, significa que o Admin já aprovou
+      // a reabertura do período no nível 3 (withClosedPeriodValidation).
+      // Portanto, NÃO devemos bloquear novamente por período fechado.
+      // Se está em período fechado MAS o Admin aprovou, desconciliar automaticamente.
+      
       if (isInClosedPeriod) {
-        toast.error('⛔ Operação Bloqueada', {
-          description: `Esta transação está conciliada em um período FECHADO. Reabra o período para desconciliar.`,
-          duration: 5000
+        // ✅ Admin já aprovou no nível 3 → Desconciliar automaticamente e prosseguir
+        console.log('🔓 [CONCILIAÇÃO] Admin aprovou período fechado - desconciliando automaticamente');
+        
+        const dateStr = transactionDate.toISOString().split('T')[0];
+        
+        // Desconciliar em background
+        unconcileDate(
+          transaction.bankAccountId,
+          dateStr,
+          {
+            reason: 'Desconciliação automática após Admin aprovar operação em período fechado',
+            userId: profile?.id || 'system',
+            userName: profile?.name || profile?.email || 'Admin',
+            action: action,
+            transactionId: transaction.id,
+            transactionDescription: transaction.description,
+            transactionAmount: transaction.amount,
+            automatic: true
+          }
+        ).then((success) => {
+          if (success) {
+            console.log('✅ [CONCILIAÇÃO] Desconciliado automaticamente com sucesso');
+          } else {
+            console.error('❌ [CONCILIAÇÃO] Erro ao desconciliar automaticamente');
+          }
         });
+        
+        // Prosseguir imediatamente (não esperar desconciliação)
+        onApprove();
         return;
       }
 
-      // Está conciliada mas não está em período fechado - permitir desconciliação
+      // Está conciliada mas não está em período fechado - perguntar ao usuário
       setState({
         showDialog: true,
         action,
