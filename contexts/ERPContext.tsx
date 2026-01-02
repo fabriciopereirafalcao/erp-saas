@@ -4865,6 +4865,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     //
     // ⚠️ IMPORTANTE: Não há mais IDs temporários - o backend retorna imediatamente o ID correto
 
+    const user = getCurrentUser(); // ✅ Para uso em logs de desconciliação
+
     try {
       console.log(`🔄 Criando transação financeira via endpoint /create-financial-transaction...`);
 
@@ -4919,6 +4921,52 @@ export function ERPProvider({ children }: { children: ReactNode }) {
             balance: bankAccount.balance + 
               (transactionData.type === "Receita" ? transactionData.amount : -transactionData.amount)
           });
+        }
+
+        // ✅ NOVO: Desconciliar em cascata quando criar transação já liquidada
+        if (newTransaction.effectiveDate) {
+          const effectiveDate = newTransaction.effectiveDate;
+          const transactionBankAccountId = transactionData.bankAccountId;
+          
+          // Buscar todas as conciliações desta conta que sejam >= data de liquidação
+          const futureConciliations = Object.keys(reconciliationStatus)
+            .filter(key => {
+              // Formato da key: "bankAccountId-YYYY-MM-DD"
+              if (!key.startsWith(transactionBankAccountId + '-')) return false;
+              
+              // ✅ CORREÇÃO: bankAccountId pode ter hífens! Pegar últimos 3 elementos (YYYY-MM-DD)
+              const dateStr = key.split('-').slice(-3).join('-'); // Extrai YYYY-MM-DD
+              return dateStr >= effectiveDate && reconciliationStatus[key] === true;
+            })
+            .map(key => key.split('-').slice(-3).join('-')) // Extrai apenas a data (últimos 3 elementos)
+            .sort(); // Ordenar cronologicamente
+          
+          if (futureConciliations.length > 0) {
+            console.log(`🔄 [DESCONCILIAÇÃO CASCATA - CRIAÇÃO] Transação criada já liquidada em ${effectiveDate}:`);
+            console.log(`   📅 ${futureConciliations.length} datas conciliadas futuras encontradas`);
+            console.log(`   🗓️ Datas: ${futureConciliations.join(', ')}`);
+            
+            // Executar desconciliação em lote (async)
+            for (const dateToUnconcile of futureConciliations) {
+              console.log(`   ↳ Desconciliando ${dateToUnconcile}...`);
+              unconcileDate(
+                transactionBankAccountId,
+                dateToUnconcile,
+                {
+                  reason: `Criação de transação já liquidada afetou saldo`,
+                  userId: user.id,
+                  userName: user.name,
+                  action: 'create',
+                  transactionId: newTransaction.id,
+                  transactionDescription: newTransaction.description || newTransaction.partyName,
+                  transactionAmount: newTransaction.amount,
+                  automatic: true
+                }
+              ).catch(err => {
+                console.error(`❌ Erro ao desconciliar ${dateToUnconcile}:`, err);
+              });
+            }
+          }
         }
       }
       
