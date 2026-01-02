@@ -280,6 +280,15 @@ export function withReconciliationValidation<P extends object>(
                     {state.transaction?.effectiveDate || state.transaction?.dueDate}
                   </span>
                 </div>
+                {/* ✅ NOVA INFORMAÇÃO: Conta Bancária */}
+                {state.transaction?.bankAccountId && (
+                  <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-200">
+                    <span className="text-gray-600">Conta Bancária</span>
+                    <span className="font-medium">
+                      {companySettings.bankAccounts.find(b => b.id === state.transaction?.bankAccountId)?.bankName || 'N/A'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Aviso */}

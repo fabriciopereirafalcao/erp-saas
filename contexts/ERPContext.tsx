@@ -5021,17 +5021,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Formato da key: "bankAccountId-YYYY-MM-DD"
         if (!key.startsWith(transactionBankAccountId + '-')) return false;
         
-        const dateStr = key.split('-').slice(1).join('-'); // Extrai YYYY-MM-DD
+        // ✅ CORREÇÃO: bankAccountId pode ter hífens! Pegar últimos 3 elementos (YYYY-MM-DD)
+        const dateStr = key.split('-').slice(-3).join('-'); // Extrai YYYY-MM-DD
         return dateStr >= effectiveDate && reconciliationStatus[key] === true;
       })
-      .map(key => key.split('-').slice(1).join('-')) // Extrai apenas a data
+      .map(key => key.split('-').slice(-3).join('-')) // Extrai apenas a data (últimos 3 elementos)
       .sort(); // Ordenar cronologicamente
     
     console.log(`🔄 [DESCONCILIAÇÃO CASCATA - RECEITA] Liquidação em ${effectiveDate}:`);
     console.log(`   📅 ${futureConciliations.length} datas conciliadas futuras encontradas`);
+    console.log(`   🗓️ Datas: ${futureConciliations.join(', ')}`);
     
     // Executar desconciliação em lote (async)
     for (const dateToUnconcile of futureConciliations) {
+      console.log(`   ↳ Desconciliando ${dateToUnconcile}...`);
       unconcileDate(
         transactionBankAccountId,
         dateToUnconcile,
@@ -5210,17 +5213,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Formato da key: "bankAccountId-YYYY-MM-DD"
         if (!key.startsWith(transactionBankAccountId + '-')) return false;
         
-        const dateStr = key.split('-').slice(1).join('-'); // Extrai YYYY-MM-DD
+        // ✅ CORREÇÃO: bankAccountId pode ter hífens! Pegar últimos 3 elementos (YYYY-MM-DD)
+        const dateStr = key.split('-').slice(-3).join('-'); // Extrai YYYY-MM-DD
         return dateStr >= effectiveDate && reconciliationStatus[key] === true;
       })
-      .map(key => key.split('-').slice(1).join('-')) // Extrai apenas a data
+      .map(key => key.split('-').slice(-3).join('-')) // Extrai apenas a data (últimos 3 elementos)
       .sort(); // Ordenar cronologicamente
     
     console.log(`🔄 [DESCONCILIAÇÃO CASCATA - DESPESA] Liquidação em ${effectiveDate}:`);
     console.log(`   📅 ${futureConciliations.length} datas conciliadas futuras encontradas`);
+    console.log(`   🗓️ Datas: ${futureConciliations.join(', ')}`);
     
     // Executar desconciliação em lote (async)
     for (const dateToUnconcile of futureConciliations) {
+      console.log(`   ↳ Desconciliando ${dateToUnconcile}...`);
       unconcileDate(
         transactionBankAccountId,
         dateToUnconcile,
