@@ -24,7 +24,7 @@ import { AuditIssue } from '../utils/systemAnalyzer';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS, getStorageKey, migrateStorageData } from '../utils/localStorage';
 import { addDaysToDate, getTodayString, compareDates } from '../utils/dateUtils';
 import { authGet, authPost, authPatch, authFetch, getAccessToken } from '../utils/authFetch';
-import { projectId } from '../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { mapDatabaseToSettings, mapSettingsToDatabase } from '../utils/companyDataMapper';
 import { useAuth } from './AuthContext';
 import { useEntityPersistence, loadEntity } from '../hooks/useEntityPersistence';
