@@ -18,13 +18,25 @@
  * - Backend NUNCA confia no frontend
  * - Validação server-side obrigatória
  * - Logs detalhados de auditoria
+ * 
+ * ARQUITETURA:
+ * - Transações são salvas no Postgres (tabela financial_transactions)
+ * - Usa sqlService para autenticação e isolamento multi-tenant
  */
 
 import { Hono } from 'npm:hono@4.6.14';
-import * as kv from './kv_store.tsx';
-import { createTransactionPolicy } from './FinancialTransactionPolicy.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.2';
+import { sqlService } from './services/sql-service.ts';
 
 const app = new Hono();
+
+// Helper para obter Supabase client
+const getSupabaseClient = () => {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  );
+};
 
 // ================================================================================
 // HELPER - Validação de motivo (LGPD)
@@ -58,29 +70,50 @@ const validateReason = (reason: string): { valid: boolean; error?: string } => {
 };
 
 // ================================================================================
-// HELPER - Buscar períodos fechados
+// HELPER - Converter dados do Postgres para formato frontend
 // ================================================================================
-const getClosedPeriods = async (): Promise<any[]> => {
-  const periods = await kv.getByPrefix('closed-period-');
-  return periods.map(p => p.value);
-};
-
-// ================================================================================
-// HELPER - Buscar datas conciliadas
-// ================================================================================
-const getReconciledDates = async (): Promise<string[]> => {
-  const reconciliationStatus = await kv.get('reconciliationStatus');
-  if (!reconciliationStatus) return [];
-
-  return Object.keys(reconciliationStatus)
-    .filter(key => reconciliationStatus[key] === true);
-};
-
-// ================================================================================
-// HELPER - Gerar ID
-// ================================================================================
-const generateId = (): string => {
-  return `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const convertTransactionToFrontend = (row: any) => {
+  return {
+    id: row.sku || row.id,
+    type: row.type === 'income' ? 'Receita' : 'Despesa',
+    category: row.category_name || row.category,
+    categoryId: row.category_id,
+    categoryName: row.category_name || row.category,
+    description: row.description,
+    amount: parseFloat(row.amount),
+    date: row.transaction_date,
+    transactionDate: row.transaction_date,
+    dueDate: row.due_date,
+    effectiveDate: row.effective_date,
+    paymentDate: row.effective_date,
+    status: row.status,
+    partyType: row.party_type,
+    partyId: row.party_id,
+    partyName: row.party_name,
+    paymentMethod: row.payment_method,
+    paymentMethodId: row.payment_method_id,
+    paymentMethodName: row.payment_method_name,
+    bankAccountId: row.bank_account_id,
+    bankAccountName: row.bank_account_name,
+    costCenterId: row.cost_center_id,
+    costCenterName: row.cost_center_name,
+    origin: row.origin || 'Manual',
+    reference: row.reference,
+    installmentNumber: row.installment_number,
+    totalInstallments: row.total_installments,
+    administrativeStatus: row.administrative_status || 'ATIVA',
+    cancellationReason: row.cancellation_reason,
+    canceledAt: row.canceled_at,
+    canceledBy: row.canceled_by,
+    canceledByName: row.canceled_by_name,
+    replacedBy: row.replaced_by,
+    replaces: row.replaces,
+    replacementReason: row.replacement_reason,
+    reversalHistory: row.reversal_history || [],
+    lastReversedAt: row.last_reversed_at,
+    lastReversedBy: row.last_reversed_by,
+    reversalReason: row.reversal_reason
+  };
 };
 
 // ================================================================================
@@ -88,10 +121,15 @@ const generateId = (): string => {
 // ================================================================================
 app.post('/cancel', async (c) => {
   try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
     const body = await c.req.json();
     const { transactionId, reason, userId, userName } = body;
 
-    console.log(`📝 [CANCEL] Solicitação de cancelamento - Transação: ${transactionId}`);
+    console.log(`📝 [CANCEL] Solicitação de cancelamento - Transação: ${transactionId}, Empresa: ${auth.companyId}`);
 
     // Validações básicas
     if (!transactionId || !reason || !userId) {
@@ -111,63 +149,84 @@ app.post('/cancel', async (c) => {
       }, 400);
     }
 
+    const supabase = getSupabaseClient();
+
     // Buscar transação
-    const transaction = await kv.get(`transaction-${transactionId}`);
-    if (!transaction) {
+    const { data: transaction, error: fetchError } = await supabase
+      .from('financial_transactions')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('sku', transactionId)
+      .single();
+
+    if (fetchError || !transaction) {
+      console.warn(`⚠️ [CANCEL] Transação não encontrada: ${transactionId}`);
       return c.json({
         success: false,
         error: 'Transação não encontrada'
       }, 404);
     }
 
-    // Buscar dados para policy
-    const closedPeriods = await getClosedPeriods();
-    const reconciledDates = await getReconciledDates();
-
-    // ✅ VALIDAÇÃO DE POLICY
-    const policy = createTransactionPolicy(
-      transaction,
-      { id: userId, email: '', name: userName },
-      closedPeriods,
-      reconciledDates
-    );
-
-    const canCancelResult = policy.canCancel();
-    if (!canCancelResult.allowed) {
-      console.warn(`⚠️ [CANCEL] Policy bloqueou cancelamento: ${canCancelResult.reason}`);
+    // ✅ VALIDAÇÃO: Apenas transações PENDENTES podem ser canceladas
+    const pendingStatuses = ['A Pagar', 'A Receber', 'Vencido'];
+    if (!pendingStatuses.includes(transaction.status)) {
+      console.warn(`⚠️ [CANCEL] Transação já liquidada. Status: ${transaction.status}`);
       return c.json({
         success: false,
-        error: canCancelResult.reason
-      }, 403);
+        error: 'Apenas transações pendentes podem ser canceladas'
+      }, 400);
     }
 
-    // ✅ EXECUTAR CANCELAMENTO (SOFT DELETE)
+    // ✅ VALIDAÇÃO: Transação não pode estar já cancelada
+    if (transaction.administrative_status === 'CANCELADA') {
+      console.warn(`⚠️ [CANCEL] Transação já cancelada anteriormente`);
+      return c.json({
+        success: false,
+        error: 'Esta transação já foi cancelada'
+      }, 400);
+    }
+
+    // Atualizar transação (Soft Delete)
     const now = new Date().toISOString();
-    
-    transaction.administrativeStatus = 'CANCELADA';
-    transaction.cancelledBy = userId;
-    transaction.cancelledByName = userName;
-    transaction.cancelledAt = now;
-    transaction.cancellationReason = reason;
+    const { data: updatedTransaction, error: updateError } = await supabase
+      .from('financial_transactions')
+      .update({
+        administrative_status: 'CANCELADA',
+        cancellation_reason: reason,
+        canceled_at: now,
+        canceled_by: userId,
+        canceled_by_name: userName
+      })
+      .eq('company_id', auth.companyId)
+      .eq('sku', transactionId)
+      .select()
+      .single();
 
-    // Salvar transação atualizada
-    await kv.set(`transaction-${transactionId}`, transaction);
+    if (updateError) {
+      console.error('❌ [CANCEL] Erro ao atualizar transação:', updateError);
+      return c.json({
+        success: false,
+        error: 'Erro ao cancelar transação'
+      }, 500);
+    }
 
-    console.log(`✅ [CANCEL] Transação ${transactionId} cancelada com sucesso`);
+    console.log(`✅ [CANCEL] Transação cancelada com sucesso`);
+    console.log(`   🔄 Transação: ${transactionId}`);
+    console.log(`   💰 Valor: R$ ${parseFloat(transaction.amount).toFixed(2)}`);
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
 
     return c.json({
       success: true,
       message: 'Transação cancelada com sucesso',
-      transaction
+      transaction: convertTransactionToFrontend(updatedTransaction)
     });
 
   } catch (error) {
     console.error('❌ [CANCEL] Erro ao cancelar transação:', error);
     return c.json({
       success: false,
-      error: `Erro interno: ${error.message}`
+      error: 'Erro ao cancelar transação'
     }, 500);
   }
 });
@@ -177,10 +236,15 @@ app.post('/cancel', async (c) => {
 // ================================================================================
 app.post('/substitute', async (c) => {
   try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
     const body = await c.req.json();
     const { oldTransactionId, newTransactionData, reason, userId, userName } = body;
 
-    console.log(`🔄 [SUBSTITUTE] Solicitação de substituição - Transação: ${oldTransactionId}`);
+    console.log(`🔄 [SUBSTITUTE] Solicitação de substituição - Transação: ${oldTransactionId}, Empresa: ${auth.companyId}`);
 
     // Validações básicas
     if (!oldTransactionId || !newTransactionData || !reason || !userId) {
@@ -200,83 +264,151 @@ app.post('/substitute', async (c) => {
       }, 400);
     }
 
+    const supabase = getSupabaseClient();
+
     // Buscar transação antiga
-    const oldTransaction = await kv.get(`transaction-${oldTransactionId}`);
-    if (!oldTransaction) {
+    const { data: oldTransaction, error: fetchError } = await supabase
+      .from('financial_transactions')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('sku', oldTransactionId)
+      .single();
+
+    if (fetchError || !oldTransaction) {
+      console.warn(`⚠️ [SUBSTITUTE] Transação não encontrada: ${oldTransactionId}`);
       return c.json({
         success: false,
         error: 'Transação não encontrada'
       }, 404);
     }
 
-    // Buscar dados para policy
-    const closedPeriods = await getClosedPeriods();
-    const reconciledDates = await getReconciledDates();
-
-    // ✅ VALIDAÇÃO DE POLICY
-    const policy = createTransactionPolicy(
-      oldTransaction,
-      { id: userId, email: '', name: userName },
-      closedPeriods,
-      reconciledDates
-    );
-
-    const canSubstituteResult = policy.canSubstitute();
-    if (!canSubstituteResult.allowed) {
-      console.warn(`⚠️ [SUBSTITUTE] Policy bloqueou substituição: ${canSubstituteResult.reason}`);
+    // ✅ VALIDAÇÃO: Apenas transações ATIVAS podem ser substituídas
+    if (oldTransaction.administrative_status !== 'ATIVA' && oldTransaction.administrative_status !== null) {
+      console.warn(`⚠️ [SUBSTITUTE] Transação não está ativa. Status: ${oldTransaction.administrative_status}`);
       return c.json({
         success: false,
-        error: canSubstituteResult.reason
-      }, 403);
+        error: 'Apenas transações ativas podem ser substituídas'
+      }, 400);
     }
 
-    // ✅ CRIAR NOVA TRANSAÇÃO
+    // Gerar SKU para nova transação
     const now = new Date().toISOString();
-    const newId = generateId();
+    
+    // Buscar último SKU para gerar o próximo
+    const { data: lastTransaction } = await supabase
+      .from('financial_transactions')
+      .select('sku')
+      .eq('company_id', auth.companyId)
+      .like('sku', 'FT-%')
+      .order('sku', { ascending: false })
+      .limit(1);
 
-    const newTransaction = {
-      ...newTransactionData,
-      id: newId,
-      
-      // ✅ HERDA vínculo com pedido (CRÍTICO)
-      origin: oldTransaction.origin,
-      reference: oldTransaction.reference,
-      
-      // ✅ Nova transação nasce ATIVA
-      administrativeStatus: 'ATIVA',
-      
-      // ✅ Vínculo de substituição
-      substitutes: oldTransactionId,
-      
-      // Metadados
-      createdBy: userId,
-      createdByName: userName,
-      createdAt: now
+    let nextNumber = 1;
+    if (lastTransaction && lastTransaction.length > 0 && lastTransaction[0]?.sku) {
+      const match = lastTransaction[0].sku.match(/^FT-(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    const newSku = `FT-${String(nextNumber).padStart(4, '0')}`;
+
+    // 1. Arquivar transação antiga (soft delete + marca de substituída)
+    const { error: updateOldError } = await supabase
+      .from('financial_transactions')
+      .update({
+        administrative_status: 'SUBSTITUIDA',
+        replacement_reason: reason,
+        replaced_by: newSku,
+        canceled_at: now,
+        canceled_by: userId,
+        canceled_by_name: userName
+      })
+      .eq('company_id', auth.companyId)
+      .eq('sku', oldTransactionId);
+
+    if (updateOldError) {
+      console.error('❌ [SUBSTITUTE] Erro ao arquivar transação antiga:', updateOldError);
+      return c.json({
+        success: false,
+        error: 'Erro ao arquivar transação antiga'
+      }, 500);
+    }
+
+    // 2. Criar nova transação
+    const newTransactionRow = {
+      company_id: auth.companyId,
+      sku: newSku,
+      type: newTransactionData.type === 'Receita' ? 'income' : 'expense',
+      transaction_date: newTransactionData.date || newTransactionData.transactionDate,
+      due_date: newTransactionData.dueDate,
+      amount: newTransactionData.amount.toString(),
+      status: newTransactionData.status,
+      description: newTransactionData.description,
+      party_type: newTransactionData.partyType,
+      party_id: newTransactionData.partyId,
+      party_name: newTransactionData.partyName,
+      category: newTransactionData.category,
+      category_id: newTransactionData.categoryId,
+      category_name: newTransactionData.categoryName,
+      cost_center_id: newTransactionData.costCenterId,
+      cost_center_name: newTransactionData.costCenterName,
+      origin: newTransactionData.origin || 'Manual',
+      reference: newTransactionData.reference,
+      installment_number: newTransactionData.installmentNumber,
+      total_installments: newTransactionData.totalInstallments,
+      administrative_status: 'ATIVA',
+      replaces: oldTransactionId,
+      replacement_reason: reason
     };
 
-    // ✅ MARCAR ANTIGA COMO SUBSTITUÍDA
-    oldTransaction.administrativeStatus = 'SUBSTITUIDA';
-    oldTransaction.substitutedBy = newId;
-    oldTransaction.substitutedByName = userName;
-    oldTransaction.substitutedAt = now;
-    oldTransaction.substitutionReason = reason;
+    const { data: newTransaction, error: createError } = await supabase
+      .from('financial_transactions')
+      .insert(newTransactionRow)
+      .select()
+      .single();
 
-    // Salvar ambas as transações
-    await kv.set(`transaction-${newId}`, newTransaction);
-    await kv.set(`transaction-${oldTransactionId}`, oldTransaction);
+    if (createError) {
+      console.error('❌ [SUBSTITUTE] Erro ao criar nova transação:', createError);
+      // Rollback: restaurar transação antiga
+      await supabase
+        .from('financial_transactions')
+        .update({
+          administrative_status: 'ATIVA',
+          replacement_reason: null,
+          replaced_by: null,
+          canceled_at: null,
+          canceled_by: null,
+          canceled_by_name: null
+        })
+        .eq('company_id', auth.companyId)
+        .eq('sku', oldTransactionId);
+
+      return c.json({
+        success: false,
+        error: 'Erro ao criar nova transação'
+      }, 500);
+    }
 
     console.log(`✅ [SUBSTITUTE] Substituição concluída`);
-    console.log(`   ❌ Antiga: ${oldTransactionId} → SUBSTITUIDA`);
-    console.log(`   ✅ Nova: ${newId} → ATIVA`);
-    console.log(`   🔗 Origem: ${oldTransaction.origin}${oldTransaction.reference ? ` (Pedido: ${oldTransaction.reference})` : ''}`);
+    console.log(`   🔄 Transação antiga: ${oldTransactionId} → Nova: ${newSku}`);
+    console.log(`   💰 Valor antigo: R$ ${parseFloat(oldTransaction.amount).toFixed(2)} → Novo: R$ ${parseFloat(newTransaction.amount).toFixed(2)}`);
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
+
+    // Buscar a transação antiga atualizada para retornar
+    const { data: oldTransactionUpdated } = await supabase
+      .from('financial_transactions')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('sku', oldTransactionId)
+      .single();
 
     return c.json({
       success: true,
       message: 'Transação substituída com sucesso',
-      oldTransaction,
-      newTransaction
+      oldTransaction: convertTransactionToFrontend(oldTransactionUpdated),
+      newTransaction: convertTransactionToFrontend(newTransaction)
     });
 
   } catch (error) {
@@ -293,10 +425,15 @@ app.post('/substitute', async (c) => {
 // ================================================================================
 app.post('/reverse-settlement', async (c) => {
   try {
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      return c.json({ error: 'Não autorizado' }, 401);
+    }
+
     const body = await c.req.json();
     const { transactionId, reason, userId, userName } = body;
 
-    console.log(`↩️ [REVERSE] Solicitação de estorno de liquidação - Transação: ${transactionId}`);
+    console.log(`↩️ [REVERSE] Solicitação de estorno de liquidação - Transação: ${transactionId}, Empresa: ${auth.companyId}`);
 
     // Validações básicas
     if (!transactionId || !reason || !userId) {
@@ -316,9 +453,17 @@ app.post('/reverse-settlement', async (c) => {
       }, 400);
     }
 
+    const supabase = getSupabaseClient();
+
     // Buscar transação
-    const transaction = await kv.get(`transaction-${transactionId}`);
-    if (!transaction) {
+    const { data: transaction, error: fetchError } = await supabase
+      .from('financial_transactions')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('sku', transactionId)
+      .single();
+
+    if (fetchError || !transaction) {
       console.warn(`⚠️ [REVERSE] Transação não encontrada: ${transactionId}`);
       return c.json({
         success: false,
@@ -337,8 +482,8 @@ app.post('/reverse-settlement', async (c) => {
     }
 
     // ✅ VALIDAÇÃO: Transação deve estar ATIVA
-    if (transaction.administrativeStatus && transaction.administrativeStatus !== 'ATIVA') {
-      console.warn(`⚠️ [REVERSE] Transação não está ativa. Status: ${transaction.administrativeStatus}`);
+    if (transaction.administrative_status && transaction.administrative_status !== 'ATIVA') {
+      console.warn(`⚠️ [REVERSE] Transação não está ativa. Status: ${transaction.administrative_status}`);
       return c.json({
         success: false,
         error: 'Apenas transações ativas podem ter estorno de liquidação'
@@ -347,10 +492,10 @@ app.post('/reverse-settlement', async (c) => {
 
     // Determinar novo status (volta para pendente)
     const now = new Date();
-    const dueDate = new Date(transaction.dueDate);
+    const dueDate = new Date(transaction.due_date);
     let newStatus: string;
     
-    if (transaction.type === 'Receita') {
+    if (transaction.type === 'income') {
       newStatus = now > dueDate ? 'Vencido' : 'A Receber';
     } else {
       newStatus = now > dueDate ? 'Vencido' : 'A Pagar';
@@ -359,20 +504,17 @@ app.post('/reverse-settlement', async (c) => {
     // Guardar dados da liquidação original
     const originalSettlement = {
       status: transaction.status,
-      paymentDate: transaction.paymentDate,
-      paymentMethod: transaction.paymentMethod,
-      bankAccountId: transaction.bankAccountId
+      effectiveDate: transaction.effective_date,
+      paymentMethod: transaction.payment_method,
+      paymentMethodId: transaction.payment_method_id,
+      paymentMethodName: transaction.payment_method_name,
+      bankAccountId: transaction.bank_account_id,
+      bankAccountName: transaction.bank_account_name
     };
 
-    // Reverter liquidação
-    transaction.status = newStatus;
-    delete transaction.paymentDate;
-    delete transaction.paymentMethod;
-    delete transaction.bankAccountId;
-
-    // Adicionar metadados de estorno
-    transaction.reversalHistory = transaction.reversalHistory || [];
-    transaction.reversalHistory.push({
+    // Adicionar ao histórico de estornos
+    const reversalHistory = transaction.reversal_history || [];
+    reversalHistory.push({
       reversedAt: now.toISOString(),
       reversedBy: userId,
       reversedByName: userName,
@@ -380,24 +522,46 @@ app.post('/reverse-settlement', async (c) => {
       originalSettlement: originalSettlement
     });
 
-    transaction.lastReversedAt = now.toISOString();
-    transaction.lastReversedBy = userId;
-    transaction.reversalReason = reason;
+    // Reverter liquidação
+    const { data: updatedTransaction, error: updateError } = await supabase
+      .from('financial_transactions')
+      .update({
+        status: newStatus,
+        effective_date: null,
+        payment_method: null,
+        payment_method_id: null,
+        payment_method_name: null,
+        bank_account_id: null,
+        bank_account_name: null,
+        reversal_history: reversalHistory,
+        last_reversed_at: now.toISOString(),
+        last_reversed_by: userId,
+        reversal_reason: reason
+      })
+      .eq('company_id', auth.companyId)
+      .eq('sku', transactionId)
+      .select()
+      .single();
 
-    // Salvar transação
-    await kv.set(`transaction-${transactionId}`, transaction);
+    if (updateError) {
+      console.error('❌ [REVERSE] Erro ao estornar liquidação:', updateError);
+      return c.json({
+        success: false,
+        error: 'Erro ao estornar liquidação'
+      }, 500);
+    }
 
     console.log(`✅ [REVERSE] Estorno de liquidação concluído`);
     console.log(`   🔄 Transação: ${transactionId}`);
     console.log(`   📊 Status: ${originalSettlement.status} → ${newStatus}`);
-    console.log(`   💰 Valor: R$ ${(transaction.amount / 100).toFixed(2)}`);
+    console.log(`   💰 Valor: R$ ${parseFloat(transaction.amount).toFixed(2)}`);
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
 
     return c.json({
       success: true,
       message: 'Liquidação estornada com sucesso',
-      transaction
+      transaction: convertTransactionToFrontend(updatedTransaction)
     });
 
   } catch (error) {
