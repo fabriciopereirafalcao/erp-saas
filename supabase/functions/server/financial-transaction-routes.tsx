@@ -39,6 +39,15 @@ const getSupabaseClient = () => {
 };
 
 // ================================================================================
+// HELPER - Validar se string é UUID válido
+// ================================================================================
+const isValidUUID = (str: string | null | undefined): boolean => {
+  if (!str) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
+// ================================================================================
 // HELPER - Validação de motivo (LGPD)
 // ================================================================================
 const validateReason = (reason: string): { valid: boolean; error?: string } => {
@@ -349,16 +358,16 @@ app.post('/substitute', async (c) => {
       status: newTransactionData.status,
       description: newTransactionData.description,
       party_type: newTransactionData.partyType,
-      party_id: newTransactionData.partyId,
+      party_id: isValidUUID(newTransactionData.partyId) ? newTransactionData.partyId : null, // ✅ VALIDAR UUID
       party_name: newTransactionData.partyName,
       category: newTransactionData.category || oldTransaction.category,
-      category_id: newTransactionData.categoryId,
+      category_id: isValidUUID(newTransactionData.categoryId) ? newTransactionData.categoryId : null, // ✅ VALIDAR UUID
       category_name: newTransactionData.categoryName,
-      cost_center_id: newTransactionData.costCenterId || null,
+      cost_center_id: isValidUUID(newTransactionData.costCenterId) ? newTransactionData.costCenterId : null, // ✅ VALIDAR UUID
       cost_center_name: newTransactionData.costCenterName || null,
-      bank_account_id: newTransactionData.bankAccountId || null,
+      bank_account_id: isValidUUID(newTransactionData.bankAccountId) ? newTransactionData.bankAccountId : null, // ✅ VALIDAR UUID
       bank_account_name: newTransactionData.bankAccountName || null,
-      payment_method_id: newTransactionData.paymentMethodId || null,
+      payment_method_id: isValidUUID(newTransactionData.paymentMethodId) ? newTransactionData.paymentMethodId : null, // ✅ VALIDAR UUID
       payment_method_name: newTransactionData.paymentMethodName || null,
       effective_date: newTransactionData.effectiveDate || null,
       origin: newTransactionData.origin || 'Manual',
@@ -369,6 +378,8 @@ app.post('/substitute', async (c) => {
       replaces: oldTransactionId,
       replacement_reason: reason
     };
+
+    console.log('🔍 [SUBSTITUTE] Dados da nova transação:', JSON.stringify(newTransactionRow, null, 2));
 
     const { data: newTransaction, error: createError } = await supabase
       .from('financial_transactions')
