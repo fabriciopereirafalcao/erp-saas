@@ -13,8 +13,9 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ArrowRightLeft, X, Check } from "lucide-react";
-import { FinancialTransaction } from "../contexts/ERPContext";
+import { FinancialTransaction, useERP } from "../contexts/ERPContext";
 
 interface SubstituteTransactionDialogProps {
   transaction: FinancialTransaction | null;
@@ -29,12 +30,16 @@ export function SubstituteTransactionDialog({
   onOpenChange,
   onConfirm
 }: SubstituteTransactionDialogProps) {
+  const { customers, suppliers } = useERP();
+  
   const [formData, setFormData] = useState({
     amount: "",
     description: "",
     dueDate: "",
     categoryName: "",
-    partyName: ""
+    partyName: "",
+    partyId: "",
+    partyType: ""
   });
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +53,9 @@ export function SubstituteTransactionDialog({
         description: transaction.description,
         dueDate: transaction.dueDate,
         categoryName: transaction.categoryName,
-        partyName: transaction.partyName
+        partyName: transaction.partyName,
+        partyId: transaction.partyId || "",
+        partyType: transaction.partyType || ""
       });
     }
   };
@@ -62,7 +69,9 @@ export function SubstituteTransactionDialog({
         description: "",
         dueDate: "",
         categoryName: "",
-        partyName: ""
+        partyName: "",
+        partyId: "",
+        partyType: ""
       });
       setReason("");
       setError("");
@@ -105,7 +114,9 @@ export function SubstituteTransactionDialog({
         description: formData.description,
         dueDate: formData.dueDate,
         categoryName: formData.categoryName,
-        partyName: formData.partyName
+        partyName: formData.partyName,
+        partyId: formData.partyId,
+        partyType: formData.partyType
       };
 
       await onConfirm(transaction.id, newTransactionData, reason);
@@ -197,11 +208,55 @@ export function SubstituteTransactionDialog({
               </div>
               <div>
                 <Label>Cliente/Fornecedor *</Label>
-                <Input
-                  value={formData.partyName}
-                  onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
-                  className="text-sm"
-                />
+                <Select
+                  value={formData.partyId}
+                  onValueChange={(value) => {
+                    // Buscar dados da parte selecionada
+                    const isCustomer = customers.some(c => c.id === value);
+                    const party = isCustomer 
+                      ? customers.find(c => c.id === value)
+                      : suppliers.find(s => s.id === value);
+                    
+                    if (party) {
+                      setFormData({
+                        ...formData,
+                        partyId: party.id,
+                        partyName: party.name,
+                        partyType: isCustomer ? 'Cliente' : 'Fornecedor'
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.length > 0 && (
+                      <>
+                        <SelectItem value="header-customers" disabled className="text-xs font-semibold text-gray-500">
+                          CLIENTES
+                        </SelectItem>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {suppliers.length > 0 && (
+                      <>
+                        <SelectItem value="header-suppliers" disabled className="text-xs font-semibold text-gray-500 mt-2">
+                          FORNECEDORES
+                        </SelectItem>
+                        {suppliers.map(supplier => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

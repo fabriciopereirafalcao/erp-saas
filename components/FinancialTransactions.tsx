@@ -67,6 +67,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"Todas" | "Receita" | "Despesa">("Todas");
   const [filterStatus, setFilterStatus] = useState<string[]>([]); // ✅ ALTERADO: array para seleção múltipla
+  const [filterAdminStatus, setFilterAdminStatus] = useState<string[]>([]); // ✅ NOVO: filtro de status administrativo
   const [filterOrigin, setFilterOrigin] = useState<string>("Todas");
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
   const [filterMonth, setFilterMonth] = useState<number[]>([]); // ✅ ALTERADO: array para seleção múltipla
@@ -180,8 +181,11 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
     return txn.status === "Vencido";
   };
 
-  // ✅ FASE 2: Filtrar APENAS transações ATIVAS para exibição
-  const filteredTransactions = getActiveTransactions(safeFinancialTransactions).filter(txn => {
+  // ✅ FASE 2 & 3: Filtrar transações com suporte a status administrativo
+  // Se houver filtro administrativo ativo, não aplicar getActiveTransactions()
+  const baseTransactions = filterAdminStatus.length > 0 ? safeFinancialTransactions : getActiveTransactions(safeFinancialTransactions);
+  
+  const filteredTransactions = baseTransactions.filter(txn => {
     const matchesSearch =
       txn.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       txn.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -190,7 +194,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       (txn.reference && txn.reference.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = filterType === "Todas" || txn.type === filterType;
-    // ✅ Mapeamento de filtros para múltiplos status
+    
+    // ✅ Filtro de status financeiro
     let matchesStatus = filterStatus.length === 0;
     if (!matchesStatus) {
       matchesStatus = filterStatus.some(fs => {
@@ -199,6 +204,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
         return txn.status === fs;
       });
     }
+
+    // ✅ NOVO: Filtro de status administrativo
+    let matchesAdminStatus = filterAdminStatus.length === 0;
+    if (!matchesAdminStatus) {
+      const adminStatus = txn.administrative_status || "active";
+      matchesAdminStatus = filterAdminStatus.includes(adminStatus);
+    }
+    
     const matchesOrigin = filterOrigin === "Todas" || txn.origin === filterOrigin;
     
     // ✅ NOVO: Filtro de ano e mês (seleção múltipla) - SEM TIMEZONE ISSUES
@@ -211,7 +224,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       matchesMonth = txnYear === filterYear;
     }
 
-    return matchesSearch && matchesType && matchesStatus && matchesOrigin && matchesMonth;
+    return matchesSearch && matchesType && matchesStatus && matchesAdminStatus && matchesOrigin && matchesMonth;
   });
 
   // ✅ FASE 2: Cálculos considerando APENAS transações ATIVAS + seleção múltipla de status e filtro de ano/mês
@@ -1483,7 +1496,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -1505,8 +1518,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
           </Select>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                {filterStatus.length === 0 ? "Todos os Status" : `${filterStatus.length} selecionado(s)`}
+              <Button variant="outline" className="w-full justify-between text-sm">
+                {filterStatus.length === 0 ? "Status Financeiro" : `Financeiro (${filterStatus.length})`}
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
@@ -1539,6 +1552,54 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                     size="sm"
                     className="w-full mt-2"
                     onClick={() => setFilterStatus([])}
+                  >
+                    Limpar seleção
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-between text-sm">
+                {filterAdminStatus.length === 0 ? "Status Admin" : `Admin (${filterAdminStatus.length})`}
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0">
+              <div className="p-2 space-y-2">
+                {[
+                  { value: "active", label: "Ativa" },
+                  { value: "canceled", label: "Cancelada" },
+                  { value: "substituted", label: "Substituída" },
+                  { value: "settlement_reversed", label: "Liquidação Estornada" }
+                ].map((status) => (
+                  <div key={status.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`admin-status-${status.value}`}
+                      checked={filterAdminStatus.includes(status.value)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFilterAdminStatus([...filterAdminStatus, status.value]);
+                        } else {
+                          setFilterAdminStatus(filterAdminStatus.filter(s => s !== status.value));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`admin-status-${status.value}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {status.label}
+                    </label>
+                  </div>
+                ))}
+                {filterAdminStatus.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => setFilterAdminStatus([])}
                   >
                     Limpar seleção
                   </Button>
@@ -1774,9 +1835,11 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                             Pedido
                           </Badge>
                         )}
-                        {txn.administrativeStatus && txn.administrativeStatus !== 'ATIVA' && (
-                          <Badge variant="secondary" className="text-xs">
-                            {txn.administrativeStatus === 'CANCELADA' ? 'Cancelada' : 'Substituída'}
+                        {txn.administrative_status && txn.administrative_status !== 'active' && (
+                          <Badge variant="secondary" className="text-xs bg-gray-200 text-gray-700">
+                            {txn.administrative_status === 'canceled' && '🚫 Cancelada'}
+                            {txn.administrative_status === 'substituted' && '🔄 Substituída'}
+                            {txn.administrative_status === 'settlement_reversed' && '↩️ Estornada'}
                           </Badge>
                         )}
                       </div>
