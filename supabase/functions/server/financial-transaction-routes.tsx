@@ -363,6 +363,7 @@ app.post('/substitute', async (c) => {
       category: newTransactionData.category || oldTransaction.category,
       category_id: isValidUUID(newTransactionData.categoryId) ? newTransactionData.categoryId : null, // ✅ VALIDAR UUID
       category_name: newTransactionData.categoryName,
+      account: newTransactionData.account || oldTransaction.account || '', // ✅ OBRIGATÓRIO (NOT NULL)
       cost_center_id: isValidUUID(newTransactionData.costCenterId) ? newTransactionData.costCenterId : null, // ✅ VALIDAR UUID
       cost_center_name: newTransactionData.costCenterName || null,
       bank_account_id: isValidUUID(newTransactionData.bankAccountId) ? newTransactionData.bankAccountId : null, // ✅ VALIDAR UUID
