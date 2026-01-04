@@ -1158,62 +1158,76 @@ export async function createFinancialTransaction(companyId: string, transactionD
     console.log(`[SQL_SERVICE] 💡 Status pendente detectado (${transaction.status}), criando registro em accounts_${transactionType === 'income' ? 'receivable' : 'payable'}`);
     
     if (transactionType === 'income') {
-      // Criar em accounts_receivable
-      const accountReceivable = {
-        company_id: companyId,
-        customer_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
-        customer_name: transaction.party_name || 'Cliente não identificado',
-        invoice_number: transaction.reference || insertedTransaction.sku,
-        issue_date: transaction.transaction_date,
-        due_date: transaction.due_date || transaction.transaction_date,
-        amount: transaction.amount,
-        paid_amount: 0,
-        remaining_amount: transaction.amount,
-        status: transaction.status,
-        installment_number: transaction.installment_number || 1,
-        total_installments: transaction.total_installments || 1,
-        description: transaction.description,
-        reference: insertedTransaction.sku // Referência à transação financeira
-      };
+      // ✅ Validar customer_id antes de criar (NOT NULL constraint)
+      const validCustomerId = isValidUUID(transaction.party_id) ? transaction.party_id : null;
       
-      const { error: arError } = await supabase
-        .from('accounts_receivable')
-        .insert(accountReceivable);
-      
-      if (arError) {
-        console.error('[SQL_SERVICE] ⚠️ Erro ao criar em accounts_receivable:', arError);
-        // Não falhar a transação toda, apenas logar
+      if (!validCustomerId) {
+        console.warn('[SQL_SERVICE] ⚠️ Transação sem customer_id válido, pulando criação em accounts_receivable');
       } else {
-        console.log(`[SQL_SERVICE] ✅ Registro criado em accounts_receivable`);
+        // Criar em accounts_receivable
+        const accountReceivable = {
+          company_id: companyId,
+          customer_id: validCustomerId,
+          customer_name: transaction.party_name || 'Cliente não identificado',
+          invoice_number: transaction.reference || insertedTransaction.sku,
+          issue_date: transaction.transaction_date,
+          due_date: transaction.due_date || transaction.transaction_date,
+          amount: transaction.amount,
+          paid_amount: 0,
+          remaining_amount: transaction.amount,
+          status: transaction.status,
+          installment_number: transaction.installment_number || 1,
+          total_installments: transaction.total_installments || 1,
+          description: transaction.description,
+          reference: insertedTransaction.sku // Referência à transação financeira
+        };
+        
+        const { error: arError } = await supabase
+          .from('accounts_receivable')
+          .insert(accountReceivable);
+        
+        if (arError) {
+          console.error('[SQL_SERVICE] ⚠️ Erro ao criar em accounts_receivable:', arError);
+          // Não falhar a transação toda, apenas logar
+        } else {
+          console.log(`[SQL_SERVICE] ✅ Registro criado em accounts_receivable`);
+        }
       }
     } else {
-      // Criar em accounts_payable
-      const accountPayable = {
-        company_id: companyId,
-        supplier_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
-        supplier_name: transaction.party_name || 'Fornecedor não identificado',
-        invoice_number: transaction.reference || insertedTransaction.sku,
-        issue_date: transaction.transaction_date,
-        due_date: transaction.due_date || transaction.transaction_date,
-        amount: transaction.amount,
-        paid_amount: 0,
-        remaining_amount: transaction.amount,
-        status: transaction.status,
-        installment_number: transaction.installment_number || 1,
-        total_installments: transaction.total_installments || 1,
-        description: transaction.description,
-        reference: insertedTransaction.sku // Referência à transação financeira
-      };
+      // ✅ Validar supplier_id antes de criar (NOT NULL constraint)
+      const validSupplierId = isValidUUID(transaction.party_id) ? transaction.party_id : null;
       
-      const { error: apError } = await supabase
-        .from('accounts_payable')
-        .insert(accountPayable);
-      
-      if (apError) {
-        console.error('[SQL_SERVICE] ⚠️ Erro ao criar em accounts_payable:', apError);
-        // Não falhar a transação toda, apenas logar
+      if (!validSupplierId) {
+        console.warn('[SQL_SERVICE] ⚠️ Transação sem supplier_id válido, pulando criação em accounts_payable');
       } else {
-        console.log(`[SQL_SERVICE] ✅ Registro criado em accounts_payable`);
+        // Criar em accounts_payable
+        const accountPayable = {
+          company_id: companyId,
+          supplier_id: validSupplierId,
+          supplier_name: transaction.party_name || 'Fornecedor não identificado',
+          invoice_number: transaction.reference || insertedTransaction.sku,
+          issue_date: transaction.transaction_date,
+          due_date: transaction.due_date || transaction.transaction_date,
+          amount: transaction.amount,
+          paid_amount: 0,
+          remaining_amount: transaction.amount,
+          status: transaction.status,
+          installment_number: transaction.installment_number || 1,
+          total_installments: transaction.total_installments || 1,
+          description: transaction.description,
+          reference: insertedTransaction.sku // Referência à transação financeira
+        };
+        
+        const { error: apError } = await supabase
+          .from('accounts_payable')
+          .insert(accountPayable);
+        
+        if (apError) {
+          console.error('[SQL_SERVICE] ⚠️ Erro ao criar em accounts_payable:', apError);
+          // Não falhar a transação toda, apenas logar
+        } else {
+          console.log(`[SQL_SERVICE] ✅ Registro criado em accounts_payable`);
+        }
       }
     }
   }

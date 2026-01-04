@@ -4940,43 +4940,53 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
       if (pendingStatuses.includes(newTransaction.status)) {
         if (newTransaction.type === 'Receita') {
-          const accountReceivable: AccountReceivable = {
-            id: `AR-${newTransaction.id}`,
-            customerId: newTransaction.partyId || undefined,
-            customerName: newTransaction.partyName,
-            invoiceNumber: newTransaction.reference || newTransaction.id,
-            issueDate: newTransaction.date,
-            dueDate: newTransaction.dueDate,
-            amount: newTransaction.amount,
-            paidAmount: 0,
-            remainingAmount: newTransaction.amount,
-            status: newTransaction.status,
-            installmentNumber: newTransaction.installmentNumber || 1,
-            totalInstallments: newTransaction.totalInstallments || 1,
-            description: newTransaction.description,
-            reference: newTransaction.id
-          };
-          setAccountsReceivable(prev => [accountReceivable, ...prev]);
-          console.log(`➕ Adicionada a Contas a Receber: ${newTransaction.id} (status: ${newTransaction.status})`);
+          // ✅ Só criar se tiver customer_id válido
+          if (newTransaction.partyId) {
+            const accountReceivable: AccountReceivable = {
+              id: `AR-${newTransaction.id}`,
+              customerId: newTransaction.partyId,
+              customerName: newTransaction.partyName,
+              invoiceNumber: newTransaction.reference || newTransaction.id,
+              issueDate: newTransaction.date,
+              dueDate: newTransaction.dueDate,
+              amount: newTransaction.amount,
+              paidAmount: 0,
+              remainingAmount: newTransaction.amount,
+              status: newTransaction.status,
+              installmentNumber: newTransaction.installmentNumber || 1,
+              totalInstallments: newTransaction.totalInstallments || 1,
+              description: newTransaction.description,
+              reference: newTransaction.id
+            };
+            setAccountsReceivable(prev => [accountReceivable, ...prev]);
+            console.log(`➕ Adicionada a Contas a Receber: ${newTransaction.id} (status: ${newTransaction.status})`);
+          } else {
+            console.warn(`⚠️ Transação sem customer_id, não adicionada a Contas a Receber: ${newTransaction.id}`);
+          }
         } else {
-          const accountPayable: AccountPayable = {
-            id: `AP-${newTransaction.id}`,
-            supplierId: newTransaction.partyId || undefined,
-            supplierName: newTransaction.partyName,
-            invoiceNumber: newTransaction.reference || newTransaction.id,
-            issueDate: newTransaction.date,
-            dueDate: newTransaction.dueDate,
-            amount: newTransaction.amount,
-            paidAmount: 0,
-            remainingAmount: newTransaction.amount,
-            status: newTransaction.status,
-            installmentNumber: newTransaction.installmentNumber || 1,
-            totalInstallments: newTransaction.totalInstallments || 1,
-            description: newTransaction.description,
-            reference: newTransaction.id
-          };
-          setAccountsPayable(prev => [accountPayable, ...prev]);
-          console.log(`➕ Adicionada a Contas a Pagar: ${newTransaction.id} (status: ${newTransaction.status})`);
+          // ✅ Só criar se tiver supplier_id válido
+          if (newTransaction.partyId) {
+            const accountPayable: AccountPayable = {
+              id: `AP-${newTransaction.id}`,
+              supplierId: newTransaction.partyId,
+              supplierName: newTransaction.partyName,
+              invoiceNumber: newTransaction.reference || newTransaction.id,
+              issueDate: newTransaction.date,
+              dueDate: newTransaction.dueDate,
+              amount: newTransaction.amount,
+              paidAmount: 0,
+              remainingAmount: newTransaction.amount,
+              status: newTransaction.status,
+              installmentNumber: newTransaction.installmentNumber || 1,
+              totalInstallments: newTransaction.totalInstallments || 1,
+              description: newTransaction.description,
+              reference: newTransaction.id
+            };
+            setAccountsPayable(prev => [accountPayable, ...prev]);
+            console.log(`➕ Adicionada a Contas a Pagar: ${newTransaction.id} (status: ${newTransaction.status})`);
+          } else {
+            console.warn(`⚠️ Transação sem supplier_id, não adicionada a Contas a Pagar: ${newTransaction.id}`);
+          }
         }
       }
       
@@ -5227,43 +5237,49 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
         if (pendingStatuses.includes(data.newTransaction.status)) {
           if (data.newTransaction.type === 'Receita') {
-            const accountReceivable: AccountReceivable = {
-              id: `AR-${data.newTransaction.id}`,
-              customerId: data.newTransaction.partyId || undefined,
-              customerName: data.newTransaction.partyName,
-              invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
-              issueDate: data.newTransaction.date,
-              dueDate: data.newTransaction.dueDate,
-              amount: data.newTransaction.amount,
-              paidAmount: 0,
-              remainingAmount: data.newTransaction.amount,
-              status: data.newTransaction.status,
-              installmentNumber: data.newTransaction.installmentNumber || 1,
-              totalInstallments: data.newTransaction.totalInstallments || 1,
-              description: data.newTransaction.description,
-              reference: data.newTransaction.id
-            };
-            setAccountsReceivable(prev => [accountReceivable, ...prev]);
-            console.log(`➕ Adicionada a Contas a Receber (substituição): ${data.newTransaction.id}`);
+            // ✅ Só criar se tiver customer_id válido
+            if (data.newTransaction.partyId) {
+              const accountReceivable: AccountReceivable = {
+                id: `AR-${data.newTransaction.id}`,
+                customerId: data.newTransaction.partyId,
+                customerName: data.newTransaction.partyName,
+                invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
+                issueDate: data.newTransaction.date,
+                dueDate: data.newTransaction.dueDate,
+                amount: data.newTransaction.amount,
+                paidAmount: 0,
+                remainingAmount: data.newTransaction.amount,
+                status: data.newTransaction.status,
+                installmentNumber: data.newTransaction.installmentNumber || 1,
+                totalInstallments: data.newTransaction.totalInstallments || 1,
+                description: data.newTransaction.description,
+                reference: data.newTransaction.id
+              };
+              setAccountsReceivable(prev => [accountReceivable, ...prev]);
+              console.log(`➕ Adicionada a Contas a Receber (substituição): ${data.newTransaction.id}`);
+            }
           } else {
-            const accountPayable: AccountPayable = {
-              id: `AP-${data.newTransaction.id}`,
-              supplierId: data.newTransaction.partyId || undefined,
-              supplierName: data.newTransaction.partyName,
-              invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
-              issueDate: data.newTransaction.date,
-              dueDate: data.newTransaction.dueDate,
-              amount: data.newTransaction.amount,
-              paidAmount: 0,
-              remainingAmount: data.newTransaction.amount,
-              status: data.newTransaction.status,
-              installmentNumber: data.newTransaction.installmentNumber || 1,
-              totalInstallments: data.newTransaction.totalInstallments || 1,
-              description: data.newTransaction.description,
-              reference: data.newTransaction.id
-            };
-            setAccountsPayable(prev => [accountPayable, ...prev]);
-            console.log(`➕ Adicionada a Contas a Pagar (substituição): ${data.newTransaction.id}`);
+            // ✅ Só criar se tiver supplier_id válido
+            if (data.newTransaction.partyId) {
+              const accountPayable: AccountPayable = {
+                id: `AP-${data.newTransaction.id}`,
+                supplierId: data.newTransaction.partyId,
+                supplierName: data.newTransaction.partyName,
+                invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
+                issueDate: data.newTransaction.date,
+                dueDate: data.newTransaction.dueDate,
+                amount: data.newTransaction.amount,
+                paidAmount: 0,
+                remainingAmount: data.newTransaction.amount,
+                status: data.newTransaction.status,
+                installmentNumber: data.newTransaction.installmentNumber || 1,
+                totalInstallments: data.newTransaction.totalInstallments || 1,
+                description: data.newTransaction.description,
+                reference: data.newTransaction.id
+              };
+              setAccountsPayable(prev => [accountPayable, ...prev]);
+              console.log(`➕ Adicionada a Contas a Pagar (substituição): ${data.newTransaction.id}`);
+            }
           }
         }
       }
@@ -5328,43 +5344,49 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const transaction = financialTransactions.find(t => t.id === id);
       if (transaction) {
         if (transaction.type === 'Receita') {
-          const accountReceivable: AccountReceivable = {
-            id: `AR-${transaction.id}`,
-            customerId: transaction.partyId || undefined,
-            customerName: transaction.partyName,
-            invoiceNumber: transaction.reference || transaction.id,
-            issueDate: transaction.date,
-            dueDate: transaction.dueDate,
-            amount: transaction.amount,
-            paidAmount: 0,
-            remainingAmount: transaction.amount,
-            status: data.transaction.status,
-            installmentNumber: transaction.installmentNumber || 1,
-            totalInstallments: transaction.totalInstallments || 1,
-            description: transaction.description,
-            reference: transaction.id
-          };
-          setAccountsReceivable(prev => [accountReceivable, ...prev]);
-          console.log(`➕ Re-adicionada a Contas a Receber: ${transaction.id}`);
+          // ✅ Só criar se tiver customer_id válido
+          if (transaction.partyId) {
+            const accountReceivable: AccountReceivable = {
+              id: `AR-${transaction.id}`,
+              customerId: transaction.partyId,
+              customerName: transaction.partyName,
+              invoiceNumber: transaction.reference || transaction.id,
+              issueDate: transaction.date,
+              dueDate: transaction.dueDate,
+              amount: transaction.amount,
+              paidAmount: 0,
+              remainingAmount: transaction.amount,
+              status: data.transaction.status,
+              installmentNumber: transaction.installmentNumber || 1,
+              totalInstallments: transaction.totalInstallments || 1,
+              description: transaction.description,
+              reference: transaction.id
+            };
+            setAccountsReceivable(prev => [accountReceivable, ...prev]);
+            console.log(`➕ Re-adicionada a Contas a Receber: ${transaction.id}`);
+          }
         } else {
-          const accountPayable: AccountPayable = {
-            id: `AP-${transaction.id}`,
-            supplierId: transaction.partyId || undefined,
-            supplierName: transaction.partyName,
-            invoiceNumber: transaction.reference || transaction.id,
-            issueDate: transaction.date,
-            dueDate: transaction.dueDate,
-            amount: transaction.amount,
-            paidAmount: 0,
-            remainingAmount: transaction.amount,
-            status: data.transaction.status,
-            installmentNumber: transaction.installmentNumber || 1,
-            totalInstallments: transaction.totalInstallments || 1,
-            description: transaction.description,
-            reference: transaction.id
-          };
-          setAccountsPayable(prev => [accountPayable, ...prev]);
-          console.log(`➕ Re-adicionada a Contas a Pagar: ${transaction.id}`);
+          // ✅ Só criar se tiver supplier_id válido
+          if (transaction.partyId) {
+            const accountPayable: AccountPayable = {
+              id: `AP-${transaction.id}`,
+              supplierId: transaction.partyId,
+              supplierName: transaction.partyName,
+              invoiceNumber: transaction.reference || transaction.id,
+              issueDate: transaction.date,
+              dueDate: transaction.dueDate,
+              amount: transaction.amount,
+              paidAmount: 0,
+              remainingAmount: transaction.amount,
+              status: data.transaction.status,
+              installmentNumber: transaction.installmentNumber || 1,
+              totalInstallments: transaction.totalInstallments || 1,
+              description: transaction.description,
+              reference: transaction.id
+            };
+            setAccountsPayable(prev => [accountPayable, ...prev]);
+            console.log(`➕ Re-adicionada a Contas a Pagar: ${transaction.id}`);
+          }
         }
       }
 

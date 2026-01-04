@@ -465,24 +465,30 @@ app.post('/substitute', async (c) => {
       // Adicionar nova se status for pendente
       const pendingStatuses = ['A Receber', 'Vencido'];
       if (pendingStatuses.includes(newTransaction.status)) {
-        const accountReceivable = {
-          company_id: auth.companyId,
-          customer_id: isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null,
-          customer_name: newTransaction.party_name || 'Cliente não identificado',
-          invoice_number: newTransaction.reference || newSku,
-          issue_date: newTransaction.transaction_date,
-          due_date: newTransaction.due_date || newTransaction.transaction_date,
-          amount: newTransaction.amount,
-          paid_amount: 0,
-          remaining_amount: newTransaction.amount,
-          status: newTransaction.status,
-          installment_number: newTransaction.installment_number || 1,
-          total_installments: newTransaction.total_installments || 1,
-          description: newTransaction.description,
-          reference: newSku
-        };
-        await supabase.from('accounts_receivable').insert(accountReceivable);
-        console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_receivable`);
+        const validCustomerId = isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null;
+        
+        if (!validCustomerId) {
+          console.warn('[SUBSTITUTE] ⚠️ Nova transação sem customer_id válido, pulando accounts_receivable');
+        } else {
+          const accountReceivable = {
+            company_id: auth.companyId,
+            customer_id: validCustomerId,
+            customer_name: newTransaction.party_name || 'Cliente não identificado',
+            invoice_number: newTransaction.reference || newSku,
+            issue_date: newTransaction.transaction_date,
+            due_date: newTransaction.due_date || newTransaction.transaction_date,
+            amount: newTransaction.amount,
+            paid_amount: 0,
+            remaining_amount: newTransaction.amount,
+            status: newTransaction.status,
+            installment_number: newTransaction.installment_number || 1,
+            total_installments: newTransaction.total_installments || 1,
+            description: newTransaction.description,
+            reference: newSku
+          };
+          await supabase.from('accounts_receivable').insert(accountReceivable);
+          console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_receivable`);
+        }
       }
     } else {
       // Remover antiga de accounts_payable
@@ -496,24 +502,30 @@ app.post('/substitute', async (c) => {
       // Adicionar nova se status for pendente
       const pendingStatuses = ['A Pagar', 'Vencido'];
       if (pendingStatuses.includes(newTransaction.status)) {
-        const accountPayable = {
-          company_id: auth.companyId,
-          supplier_id: isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null,
-          supplier_name: newTransaction.party_name || 'Fornecedor não identificado',
-          invoice_number: newTransaction.reference || newSku,
-          issue_date: newTransaction.transaction_date,
-          due_date: newTransaction.due_date || newTransaction.transaction_date,
-          amount: newTransaction.amount,
-          paid_amount: 0,
-          remaining_amount: newTransaction.amount,
-          status: newTransaction.status,
-          installment_number: newTransaction.installment_number || 1,
-          total_installments: newTransaction.total_installments || 1,
-          description: newTransaction.description,
-          reference: newSku
-        };
-        await supabase.from('accounts_payable').insert(accountPayable);
-        console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_payable`);
+        const validSupplierId = isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null;
+        
+        if (!validSupplierId) {
+          console.warn('[SUBSTITUTE] ⚠️ Nova transação sem supplier_id válido, pulando accounts_payable');
+        } else {
+          const accountPayable = {
+            company_id: auth.companyId,
+            supplier_id: validSupplierId,
+            supplier_name: newTransaction.party_name || 'Fornecedor não identificado',
+            invoice_number: newTransaction.reference || newSku,
+            issue_date: newTransaction.transaction_date,
+            due_date: newTransaction.due_date || newTransaction.transaction_date,
+            amount: newTransaction.amount,
+            paid_amount: 0,
+            remaining_amount: newTransaction.amount,
+            status: newTransaction.status,
+            installment_number: newTransaction.installment_number || 1,
+            total_installments: newTransaction.total_installments || 1,
+            description: newTransaction.description,
+            reference: newSku
+          };
+          await supabase.from('accounts_payable').insert(accountPayable);
+          console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_payable`);
+        }
       }
     }
 
@@ -683,43 +695,55 @@ app.post('/reverse-settlement', async (c) => {
 
     // ✅ SINCRONIZAÇÃO: Re-adicionar a accounts_receivable/payable quando estornar
     if (transaction.type === 'income') {
-      const accountReceivable = {
-        company_id: auth.companyId,
-        customer_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
-        customer_name: transaction.party_name || 'Cliente não identificado',
-        invoice_number: transaction.reference || transactionId,
-        issue_date: transaction.transaction_date,
-        due_date: transaction.due_date || transaction.transaction_date,
-        amount: transaction.amount,
-        paid_amount: 0,
-        remaining_amount: transaction.amount,
-        status: newStatus,
-        installment_number: transaction.installment_number || 1,
-        total_installments: transaction.total_installments || 1,
-        description: transaction.description,
-        reference: transactionId
-      };
-      await supabase.from('accounts_receivable').insert(accountReceivable);
-      console.log(`✅ [REVERSE] Re-adicionada a accounts_receivable`);
+      const validCustomerId = isValidUUID(transaction.party_id) ? transaction.party_id : null;
+      
+      if (!validCustomerId) {
+        console.warn('[REVERSE] ⚠️ Transação sem customer_id válido, pulando accounts_receivable');
+      } else {
+        const accountReceivable = {
+          company_id: auth.companyId,
+          customer_id: validCustomerId,
+          customer_name: transaction.party_name || 'Cliente não identificado',
+          invoice_number: transaction.reference || transactionId,
+          issue_date: transaction.transaction_date,
+          due_date: transaction.due_date || transaction.transaction_date,
+          amount: transaction.amount,
+          paid_amount: 0,
+          remaining_amount: transaction.amount,
+          status: newStatus,
+          installment_number: transaction.installment_number || 1,
+          total_installments: transaction.total_installments || 1,
+          description: transaction.description,
+          reference: transactionId
+        };
+        await supabase.from('accounts_receivable').insert(accountReceivable);
+        console.log(`✅ [REVERSE] Re-adicionada a accounts_receivable`);
+      }
     } else {
-      const accountPayable = {
-        company_id: auth.companyId,
-        supplier_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
-        supplier_name: transaction.party_name || 'Fornecedor não identificado',
-        invoice_number: transaction.reference || transactionId,
-        issue_date: transaction.transaction_date,
-        due_date: transaction.due_date || transaction.transaction_date,
-        amount: transaction.amount,
-        paid_amount: 0,
-        remaining_amount: transaction.amount,
-        status: newStatus,
-        installment_number: transaction.installment_number || 1,
-        total_installments: transaction.total_installments || 1,
-        description: transaction.description,
-        reference: transactionId
-      };
-      await supabase.from('accounts_payable').insert(accountPayable);
-      console.log(`✅ [REVERSE] Re-adicionada a accounts_payable`);
+      const validSupplierId = isValidUUID(transaction.party_id) ? transaction.party_id : null;
+      
+      if (!validSupplierId) {
+        console.warn('[REVERSE] ⚠️ Transação sem supplier_id válido, pulando accounts_payable');
+      } else {
+        const accountPayable = {
+          company_id: auth.companyId,
+          supplier_id: validSupplierId,
+          supplier_name: transaction.party_name || 'Fornecedor não identificado',
+          invoice_number: transaction.reference || transactionId,
+          issue_date: transaction.transaction_date,
+          due_date: transaction.due_date || transaction.transaction_date,
+          amount: transaction.amount,
+          paid_amount: 0,
+          remaining_amount: transaction.amount,
+          status: newStatus,
+          installment_number: transaction.installment_number || 1,
+          total_installments: transaction.total_installments || 1,
+          description: transaction.description,
+          reference: transactionId
+        };
+        await supabase.from('accounts_payable').insert(accountPayable);
+        console.log(`✅ [REVERSE] Re-adicionada a accounts_payable`);
+      }
     }
 
     return c.json({
