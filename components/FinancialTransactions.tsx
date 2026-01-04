@@ -1655,7 +1655,36 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                 return (
                   <TableRow key={txn.id} className={txn.origin === "Pedido" ? "bg-blue-50/30" : ""}>
                     <TableCell>
-                      {txn.origin === "Manual" && txn.status !== "Cancelado" && (
+                      {/* ✅ MENU PARA CANCELADAS/SUBSTITUÍDAS - apenas visualização */}
+                      {(txn.administrative_status === 'canceled' || txn.administrative_status === 'substituted') && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-60">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenDialog(txn.id, true, "single")}>
+                              <Info className="mr-2 h-4 w-4" />
+                              Exibir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-gray-400">
+                              {txn.type === "Receita" ? <><ArrowDownCircle className="mr-2 h-4 w-4" />Confirmar Recebimento</> : <><ArrowUpCircle className="mr-2 h-4 w-4" />Confirmar Pagamento</>}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-gray-400">
+                              <Edit2 className="mr-2 h-4 w-4" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-gray-400">
+                              <ArrowRightLeft className="mr-2 h-4 w-4" />Substituir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled className="text-gray-400">
+                              <X className="mr-2 h-4 w-4" />Cancelar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                      {/* MENU PARA TRANSAÇÕES ATIVAS */}
+                      {txn.origin === "Manual" && txn.status !== "Cancelado" && !txn.administrative_status || (txn.administrative_status !== 'canceled' && txn.administrative_status !== 'substituted') && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

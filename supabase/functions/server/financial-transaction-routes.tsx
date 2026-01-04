@@ -352,6 +352,48 @@ app.post('/substitute', async (c) => {
 
     const newSku = `FT-${String(nextNumber).padStart(4, '0')}`;
 
+    // ✅ RESOLVER party_id: Converter SKU para UUID se necessário
+    let resolvedPartyId: string | null = null;
+    if (newTransactionData.partyId) {
+      if (isValidUUID(newTransactionData.partyId)) {
+        // Já é UUID válido
+        resolvedPartyId = newTransactionData.partyId;
+      } else {
+        // Pode ser SKU - tentar converter
+        console.log(`🔍 [SUBSTITUTE] partyId não é UUID, tentando converter SKU: "${newTransactionData.partyId}"`);
+        
+        if (newTransactionData.partyType === 'Cliente') {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('company_id', auth.companyId)
+            .eq('sku', newTransactionData.partyId)
+            .single();
+          
+          if (customer) {
+            resolvedPartyId = customer.id;
+            console.log(`✅ [SUBSTITUTE] Cliente encontrado: SKU ${newTransactionData.partyId} → UUID ${resolvedPartyId}`);
+          } else {
+            console.warn(`⚠️ [SUBSTITUTE] Cliente com SKU "${newTransactionData.partyId}" não encontrado`);
+          }
+        } else if (newTransactionData.partyType === 'Fornecedor') {
+          const { data: supplier } = await supabase
+            .from('suppliers')
+            .select('id')
+            .eq('company_id', auth.companyId)
+            .eq('sku', newTransactionData.partyId)
+            .single();
+          
+          if (supplier) {
+            resolvedPartyId = supplier.id;
+            console.log(`✅ [SUBSTITUTE] Fornecedor encontrado: SKU ${newTransactionData.partyId} → UUID ${resolvedPartyId}`);
+          } else {
+            console.warn(`⚠️ [SUBSTITUTE] Fornecedor com SKU "${newTransactionData.partyId}" não encontrado`);
+          }
+        }
+      }
+    }
+
     // 1. Arquivar transação antiga (soft delete + marca de substituída)
     const { error: updateOldError } = await supabase
       .from('financial_transactions')
@@ -385,7 +427,7 @@ app.post('/substitute', async (c) => {
       status: newTransactionData.status,
       description: newTransactionData.description,
       party_type: newTransactionData.partyType,
-      party_id: isValidUUID(newTransactionData.partyId) ? newTransactionData.partyId : null, // ✅ VALIDAR UUID
+      party_id: resolvedPartyId, // ✅ RESOLVIDO: party_id
       party_name: newTransactionData.partyName,
       category: newTransactionData.category || oldTransaction.category,
       category_id: isValidUUID(newTransactionData.categoryId) ? newTransactionData.categoryId : null, // ✅ VALIDAR UUID

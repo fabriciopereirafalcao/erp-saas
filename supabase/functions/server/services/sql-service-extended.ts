@@ -1157,7 +1157,8 @@ export async function createFinancialTransaction(companyId: string, transactionD
     is_transfer: transactionData.isTransfer || false,
     transfer_pair_id: isValidUUID(transactionData.transferPairId) ? transactionData.transferPairId : null, // ✅ Validar UUID
     transfer_direction: transferDirection, // ✅ CHECK: 'origem' | 'destino' | null
-    has_start_date_override: transactionData.hasStartDateOverride || false // ✅ Flag para auditoria de override
+    has_start_date_override: transactionData.hasStartDateOverride || false, // ✅ Flag para auditoria de override
+    administrative_status: 'active' // ✅ GOVERNANÇA: Todas as transações novas são ativas
   };
 
   // ✅ LOG DETALHADO: Dados que serão inseridos (para debug)
