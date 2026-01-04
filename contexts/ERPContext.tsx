@@ -4935,6 +4935,50 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
       // Adicionar transação ao state local
       setFinancialTransactions(prev => [newTransaction, ...prev]);
+
+      // ✅ ADICIONAR a accounts_receivable/accounts_payable se status for pendente
+      const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
+      if (pendingStatuses.includes(newTransaction.status)) {
+        if (newTransaction.type === 'Receita') {
+          const accountReceivable: AccountReceivable = {
+            id: `AR-${newTransaction.id}`,
+            customerId: newTransaction.partyId || '',
+            customerName: newTransaction.partyName,
+            invoiceNumber: newTransaction.reference || newTransaction.id,
+            issueDate: newTransaction.date,
+            dueDate: newTransaction.dueDate,
+            amount: newTransaction.amount,
+            paidAmount: 0,
+            remainingAmount: newTransaction.amount,
+            status: newTransaction.status,
+            installmentNumber: newTransaction.installmentNumber || 1,
+            totalInstallments: newTransaction.totalInstallments || 1,
+            description: newTransaction.description,
+            reference: newTransaction.id
+          };
+          setAccountsReceivable(prev => [accountReceivable, ...prev]);
+          console.log(`➕ Adicionada a Contas a Receber: ${newTransaction.id} (status: ${newTransaction.status})`);
+        } else {
+          const accountPayable: AccountPayable = {
+            id: `AP-${newTransaction.id}`,
+            supplierId: newTransaction.partyId || '',
+            supplierName: newTransaction.partyName,
+            invoiceNumber: newTransaction.reference || newTransaction.id,
+            issueDate: newTransaction.date,
+            dueDate: newTransaction.dueDate,
+            amount: newTransaction.amount,
+            paidAmount: 0,
+            remainingAmount: newTransaction.amount,
+            status: newTransaction.status,
+            installmentNumber: newTransaction.installmentNumber || 1,
+            totalInstallments: newTransaction.totalInstallments || 1,
+            description: newTransaction.description,
+            reference: newTransaction.id
+          };
+          setAccountsPayable(prev => [accountPayable, ...prev]);
+          console.log(`➕ Adicionada a Contas a Pagar: ${newTransaction.id} (status: ${newTransaction.status})`);
+        }
+      }
       
       // ✅ CORREÇÃO: Atualizar saldo bancário se pago/recebido
       // Verifica effectiveDate (quando criada como paga) OU paymentDate (campo antigo)

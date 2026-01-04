@@ -226,6 +226,33 @@ app.post('/cancel', async (c) => {
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
 
+    // ✅ SINCRONIZAÇÃO: Remover de accounts_receivable/payable
+    if (transaction.type === 'income') {
+      const { error: deleteError } = await supabase
+        .from('accounts_receivable')
+        .delete()
+        .eq('company_id', auth.companyId)
+        .or(`invoice_number.eq.${transactionId},reference.eq.${transactionId}`);
+      
+      if (deleteError) {
+        console.error('⚠️ [CANCEL] Erro ao remover de accounts_receivable:', deleteError);
+      } else {
+        console.log(`✅ [CANCEL] Removida de accounts_receivable`);
+      }
+    } else {
+      const { error: deleteError } = await supabase
+        .from('accounts_payable')
+        .delete()
+        .eq('company_id', auth.companyId)
+        .or(`invoice_number.eq.${transactionId},reference.eq.${transactionId}`);
+      
+      if (deleteError) {
+        console.error('⚠️ [CANCEL] Erro ao remover de accounts_payable:', deleteError);
+      } else {
+        console.log(`✅ [CANCEL] Removida de accounts_payable`);
+      }
+    }
+
     return c.json({
       success: true,
       message: 'Transação cancelada com sucesso',
@@ -425,6 +452,71 @@ app.post('/substitute', async (c) => {
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
 
+    // ✅ SINCRONIZAÇÃO: Remover transação antiga e adicionar nova (se pendente)
+    if (oldTransaction.type === 'income') {
+      // Remover antiga de accounts_receivable
+      await supabase
+        .from('accounts_receivable')
+        .delete()
+        .eq('company_id', auth.companyId)
+        .or(`invoice_number.eq.${oldTransactionId},reference.eq.${oldTransactionId}`);
+      console.log(`✅ [SUBSTITUTE] Removida antiga de accounts_receivable`);
+      
+      // Adicionar nova se status for pendente
+      const pendingStatuses = ['A Receber', 'Vencido'];
+      if (pendingStatuses.includes(newTransaction.status)) {
+        const accountReceivable = {
+          company_id: auth.companyId,
+          customer_id: newTransaction.party_id,
+          customer_name: newTransaction.party_name || 'Cliente não identificado',
+          invoice_number: newTransaction.reference || newSku,
+          issue_date: newTransaction.transaction_date,
+          due_date: newTransaction.due_date || newTransaction.transaction_date,
+          amount: newTransaction.amount,
+          paid_amount: 0,
+          remaining_amount: newTransaction.amount,
+          status: newTransaction.status,
+          installment_number: newTransaction.installment_number || 1,
+          total_installments: newTransaction.total_installments || 1,
+          description: newTransaction.description,
+          reference: newSku
+        };
+        await supabase.from('accounts_receivable').insert(accountReceivable);
+        console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_receivable`);
+      }
+    } else {
+      // Remover antiga de accounts_payable
+      await supabase
+        .from('accounts_payable')
+        .delete()
+        .eq('company_id', auth.companyId)
+        .or(`invoice_number.eq.${oldTransactionId},reference.eq.${oldTransactionId}`);
+      console.log(`✅ [SUBSTITUTE] Removida antiga de accounts_payable`);
+      
+      // Adicionar nova se status for pendente
+      const pendingStatuses = ['A Pagar', 'Vencido'];
+      if (pendingStatuses.includes(newTransaction.status)) {
+        const accountPayable = {
+          company_id: auth.companyId,
+          supplier_id: newTransaction.party_id,
+          supplier_name: newTransaction.party_name || 'Fornecedor não identificado',
+          invoice_number: newTransaction.reference || newSku,
+          issue_date: newTransaction.transaction_date,
+          due_date: newTransaction.due_date || newTransaction.transaction_date,
+          amount: newTransaction.amount,
+          paid_amount: 0,
+          remaining_amount: newTransaction.amount,
+          status: newTransaction.status,
+          installment_number: newTransaction.installment_number || 1,
+          total_installments: newTransaction.total_installments || 1,
+          description: newTransaction.description,
+          reference: newSku
+        };
+        await supabase.from('accounts_payable').insert(accountPayable);
+        console.log(`✅ [SUBSTITUTE] Adicionada nova a accounts_payable`);
+      }
+    }
+
     // Buscar a transação antiga atualizada para retornar
     const { data: oldTransactionUpdated } = await supabase
       .from('financial_transactions')
@@ -588,6 +680,47 @@ app.post('/reverse-settlement', async (c) => {
     console.log(`   💰 Valor: R$ ${parseFloat(transaction.amount).toFixed(2)}`);
     console.log(`   👤 Usuário: ${userName} (${userId})`);
     console.log(`   📝 Motivo: ${reason}`);
+
+    // ✅ SINCRONIZAÇÃO: Re-adicionar a accounts_receivable/payable quando estornar
+    if (transaction.type === 'income') {
+      const accountReceivable = {
+        company_id: auth.companyId,
+        customer_id: transaction.party_id,
+        customer_name: transaction.party_name || 'Cliente não identificado',
+        invoice_number: transaction.reference || transactionId,
+        issue_date: transaction.transaction_date,
+        due_date: transaction.due_date || transaction.transaction_date,
+        amount: transaction.amount,
+        paid_amount: 0,
+        remaining_amount: transaction.amount,
+        status: newStatus,
+        installment_number: transaction.installment_number || 1,
+        total_installments: transaction.total_installments || 1,
+        description: transaction.description,
+        reference: transactionId
+      };
+      await supabase.from('accounts_receivable').insert(accountReceivable);
+      console.log(`✅ [REVERSE] Re-adicionada a accounts_receivable`);
+    } else {
+      const accountPayable = {
+        company_id: auth.companyId,
+        supplier_id: transaction.party_id,
+        supplier_name: transaction.party_name || 'Fornecedor não identificado',
+        invoice_number: transaction.reference || transactionId,
+        issue_date: transaction.transaction_date,
+        due_date: transaction.due_date || transaction.transaction_date,
+        amount: transaction.amount,
+        paid_amount: 0,
+        remaining_amount: transaction.amount,
+        status: newStatus,
+        installment_number: transaction.installment_number || 1,
+        total_installments: transaction.total_installments || 1,
+        description: transaction.description,
+        reference: transactionId
+      };
+      await supabase.from('accounts_payable').insert(accountPayable);
+      console.log(`✅ [REVERSE] Re-adicionada a accounts_payable`);
+    }
 
     return c.json({
       success: true,
