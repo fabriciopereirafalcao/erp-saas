@@ -4942,7 +4942,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (newTransaction.type === 'Receita') {
           const accountReceivable: AccountReceivable = {
             id: `AR-${newTransaction.id}`,
-            customerId: newTransaction.partyId || '',
+            customerId: newTransaction.partyId || undefined,
             customerName: newTransaction.partyName,
             invoiceNumber: newTransaction.reference || newTransaction.id,
             issueDate: newTransaction.date,
@@ -4961,7 +4961,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         } else {
           const accountPayable: AccountPayable = {
             id: `AP-${newTransaction.id}`,
-            supplierId: newTransaction.partyId || '',
+            supplierId: newTransaction.partyId || undefined,
             supplierName: newTransaction.partyName,
             invoiceNumber: newTransaction.reference || newTransaction.id,
             issueDate: newTransaction.date,
@@ -5229,7 +5229,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           if (data.newTransaction.type === 'Receita') {
             const accountReceivable: AccountReceivable = {
               id: `AR-${data.newTransaction.id}`,
-              customerId: data.newTransaction.partyId || '',
+              customerId: data.newTransaction.partyId || undefined,
               customerName: data.newTransaction.partyName,
               invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
               issueDate: data.newTransaction.date,
@@ -5248,7 +5248,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           } else {
             const accountPayable: AccountPayable = {
               id: `AP-${data.newTransaction.id}`,
-              supplierId: data.newTransaction.partyId || '',
+              supplierId: data.newTransaction.partyId || undefined,
               supplierName: data.newTransaction.partyName,
               invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
               issueDate: data.newTransaction.date,
@@ -5330,7 +5330,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         if (transaction.type === 'Receita') {
           const accountReceivable: AccountReceivable = {
             id: `AR-${transaction.id}`,
-            customerId: transaction.partyId || '',
+            customerId: transaction.partyId || undefined,
             customerName: transaction.partyName,
             invoiceNumber: transaction.reference || transaction.id,
             issueDate: transaction.date,
@@ -5349,7 +5349,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         } else {
           const accountPayable: AccountPayable = {
             id: `AP-${transaction.id}`,
-            supplierId: transaction.partyId || '',
+            supplierId: transaction.partyId || undefined,
             supplierName: transaction.partyName,
             invoiceNumber: transaction.reference || transaction.id,
             issueDate: transaction.date,

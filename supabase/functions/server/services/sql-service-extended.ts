@@ -184,9 +184,14 @@ function normalizeFinancialTransactionTransferDirection(
  * Converte SKU de cliente para UUID
  * Se já for UUID, retorna o mesmo valor
  */
-async function resolveCustomerId(companyId: string, customerIdOrSku: string): Promise<string> {
+async function resolveCustomerId(companyId: string, customerIdOrSku: string | undefined): Promise<string | null> {
+  // ✅ Se undefined ou string vazia, retornar null
+  if (!customerIdOrSku || customerIdOrSku.trim() === '') {
+    return null;
+  }
+  
   // Se parece com UUID, retornar diretamente
-  if (customerIdOrSku && customerIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+  if (customerIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     return customerIdOrSku;
   }
 
@@ -217,9 +222,14 @@ async function resolveCustomerId(companyId: string, customerIdOrSku: string): Pr
  * Converte SKU de fornecedor para UUID
  * Se já for UUID, retorna o mesmo valor
  */
-async function resolveSupplierId(companyId: string, supplierIdOrSku: string): Promise<string> {
+async function resolveSupplierId(companyId: string, supplierIdOrSku: string | undefined): Promise<string | null> {
+  // ✅ Se undefined ou string vazia, retornar null
+  if (!supplierIdOrSku || supplierIdOrSku.trim() === '') {
+    return null;
+  }
+  
   // Se parece com UUID, retornar diretamente
-  if (supplierIdOrSku && supplierIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+  if (supplierIdOrSku.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     return supplierIdOrSku;
   }
 
