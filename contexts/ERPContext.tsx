@@ -4937,8 +4937,15 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       setFinancialTransactions(prev => [newTransaction, ...prev]);
 
       // ✅ ADICIONAR a accounts_receivable/accounts_payable se status for pendente
+      // ⚠️ IMPORTANTE: Pular se origin='Pedido' porque a função createAccountsReceivable já criou
       const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
-      if (pendingStatuses.includes(newTransaction.status)) {
+      const shouldCreateAccountsEntry = pendingStatuses.includes(newTransaction.status) && newTransaction.origin !== 'Pedido';
+      
+      if (newTransaction.origin === 'Pedido') {
+        console.log(`ℹ️ Origin='Pedido' - accounts_receivable/payable já criado pela função createAccountsReceivable`);
+      }
+      
+      if (shouldCreateAccountsEntry) {
         if (newTransaction.type === 'Receita') {
           // ✅ Só criar se tiver customer_id válido
           if (newTransaction.partyId) {

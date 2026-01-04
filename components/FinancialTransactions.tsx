@@ -1829,12 +1829,6 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                             em {formatDateLocal(txn.effectiveDate)}
                           </p>
                         )}
-                        {txn.origin === "Pedido" && (
-                          <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
-                            <Package className="h-3 w-3 mr-1" />
-                            Pedido
-                          </Badge>
-                        )}
                         {txn.administrative_status && txn.administrative_status !== 'active' && (
                           <Badge variant="secondary" className="text-xs bg-gray-200 text-gray-700">
                             {txn.administrative_status === 'canceled' && '🚫 Cancelada'}
