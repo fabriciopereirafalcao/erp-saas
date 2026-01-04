@@ -1664,7 +1664,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(txn.id, true, "single")}>
+                            <DropdownMenuItem onClick={() => handleOpenDialog(txn.id, false, "single")}>
                               <Info className="mr-2 h-4 w-4" />
                               Exibir
                             </DropdownMenuItem>
@@ -1684,7 +1684,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                         </DropdownMenu>
                       )}
                       {/* MENU PARA TRANSAÇÕES ATIVAS */}
-                      {txn.origin === "Manual" && txn.status !== "Cancelado" && !txn.administrative_status || (txn.administrative_status !== 'canceled' && txn.administrative_status !== 'substituted') && (
+                      {txn.origin === "Manual" && txn.status !== "Cancelado" && txn.administrative_status !== 'canceled' && txn.administrative_status !== 'substituted' && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -1899,7 +1899,12 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             <div className="flex items-center gap-2">
               <DialogTitle>
                 {editingTransaction 
-                  ? (editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação") 
+                  ? (() => {
+                      const txn = safeFinancialTransactions.find(t => t.id === editingTransaction);
+                      const isReadOnly = txn?.administrative_status === 'canceled' || txn?.administrative_status === 'substituted';
+                      if (isReadOnly) return "Visualizar Transação";
+                      return editingInstallmentMode === "all" ? "Editar Toda a Transação" : "Editar Transação";
+                    })()
                   : isTransferMode ? "Transferência entre Contas" : "Nova Transação Manual"}
               </DialogTitle>
               {!editingTransaction && !isTransferMode && (
@@ -1919,9 +1924,17 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             </div>
             <DialogDescription>
               {editingTransaction 
-                ? (editingInstallmentMode === "all" 
-                    ? `Editando todas as parcelas não liquidadas. ${settledInstallmentsCount > 0 ? `${settledInstallmentsCount} parcela(s) já liquidada(s) não será(ão) alterada(s).` : ''}` 
-                    : "Editando apenas esta parcela")
+                ? (() => {
+                    const txn = safeFinancialTransactions.find(t => t.id === editingTransaction);
+                    const isReadOnly = txn?.administrative_status === 'canceled' || txn?.administrative_status === 'substituted';
+                    if (isReadOnly) {
+                      const statusLabel = txn?.administrative_status === 'canceled' ? 'cancelada' : 'substituída';
+                      return `Esta transação foi ${statusLabel} e não pode ser editada. Visualize os detalhes abaixo.`;
+                    }
+                    return editingInstallmentMode === "all" 
+                      ? `Editando todas as parcelas não liquidadas. ${settledInstallmentsCount > 0 ? `${settledInstallmentsCount} parcela(s) já liquidada(s) não será(ão) alterada(s).` : ''}` 
+                      : "Editando apenas esta parcela";
+                  })()
                 : isTransferMode 
                   ? "Realize transferências de valores entre suas contas bancárias" 
                   : "Registre receitas e despesas não vinculadas a pedidos"}
@@ -2046,14 +2059,20 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             </div>
           ) : (
           <>
+          {(() => {
+            // ✅ Verificar se está em modo somente leitura
+            const txn = editingTransaction ? safeFinancialTransactions.find(t => t.id === editingTransaction) : null;
+            const isReadOnly = txn?.administrative_status === 'canceled' || txn?.administrative_status === 'substituted';
+            
+            return (
           <Tabs defaultValue="header" className="w-full flex flex-col flex-1 overflow-hidden">
             <div className="border-b bg-white">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="header">
+                <TabsTrigger value="header" disabled={isReadOnly}>
                   <FileText className="w-4 h-4 mr-2" />
                   Cabeçalho
                 </TabsTrigger>
-                <TabsTrigger value="payment">
+                <TabsTrigger value="payment" disabled={isReadOnly}>
                   <CreditCard className="w-4 h-4 mr-2" />
                   Condições de Pagamento
                 </TabsTrigger>
@@ -2070,6 +2089,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               <Select
                 value={formData.type}
                 onValueChange={(value: any) => setFormData({ ...formData, type: value })}
+                disabled={isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -2084,9 +2104,9 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             {/* Data */}
             <div>
               <Label>Data *</Label>
-              <Popover open={showDatePopover} onOpenChange={setShowDatePopover}>
+              <Popover open={showDatePopover && !isReadOnly} onOpenChange={setShowDatePopover}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="outline" className="w-full justify-start" disabled={isReadOnly}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {format(formData.date, "PPP", { locale: ptBR })}
                   </Button>
@@ -2102,6 +2122,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                       }
                     }}
                     locale={ptBR}
+                    disabled={isReadOnly}
                   />
                 </PopoverContent>
               </Popover>
@@ -2113,6 +2134,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               <Select
                 value={formData.partyType}
                 onValueChange={(value: any) => setFormData({ ...formData, partyType: value, partyId: "", partyName: "" })}
+                disabled={isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -2135,6 +2157,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                     const customer = customers.find(c => c.id === value);
                     setFormData({ ...formData, partyId: value, partyName: customer?.name || "" });
                   }}
+                  disabled={isReadOnly}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um cliente" />
@@ -2154,6 +2177,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                     const supplier = suppliers.find(s => s.id === value);
                     setFormData({ ...formData, partyId: value, partyName: supplier?.name || "" });
                   }}
+                  disabled={isReadOnly}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um fornecedor" />
@@ -2171,6 +2195,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                   value={formData.partyName}
                   onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
                   placeholder="Nome do parceiro"
+                  disabled={isReadOnly}
                 />
               )}
             </div>
@@ -2181,6 +2206,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               <Select
                 value={formData.categoryId}
                 onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                disabled={isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
@@ -2216,7 +2242,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               </div>
               <Input
                 type="text"
-                disabled={!!blockedFields.amount}
+                disabled={!!blockedFields.amount || isReadOnly}
                 value={formData.amount === '' || formData.amount === '0' ? '' : (parseFloat(formData.amount) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '');
@@ -2237,6 +2263,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               <Select
                 value={formData.costCenterId || "none"}
                 onValueChange={(value) => setFormData({ ...formData, costCenterId: value === "none" ? "" : value })}
+                disabled={isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nenhum" />
@@ -2280,6 +2307,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Descrição da transação"
+                disabled={isReadOnly}
               />
             </div>
                 </div>
@@ -2296,6 +2324,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                           id="alreadyPaid"
                           checked={formData.alreadyPaid}
                           onCheckedChange={(checked) => setFormData({ ...formData, alreadyPaid: !!checked })}
+                          disabled={isReadOnly}
                         />
                         <label
                           htmlFor="alreadyPaid"
@@ -2309,9 +2338,9 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                       {formData.alreadyPaid && (
                         <div className="flex-1">
                           <Label>Data do Pagamento</Label>
-                          <Popover open={showPaymentDatePopover} onOpenChange={setShowPaymentDatePopover}>
+                          <Popover open={showPaymentDatePopover && !isReadOnly} onOpenChange={setShowPaymentDatePopover}>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start">
+                              <Button variant="outline" className="w-full justify-start" disabled={isReadOnly}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {format(formData.paymentDate, "PPP", { locale: ptBR })}
                               </Button>
@@ -2342,9 +2371,9 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                     <>
                       <div className="col-span-2">
                         <Label>Data de Vencimento *</Label>
-                        <Popover open={showDueDatePopover} onOpenChange={setShowDueDatePopover}>
+                        <Popover open={showDueDatePopover && !isReadOnly} onOpenChange={setShowDueDatePopover}>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start">
+                            <Button variant="outline" className="w-full justify-start" disabled={isReadOnly}>
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {format(formData.dueDate, "PPP", { locale: ptBR })}
                             </Button>
@@ -2360,6 +2389,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                                 }
                               }}
                               locale={ptBR}
+                              disabled={isReadOnly}
                             />
                           </PopoverContent>
                         </Popover>
@@ -2376,6 +2406,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                     <Select
                       value={formData.installments}
                       onValueChange={(value) => setFormData({ ...formData, installments: value })}
+                      disabled={isReadOnly}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -2399,6 +2430,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                       value={formData.firstInstallmentDays}
                       onChange={(e) => setFormData({ ...formData, firstInstallmentDays: parseInt(e.target.value) || 0 })}
                       placeholder="0"
+                      disabled={isReadOnly}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Dias após a data da transação para vencimento da 1ª parcela
@@ -2489,14 +2521,19 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
 
           <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => setShowDialog(false)}>
-              Cancelar
+              {isReadOnly ? "Fechar" : "Cancelar"}
             </Button>
-            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-              {editingTransaction 
-                ? "Salvar Alterações" 
-                : `Criar ${parseInt(formData.installments) > 1 ? `${formData.installments} Transações` : "Transação"}`}
-            </Button>
+            {!isReadOnly && (
+              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+                {editingTransaction 
+                  ? "Salvar Alterações" 
+                  : `Criar ${parseInt(formData.installments) > 1 ? `${formData.installments} Transações` : "Transação"}`}
+              </Button>
+            )}
           </DialogFooter>
+            </>
+            );
+          })()}
           </>
           )}
         </DialogContent>

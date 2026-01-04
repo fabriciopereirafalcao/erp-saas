@@ -2147,6 +2147,7 @@ export async function saveFinancialTransactions(companyId: string, transactions:
 export async function getAccountsReceivable(companyId: string) {
   const supabase = getSupabaseClient();
   
+  // ✅ Buscar accounts_receivable
   const { data, error } = await supabase
     .from('accounts_receivable')
     .select('*')
@@ -2158,7 +2159,22 @@ export async function getAccountsReceivable(companyId: string) {
     throw new Error(error.message);
   }
 
-  return data?.map((row: any) => {
+  // ✅ Buscar transações financeiras ativas (para filtrar contas vinculadas)
+  const { data: activeTransactions } = await supabase
+    .from('financial_transactions')
+    .select('sku')
+    .eq('company_id', companyId)
+    .or('administrative_status.is.null,administrative_status.eq.active');
+
+  // ✅ Criar Set com SKUs de transações ativas
+  const activeSkus = new Set(activeTransactions?.map(t => t.sku) || []);
+
+  // ✅ Filtrar apenas contas com reference (SKU) em transações ativas
+  const filteredData = data?.filter((row: any) => {
+    return !row.reference || activeSkus.has(row.reference);
+  }) || [];
+
+  return filteredData.map((row: any) => {
     // ✅ Desnormalizar status de EN para PT
     const denormalizedStatus = denormalizeAccountReceivableStatus(row.status);
     
@@ -2267,7 +2283,22 @@ export async function getAccountsPayable(companyId: string) {
     throw new Error(error.message);
   }
 
-  return data?.map((row: any) => {
+  // ✅ Buscar transações financeiras ativas (para filtrar contas vinculadas)
+  const { data: activeTransactions } = await supabase
+    .from('financial_transactions')
+    .select('sku')
+    .eq('company_id', companyId)
+    .or('administrative_status.is.null,administrative_status.eq.active');
+
+  // ✅ Criar Set com SKUs de transações ativas
+  const activeSkus = new Set(activeTransactions?.map(t => t.sku) || []);
+
+  // ✅ Filtrar apenas contas com reference (SKU) em transações ativas
+  const filteredData = data?.filter((row: any) => {
+    return !row.reference || activeSkus.has(row.reference);
+  }) || [];
+
+  return filteredData.map((row: any) => {
     // ✅ Desnormalizar status de EN para PT
     const denormalizedStatus = denormalizeAccountPayableStatus(row.status);
     
