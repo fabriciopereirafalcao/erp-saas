@@ -1151,7 +1151,7 @@ export async function createFinancialTransaction(companyId: string, transactionD
       // Criar em accounts_receivable
       const accountReceivable = {
         company_id: companyId,
-        customer_id: transaction.party_id,
+        customer_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
         customer_name: transaction.party_name || 'Cliente não identificado',
         invoice_number: transaction.reference || insertedTransaction.sku,
         issue_date: transaction.transaction_date,
@@ -1180,7 +1180,7 @@ export async function createFinancialTransaction(companyId: string, transactionD
       // Criar em accounts_payable
       const accountPayable = {
         company_id: companyId,
-        supplier_id: transaction.party_id,
+        supplier_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
         supplier_name: transaction.party_name || 'Fornecedor não identificado',
         invoice_number: transaction.reference || insertedTransaction.sku,
         issue_date: transaction.transaction_date,

@@ -467,7 +467,7 @@ app.post('/substitute', async (c) => {
       if (pendingStatuses.includes(newTransaction.status)) {
         const accountReceivable = {
           company_id: auth.companyId,
-          customer_id: newTransaction.party_id,
+          customer_id: isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null,
           customer_name: newTransaction.party_name || 'Cliente não identificado',
           invoice_number: newTransaction.reference || newSku,
           issue_date: newTransaction.transaction_date,
@@ -498,7 +498,7 @@ app.post('/substitute', async (c) => {
       if (pendingStatuses.includes(newTransaction.status)) {
         const accountPayable = {
           company_id: auth.companyId,
-          supplier_id: newTransaction.party_id,
+          supplier_id: isValidUUID(newTransaction.party_id) ? newTransaction.party_id : null,
           supplier_name: newTransaction.party_name || 'Fornecedor não identificado',
           invoice_number: newTransaction.reference || newSku,
           issue_date: newTransaction.transaction_date,
@@ -685,7 +685,7 @@ app.post('/reverse-settlement', async (c) => {
     if (transaction.type === 'income') {
       const accountReceivable = {
         company_id: auth.companyId,
-        customer_id: transaction.party_id,
+        customer_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
         customer_name: transaction.party_name || 'Cliente não identificado',
         invoice_number: transaction.reference || transactionId,
         issue_date: transaction.transaction_date,
@@ -704,7 +704,7 @@ app.post('/reverse-settlement', async (c) => {
     } else {
       const accountPayable = {
         company_id: auth.companyId,
-        supplier_id: transaction.party_id,
+        supplier_id: isValidUUID(transaction.party_id) ? transaction.party_id : null,
         supplier_name: transaction.party_name || 'Fornecedor não identificado',
         invoice_number: transaction.reference || transactionId,
         issue_date: transaction.transaction_date,
