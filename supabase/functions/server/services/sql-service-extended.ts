@@ -1153,8 +1153,11 @@ export async function createFinancialTransaction(companyId: string, transactionD
   console.log(`[SQL_SERVICE] ✅ Transação criada: ${insertedTransaction.sku} (UUID: ${insertedTransaction.id})`);
 
   // ✅ SINCRONIZAÇÃO: Criar registro em accounts_receivable/payable se status for pendente
+  // ⚠️ IMPORTANTE: Pular se origin='order' porque o frontend já cria (evita duplicidade)
   const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
-  if (pendingStatuses.includes(transaction.status)) {
+  const shouldCreateAccountsEntry = pendingStatuses.includes(transaction.status) && origin !== 'order';
+  
+  if (shouldCreateAccountsEntry) {
     console.log(`[SQL_SERVICE] 💡 Status pendente detectado (${transaction.status}), criando registro em accounts_${transactionType === 'income' ? 'receivable' : 'payable'}`);
     
     if (transactionType === 'income') {

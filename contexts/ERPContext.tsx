@@ -4901,6 +4901,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log(`🔄 Criando transação financeira via endpoint /create-financial-transaction...`);
+      console.log(`[DEBUG] partyId: "${transactionData.partyId}", partyType: "${transactionData.partyType}", partyName: "${transactionData.partyName}"`);
 
       // Obter token do usuário autenticado
       const { getAccessToken } = await import('../utils/authFetch');
