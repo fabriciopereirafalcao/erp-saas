@@ -5046,11 +5046,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const user = getCurrentUser();
     
     try {
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado');
+        return;
+      }
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           transactionId: id,
@@ -5096,11 +5106,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const user = getCurrentUser();
     
     try {
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado');
+        return;
+      }
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/substitute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           oldTransactionId: oldId,
@@ -5144,11 +5164,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const user = getCurrentUser();
     
     try {
+      // Obter token do usuário autenticado
+      const { getAccessToken } = await import('../utils/authFetch');
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        console.error('❌ Usuário não autenticado');
+        toast.error('Você precisa estar autenticado');
+        return;
+      }
+
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/financial-transactions/reverse-settlement`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           transactionId: id,
