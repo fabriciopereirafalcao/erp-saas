@@ -5084,6 +5084,22 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         prev.map(t => t.id === id ? data.transaction : t)
       );
 
+      // ✅ REMOVER de accounts_receivable/accounts_payable quando cancelar
+      const transaction = financialTransactions.find(t => t.id === id);
+      if (transaction) {
+        if (transaction.type === 'Receita') {
+          setAccountsReceivable(prev => prev.filter(ar => 
+            ar.invoiceNumber !== id && ar.reference !== id
+          ));
+          console.log(`🗑️ Removida de Contas a Receber (cancelamento): ${id}`);
+        } else {
+          setAccountsPayable(prev => prev.filter(ap => 
+            ap.invoiceNumber !== id && ap.reference !== id
+          ));
+          console.log(`🗑️ Removida de Contas a Pagar (cancelamento): ${id}`);
+        }
+      }
+
       toast.success('Transação cancelada com sucesso', {
         description: 'A transação foi marcada como cancelada e permanece no histórico para auditoria'
       });
@@ -5146,6 +5162,68 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         data.newTransaction
       ]);
 
+      // ✅ REMOVER transação antiga de accounts_receivable/accounts_payable
+      const oldTransaction = financialTransactions.find(t => t.id === oldId);
+      if (oldTransaction) {
+        if (oldTransaction.type === 'Receita') {
+          setAccountsReceivable(prev => prev.filter(ar => 
+            ar.invoiceNumber !== oldId && ar.reference !== oldId
+          ));
+          console.log(`🗑️ Removida de Contas a Receber (substituição): ${oldId}`);
+        } else {
+          setAccountsPayable(prev => prev.filter(ap => 
+            ap.invoiceNumber !== oldId && ap.reference !== oldId
+          ));
+          console.log(`🗑️ Removida de Contas a Pagar (substituição): ${oldId}`);
+        }
+      }
+
+      // ✅ ADICIONAR nova transação a accounts_receivable/accounts_payable (se pendente)
+      if (data.newTransaction) {
+        const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
+        if (pendingStatuses.includes(data.newTransaction.status)) {
+          if (data.newTransaction.type === 'Receita') {
+            const accountReceivable: AccountReceivable = {
+              id: `AR-${data.newTransaction.id}`,
+              customerId: data.newTransaction.partyId || '',
+              customerName: data.newTransaction.partyName,
+              invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
+              issueDate: data.newTransaction.date,
+              dueDate: data.newTransaction.dueDate,
+              amount: data.newTransaction.amount,
+              paidAmount: 0,
+              remainingAmount: data.newTransaction.amount,
+              status: data.newTransaction.status,
+              installmentNumber: data.newTransaction.installmentNumber || 1,
+              totalInstallments: data.newTransaction.totalInstallments || 1,
+              description: data.newTransaction.description,
+              reference: data.newTransaction.id
+            };
+            setAccountsReceivable(prev => [accountReceivable, ...prev]);
+            console.log(`➕ Adicionada a Contas a Receber (substituição): ${data.newTransaction.id}`);
+          } else {
+            const accountPayable: AccountPayable = {
+              id: `AP-${data.newTransaction.id}`,
+              supplierId: data.newTransaction.partyId || '',
+              supplierName: data.newTransaction.partyName,
+              invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
+              issueDate: data.newTransaction.date,
+              dueDate: data.newTransaction.dueDate,
+              amount: data.newTransaction.amount,
+              paidAmount: 0,
+              remainingAmount: data.newTransaction.amount,
+              status: data.newTransaction.status,
+              installmentNumber: data.newTransaction.installmentNumber || 1,
+              totalInstallments: data.newTransaction.totalInstallments || 1,
+              description: data.newTransaction.description,
+              reference: data.newTransaction.id
+            };
+            setAccountsPayable(prev => [accountPayable, ...prev]);
+            console.log(`➕ Adicionada a Contas a Pagar (substituição): ${data.newTransaction.id}`);
+          }
+        }
+      }
+
       toast.success('Transação substituída com sucesso', {
         description: 'A transação antiga foi arquivada e uma nova foi criada'
       });
@@ -5201,6 +5279,50 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       setFinancialTransactions(prev =>
         prev.map(t => t.id === id ? data.transaction : t)
       );
+
+      // ✅ RE-ADICIONAR a accounts_receivable/accounts_payable quando estornar
+      const transaction = financialTransactions.find(t => t.id === id);
+      if (transaction) {
+        if (transaction.type === 'Receita') {
+          const accountReceivable: AccountReceivable = {
+            id: `AR-${transaction.id}`,
+            customerId: transaction.partyId || '',
+            customerName: transaction.partyName,
+            invoiceNumber: transaction.reference || transaction.id,
+            issueDate: transaction.date,
+            dueDate: transaction.dueDate,
+            amount: transaction.amount,
+            paidAmount: 0,
+            remainingAmount: transaction.amount,
+            status: data.transaction.status,
+            installmentNumber: transaction.installmentNumber || 1,
+            totalInstallments: transaction.totalInstallments || 1,
+            description: transaction.description,
+            reference: transaction.id
+          };
+          setAccountsReceivable(prev => [accountReceivable, ...prev]);
+          console.log(`➕ Re-adicionada a Contas a Receber: ${transaction.id}`);
+        } else {
+          const accountPayable: AccountPayable = {
+            id: `AP-${transaction.id}`,
+            supplierId: transaction.partyId || '',
+            supplierName: transaction.partyName,
+            invoiceNumber: transaction.reference || transaction.id,
+            issueDate: transaction.date,
+            dueDate: transaction.dueDate,
+            amount: transaction.amount,
+            paidAmount: 0,
+            remainingAmount: transaction.amount,
+            status: data.transaction.status,
+            installmentNumber: transaction.installmentNumber || 1,
+            totalInstallments: transaction.totalInstallments || 1,
+            description: transaction.description,
+            reference: transaction.id
+          };
+          setAccountsPayable(prev => [accountPayable, ...prev]);
+          console.log(`➕ Re-adicionada a Contas a Pagar: ${transaction.id}`);
+        }
+      }
 
       toast.success('Liquidação estornada com sucesso', {
         description: 'A transação voltou ao status pendente'
@@ -5264,6 +5386,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     // Atualizar transação
     updateFinancialTransaction(id, updates);
+
+    // ✅ REMOVER de accounts_receivable quando liquidar (transação não é mais pendente)
+    setAccountsReceivable(prev => prev.filter(ar => 
+      ar.invoiceNumber !== id && // Remove por ID da transação
+      ar.reference !== id // Ou por referência
+    ));
+    console.log(`🗑️ Removida de Contas a Receber: ${id}`);
 
     // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
@@ -5456,6 +5585,13 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
     // Atualizar transação
     updateFinancialTransaction(id, updates);
+
+    // ✅ REMOVER de accounts_payable quando liquidar (transação não é mais pendente)
+    setAccountsPayable(prev => prev.filter(ap => 
+      ap.invoiceNumber !== id && // Remove por ID da transação
+      ap.reference !== id // Ou por referência
+    ));
+    console.log(`🗑️ Removida de Contas a Pagar: ${id}`);
 
     // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');

@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Package, DollarSign, Users, Truck, AlertTrian
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { useERP } from "../contexts/ERPContext";
 import { Tooltip as TooltipUI, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { getActiveTransactions } from "../utils/transactionFilters"; // ✅ IMPORTAR FILTRO
 
 const salesDataMock = [
   { month: "Jan", sales: 45000, purchases: 32000 },
@@ -42,15 +43,16 @@ export function Dashboard() {
     [suppliers]
   );
   
+  // ✅ FILTRAR APENAS TRANSAÇÕES ATIVAS (excluir canceladas/substituídas)
   const totalSales = useMemo(() => 
-    financialTransactions
+    getActiveTransactions(financialTransactions)
       .filter(t => t.type === "Receita" && (t.status === "Recebido" || t.status === "Pago"))
       .reduce((sum, t) => sum + t.amount, 0),
     [financialTransactions]
   );
   
   const totalPurchases = useMemo(() => 
-    financialTransactions
+    getActiveTransactions(financialTransactions)
       .filter(t => t.type === "Despesa" && (t.status === "Pago" || t.status === "Recebido"))
       .reduce((sum, t) => sum + t.amount, 0),
     [financialTransactions]
@@ -110,7 +112,8 @@ export function Dashboard() {
       let revenues = 0;
       let expenses = 0;
       
-      financialTransactions.forEach(transaction => {
+      // ✅ FILTRAR APENAS TRANSAÇÕES ATIVAS
+      getActiveTransactions(financialTransactions).forEach(transaction => {
         const transactionDate = transaction.dueDate ? new Date(transaction.dueDate) : null;
         
         if (transactionDate && 
