@@ -101,6 +101,7 @@ const convertTransactionToFrontend = (row: any) => {
     reference: row.reference,
     installmentNumber: row.installment_number,
     totalInstallments: row.total_installments,
+    administrative_status: row.administrative_status || 'active',
     administrativeStatus: row.administrative_status || 'ATIVA',
     cancellationReason: row.cancellation_reason,
     canceledAt: row.canceled_at,
@@ -178,7 +179,7 @@ app.post('/cancel', async (c) => {
     }
 
     // ✅ VALIDAÇÃO: Transação não pode estar já cancelada
-    if (transaction.administrative_status === 'CANCELADA') {
+    if (transaction.administrative_status === 'canceled') {
       console.warn(`⚠️ [CANCEL] Transação já cancelada anteriormente`);
       return c.json({
         success: false,
@@ -191,7 +192,7 @@ app.post('/cancel', async (c) => {
     const { data: updatedTransaction, error: updateError } = await supabase
       .from('financial_transactions')
       .update({
-        administrative_status: 'CANCELADA',
+        administrative_status: 'canceled',
         cancellation_reason: reason,
         canceled_at: now,
         canceled_by: userId,
@@ -283,7 +284,9 @@ app.post('/substitute', async (c) => {
     }
 
     // ✅ VALIDAÇÃO: Apenas transações ATIVAS podem ser substituídas
-    if (oldTransaction.administrative_status !== 'ATIVA' && oldTransaction.administrative_status !== null) {
+    if (oldTransaction.administrative_status && 
+        oldTransaction.administrative_status !== 'active' && 
+        oldTransaction.administrative_status !== 'ATIVA') {
       console.warn(`⚠️ [SUBSTITUTE] Transação não está ativa. Status: ${oldTransaction.administrative_status}`);
       return c.json({
         success: false,
@@ -317,7 +320,7 @@ app.post('/substitute', async (c) => {
     const { error: updateOldError } = await supabase
       .from('financial_transactions')
       .update({
-        administrative_status: 'SUBSTITUIDA',
+        administrative_status: 'substituted',
         replacement_reason: reason,
         replaced_by: newSku,
         canceled_at: now,
@@ -340,7 +343,7 @@ app.post('/substitute', async (c) => {
       company_id: auth.companyId,
       sku: newSku,
       type: newTransactionData.type === 'Receita' ? 'income' : 'expense',
-      transaction_date: newTransactionData.date || newTransactionData.transactionDate,
+      transaction_date: newTransactionData.date || newTransactionData.transactionDate || oldTransaction.transaction_date,
       due_date: newTransactionData.dueDate,
       amount: newTransactionData.amount.toString(),
       status: newTransactionData.status,
@@ -348,16 +351,21 @@ app.post('/substitute', async (c) => {
       party_type: newTransactionData.partyType,
       party_id: newTransactionData.partyId,
       party_name: newTransactionData.partyName,
-      category: newTransactionData.category,
+      category: newTransactionData.category || oldTransaction.category,
       category_id: newTransactionData.categoryId,
       category_name: newTransactionData.categoryName,
-      cost_center_id: newTransactionData.costCenterId,
-      cost_center_name: newTransactionData.costCenterName,
+      cost_center_id: newTransactionData.costCenterId || null,
+      cost_center_name: newTransactionData.costCenterName || null,
+      bank_account_id: newTransactionData.bankAccountId || null,
+      bank_account_name: newTransactionData.bankAccountName || null,
+      payment_method_id: newTransactionData.paymentMethodId || null,
+      payment_method_name: newTransactionData.paymentMethodName || null,
+      effective_date: newTransactionData.effectiveDate || null,
       origin: newTransactionData.origin || 'Manual',
-      reference: newTransactionData.reference,
-      installment_number: newTransactionData.installmentNumber,
-      total_installments: newTransactionData.totalInstallments,
-      administrative_status: 'ATIVA',
+      reference: newTransactionData.reference || null,
+      installment_number: newTransactionData.installmentNumber || null,
+      total_installments: newTransactionData.totalInstallments || null,
+      administrative_status: 'active',
       replaces: oldTransactionId,
       replacement_reason: reason
     };
@@ -374,7 +382,7 @@ app.post('/substitute', async (c) => {
       await supabase
         .from('financial_transactions')
         .update({
-          administrative_status: 'ATIVA',
+          administrative_status: 'active',
           replacement_reason: null,
           replaced_by: null,
           canceled_at: null,
@@ -482,7 +490,9 @@ app.post('/reverse-settlement', async (c) => {
     }
 
     // ✅ VALIDAÇÃO: Transação deve estar ATIVA
-    if (transaction.administrative_status && transaction.administrative_status !== 'ATIVA') {
+    if (transaction.administrative_status && 
+        transaction.administrative_status !== 'active' &&
+        transaction.administrative_status !== 'ATIVA') {
       console.warn(`⚠️ [REVERSE] Transação não está ativa. Status: ${transaction.administrative_status}`);
       return c.json({
         success: false,
