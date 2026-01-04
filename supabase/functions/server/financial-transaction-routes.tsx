@@ -354,7 +354,7 @@ app.post('/substitute', async (c) => {
       type: newTransactionData.type === 'Receita' ? 'income' : 'expense',
       transaction_date: newTransactionData.date || newTransactionData.transactionDate || oldTransaction.transaction_date,
       due_date: newTransactionData.dueDate,
-      amount: newTransactionData.amount.toString(),
+      amount: (newTransactionData.amount / 100).toString(), // ✅ CORRIGIR: Dividir por 100 (frontend envia em centavos)
       status: newTransactionData.status,
       description: newTransactionData.description,
       party_type: newTransactionData.partyType,

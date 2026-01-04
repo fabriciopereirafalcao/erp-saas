@@ -182,8 +182,8 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
   };
 
   // ✅ FASE 2 & 3: Filtrar transações com suporte a status administrativo
-  // Se houver filtro administrativo ativo, não aplicar getActiveTransactions()
-  const baseTransactions = filterAdminStatus.length > 0 ? safeFinancialTransactions : getActiveTransactions(safeFinancialTransactions);
+  // Mostra TODAS as transações sempre (não filtrar por ativas apenas)
+  const baseTransactions = safeFinancialTransactions;
   
   const filteredTransactions = baseTransactions.filter(txn => {
     const matchesSearch =
