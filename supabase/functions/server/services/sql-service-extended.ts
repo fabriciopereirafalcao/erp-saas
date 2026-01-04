@@ -1079,6 +1079,48 @@ export async function createFinancialTransaction(companyId: string, transactionD
   // 5. Normalizar TRANSFER_DIRECTION usando função helper
   const transferDirection = normalizeFinancialTransactionTransferDirection(transactionData.transferDirection);
 
+  // ✅ 6. Converter partyId de SKU para UUID se necessário
+  let resolvedPartyId: string | null = null;
+  if (transactionData.partyId) {
+    if (isValidUUID(transactionData.partyId)) {
+      // Já é UUID válido
+      resolvedPartyId = transactionData.partyId;
+    } else {
+      // Pode ser SKU - tentar converter
+      console.log(`[SQL_SERVICE] 🔍 partyId não é UUID, tentando converter SKU: "${transactionData.partyId}"`);
+      
+      if (partyType === 'Cliente') {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('sku', transactionData.partyId)
+          .single();
+        
+        if (customer) {
+          resolvedPartyId = customer.id;
+          console.log(`[SQL_SERVICE] ✅ Cliente encontrado: SKU ${transactionData.partyId} → UUID ${resolvedPartyId}`);
+        } else {
+          console.warn(`[SQL_SERVICE] ⚠️ Cliente com SKU "${transactionData.partyId}" não encontrado`);
+        }
+      } else if (partyType === 'Fornecedor') {
+        const { data: supplier } = await supabase
+          .from('suppliers')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('sku', transactionData.partyId)
+          .single();
+        
+        if (supplier) {
+          resolvedPartyId = supplier.id;
+          console.log(`[SQL_SERVICE] ✅ Fornecedor encontrado: SKU ${transactionData.partyId} → UUID ${resolvedPartyId}`);
+        } else {
+          console.warn(`[SQL_SERVICE] ⚠️ Fornecedor com SKU "${transactionData.partyId}" não encontrado`);
+        }
+      }
+    }
+  }
+
   // Preparar dados da transação com TODOS os campos validados
   const transaction = {
     company_id: companyId,
@@ -1096,7 +1138,7 @@ export async function createFinancialTransaction(companyId: string, transactionD
     due_date: transactionData.dueDate,
     effective_date: transactionData.effectiveDate,
     party_type: partyType, // ✅ CHECK: 'Cliente' | 'Fornecedor' | 'Outro' | null
-    party_id: isValidUUID(transactionData.partyId) ? transactionData.partyId : null, // ✅ Validar UUID
+    party_id: resolvedPartyId, // ✅ UUID resolvido (convertido de SKU se necessário)
     party_name: transactionData.partyName,
     category_id: isValidUUID(transactionData.categoryId) ? transactionData.categoryId : null, // ✅ Validar UUID
     category_name: transactionData.categoryName,
@@ -1156,6 +1198,10 @@ export async function createFinancialTransaction(companyId: string, transactionD
   // ⚠️ IMPORTANTE: Pular se origin='order' porque o frontend já cria (evita duplicidade)
   const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
   const shouldCreateAccountsEntry = pendingStatuses.includes(transaction.status) && origin !== 'order';
+  
+  if (origin === 'order') {
+    console.log(`[SQL_SERVICE] ℹ️ Origin='order' - pulando criação em accounts_receivable/payable (frontend já criou)`);
+  }
   
   if (shouldCreateAccountsEntry) {
     console.log(`[SQL_SERVICE] 💡 Status pendente detectado (${transaction.status}), criando registro em accounts_${transactionType === 'income' ? 'receivable' : 'payable'}`);
