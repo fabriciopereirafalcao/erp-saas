@@ -1818,6 +1818,7 @@ export async function getFinancialTransactions(companyId: string) {
     account: row.account,
     paymentMethod: row.payment_method_name || row.payment_method,
     paymentMethodId: row.payment_method_id,
+    paymentMethodName: row.payment_method_name,
     reference: row.reference,
     notes: row.notes || '',
     // Campos adicionais
@@ -1832,7 +1833,20 @@ export async function getFinancialTransactions(companyId: string) {
     bankAccountName: row.bank_account_name,
     installmentNumber: row.installment_number,
     totalInstallments: row.total_installments,
-    hasStartDateOverride: row.has_start_date_override || false // ✅ Flag para auditoria
+    hasStartDateOverride: row.has_start_date_override || false, // ✅ Flag para auditoria
+    // ✅ CAMPOS DE GOVERNANÇA (FASE 2 & 3)
+    administrative_status: row.administrative_status || 'active',
+    cancellationReason: row.cancellation_reason,
+    canceledAt: row.canceled_at,
+    canceledBy: row.canceled_by,
+    canceledByName: row.canceled_by_name,
+    replacedBy: row.replaced_by,
+    replaces: row.replaces,
+    replacementReason: row.replacement_reason,
+    reversalHistory: row.reversal_history || [],
+    lastReversedAt: row.last_reversed_at,
+    lastReversedBy: row.last_reversed_by,
+    reversalReason: row.reversal_reason
   })) || [];
 }
 

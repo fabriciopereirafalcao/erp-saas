@@ -378,6 +378,14 @@ app.post('/substitute', async (c) => {
 
     if (createError) {
       console.error('❌ [SUBSTITUTE] Erro ao criar nova transação:', createError);
+      console.error('❌ [SUBSTITUTE] Detalhes do erro:', {
+        message: createError.message,
+        details: createError.details,
+        hint: createError.hint,
+        code: createError.code
+      });
+      console.error('❌ [SUBSTITUTE] Dados enviados:', JSON.stringify(newTransactionRow, null, 2));
+      
       // Rollback: restaurar transação antiga
       await supabase
         .from('financial_transactions')
@@ -394,7 +402,8 @@ app.post('/substitute', async (c) => {
 
       return c.json({
         success: false,
-        error: 'Erro ao criar nova transação'
+        error: `Erro ao criar nova transação: ${createError.message}`,
+        details: createError.details || createError.hint
       }, 500);
     }
 
