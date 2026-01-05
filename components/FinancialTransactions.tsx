@@ -2065,6 +2065,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             const isReadOnly = txn?.administrative_status === 'canceled' || txn?.administrative_status === 'substituted';
             
             return (
+          <>
           <Tabs defaultValue="header" className="w-full flex flex-col flex-1 overflow-hidden">
             <div className="border-b bg-white">
               <TabsList className="grid w-full grid-cols-2">
