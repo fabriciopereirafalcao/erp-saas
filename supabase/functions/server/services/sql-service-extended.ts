@@ -2245,18 +2245,31 @@ export async function saveAccountsReceivable(companyId: string, accounts: any[])
     });
 
     const rows = await Promise.all(rowsPromises);
+    
+    // ✅ FILTRAR contas sem customer_id (evita violação de foreign key)
+    const validRows = rows.filter(row => {
+      if (!row.customer_id) {
+        console.warn(`⚠️ [SQL_SERVICE] Conta a receber sem customer_id - ignorando na persistência: ${row.description}`);
+        return false;
+      }
+      return true;
+    });
 
-    const { error: insertError } = await supabase
-      .from('accounts_receivable')
-      .insert(rows);
+    if (validRows.length > 0) {
+      const { error: insertError } = await supabase
+        .from('accounts_receivable')
+        .insert(validRows);
 
-    if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts receivable:', insertError);
-      throw new Error(insertError.message);
+      if (insertError) {
+        console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts receivable:', insertError);
+        throw new Error(insertError.message);
+      }
     }
+
+    console.log(`[SQL_SERVICE] ✅ ${validRows.length}/${accounts.length} accounts receivable salvos (${accounts.length - validRows.length} ignorados sem customer_id)`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${accounts.length} accounts receivable salvos`);
+  console.log(`[SQL_SERVICE] ✅ Processamento de accounts receivable concluído`);
   return { success: true, count: accounts.length };
 }
 
@@ -2373,18 +2386,31 @@ export async function saveAccountsPayable(companyId: string, accounts: any[]) {
     });
 
     const rows = await Promise.all(rowsPromises);
+    
+    // ✅ FILTRAR contas sem supplier_id (evita violação de foreign key)
+    const validRows = rows.filter(row => {
+      if (!row.supplier_id) {
+        console.warn(`⚠️ [SQL_SERVICE] Conta a pagar sem supplier_id - ignorando na persistência: ${row.description}`);
+        return false;
+      }
+      return true;
+    });
 
-    const { error: insertError } = await supabase
-      .from('accounts_payable')
-      .insert(rows);
+    if (validRows.length > 0) {
+      const { error: insertError } = await supabase
+        .from('accounts_payable')
+        .insert(validRows);
 
-    if (insertError) {
-      console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts payable:', insertError);
-      throw new Error(insertError.message);
+      if (insertError) {
+        console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts payable:', insertError);
+        throw new Error(insertError.message);
+      }
     }
+
+    console.log(`[SQL_SERVICE] ✅ ${validRows.length}/${accounts.length} accounts payable salvos (${accounts.length - validRows.length} ignorados sem supplier_id)`);
   }
 
-  console.log(`[SQL_SERVICE] ✅ ${accounts.length} accounts payable salvos`);
+  console.log(`[SQL_SERVICE] ✅ Processamento de accounts payable concluído`);
   return { success: true, count: accounts.length };
 }
 
