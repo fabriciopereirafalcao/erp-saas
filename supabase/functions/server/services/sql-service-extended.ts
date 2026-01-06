@@ -2144,274 +2144,154 @@ export async function saveFinancialTransactions(companyId: string, transactions:
 
 // ==================== ACCOUNTS RECEIVABLE ====================
 
+// ✅ MIGRADO: Usar apenas financial_transactions (sem tabela accounts_receivable)
 export async function getAccountsReceivable(companyId: string) {
   const supabase = getSupabaseClient();
   
-  // ✅ Buscar accounts_receivable
-  const { data, error } = await supabase
-    .from('accounts_receivable')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('due_date');
-
-  if (error) {
-    console.error('[SQL_SERVICE] ❌ Erro ao buscar accounts receivable:', error);
-    throw new Error(error.message);
-  }
-
-  // ✅ Buscar transações financeiras ativas (para filtrar contas vinculadas)
-  const { data: activeTransactions } = await supabase
-    .from('financial_transactions')
-    .select('sku')
-    .eq('company_id', companyId)
-    .or('administrative_status.is.null,administrative_status.eq.active');
-
-  // ✅ Criar Set com SKUs de transações ativas
-  const activeSkus = new Set(activeTransactions?.map(t => t.sku) || []);
-
-  // ✅ Filtrar apenas contas com reference (SKU) em transações ativas
-  const filteredData = data?.filter((row: any) => {
-    return !row.reference || activeSkus.has(row.reference);
-  }) || [];
-
-  return filteredData.map((row: any) => {
-    // ✅ Desnormalizar status de EN para PT
-    const denormalizedStatus = denormalizeAccountReceivableStatus(row.status);
-    
-    // ✅ Auto-atualizar para "Vencido" se passou da data
-    const finalStatus = autoUpdateOverdueStatus(denormalizedStatus, row.due_date);
-    
-    return {
-      id: row.id,
-      customerId: row.customer_id,
-      orderId: row.order_id,
-      installmentNumber: row.installment_number,
-      totalInstallments: row.total_installments,
-      description: row.description,
-      amount: parseFloat(row.amount),
-      dueDate: row.due_date,
-      status: finalStatus, // ✅ AUTO-ATUALIZAR VENCIDO
-      paymentDate: row.payment_date,
-      paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
-      paymentMethod: row.payment_method || '',
-      notes: row.notes || ''
-    };
-  }) || [];
-}
-
-export async function saveAccountsReceivable(companyId: string, accounts: any[]) {
-  const supabase = getSupabaseClient();
-
-  console.log(`[SQL_SERVICE] 💾 Salvando ${accounts.length} accounts receivable para empresa ${companyId}`);
-
-  // Deletar contas antigas
-  const { error: deleteError } = await supabase
-    .from('accounts_receivable')
-    .delete()
-    .eq('company_id', companyId);
-
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar accounts receivable:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // Inserir novas contas
-  if (accounts.length > 0) {
-    // ✅ CORREÇÃO: Resolver customer_id de SKU → UUID antes de inserir
-    console.log(`[SQL_SERVICE] 🔄 Processando ${accounts.length} contas a receber...`);
-    
-    const rowsPromises = accounts.map(async (account: any) => {
-      const resolvedCustomerId = await resolveCustomerId(companyId, account.customerId);
-      const normalizedStatus = normalizeAccountStatus(account.status);
-      
-      console.log(`[SQL_SERVICE] 📝 Conta a receber: Status "${account.status}" → "${normalizedStatus}", Customer ID: ${account.customerId} → ${resolvedCustomerId}`);
-      
-      return {
-        // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
-        company_id: companyId,
-        customer_id: resolvedCustomerId, // ✅ CORRIGIDO: Usar variável já resolvida
-        order_id: account.orderId,
-        installment_number: account.installmentNumber,
-        total_installments: account.totalInstallments,
-        description: account.description,
-        amount: account.amount,
-        due_date: account.dueDate,
-        status: normalizedStatus, // ✅ CORRIGIDO: Usar variável já normalizada
-        payment_date: account.paymentDate,
-        payment_amount: account.paymentAmount,
-        payment_method: account.paymentMethod || '',
-        notes: account.notes || ''
-      };
-    });
-
-    const rows = await Promise.all(rowsPromises);
-    
-    // ✅ FILTRAR contas sem customer_id (evita violação de foreign key)
-    const validRows = rows.filter(row => {
-      if (!row.customer_id) {
-        console.warn(`⚠️ [SQL_SERVICE] Conta a receber sem customer_id - ignorando na persistência: ${row.description}`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validRows.length > 0) {
-      const { error: insertError } = await supabase
-        .from('accounts_receivable')
-        .insert(validRows);
-
-      if (insertError) {
-        console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts receivable:', insertError);
-        throw new Error(insertError.message);
-      }
-    }
-
-    console.log(`[SQL_SERVICE] ✅ ${validRows.length}/${accounts.length} accounts receivable salvos (${accounts.length - validRows.length} ignorados sem customer_id)`);
-  }
-
-  console.log(`[SQL_SERVICE] ✅ Processamento de accounts receivable concluído`);
-  return { success: true, count: accounts.length };
-}
-
-// ==================== ACCOUNTS PAYABLE ====================
-
-export async function getAccountsPayable(companyId: string) {
-  const supabase = getSupabaseClient();
+  console.log('[SQL_SERVICE] 📊 Buscando contas a receber de financial_transactions (arquitetura unificada)');
   
-  // ✅ JOIN com suppliers para obter supplier_name
+  // ✅ Query unificada: buscar transações de receita pendentes (status A Receber ou Vencido)
   const { data, error } = await supabase
-    .from('accounts_payable')
+    .from('financial_transactions')
     .select(`
       *,
-      suppliers:supplier_id (
+      customers:party_id (
         name,
         sku
       )
     `)
     .eq('company_id', companyId)
+    .eq('type', 'Receita')
+    .in('status', ['A Receber', 'Vencido'])
+    .or('administrative_status.is.null,administrative_status.eq.active')
     .order('due_date');
 
   if (error) {
-    console.error('[SQL_SERVICE] ❌ Erro ao buscar accounts payable:', error);
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar contas a receber:', error);
     throw new Error(error.message);
   }
 
-  // ✅ Buscar transações financeiras ativas (para filtrar contas vinculadas)
-  const { data: activeTransactions } = await supabase
-    .from('financial_transactions')
-    .select('sku')
-    .eq('company_id', companyId)
-    .or('administrative_status.is.null,administrative_status.eq.active');
-
-  // ✅ Criar Set com SKUs de transações ativas
-  const activeSkus = new Set(activeTransactions?.map(t => t.sku) || []);
-
-  // ✅ Filtrar apenas contas com reference (SKU) em transações ativas
-  const filteredData = data?.filter((row: any) => {
-    return !row.reference || activeSkus.has(row.reference);
-  }) || [];
-
-  return filteredData.map((row: any) => {
-    // ✅ Desnormalizar status de EN para PT
-    const denormalizedStatus = denormalizeAccountPayableStatus(row.status);
-    
+  return data?.map((txn: any) => {
     // ✅ Auto-atualizar para "Vencido" se passou da data
-    const finalStatus = autoUpdateOverdueStatus(denormalizedStatus, row.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(txn.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    const isOverdue = dueDate < today && (txn.status === 'A Receber');
+    const finalStatus = isOverdue ? 'Vencido' : txn.status;
     
     return {
-      id: row.id,
-      supplierId: row.suppliers?.sku || row.supplier_id, // ✅ Retornar SKU se disponível
-      supplierName: row.suppliers?.name || 'Fornecedor Desconhecido', // ✅ NOVO: Nome do fornecedor
-      invoiceNumber: row.order_id || row.description?.split(' ')[2] || '', // ✅ NOVO: Extrair do order_id ou description
-      issueDate: row.created_at?.split('T')[0] || '', // ✅ NOVO: Usar data de criação
-      orderId: row.order_id,
-      installmentNumber: row.installment_number,
-      totalInstallments: row.total_installments,
-      description: row.description,
-      amount: parseFloat(row.amount),
-      paidAmount: 0, // ✅ NOVO: Valor pago (sempre 0 para pendentes)
-      remainingAmount: parseFloat(row.amount), // ✅ NOVO: Valor restante
-      dueDate: row.due_date,
-      status: finalStatus, // ✅ AUTO-ATUALIZAR VENCIDO
-      paymentDate: row.payment_date,
-      paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : null,
-      paymentMethod: row.payment_method || '',
-      notes: row.notes || '',
-      reference: row.order_id // ✅ NOVO: Referência ao pedido
+      id: txn.sku, // ✅ Usar SKU como ID (FT-0001)
+      customerId: txn.customers?.sku || txn.party_id || '',
+      customerName: txn.customers?.name || txn.party_name || '',
+      invoiceNumber: txn.sku, // ✅ Usar SKU como número da fatura
+      issueDate: txn.date,
+      dueDate: txn.due_date,
+      paymentDate: txn.effective_date || txn.payment_date,
+      amount: parseFloat(txn.amount),
+      paidAmount: (txn.status === 'Recebido' || txn.status === 'Pago') ? parseFloat(txn.amount) : 0,
+      remainingAmount: (txn.status === 'Recebido' || txn.status === 'Pago') ? 0 : parseFloat(txn.amount),
+      status: finalStatus,
+      paymentMethodId: txn.payment_method_id || '',
+      bankAccountId: txn.bank_account_id || '',
+      installmentNumber: txn.installment_number,
+      totalInstallments: txn.total_installments,
+      description: txn.description,
+      reference: txn.reference, // ✅ Referência ao pedido
+      
+      // Campos adicionais para compatibilidade
+      type: txn.type,
+      partyName: txn.party_name,
+      categoryName: txn.category_name,
+      bankAccountName: txn.bank_account_name,
+      paymentMethodName: txn.payment_method_name,
+      origin: txn.origin,
+      administrativeStatus: txn.administrative_status
+    };
+  }) || [];
+}
+
+export async function saveAccountsReceivable(companyId: string, accounts: any[]) {
+  // ✅ DEPRECATED: Não faz mais nada - contas são salvas diretamente em financial_transactions
+  console.log(`[SQL_SERVICE] ⚠️ saveAccountsReceivable DEPRECATED - usando apenas financial_transactions`);
+  console.log(`[SQL_SERVICE] 📝 Ignorando ${accounts.length} contas (já estão em financial_transactions)`);
+  return { success: true, count: 0, deprecated: true };
+}
+
+// ==================== ACCOUNTS PAYABLE ====================
+
+// ✅ MIGRADO: Usar apenas financial_transactions (sem tabela accounts_payable)
+export async function getAccountsPayable(companyId: string) {
+  const supabase = getSupabaseClient();
+  
+  console.log('[SQL_SERVICE] 📊 Buscando contas a pagar de financial_transactions (arquitetura unificada)');
+  
+  // ✅ Query unificada: buscar transações de despesa pendentes (status A Pagar ou Vencido)
+  const { data, error } = await supabase
+    .from('financial_transactions')
+    .select(`
+      *,
+      suppliers:party_id (
+        name,
+        sku
+      )
+    `)
+    .eq('company_id', companyId)
+    .eq('type', 'Despesa')
+    .in('status', ['A Pagar', 'Vencido'])
+    .or('administrative_status.is.null,administrative_status.eq.active')
+    .order('due_date');
+
+  if (error) {
+    console.error('[SQL_SERVICE] ❌ Erro ao buscar contas a pagar:', error);
+    throw new Error(error.message);
+  }
+
+  return data?.map((txn: any) => {
+    // ✅ Auto-atualizar para "Vencido" se passou da data
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(txn.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    const isOverdue = dueDate < today && (txn.status === 'A Pagar');
+    const finalStatus = isOverdue ? 'Vencido' : txn.status;
+    
+    return {
+      id: txn.sku, // ✅ Usar SKU como ID (FT-0001)
+      supplierId: txn.suppliers?.sku || txn.party_id || '',
+      supplierName: txn.suppliers?.name || txn.party_name || '',
+      invoiceNumber: txn.sku, // ✅ Usar SKU como número da fatura
+      issueDate: txn.date,
+      dueDate: txn.due_date,
+      paymentDate: txn.effective_date || txn.payment_date,
+      amount: parseFloat(txn.amount),
+      paidAmount: (txn.status === 'Pago' || txn.status === 'Recebido') ? parseFloat(txn.amount) : 0,
+      remainingAmount: (txn.status === 'Pago' || txn.status === 'Recebido') ? 0 : parseFloat(txn.amount),
+      status: finalStatus,
+      paymentMethodId: txn.payment_method_id || '',
+      bankAccountId: txn.bank_account_id || '',
+      installmentNumber: txn.installment_number,
+      totalInstallments: txn.total_installments,
+      description: txn.description,
+      reference: txn.reference, // ✅ Referência ao pedido
+      
+      // Campos adicionais para compatibilidade
+      type: txn.type,
+      partyName: txn.party_name,
+      categoryName: txn.category_name,
+      bankAccountName: txn.bank_account_name,
+      paymentMethodName: txn.payment_method_name,
+      origin: txn.origin,
+      administrativeStatus: txn.administrative_status
     };
   }) || [];
 }
 
 export async function saveAccountsPayable(companyId: string, accounts: any[]) {
-  const supabase = getSupabaseClient();
-
-  // Deletar contas antigas
-  const { error: deleteError } = await supabase
-    .from('accounts_payable')
-    .delete()
-    .eq('company_id', companyId);
-
-  if (deleteError) {
-    console.error('[SQL_SERVICE] ❌ Erro ao deletar accounts payable:', deleteError);
-    throw new Error(deleteError.message);
-  }
-
-  // Inserir novas contas
-  if (accounts.length > 0) {
-    // ✅ CORREÇÃO: Resolver supplier_id de SKU → UUID antes de inserir
-    console.log(`[SQL_SERVICE] 🔄 Processando ${accounts.length} contas a pagar...`);
-    
-    const rowsPromises = accounts.map(async (account: any) => {
-      const resolvedSupplierId = await resolveSupplierId(companyId, account.supplierId);
-      const normalizedStatus = normalizeAccountStatus(account.status);
-      
-      console.log(`[SQL_SERVICE] 📝 Conta a pagar: Status "${account.status}" → "${normalizedStatus}", Supplier ID: ${account.supplierId} → ${resolvedSupplierId}`);
-      
-      return {
-      // ❌ REMOVIDO: id: account.id (UUID gerado automaticamente pelo banco)
-      company_id: companyId,
-      supplier_id: resolvedSupplierId, // ✅ CORRIGIDO: Resolver SKU → UUID
-      order_id: account.orderId,
-      installment_number: account.installmentNumber,
-      total_installments: account.totalInstallments,
-      description: account.description,
-      amount: account.amount,
-      due_date: account.dueDate,
-      status: normalizedStatus, // ✅ CORRIGIDO: Normalizar PT → EN
-      payment_date: account.paymentDate,
-      payment_amount: account.paymentAmount,
-      payment_method: account.paymentMethod || '',
-      notes: account.notes || ''
-      };
-    });
-
-    const rows = await Promise.all(rowsPromises);
-    
-    // ✅ FILTRAR contas sem supplier_id (evita violação de foreign key)
-    const validRows = rows.filter(row => {
-      if (!row.supplier_id) {
-        console.warn(`⚠️ [SQL_SERVICE] Conta a pagar sem supplier_id - ignorando na persistência: ${row.description}`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validRows.length > 0) {
-      const { error: insertError } = await supabase
-        .from('accounts_payable')
-        .insert(validRows);
-
-      if (insertError) {
-        console.error('[SQL_SERVICE] ❌ Erro ao inserir accounts payable:', insertError);
-        throw new Error(insertError.message);
-      }
-    }
-
-    console.log(`[SQL_SERVICE] ✅ ${validRows.length}/${accounts.length} accounts payable salvos (${accounts.length - validRows.length} ignorados sem supplier_id)`);
-  }
-
-  console.log(`[SQL_SERVICE] ✅ Processamento de accounts payable concluído`);
-  return { success: true, count: accounts.length };
+  // ✅ DEPRECATED: Não faz mais nada - contas são salvas diretamente em financial_transactions
+  console.log(`[SQL_SERVICE] ⚠️ saveAccountsPayable DEPRECATED - usando apenas financial_transactions`);
+  console.log(`[SQL_SERVICE] 📝 Ignorando ${accounts.length} contas (já estão em financial_transactions)`);
+  return { success: true, count: 0, deprecated: true };
 }
 
 // ==================== BANK ACCOUNTS ====================

@@ -1179,8 +1179,84 @@ export function ERPProvider({ children }: { children: ReactNode }) {
 
   // Alias para usar no código
   const financialTransactions = internalFinancialTransactions;
-  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>([]);
-  const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>([]);
+  
+  // ✅ MIGRADO: Contas a receber/pagar agora são computed properties de financial_transactions
+  // Removidos states: accountsReceivable, accountsPayable (agora derivados de financialTransactions)
+  
+  // ✅ Computed property: Contas a Receber (Receitas pendentes)
+  const accountsReceivable = useMemo(() => {
+    return financialTransactions
+      .filter(txn => 
+        txn.type === 'Receita' && 
+        (txn.status === 'A Receber' || txn.status === 'Vencido') &&
+        (!txn.administrativeStatus || txn.administrativeStatus === 'active')
+      )
+      .map(txn => ({
+        id: txn.id,
+        customerId: txn.partyId || '',
+        customerName: txn.partyName,
+        invoiceNumber: txn.id,
+        issueDate: txn.date,
+        dueDate: txn.dueDate,
+        paymentDate: txn.effectiveDate || txn.paymentDate,
+        amount: txn.amount,
+        paidAmount: (txn.status === 'Recebido' || txn.status === 'Pago') ? txn.amount : 0,
+        remainingAmount: (txn.status === 'Recebido' || txn.status === 'Pago') ? 0 : txn.amount,
+        status: txn.status as any,
+        paymentMethodId: txn.paymentMethodId,
+        bankAccountId: txn.bankAccountId,
+        installmentNumber: txn.installmentNumber,
+        totalInstallments: txn.totalInstallments,
+        description: txn.description,
+        reference: txn.reference,
+        // Campos adicionais para compatibilidade
+        type: txn.type,
+        partyName: txn.partyName,
+        categoryName: txn.categoryName,
+        bankAccountName: txn.bankAccountName,
+        paymentMethodName: txn.paymentMethodName,
+        origin: txn.origin,
+        administrativeStatus: txn.administrativeStatus
+      } as AccountReceivable));
+  }, [financialTransactions]);
+
+  // ✅ Computed property: Contas a Pagar (Despesas pendentes)
+  const accountsPayable = useMemo(() => {
+    return financialTransactions
+      .filter(txn => 
+        txn.type === 'Despesa' && 
+        (txn.status === 'A Pagar' || txn.status === 'Vencido') &&
+        (!txn.administrativeStatus || txn.administrativeStatus === 'active')
+      )
+      .map(txn => ({
+        id: txn.id,
+        supplierId: txn.partyId || '',
+        supplierName: txn.partyName,
+        invoiceNumber: txn.id,
+        issueDate: txn.date,
+        dueDate: txn.dueDate,
+        paymentDate: txn.effectiveDate || txn.paymentDate,
+        amount: txn.amount,
+        paidAmount: (txn.status === 'Pago' || txn.status === 'Recebido') ? txn.amount : 0,
+        remainingAmount: (txn.status === 'Pago' || txn.status === 'Recebido') ? 0 : txn.amount,
+        status: txn.status as any,
+        paymentMethodId: txn.paymentMethodId,
+        bankAccountId: txn.bankAccountId,
+        installmentNumber: txn.installmentNumber,
+        totalInstallments: txn.totalInstallments,
+        description: txn.description,
+        reference: txn.reference,
+        // Campos adicionais para compatibilidade
+        type: txn.type,
+        partyName: txn.partyName,
+        categoryName: txn.categoryName,
+        bankAccountName: txn.bankAccountName,
+        paymentMethodName: txn.paymentMethodName,
+        origin: txn.origin,
+        administrativeStatus: txn.administrativeStatus
+      } as AccountPayable));
+  }, [financialTransactions]);
+  
   const [bankMovements, setBankMovements] = useState<BankMovement[]>([]);
   const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>([]);
   
@@ -1380,8 +1456,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     migrateIfNeeded(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods, setPaymentMethods);
     migrateIfNeeded(STORAGE_KEYS.ACCOUNT_CATEGORIES, accountCategories, setAccountCategories);
     migrateIfNeeded(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, financialTransactions, setFinancialTransactions);
-    migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, accountsReceivable, setAccountsReceivable);
-    migrateIfNeeded(STORAGE_KEYS.ACCOUNTS_PAYABLE, accountsPayable, setAccountsPayable);
+    // ✅ REMOVIDO: accountsReceivable e accountsPayable (agora computed properties)
     migrateIfNeeded(STORAGE_KEYS.BANK_MOVEMENTS, bankMovements, setBankMovements);
     migrateIfNeeded(STORAGE_KEYS.CASH_FLOW_ENTRIES, cashFlowEntries, setCashFlowEntries);
     migrateIfNeeded(STORAGE_KEYS.COMPANY_HISTORY, companyHistory, setCompanyHistory);
@@ -1467,8 +1542,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     console.log(`[CACHE] 📋 Account Categories: ${cachedAccountCategories.length} items`);
     
     setFinancialTransactions(loadCached(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, []));
-    setAccountsReceivable(loadCached(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, []));
-    setAccountsPayable(loadCached(STORAGE_KEYS.ACCOUNTS_PAYABLE, []));
+    // ✅ REMOVIDO: accountsReceivable e accountsPayable (agora computed properties)
     setBankMovements(loadCached(STORAGE_KEYS.BANK_MOVEMENTS, []));
     setCashFlowEntries(loadCached(STORAGE_KEYS.CASH_FLOW_ENTRIES, []));
     setAuditIssues(loadCached(STORAGE_KEYS.AUDIT_ISSUES, []));
@@ -1650,19 +1724,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           setFinancialTransactions(financialTransactionsData);
         }
         
-        // Carregar contas a receber
-        const accountsReceivableData = await loadEntity<AccountReceivable[]>('accounts-receivable');
-        if (isSubscribed && accountsReceivableData) {
-          console.log(`[SUPABASE] ✅ ${accountsReceivableData.length} contas a receber carregadas`);
-          setAccountsReceivable(accountsReceivableData);
-        }
-        
-        // Carregar contas a pagar
-        const accountsPayableData = await loadEntity<AccountPayable[]>('accounts-payable');
-        if (isSubscribed && accountsPayableData) {
-          console.log(`[SUPABASE] ✅ ${accountsPayableData.length} contas a pagar carregadas`);
-          setAccountsPayable(accountsPayableData);
-        }
+        // ✅ REMOVIDO: Carregamento de accounts_receivable e accounts_payable (agora computed properties)
         
         // Carregar movimentações bancárias
         const bankMovementsData = await loadEntity<BankMovement[]>('bank-movements');
@@ -1855,8 +1917,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   useEntityPersistence({ entityName: 'payment-methods', data: paymentMethods, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'account-categories', data: accountCategories, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'financial-transactions', data: financialTransactions, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'accounts-receivable', data: accountsReceivable, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
-  useEntityPersistence({ entityName: 'accounts-payable', data: accountsPayable, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 500 });
+  // ✅ REMOVIDO: Persistência de accounts-receivable e accounts-payable (agora computed properties)
   useEntityPersistence({ entityName: 'bank-movements', data: bankMovements, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   useEntityPersistence({ entityName: 'cash-flow-entries', data: cashFlowEntries, enabled: initialDataLoaded && !!profile?.company_id, throttleMs: 1000 });
   
@@ -1954,15 +2015,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     saveToStorage(getStorageKey(STORAGE_KEYS.FINANCIAL_TRANSACTIONS, profile.company_id), internalFinancialTransactions);
   }, [internalFinancialTransactions, profile?.company_id]);
 
-  useEffect(() => {
-    if (!profile?.company_id) return;
-    saveToStorage(getStorageKey(STORAGE_KEYS.ACCOUNTS_RECEIVABLE, profile.company_id), accountsReceivable);
-  }, [accountsReceivable, profile?.company_id]);
-
-  useEffect(() => {
-    if (!profile?.company_id) return;
-    saveToStorage(getStorageKey(STORAGE_KEYS.ACCOUNTS_PAYABLE, profile.company_id), accountsPayable);
-  }, [accountsPayable, profile?.company_id]);
+  // ✅ REMOVIDO: saveToStorage para accounts_receivable e accounts_payable (agora computed properties)
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -2212,15 +2265,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           console.log(`✅ [BACKEND SYNC] Financial Transactions: ${financialTransactionsRes.data.length} registros`);
         }
 
-        if (accountsReceivableRes.success && accountsReceivableRes.data) {
-          setAccountsReceivable(accountsReceivableRes.data);
-          console.log(`✅ [BACKEND SYNC] Accounts Receivable: ${accountsReceivableRes.data.length} registros`);
-        }
-
-        if (accountsPayableRes.success && accountsPayableRes.data) {
-          setAccountsPayable(accountsPayableRes.data);
-          console.log(`✅ [BACKEND SYNC] Accounts Payable: ${accountsPayableRes.data.length} registros`);
-        }
+        // ✅ REMOVIDO: Sincronização de accounts_receivable e accounts_payable (agora computed properties)
 
         console.log('[BACKEND SYNC] 🏦 Resposta completa bank accounts:', bankAccountsRes);
         console.log('[BACKEND SYNC] 🏦 bankAccountsRes.success:', bankAccountsRes.success);
@@ -3346,12 +3391,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
-      // ✅ NOVO: Adicionar todas as contas a receber
-      setAccountsReceivable(prev => {
-        const updated = [...createdAccountsReceivable, ...prev];
-        console.log(`📊 ${createdAccountsReceivable.length} conta(s) a receber criada(s). Total: ${updated.length}`);
-        return updated;
-      });
+      // ✅ REMOVIDO: Sincronização com accounts_receivable (agora é computed property)
+      // As contas a receber são automaticamente derivadas de financialTransactions
       
       console.log(`✅ ${createdTransactions.length} conta(s) a receber criada(s) para pedido ${order.id}`);
       
@@ -3846,8 +3887,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           if (newStatus === 'Entregue') {
             const refreshedTransactions = await loadEntity<FinancialTransaction[]>('financial-transactions');
             if (refreshedTransactions) setFinancialTransactions(refreshedTransactions);
-            const refreshedAR = await loadEntity<AccountReceivable[]>('accounts-receivable');
-            if (refreshedAR) setAccountsReceivable(refreshedAR);
+            // ✅ REMOVIDO: Refresh de accounts-receivable (agora computed property)
           }
         } catch (error) {
           console.error('[SALES ORDER] ⚠️ Erro ao atualizar:', error);
@@ -4936,66 +4976,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // Adicionar transação ao state local
       setFinancialTransactions(prev => [newTransaction, ...prev]);
 
-      // ✅ ADICIONAR a accounts_receivable/accounts_payable se status for pendente
-      // ⚠️ IMPORTANTE: Pular se origin='Pedido' porque a função createAccountsReceivable já criou
-      const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
-      const shouldCreateAccountsEntry = pendingStatuses.includes(newTransaction.status) && newTransaction.origin !== 'Pedido';
-      
-      if (newTransaction.origin === 'Pedido') {
-        console.log(`ℹ️ Origin='Pedido' - accounts_receivable/payable já criado pela função createAccountsReceivable`);
-      }
-      
-      if (shouldCreateAccountsEntry) {
-        if (newTransaction.type === 'Receita') {
-          // ✅ Só criar se tiver customer_id válido
-          if (newTransaction.partyId) {
-            const accountReceivable: AccountReceivable = {
-              id: `AR-${newTransaction.id}`,
-              customerId: newTransaction.partyId,
-              customerName: newTransaction.partyName,
-              invoiceNumber: newTransaction.reference || newTransaction.id,
-              issueDate: newTransaction.date,
-              dueDate: newTransaction.dueDate,
-              amount: newTransaction.amount,
-              paidAmount: 0,
-              remainingAmount: newTransaction.amount,
-              status: newTransaction.status,
-              installmentNumber: newTransaction.installmentNumber || 1,
-              totalInstallments: newTransaction.totalInstallments || 1,
-              description: newTransaction.description,
-              reference: newTransaction.id
-            };
-            setAccountsReceivable(prev => [accountReceivable, ...prev]);
-            console.log(`➕ Adicionada a Contas a Receber: ${newTransaction.id} (status: ${newTransaction.status})`);
-          } else {
-            console.warn(`⚠️ Transação sem customer_id, não adicionada a Contas a Receber: ${newTransaction.id}`);
-          }
-        } else {
-          // ✅ Só criar se tiver supplier_id válido
-          if (newTransaction.partyId) {
-            const accountPayable: AccountPayable = {
-              id: `AP-${newTransaction.id}`,
-              supplierId: newTransaction.partyId,
-              supplierName: newTransaction.partyName,
-              invoiceNumber: newTransaction.reference || newTransaction.id,
-              issueDate: newTransaction.date,
-              dueDate: newTransaction.dueDate,
-              amount: newTransaction.amount,
-              paidAmount: 0,
-              remainingAmount: newTransaction.amount,
-              status: newTransaction.status,
-              installmentNumber: newTransaction.installmentNumber || 1,
-              totalInstallments: newTransaction.totalInstallments || 1,
-              description: newTransaction.description,
-              reference: newTransaction.id
-            };
-            setAccountsPayable(prev => [accountPayable, ...prev]);
-            console.log(`➕ Adicionada a Contas a Pagar: ${newTransaction.id} (status: ${newTransaction.status})`);
-          } else {
-            console.warn(`⚠️ Transação sem supplier_id, não adicionada a Contas a Pagar: ${newTransaction.id}`);
-          }
-        }
-      }
+      // ✅ REMOVIDO: Sincronização com accounts_receivable/payable (agora computed properties)
+      // As contas pendentes são automaticamente derivadas de financialTransactions
       
       // ✅ CORREÇÃO: Atualizar saldo bancário se pago/recebido
       // Verifica effectiveDate (quando criada como paga) OU paymentDate (campo antigo)
@@ -5145,21 +5127,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         prev.map(t => t.id === id ? data.transaction : t)
       );
 
-      // ✅ REMOVER de accounts_receivable/accounts_payable quando cancelar
-      const transaction = financialTransactions.find(t => t.id === id);
-      if (transaction) {
-        if (transaction.type === 'Receita') {
-          setAccountsReceivable(prev => prev.filter(ar => 
-            ar.invoiceNumber !== id && ar.reference !== id
-          ));
-          console.log(`🗑️ Removida de Contas a Receber (cancelamento): ${id}`);
-        } else {
-          setAccountsPayable(prev => prev.filter(ap => 
-            ap.invoiceNumber !== id && ap.reference !== id
-          ));
-          console.log(`🗑️ Removida de Contas a Pagar (cancelamento): ${id}`);
-        }
-      }
+      // ✅ REMOVIDO: Sincronização com accounts_receivable/payable (agora computed properties)
+      // As contas pendentes são automaticamente recalculadas
 
       toast.success('Transação cancelada com sucesso', {
         description: 'A transação foi marcada como cancelada e permanece no histórico para auditoria'
@@ -5223,73 +5192,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         data.newTransaction
       ]);
 
-      // ✅ REMOVER transação antiga de accounts_receivable/accounts_payable
-      const oldTransaction = financialTransactions.find(t => t.id === oldId);
-      if (oldTransaction) {
-        if (oldTransaction.type === 'Receita') {
-          setAccountsReceivable(prev => prev.filter(ar => 
-            ar.invoiceNumber !== oldId && ar.reference !== oldId
-          ));
-          console.log(`🗑️ Removida de Contas a Receber (substituição): ${oldId}`);
-        } else {
-          setAccountsPayable(prev => prev.filter(ap => 
-            ap.invoiceNumber !== oldId && ap.reference !== oldId
-          ));
-          console.log(`🗑️ Removida de Contas a Pagar (substituição): ${oldId}`);
-        }
-      }
-
-      // ✅ ADICIONAR nova transação a accounts_receivable/accounts_payable (se pendente)
-      if (data.newTransaction) {
-        const pendingStatuses = ['A Receber', 'A Pagar', 'Vencido'];
-        if (pendingStatuses.includes(data.newTransaction.status)) {
-          if (data.newTransaction.type === 'Receita') {
-            // ✅ Só criar se tiver customer_id válido
-            if (data.newTransaction.partyId) {
-              const accountReceivable: AccountReceivable = {
-                id: `AR-${data.newTransaction.id}`,
-                customerId: data.newTransaction.partyId,
-                customerName: data.newTransaction.partyName,
-                invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
-                issueDate: data.newTransaction.date,
-                dueDate: data.newTransaction.dueDate,
-                amount: data.newTransaction.amount,
-                paidAmount: 0,
-                remainingAmount: data.newTransaction.amount,
-                status: data.newTransaction.status,
-                installmentNumber: data.newTransaction.installmentNumber || 1,
-                totalInstallments: data.newTransaction.totalInstallments || 1,
-                description: data.newTransaction.description,
-                reference: data.newTransaction.id
-              };
-              setAccountsReceivable(prev => [accountReceivable, ...prev]);
-              console.log(`➕ Adicionada a Contas a Receber (substituição): ${data.newTransaction.id}`);
-            }
-          } else {
-            // ✅ Só criar se tiver supplier_id válido
-            if (data.newTransaction.partyId) {
-              const accountPayable: AccountPayable = {
-                id: `AP-${data.newTransaction.id}`,
-                supplierId: data.newTransaction.partyId,
-                supplierName: data.newTransaction.partyName,
-                invoiceNumber: data.newTransaction.reference || data.newTransaction.id,
-                issueDate: data.newTransaction.date,
-                dueDate: data.newTransaction.dueDate,
-                amount: data.newTransaction.amount,
-                paidAmount: 0,
-                remainingAmount: data.newTransaction.amount,
-                status: data.newTransaction.status,
-                installmentNumber: data.newTransaction.installmentNumber || 1,
-                totalInstallments: data.newTransaction.totalInstallments || 1,
-                description: data.newTransaction.description,
-                reference: data.newTransaction.id
-              };
-              setAccountsPayable(prev => [accountPayable, ...prev]);
-              console.log(`➕ Adicionada a Contas a Pagar (substituição): ${data.newTransaction.id}`);
-            }
-          }
-        }
-      }
+      // ✅ REMOVIDO: Sincronização com accounts_receivable/payable (agora computed properties)
+      // As contas pendentes são automaticamente recalculadas
 
       toast.success('Transação substituída com sucesso', {
         description: 'A transação antiga foi arquivada e uma nova foi criada'
@@ -5347,55 +5251,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         prev.map(t => t.id === id ? data.transaction : t)
       );
 
-      // ✅ RE-ADICIONAR a accounts_receivable/accounts_payable quando estornar
-      const transaction = financialTransactions.find(t => t.id === id);
-      if (transaction) {
-        if (transaction.type === 'Receita') {
-          // ✅ Só criar se tiver customer_id válido
-          if (transaction.partyId) {
-            const accountReceivable: AccountReceivable = {
-              id: `AR-${transaction.id}`,
-              customerId: transaction.partyId,
-              customerName: transaction.partyName,
-              invoiceNumber: transaction.reference || transaction.id,
-              issueDate: transaction.date,
-              dueDate: transaction.dueDate,
-              amount: transaction.amount,
-              paidAmount: 0,
-              remainingAmount: transaction.amount,
-              status: data.transaction.status,
-              installmentNumber: transaction.installmentNumber || 1,
-              totalInstallments: transaction.totalInstallments || 1,
-              description: transaction.description,
-              reference: transaction.id
-            };
-            setAccountsReceivable(prev => [accountReceivable, ...prev]);
-            console.log(`➕ Re-adicionada a Contas a Receber: ${transaction.id}`);
-          }
-        } else {
-          // ✅ Só criar se tiver supplier_id válido
-          if (transaction.partyId) {
-            const accountPayable: AccountPayable = {
-              id: `AP-${transaction.id}`,
-              supplierId: transaction.partyId,
-              supplierName: transaction.partyName,
-              invoiceNumber: transaction.reference || transaction.id,
-              issueDate: transaction.date,
-              dueDate: transaction.dueDate,
-              amount: transaction.amount,
-              paidAmount: 0,
-              remainingAmount: transaction.amount,
-              status: data.transaction.status,
-              installmentNumber: transaction.installmentNumber || 1,
-              totalInstallments: transaction.totalInstallments || 1,
-              description: transaction.description,
-              reference: transaction.id
-            };
-            setAccountsPayable(prev => [accountPayable, ...prev]);
-            console.log(`➕ Re-adicionada a Contas a Pagar: ${transaction.id}`);
-          }
-        }
-      }
+      // ✅ REMOVIDO: Sincronização com accounts_receivable/payable (agora computed properties)
+      // As contas pendentes são automaticamente recalculadas
 
       toast.success('Liquidação estornada com sucesso', {
         description: 'A transação voltou ao status pendente'
@@ -5460,12 +5317,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar transação
     updateFinancialTransaction(id, updates);
 
-    // ✅ REMOVER de accounts_receivable quando liquidar (transação não é mais pendente)
-    setAccountsReceivable(prev => prev.filter(ar => 
-      ar.invoiceNumber !== id && // Remove por ID da transação
-      ar.reference !== id // Ou por referência
-    ));
-    console.log(`🗑️ Removida de Contas a Receber: ${id}`);
+    // ✅ REMOVIDO: Sincronização com accounts_receivable (agora computed property)
+    // As contas pendentes são automaticamente recalculadas
 
     // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
@@ -5659,12 +5512,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     // Atualizar transação
     updateFinancialTransaction(id, updates);
 
-    // ✅ REMOVER de accounts_payable quando liquidar (transação não é mais pendente)
-    setAccountsPayable(prev => prev.filter(ap => 
-      ap.invoiceNumber !== id && // Remove por ID da transação
-      ap.reference !== id // Ou por referência
-    ));
-    console.log(`🗑️ Removida de Contas a Pagar: ${id}`);
+    // ✅ REMOVIDO: Sincronização com accounts_payable (agora computed property)
+    // As contas pendentes são automaticamente recalculadas
 
     // ✅ DESCONCILIAR DATA DA LIQUIDAÇÃO E TODAS AS DATAS FUTURAS CONCILIADAS
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00');
@@ -5934,87 +5783,53 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   // Accounts Receivable
+  // ✅ DEPRECATED: Usar addFinancialTransaction com type="Receita" e status="A Receber"
   const addAccountReceivable = (accountData: Omit<AccountReceivable, 'id'>) => {
-    const newAccount: AccountReceivable = {
-      ...accountData,
-      id: `AR-${String(accountsReceivable.length + 1).padStart(4, '0')}`
-    };
-    setAccountsReceivable(prev => [...prev, newAccount]);
-    toast.success("Conta a receber registrada!");
-  };
-
-  const updateAccountReceivable = (id: string, updates: Partial<AccountReceivable>) => {
-    setAccountsReceivable(prev => prev.map(account => 
-      account.id === id ? { ...account, ...updates } : account
-    ));
-    toast.success("Conta a receber atualizada!");
-  };
-
-  const markAsReceived = (id: string, paymentDate: string, amount: number, bankAccountId: string) => {
-    const account = accountsReceivable.find(a => a.id === id);
-    if (!account) return;
-
-    const newPaidAmount = account.paidAmount + amount;
-    const newRemainingAmount = account.amount - newPaidAmount;
-    const newStatus = newRemainingAmount === 0 ? "Recebido" : "Parcial";
-
-    updateAccountReceivable(id, {
-      paymentDate,
-      paidAmount: newPaidAmount,
-      remainingAmount: newRemainingAmount,
-      status: newStatus,
-      bankAccountId
+    console.warn('⚠️ addAccountReceivable DEPRECATED - use addFinancialTransaction');
+    toast.error("Função obsoleta - use Transações Financeiras", {
+      description: "Contas a receber agora são gerenciadas via Transações Financeiras"
     });
+  };
 
-    // Atualizar saldo bancário
-    const bank = companySettings.bankAccounts.find(b => b.id === bankAccountId);
-    if (bank) {
-      updateBankAccount(bankAccountId, { balance: bank.balance + amount });
-    }
+  // ✅ DEPRECATED: Usar updateFinancialTransaction
+  const updateAccountReceivable = (id: string, updates: Partial<AccountReceivable>) => {
+    console.warn('⚠️ updateAccountReceivable DEPRECATED - use updateFinancialTransaction');
+    toast.error("Função obsoleta - use Transações Financeiras", {
+      description: "Contas a receber agora são gerenciadas via Transações Financeiras"
+    });
+  };
 
-    toast.success(`Recebimento de R$ ${amount.toFixed(2)} registrado!`);
+  // ✅ DEPRECATED: Usar markTransactionAsReceived
+  const markAsReceived = (id: string, paymentDate: string, amount: number, bankAccountId: string) => {
+    console.warn('⚠️ markAsReceived DEPRECATED - use markTransactionAsReceived');
+    toast.error("Função obsoleta - use Liquidar Transação", {
+      description: "Use markTransactionAsReceived ou a interface de Transações Financeiras"
+    });
   };
 
   // Accounts Payable
+  // ✅ DEPRECATED: Usar addFinancialTransaction com type="Despesa" e status="A Pagar"
   const addAccountPayable = (accountData: Omit<AccountPayable, 'id'>) => {
-    const newAccount: AccountPayable = {
-      ...accountData,
-      id: `AP-${String(accountsPayable.length + 1).padStart(4, '0')}`
-    };
-    setAccountsPayable(prev => [...prev, newAccount]);
-    toast.success("Conta a pagar registrada!");
-  };
-
-  const updateAccountPayable = (id: string, updates: Partial<AccountPayable>) => {
-    setAccountsPayable(prev => prev.map(account => 
-      account.id === id ? { ...account, ...updates } : account
-    ));
-    toast.success("Conta a pagar atualizada!");
-  };
-
-  const markAsPaid = (id: string, paymentDate: string, amount: number, bankAccountId: string) => {
-    const account = accountsPayable.find(a => a.id === id);
-    if (!account) return;
-
-    const newPaidAmount = account.paidAmount + amount;
-    const newRemainingAmount = account.amount - newPaidAmount;
-    const newStatus = newRemainingAmount === 0 ? "Pago" : "Parcial";
-
-    updateAccountPayable(id, {
-      paymentDate,
-      paidAmount: newPaidAmount,
-      remainingAmount: newRemainingAmount,
-      status: newStatus,
-      bankAccountId
+    console.warn('⚠️ addAccountPayable DEPRECATED - use addFinancialTransaction');
+    toast.error("Função obsoleta - use Transações Financeiras", {
+      description: "Contas a pagar agora são gerenciadas via Transações Financeiras"
     });
+  };
 
-    // Atualizar saldo bancário
-    const bank = companySettings.bankAccounts.find(b => b.id === bankAccountId);
-    if (bank) {
-      updateBankAccount(bankAccountId, { balance: bank.balance - amount });
-    }
+  // ✅ DEPRECATED: Usar updateFinancialTransaction
+  const updateAccountPayable = (id: string, updates: Partial<AccountPayable>) => {
+    console.warn('⚠️ updateAccountPayable DEPRECATED - use updateFinancialTransaction');
+    toast.error("Função obsoleta - use Transações Financeiras", {
+      description: "Contas a pagar agora são gerenciadas via Transações Financeiras"
+    });
+  };
 
-    toast.success(`Pagamento de R$ ${amount.toFixed(2)} registrado!`);
+  // ✅ DEPRECATED: Usar markTransactionAsPaid
+  const markAsPaid = (id: string, paymentDate: string, amount: number, bankAccountId: string) => {
+    console.warn('⚠️ markAsPaid DEPRECATED - use markTransactionAsPaid');
+    toast.error("Função obsoleta - use Liquidar Transação", {
+      description: "Use markTransactionAsPaid ou a interface de Transações Financeiras"
+    });
   };
 
   // Bank Movements
@@ -6551,12 +6366,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       
       console.log(`✅ ${createdTransactions.length} transação(ões) criada(s) com SKUs: ${createdTransactions.map(t => t.id).join(', ')}`);
       
-      // ✅ NOVO: Adicionar todas as contas a pagar
-      setAccountsPayable(prev => {
-        const updated = [...createdAccountsPayable, ...prev];
-        console.log(`📊 ${createdAccountsPayable.length} conta(s) a pagar criada(s). Total: ${updated.length}`);
-        return updated;
-      });
+      // ✅ REMOVIDO: Sincronização com accounts_payable (agora é computed property)
+      // As contas a pagar são automaticamente derivadas de financialTransactions
       
       console.log(`✅ ${createdTransactions.length} conta(s) a pagar criada(s) para pedido ${order.id}`);
       
@@ -6678,12 +6489,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
             console.log('[PURCHASE ORDER] ✅ Transações financeiras atualizadas do backend');
           }
           
-          // Recarregar contas a pagar
-          const refreshedAccountsPayable = await loadEntity<AccountPayable[]>('accounts-payable');
-          if (refreshedAccountsPayable && refreshedAccountsPayable.length > 0) {
-            setAccountsPayable(refreshedAccountsPayable);
-            console.log('[PURCHASE ORDER] ✅ Contas a pagar atualizadas do backend');
-          }
+          // ✅ REMOVIDO: Refresh de accounts-payable (agora computed property)
         } catch (error) {
           console.error('[PURCHASE ORDER] ⚠️ Erro ao atualizar dados:', error);
         }
