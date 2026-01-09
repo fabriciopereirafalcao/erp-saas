@@ -2151,15 +2151,10 @@ export async function getAccountsReceivable(companyId: string) {
   console.log('[SQL_SERVICE] 📊 Buscando contas a receber de financial_transactions (arquitetura unificada)');
   
   // ✅ Query unificada: buscar transações de receita pendentes (status A Receber ou Vencido)
+  // NOTA: party_name já está armazenado na transação, não precisa JOIN
   const { data, error } = await supabase
     .from('financial_transactions')
-    .select(`
-      *,
-      customers:party_id (
-        name,
-        sku
-      )
-    `)
+    .select('*')
     .eq('company_id', companyId)
     .eq('type', 'Receita')
     .in('status', ['A Receber', 'Vencido'])
@@ -2182,8 +2177,8 @@ export async function getAccountsReceivable(companyId: string) {
     
     return {
       id: txn.sku, // ✅ Usar SKU como ID (FT-0001)
-      customerId: txn.customers?.sku || txn.party_id || '',
-      customerName: txn.customers?.name || txn.party_name || '',
+      customerId: txn.party_id || '',
+      customerName: txn.party_name || '',
       invoiceNumber: txn.sku, // ✅ Usar SKU como número da fatura
       issueDate: txn.date,
       dueDate: txn.due_date,
@@ -2227,15 +2222,10 @@ export async function getAccountsPayable(companyId: string) {
   console.log('[SQL_SERVICE] 📊 Buscando contas a pagar de financial_transactions (arquitetura unificada)');
   
   // ✅ Query unificada: buscar transações de despesa pendentes (status A Pagar ou Vencido)
+  // NOTA: party_name já está armazenado na transação, não precisa JOIN
   const { data, error } = await supabase
     .from('financial_transactions')
-    .select(`
-      *,
-      suppliers:party_id (
-        name,
-        sku
-      )
-    `)
+    .select('*')
     .eq('company_id', companyId)
     .eq('type', 'Despesa')
     .in('status', ['A Pagar', 'Vencido'])
@@ -2258,8 +2248,8 @@ export async function getAccountsPayable(companyId: string) {
     
     return {
       id: txn.sku, // ✅ Usar SKU como ID (FT-0001)
-      supplierId: txn.suppliers?.sku || txn.party_id || '',
-      supplierName: txn.suppliers?.name || txn.party_name || '',
+      supplierId: txn.party_id || '',
+      supplierName: txn.party_name || '',
       invoiceNumber: txn.sku, // ✅ Usar SKU como número da fatura
       issueDate: txn.date,
       dueDate: txn.due_date,
