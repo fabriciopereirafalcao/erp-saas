@@ -3309,8 +3309,10 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const createdAccountsReceivable: AccountReceivable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
 
-      // ✅ NOVO: Criar transações via API em paralelo
-      const transactionPromises = [];
+      // ✅ CORRIGIDO: Criar transações SEQUENCIALMENTE para evitar race condition no SKU
+      // Problema: Promise.all cria em paralelo → múltiplas transações geram mesmo SKU → duplicate key error
+      // Solução: Criar uma por vez em loop sequencial (await dentro do for)
+      const createdTransactions: FinancialTransaction[] = [];
       
       for (let i = 0; i < numberOfInstallments; i++) {
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
@@ -3352,8 +3354,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           totalInstallments: numberOfInstallments
         };
         
-        // Chamar API para criar transação com SKU gerado pelo backend
-        transactionPromises.push(addFinancialTransaction(transactionData));
+        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API (sequencial)...`);
+        
+        // ✅ Chamar API sequencialmente (await dentro do loop)
+        const newTransaction = await addFinancialTransaction(transactionData);
+        
+        if (newTransaction) {
+          createdTransactions.push(newTransaction);
+          console.log(`✅ Transação ${i + 1}/${numberOfInstallments} criada: ${newTransaction.id}`);
+        } else {
+          console.error(`❌ Falha ao criar transação ${i + 1}/${numberOfInstallments}`);
+        }
         
         // ✅ NOVO: Criar também AccountReceivable (entidade separada para Contas a Receber)
         const accountReceivable: AccountReceivable = {
@@ -3374,13 +3385,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         };
         
         createdAccountsReceivable.push(accountReceivable);
-        
-        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API`);
       }
-      
-      // Aguardar criação de todas as transações
-      const createdTransactionsResults = await Promise.all(transactionPromises);
-      const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
       
       // ✅ VALIDAÇÃO: Verificar se todas as transações foram criadas
       if (createdTransactions.length < numberOfInstallments) {
@@ -6282,10 +6287,12 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         totalAmount: order.totalAmount
       });
 
-      // ✅ NOVO: Criar transações via API em paralelo
+      // ✅ CORRIGIDO: Criar transações SEQUENCIALMENTE para evitar race condition no SKU
+      // Problema: Promise.all cria em paralelo → múltiplas transações geram mesmo SKU → duplicate key error
+      // Solução: Criar uma por vez em loop sequencial (await dentro do for)
       const createdAccountsPayable: AccountPayable[] = [];
       const installmentAmount = order.totalAmount / numberOfInstallments;
-      const transactionPromises = [];
+      const createdTransactions: FinancialTransaction[] = [];
 
       for (let i = 0; i < numberOfInstallments; i++) {
         // Calcular data de vencimento para cada parcela usando utilitário sem problema de timezone
@@ -6327,8 +6334,17 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           totalInstallments: numberOfInstallments
         };
         
-        // Chamar API para criar transação com SKU gerado pelo backend
-        transactionPromises.push(addFinancialTransaction(transactionData));
+        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API (sequencial)...`);
+        
+        // ✅ Chamar API sequencialmente (await dentro do loop)
+        const newTransaction = await addFinancialTransaction(transactionData);
+        
+        if (newTransaction) {
+          createdTransactions.push(newTransaction);
+          console.log(`✅ Transação ${i + 1}/${numberOfInstallments} criada: ${newTransaction.id}`);
+        } else {
+          console.error(`❌ Falha ao criar transação ${i + 1}/${numberOfInstallments}`);
+        }
         
         // ✅ NOVO: Criar também AccountPayable (entidade separada para Contas a Pagar)
         const accountPayable: AccountPayable = {
@@ -6349,13 +6365,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         };
         
         createdAccountsPayable.push(accountPayable);
-        
-        console.log(`💾 Criando transação financeira ${i + 1}/${numberOfInstallments} via API`);
       }
-      
-      // Aguardar criação de todas as transações
-      const createdTransactionsResults = await Promise.all(transactionPromises);
-      const createdTransactions = createdTransactionsResults.filter(t => t !== undefined) as FinancialTransaction[];
       
       // ✅ VALIDAÇÃO: Verificar se todas as transações foram criadas
       if (createdTransactions.length < numberOfInstallments) {
