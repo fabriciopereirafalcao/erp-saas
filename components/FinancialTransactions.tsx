@@ -2069,11 +2069,11 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
           <Tabs defaultValue="header" className="w-full flex flex-col flex-1 overflow-hidden">
             <div className="border-b bg-white">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="header" disabled={isReadOnly}>
+                <TabsTrigger value="header">
                   <FileText className="w-4 h-4 mr-2" />
                   Cabeçalho
                 </TabsTrigger>
-                <TabsTrigger value="payment" disabled={isReadOnly}>
+                <TabsTrigger value="payment">
                   <CreditCard className="w-4 h-4 mr-2" />
                   Condições de Pagamento
                 </TabsTrigger>
@@ -2151,7 +2151,14 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
             {/* Parceiro */}
             <div>
               <Label>Parceiro Comercial *</Label>
-              {formData.partyType === "Cliente" ? (
+              {isReadOnly ? (
+                // ✅ MODO SOMENTE LEITURA: Exibir como Input desabilitado com o nome do parceiro
+                <Input
+                  value={formData.partyName || "Sem parceiro"}
+                  disabled={true}
+                  className="bg-gray-50"
+                />
+              ) : formData.partyType === "Cliente" ? (
                 <Select
                   value={formData.partyId}
                   onValueChange={(value) => {
