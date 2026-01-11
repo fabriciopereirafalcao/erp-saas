@@ -19,12 +19,14 @@ import { FinancialTransaction, AdministrativeStatus } from '../contexts/ERPConte
 /**
  * Retorna apenas transações ATIVAS
  * ✅ Usar em todos os cálculos financeiros
+ * 
+ * NOTA: Usa administrative_status (snake_case) pois vem do banco de dados
  */
 export const getActiveTransactions = (
   transactions: FinancialTransaction[]
 ): FinancialTransaction[] => {
   return transactions.filter(
-    t => !t.administrativeStatus || t.administrativeStatus === AdministrativeStatus.ATIVA
+    t => !t.administrative_status || t.administrative_status === 'active'
   );
 };
 
@@ -46,7 +48,7 @@ export const getCancelledTransactions = (
   transactions: FinancialTransaction[]
 ): FinancialTransaction[] => {
   return transactions.filter(
-    t => t.administrativeStatus === AdministrativeStatus.CANCELADA
+    t => t.administrative_status === 'canceled'
   );
 };
 
@@ -58,7 +60,7 @@ export const getSubstitutedTransactions = (
   transactions: FinancialTransaction[]
 ): FinancialTransaction[] => {
   return transactions.filter(
-    t => t.administrativeStatus === AdministrativeStatus.SUBSTITUIDA
+    t => t.administrative_status === 'substituted'
   );
 };
 

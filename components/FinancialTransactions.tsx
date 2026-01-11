@@ -1783,20 +1783,78 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {txn.origin === "Pedido" && (txn.status === "Vencido" || txn.status === "A Receber" || txn.status === "A Pagar") && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenReceiveDialog(txn.id)}
-                          className={`h-8 w-8 p-0 ${txn.type === "Receita" ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"}`}
-                          title={txn.type === "Receita" ? "Marcar como recebido" : "Marcar como pago"}
-                        >
-                          {txn.type === "Receita" ? (
-                            <ArrowDownCircle className="w-4 h-4" />
-                          ) : (
-                            <ArrowUpCircle className="w-4 h-4" />
-                          )}
-                        </Button>
+                      {/* ✅ NOVO: MENU PARA TRANSAÇÕES DE PEDIDOS (com todas as opções) */}
+                      {txn.origin === "Pedido" && txn.status !== "Cancelado" && txn.administrative_status !== 'canceled' && txn.administrative_status !== 'substituted' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {/* Opção de Marcar como Pago/Recebido (só se ainda não foi liquidado) */}
+                            {(txn.status === "Vencido" || txn.status === "A Receber" || txn.status === "A Pagar") && (
+                              <DropdownMenuItem 
+                                onClick={() => handleOpenReceiveDialog(txn.id)}
+                                className={txn.type === "Receita" ? "text-green-600" : "text-blue-600"}
+                              >
+                                {txn.type === "Receita" ? (
+                                  <><ArrowDownCircle className="w-4 h-4 mr-2" />Marcar como Recebido</>
+                                ) : (
+                                  <><ArrowUpCircle className="w-4 h-4 mr-2" />Marcar como Pago</>
+                                )}
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Opção de Estornar Liquidação (só se foi liquidado) */}
+                            {(txn.status === "Pago" || txn.status === "Recebido") && canEditField(txn, 'effectiveDate') && (
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setReversingTransaction(txn);
+                                  setShowReverseDialog(true);
+                                }}
+                                className="text-orange-600"
+                              >
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Estornar Liquidação
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* Opção de Editar */}
+                            {canEditField(txn, 'description') && (
+                              <DropdownMenuItem onClick={() => handleEdit(txn, "single")}>
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                Editar Transação
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* Opção de Substituir */}
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSubstitutingTransaction(txn);
+                                setShowSubstituteDialog(true);
+                              }}
+                              className="text-blue-600"
+                            >
+                              <ArrowRightLeft className="w-4 h-4 mr-2" />
+                              Substituir Transação
+                            </DropdownMenuItem>
+
+                            {/* Opção de Cancelar */}
+                            {canDelete(txn) && (
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setCancellingTransaction(txn);
+                                  setShowCancelDialog(true);
+                                }}
+                                className="text-red-600"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Cancelar Transação
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </TableCell>
                     <TableCell>
@@ -2293,6 +2351,7 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
               <Select
                 value={formData.bankAccountId || "none"}
                 onValueChange={(value) => setFormData({ ...formData, bankAccountId: value === "none" ? "" : value })}
+                disabled={isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nenhum" />
