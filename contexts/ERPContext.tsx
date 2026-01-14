@@ -665,12 +665,14 @@ interface ERPContextData {
   addSalesOrder: (order: Omit<SalesOrder, 'id' | 'orderDate'>) => void;
   updateSalesOrder: (id: string, orderData: Omit<SalesOrder, 'id' | 'orderDate'>) => void;
   updateSalesOrderStatus: (id: string, status: SalesOrder['status']) => void;
+  cancelSalesOrder: (id: string, reason: string) => Promise<{ success: boolean; error?: string; data?: any }>;
   
   // Purchase Order Actions
   purchaseOrders: PurchaseOrder[];
   addPurchaseOrder: (order: Omit<PurchaseOrder, 'id' | 'orderDate'>, isExceptional?: boolean) => void;
   updatePurchaseOrder: (id: string, orderData: Omit<PurchaseOrder, 'id' | 'orderDate'>) => void;
   updatePurchaseOrderStatus: (id: string, status: PurchaseOrder['status'], userName?: string, isExceptional?: boolean, skipStockUpdate?: boolean) => void;
+  cancelPurchaseOrder: (id: string, reason: string) => Promise<{ success: boolean; error?: string; data?: any }>;
   
   // Inventory Actions
   addInventoryItem: (item: Omit<InventoryItem, 'id' | 'status' | 'lastRestocked'>) => void;
@@ -2958,7 +2960,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    // Atualizar transações financeiras vinculadas se dados financeiros foram alterados
+    // 🔒 GOVERNANÇA: Atualizar transações financeiras vinculadas se dados financeiros foram alterados
     const financialFieldsChanged = 
       orderData.paymentCondition !== undefined ||
       orderData.firstInstallmentDays !== undefined ||
@@ -2967,12 +2969,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       orderData.billingDate !== undefined ||
       orderData.deliveryDate !== undefined;
     
-    if (financialFieldsChanged && previousOrder) {
-      // Encontrar transações vinculadas ao pedido (apenas em aberto)
+    const valueChanged = 
+      orderData.totalAmount !== undefined ||
+      orderData.discount !== undefined ||
+      orderData.unitPrice !== undefined ||
+      orderData.quantity !== undefined;
+    
+    if ((financialFieldsChanged || valueChanged) && previousOrder) {
+      // Encontrar transações vinculadas ao pedido (apenas pendentes)
       const linkedTransactions = financialTransactions.filter(t => 
         t.reference === id && 
         t.origin === "Pedido" &&
-        (t.status === "A vencer" || t.status === "Vencido")
+        (t.status === "A Receber" || t.status === "Vencido" || t.status === "A vencer")
       );
       
       if (linkedTransactions.length > 0) {
@@ -2995,7 +3003,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         // Data da transação (issueDate do pedido)
         const transactionDate = updatedOrder.issueDate || updatedOrder.orderDate;
         
-        // Atualizar cada transação com nova data de vencimento e data da transação
+        // Atualizar cada transação com nova data de vencimento, data da transação e valor
         setFinancialTransactions(prev => prev.map(t => {
           const linkedTx = linkedTransactions.find(lt => lt.id === t.id);
           if (!linkedTx) return t;
@@ -3006,12 +3014,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           const daysToAdd = firstInstallmentDays + ((installmentNumber - 1) * 30);
           const newDueDate = addDaysToDate(baseDate, daysToAdd);
           
+          // 🔒 GOVERNANÇA: Recalcular valor proporcional se houve mudança
+          let newAmount = t.amount;
+          if (valueChanged && updatedOrder.totalAmount !== previousOrder.totalAmount) {
+            const amountPerInstallment = updatedOrder.totalAmount / numberOfInstallments;
+            newAmount = amountPerInstallment;
+            console.log(`  💰 [GOVERNANÇA] Transação ${t.id}: amount=R$${t.amount.toFixed(2)}→R$${newAmount.toFixed(2)} (total: R$${previousOrder.totalAmount.toFixed(2)}→R$${updatedOrder.totalAmount.toFixed(2)})`);
+          }
+          
           console.log(`  📅 Transação ${t.id} (${installmentNumber}/${numberOfInstallments}): date=${t.date}→${transactionDate}, dueDate=${t.dueDate}→${newDueDate}`);
           
           return {
             ...t,
             date: transactionDate,
-            dueDate: newDueDate
+            dueDate: newDueDate,
+            amount: newAmount
           };
         }));
         
@@ -3914,6 +3931,192 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     
     if (actionsExecuted.length > 0) {
       console.log(`Ações executadas para pedido ${id}:`, actionsExecuted);
+    }
+  };
+
+  // ==================== CANCELAMENTO DE PEDIDOS COM GOVERNANÇA ====================
+
+  /**
+   * Cancela pedido de venda com governança completa:
+   * - Valida parcelas liquidadas no backend
+   * - Cancela transações financeiras vinculadas
+   * - Devolve estoque
+   * - Requer motivo (LGPD)
+   */
+  const cancelSalesOrder = async (id: string, reason: string): Promise<{ success: boolean; error?: string; data?: any }> => {
+    try {
+      console.log(`[ERPContext] 🚫 Cancelando pedido de venda ${id}...`);
+
+      // Validar motivo
+      if (!reason || reason.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Motivo do cancelamento é obrigatório'
+        };
+      }
+
+      if (reason.length > 200) {
+        return {
+          success: false,
+          error: 'Motivo deve ter no máximo 200 caracteres'
+        };
+      }
+
+      // Chamar backend
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/sales-orders/${id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          reason,
+          userId: user?.id || 'system',
+          userName: user?.user_metadata?.full_name || user?.email || 'Sistema'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('[ERPContext] ❌ Erro ao cancelar pedido:', result.error);
+        toast.error(result.error || 'Erro ao cancelar pedido');
+        return {
+          success: false,
+          error: result.error || 'Erro ao cancelar pedido',
+          liquidatedTransactions: result.liquidatedTransactions
+        };
+      }
+
+      console.log('[ERPContext] ✅ Pedido cancelado com sucesso:', result.data);
+
+      // Atualizar estado local
+      setSalesOrders(prev => prev.map(order => 
+        order.id === id 
+          ? { ...order, status: 'Cancelado' as any }
+          : order
+      ));
+
+      // Atualizar transações financeiras no estado local
+      if (result.data.financialTransactions?.transactions) {
+        const canceledIds = result.data.financialTransactions.transactions.map((t: any) => t.id);
+        setFinancialTransactions(prev => prev.filter(t => !canceledIds.includes(t.id)));
+      }
+
+      // Recarregar dados do backend
+      await loadAllData();
+
+      toast.success('Pedido cancelado com sucesso!', {
+        description: `${result.data.financialTransactions?.canceled || 0} transação(ões) cancelada(s), ${result.data.stockMovements?.totalStockRestored || 0} unidade(s) devolvida(s) ao estoque`
+      });
+
+      return {
+        success: true,
+        data: result.data
+      };
+
+    } catch (error) {
+      console.error('[ERPContext] ❌ Erro ao cancelar pedido:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao cancelar pedido', {
+        description: errorMessage
+      });
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  };
+
+  /**
+   * Cancela pedido de compra com governança completa:
+   * - Valida parcelas liquidadas no backend
+   * - Cancela transações financeiras vinculadas
+   * - Remove estoque
+   * - Requer motivo (LGPD)
+   */
+  const cancelPurchaseOrder = async (id: string, reason: string): Promise<{ success: boolean; error?: string; data?: any }> => {
+    try {
+      console.log(`[ERPContext] 🚫 Cancelando pedido de compra ${id}...`);
+
+      // Validar motivo
+      if (!reason || reason.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Motivo do cancelamento é obrigatório'
+        };
+      }
+
+      if (reason.length > 200) {
+        return {
+          success: false,
+          error: 'Motivo deve ter no máximo 200 caracteres'
+        };
+      }
+
+      // Chamar backend
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/purchase-orders/${id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          reason,
+          userId: user?.id || 'system',
+          userName: user?.user_metadata?.full_name || user?.email || 'Sistema'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('[ERPContext] ❌ Erro ao cancelar pedido:', result.error);
+        toast.error(result.error || 'Erro ao cancelar pedido');
+        return {
+          success: false,
+          error: result.error || 'Erro ao cancelar pedido',
+          liquidatedTransactions: result.liquidatedTransactions
+        };
+      }
+
+      console.log('[ERPContext] ✅ Pedido cancelado com sucesso:', result.data);
+
+      // Atualizar estado local
+      setPurchaseOrders(prev => prev.map(order => 
+        order.id === id 
+          ? { ...order, status: 'Cancelado' as any }
+          : order
+      ));
+
+      // Atualizar transações financeiras no estado local
+      if (result.data.financialTransactions?.transactions) {
+        const canceledIds = result.data.financialTransactions.transactions.map((t: any) => t.id);
+        setFinancialTransactions(prev => prev.filter(t => !canceledIds.includes(t.id)));
+      }
+
+      // Recarregar dados do backend
+      await loadAllData();
+
+      toast.success('Pedido cancelado com sucesso!', {
+        description: `${result.data.financialTransactions?.canceled || 0} transação(ões) cancelada(s), ${result.data.stockMovements?.totalStockRemoved || 0} unidade(s) removida(s) do estoque`
+      });
+
+      return {
+        success: true,
+        data: result.data
+      };
+
+    } catch (error) {
+      console.error('[ERPContext] ❌ Erro ao cancelar pedido:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao cancelar pedido', {
+        description: errorMessage
+      });
+      return {
+        success: false,
+        error: errorMessage
+      };
     }
   };
 
@@ -5061,6 +5264,20 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const updateFinancialTransaction = (id: string, updates: Partial<FinancialTransaction>) => {
+    // 🔒 GOVERNANÇA: Bloquear edição de transações vinculadas a pedidos
+    const transaction = financialTransactions.find(t => t.id === id);
+    
+    if (transaction?.origin === 'Pedido') {
+      toast.error(
+        'Não é possível editar esta transação!',
+        {
+          description: `Esta transação está vinculada ao pedido ${transaction.reference}. Para alterar, edite o pedido através do módulo de Pedidos.`
+        }
+      );
+      console.warn(`⚠️ [GOVERNANÇA] Tentativa de editar transação ${id} vinculada ao pedido ${transaction.reference}`);
+      return;
+    }
+    
     setFinancialTransactions(prev => prev.map(transaction => 
       transaction.id === id ? { ...transaction, ...updates } : transaction
     ));
@@ -5068,7 +5285,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteFinancialTransaction = (id: string) => {
-    // Verificar se está vinculada a algum pedido
+    // 🔒 GOVERNANÇA: Bloquear exclusão de transações vinculadas a pedidos
+    const transaction = financialTransactions.find(t => t.id === id);
+    
+    if (transaction?.origin === 'Pedido') {
+      toast.error(
+        'Não é possível excluir esta transação!',
+        {
+          description: `Esta transação está vinculada ao pedido ${transaction.reference}. Para cancelar, cancele o pedido através do módulo de Pedidos.`
+        }
+      );
+      console.warn(`⚠️ [GOVERNANÇA] Tentativa de excluir transação ${id} vinculada ao pedido ${transaction.reference}`);
+      return;
+    }
+    
+    // Verificar método legado (por actionFlags)
     const linkedOrder = salesOrders.find(
       o => o.actionFlags?.financialTransactionId === id
     );
@@ -6032,7 +6263,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Atualizar transações financeiras vinculadas se dados financeiros foram alterados
+    // 🔒 GOVERNANÇA: Atualizar transações financeiras vinculadas se dados financeiros foram alterados
     const financialFieldsChanged = 
       orderData.paymentCondition !== undefined ||
       orderData.firstInstallmentDays !== undefined ||
@@ -6041,12 +6272,18 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       orderData.billingDate !== undefined ||
       orderData.deliveryDate !== undefined;
     
-    if (financialFieldsChanged && previousOrder) {
-      // Encontrar transações vinculadas ao pedido (apenas em aberto)
+    const valueChanged = 
+      orderData.totalAmount !== undefined ||
+      orderData.discount !== undefined ||
+      orderData.unitPrice !== undefined ||
+      orderData.quantity !== undefined;
+    
+    if ((financialFieldsChanged || valueChanged) && previousOrder) {
+      // Encontrar transações vinculadas ao pedido (apenas pendentes)
       const linkedTransactions = financialTransactions.filter(t => 
         t.reference === id && 
         t.origin === "Pedido" &&
-        (t.status === "A vencer" || t.status === "Vencido")
+        (t.status === "A Pagar" || t.status === "Vencido" || t.status === "A vencer")
       );
       
       if (linkedTransactions.length > 0) {
@@ -6080,12 +6317,21 @@ export function ERPProvider({ children }: { children: ReactNode }) {
           const daysToAdd = firstInstallmentDays + ((installmentNumber - 1) * 30);
           const newDueDate = addDaysToDate(baseDate, daysToAdd);
           
+          // 🔒 GOVERNANÇA: Recalcular valor proporcional se houve mudança
+          let newAmount = t.amount;
+          if (valueChanged && updatedOrder.totalAmount !== previousOrder.totalAmount) {
+            const amountPerInstallment = updatedOrder.totalAmount / numberOfInstallments;
+            newAmount = amountPerInstallment;
+            console.log(`  💰 [GOVERNANÇA] Transação ${t.id}: amount=R$${t.amount.toFixed(2)}→R$${newAmount.toFixed(2)} (total: R$${previousOrder.totalAmount.toFixed(2)}→R$${updatedOrder.totalAmount.toFixed(2)})`);
+          }
+          
           console.log(`  📅 Transação ${t.id} (${installmentNumber}/${numberOfInstallments}): date=${t.date}→${transactionDate}, dueDate=${t.dueDate}→${newDueDate}`);
           
           return {
             ...t,
             date: transactionDate,
-            dueDate: newDueDate
+            dueDate: newDueDate,
+            amount: newAmount
           };
         }));
         
@@ -7104,9 +7350,11 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     addSalesOrder,
     updateSalesOrder,
     updateSalesOrderStatus,
+    cancelSalesOrder,
     addPurchaseOrder,
     updatePurchaseOrder,
     updatePurchaseOrderStatus,
+    cancelPurchaseOrder,
     addInventoryItem,
     updateInventoryItem,
     updateInventory,

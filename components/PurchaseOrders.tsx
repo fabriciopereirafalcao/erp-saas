@@ -13,7 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Checkbox } from "./ui/checkbox";
-import { Plus, Search, FileText, Package, TrendingDown, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { Plus, Search, FileText, Package, TrendingDown, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { getActiveTransactions } from "../utils/transactionFilters";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import { getValidNextStatuses, getValidManualNextStatuses } from "../utils/statu
 import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "../utils/dateUtils";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { ReceivePurchaseOrderModal } from "./ReceivePurchaseOrderModal";
+import { CancelOrderDialog } from "./dialogs/CancelOrderDialog";
 import { projectId } from '../utils/supabase/info';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -46,7 +47,7 @@ interface PaymentInstallment {
 }
 
 export function PurchaseOrders() {
-  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
+  const { purchaseOrders, suppliers, inventory, updatePurchaseOrderStatus, addPurchaseOrder, updatePurchaseOrder, cancelPurchaseOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
   const { accessToken } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -59,6 +60,11 @@ export function PurchaseOrders() {
   // ✅ NOVO: Estados para modal de recebimento
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
   const [selectedOrderForReceive, setSelectedOrderForReceive] = useState<typeof purchaseOrders[0] | null>(null);
+  
+  // ✅ FASE 3: Estados para modal de cancelamento
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<typeof purchaseOrders[0] | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -746,6 +752,21 @@ export function PurchaseOrders() {
 
     setIsDialogOpen(true);
     toast.info(`Editando pedido ${order.id}`);
+  };
+
+  // ✅ FASE 3: Função para cancelar pedido
+  const handleCancelOrder = async (reason: string) => {
+    if (!selectedOrderForCancel) {
+      return { success: false, error: "Nenhum pedido selecionado" };
+    }
+
+    setIsCanceling(true);
+    
+    const result = await cancelPurchaseOrder(selectedOrderForCancel.id, reason);
+    
+    setIsCanceling(false);
+    
+    return result;
   };
 
   const totalProcessing = purchaseOrders.filter(o => o.status === "Processando").length;
@@ -1760,6 +1781,20 @@ export function PurchaseOrders() {
                           <Copy className="mr-2 h-4 w-4" />
                           Duplicar Pedido
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedOrderForCancel(order);
+                            setIsCancelDialogOpen(true);
+                          }}
+                          disabled={order.status === "Cancelado" || order.status === "Concluído"}
+                          className={`${order.status === "Cancelado" || order.status === "Concluído" ? "opacity-50 cursor-not-allowed" : ""} text-destructive`}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Cancelar Pedido
+                          {(order.status === "Cancelado" || order.status === "Concluído") && 
+                            <span className="ml-1 text-xs">(não disponível)</span>
+                          }
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1883,6 +1918,27 @@ export function PurchaseOrders() {
         }}
         order={selectedOrderForReceive}
         onSuccess={handleReceiveSuccess}
+      />
+
+      {/* ✅ FASE 3: Modal de Cancelamento de Pedido */}
+      <CancelOrderDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        orderType="purchase"
+        orderNumber={selectedOrderForCancel?.id || ""}
+        onConfirm={handleCancelOrder}
+        isLoading={isCanceling}
+        impactSummary={selectedOrderForCancel ? {
+          financialTransactionsCount: financialTransactions.filter(
+            t => t.reference === selectedOrderForCancel.id && 
+                 t.origin === "Pedido" &&
+                 (t.status === "A Pagar" || t.status === "Vencido" || t.status === "A vencer")
+          ).length,
+          stockQuantity: selectedOrderForCancel.items 
+            ? selectedOrderForCancel.items.reduce((sum, item) => sum + item.quantity, 0)
+            : selectedOrderForCancel.quantity || 0,
+          totalAmount: selectedOrderForCancel.totalAmount
+        } : undefined}
       />
     </div>
   );

@@ -5728,7 +5728,12 @@ console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/ship [EXPEDIR PEDID
 
 /**
  * POST /api/sales-orders/:id/cancel
- * Cancela pedido de venda e devolve lotes ao estoque (se foi expedido)
+ * Cancela pedido de venda com governança completa:
+ * - Valida parcelas liquidadas (bloqueia se houver)
+ * - Cancela todas as transações financeiras vinculadas
+ * - Devolve lotes ao estoque (se foi expedido)
+ * - Atualiza status do pedido para "Cancelado"
+ * - Requer motivo (LGPD)
  */
 app.post('/api/sales-orders/:id/cancel', async (c) => {
   try {
@@ -5738,6 +5743,24 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
     if (!auth) {
       console.error('[CANCEL-SALES] ❌ Autenticação falhou');
       return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { reason, userId, userName } = body;
+
+    // ✅ VALIDAÇÃO LGPD - Motivo obrigatório
+    if (!reason || reason.trim().length === 0) {
+      return c.json({
+        success: false,
+        error: 'Motivo do cancelamento é obrigatório'
+      }, 400);
+    }
+
+    if (reason.length > 200) {
+      return c.json({
+        success: false,
+        error: 'Motivo deve ter no máximo 200 caracteres'
+      }, 400);
     }
 
     const orderIdParam = c.req.param('id');
@@ -5757,7 +5780,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       
       const { data: orderData, error: orderError } = await supabaseTemp
         .from('sales_orders')
-        .select('id')
+        .select('id, order_number')
         .eq('order_number', orderIdParam)
         .eq('company_id', auth.companyId)
         .single();
@@ -5771,6 +5794,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       }
       
       orderId = orderData.id; // ✅ Usar o UUID real
+      orderIdParam = orderData.order_number; // Atualizar para usar order_number
       console.log(`[CANCEL-SALES] ✅ UUID resolvido: ${orderId}`);
     }
 
@@ -5778,6 +5802,55 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // 🔒 GOVERNANÇA: Validar se há parcelas liquidadas
+    console.log(`[CANCEL-SALES] 🔍 Verificando transações financeiras vinculadas ao pedido ${orderIdParam}...`);
+    
+    const { data: linkedTransactions, error: transactionsError } = await supabase
+      .from('financial_transactions')
+      .select('sku, status, amount, administrative_status')
+      .eq('company_id', auth.companyId)
+      .eq('origin', 'Pedido')
+      .eq('reference', orderIdParam);
+
+    if (transactionsError) {
+      console.error('[CANCEL-SALES] ❌ Erro ao buscar transações:', transactionsError);
+      return c.json({ success: false, error: 'Erro ao verificar transações financeiras' }, 500);
+    }
+
+    // Filtrar apenas transações ativas
+    const activeTransactions = (linkedTransactions || []).filter(
+      t => t.administrative_status === 'active' || !t.administrative_status
+    );
+
+    console.log(`[CANCEL-SALES] 📊 Transações encontradas: ${activeTransactions.length}`);
+
+    // Verificar se alguma parcela está liquidada
+    const liquidatedStatuses = ['Pago', 'Recebido'];
+    const liquidatedTransactions = activeTransactions.filter(t => 
+      liquidatedStatuses.includes(t.status)
+    );
+
+    if (liquidatedTransactions.length > 0) {
+      console.warn(`[CANCEL-SALES] ⚠️ ${liquidatedTransactions.length} parcela(s) liquidada(s) encontrada(s)`);
+      
+      const liquidatedAmount = liquidatedTransactions.reduce(
+        (sum, t) => sum + parseFloat(t.amount), 
+        0
+      );
+
+      return c.json({
+        success: false,
+        error: `Não é possível cancelar este pedido. ${liquidatedTransactions.length} parcela(s) já foi(ram) liquidada(s) (total: R$ ${liquidatedAmount.toFixed(2)}). Para reverter, estorne todas as parcelas liquidadas primeiro.`,
+        liquidatedTransactions: liquidatedTransactions.map(t => ({
+          id: t.sku,
+          status: t.status,
+          amount: parseFloat(t.amount)
+        }))
+      }, 400);
+    }
+
+    console.log(`[CANCEL-SALES] ✅ Nenhuma parcela liquidada, prosseguindo com cancelamento...`);
 
     // ✅ Buscar movimentações de estoque do pedido (saídas)
     const { data: stockMovements, error: movementsError } = await supabase
@@ -5898,16 +5971,92 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       }
     }
 
+    // 🔒 CANCELAR TRANSAÇÕES FINANCEIRAS VINCULADAS
+    const now = new Date().toISOString();
+    let canceledTransactionsCount = 0;
+    const canceledTransactionsList: any[] = [];
+
+    if (activeTransactions.length > 0) {
+      console.log(`[CANCEL-SALES] 💰 Cancelando ${activeTransactions.length} transação(ões) financeira(s)...`);
+
+      for (const transaction of activeTransactions) {
+        const { error: cancelError } = await supabase
+          .from('financial_transactions')
+          .update({
+            administrative_status: 'canceled',
+            cancellation_reason: `Cancelamento do pedido ${orderIdParam}: ${reason}`,
+            canceled_at: now,
+            canceled_by: userId,
+            canceled_by_name: userName
+          })
+          .eq('sku', transaction.sku)
+          .eq('company_id', auth.companyId);
+
+        if (cancelError) {
+          console.error(`[CANCEL-SALES] ⚠️ Erro ao cancelar transação ${transaction.sku}:`, cancelError);
+        } else {
+          console.log(`[CANCEL-SALES] ✅ Transação ${transaction.sku} cancelada - R$ ${parseFloat(transaction.amount).toFixed(2)}`);
+          canceledTransactionsCount++;
+          canceledTransactionsList.push({
+            id: transaction.sku,
+            amount: parseFloat(transaction.amount),
+            status: transaction.status
+          });
+
+          // Remover de accounts_receivable
+          await supabase
+            .from('accounts_receivable')
+            .delete()
+            .eq('company_id', auth.companyId)
+            .or(`invoice_number.eq.${transaction.sku},reference.eq.${transaction.sku}`);
+        }
+      }
+    }
+
+    // ✅ ATUALIZAR STATUS DO PEDIDO PARA "CANCELADO"
+    const { error: updateOrderError } = await supabase
+      .from('sales_orders')
+      .update({
+        status: 'Cancelado',
+        cancellation_reason: reason,
+        canceled_at: now,
+        canceled_by: userId,
+        updated_at: now
+      })
+      .eq('id', orderId)
+      .eq('company_id', auth.companyId);
+
+    if (updateOrderError) {
+      console.error('[CANCEL-SALES] ❌ Erro ao atualizar status do pedido:', updateOrderError);
+      return c.json({ success: false, error: 'Erro ao atualizar status do pedido' }, 500);
+    }
+
+    console.log(`[CANCEL-SALES] ✅ Status do pedido ${orderIdParam} atualizado para "Cancelado"`);
+
     console.log(`[CANCEL-SALES] ✅ Cancelamento concluído!`);
+    console.log(`[CANCEL-SALES]    📦 Estoque restaurado: ${totalStockRestored} unidades`);
+    console.log(`[CANCEL-SALES]    💰 Transações canceladas: ${canceledTransactionsCount}`);
+    console.log(`[CANCEL-SALES]    📝 Motivo: ${reason}`);
 
     return c.json({
       success: true,
       data: {
         orderId,
-        movementsReverted: stockMovements?.length || 0,
-        batchesRestored: revertedBatches.length,
-        totalStockRestored,
-        batches: revertedBatches
+        orderNumber: orderIdParam,
+        status: 'Cancelado',
+        stockMovements: {
+          movementsReverted: stockMovements?.length || 0,
+          batchesRestored: revertedBatches.length,
+          totalStockRestored,
+          batches: revertedBatches
+        },
+        financialTransactions: {
+          canceled: canceledTransactionsCount,
+          transactions: canceledTransactionsList
+        },
+        cancellationReason: reason,
+        canceledBy: userName,
+        canceledAt: now
       }
     });
 
@@ -5917,7 +6066,350 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
   }
 });
 
-console.log('[DATA-ROUTES] 🎯 ROTA DE CANCELAMENTO REGISTRADA:');
-console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/cancel [CANCELAR PEDIDO E DEVOLVER LOTES]');
+console.log('[DATA-ROUTES] 🎯 ROTA DE CANCELAMENTO COM GOVERNANÇA REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/sales-orders/:id/cancel');
+console.log('[DATA-ROUTES]       ✅ Valida parcelas liquidadas');
+console.log('[DATA-ROUTES]       ✅ Cancela transações financeiras vinculadas');
+console.log('[DATA-ROUTES]       ✅ Devolve produtos ao estoque');
+console.log('[DATA-ROUTES]       ✅ Atualiza status do pedido');
+
+// ==================== POST /api/purchase-orders/:id/cancel - CANCELAR PEDIDO DE COMPRA ====================
+
+/**
+ * POST /api/purchase-orders/:id/cancel
+ * Cancela pedido de compra com governança completa:
+ * - Valida parcelas liquidadas (bloqueia se houver)
+ * - Cancela todas as transações financeiras vinculadas
+ * - Devolve lotes ao estoque (se foi recebido)
+ * - Atualiza status do pedido para "Cancelado"
+ * - Requer motivo (LGPD)
+ */
+app.post('/api/purchase-orders/:id/cancel', async (c) => {
+  try {
+    console.log('[CANCEL-PURCHASE] 🚫 Cancelando pedido de compra...');
+    
+    const auth = await sqlService.authenticate(c.req.header('Authorization'));
+    if (!auth) {
+      console.error('[CANCEL-PURCHASE] ❌ Autenticação falhou');
+      return c.json({ success: false, error: 'Não autorizado' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { reason, userId, userName } = body;
+
+    // ✅ VALIDAÇÃO LGPD - Motivo obrigatório
+    if (!reason || reason.trim().length === 0) {
+      return c.json({
+        success: false,
+        error: 'Motivo do cancelamento é obrigatório'
+      }, 400);
+    }
+
+    if (reason.length > 200) {
+      return c.json({
+        success: false,
+        error: 'Motivo deve ter no máximo 200 caracteres'
+      }, 400);
+    }
+
+    const orderIdParam = c.req.param('id');
+    console.log(`[CANCEL-PURCHASE] 🔍 orderId recebido do frontend:`, orderIdParam);
+
+    // ✅ RESOLVER UUID: Aceitar tanto UUID quanto order_number (PC-0001)
+    let orderId = orderIdParam;
+    let orderNumber = orderIdParam;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdParam);
+    
+    if (!isUUID) {
+      console.log(`[CANCEL-PURCHASE] 🔄 Parâmetro não é UUID, buscando por order_number: ${orderIdParam}`);
+      
+      const supabaseTemp = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: orderData, error: orderError } = await supabaseTemp
+        .from('purchase_orders')
+        .select('id, order_number')
+        .eq('order_number', orderIdParam)
+        .eq('company_id', auth.companyId)
+        .single();
+      
+      if (orderError || !orderData) {
+        console.error('[CANCEL-PURCHASE] ❌ Pedido não encontrado:', orderError);
+        return c.json({ 
+          success: false, 
+          error: `Pedido ${orderIdParam} não encontrado` 
+        }, 404);
+      }
+      
+      orderId = orderData.id;
+      orderNumber = orderData.order_number;
+      console.log(`[CANCEL-PURCHASE] ✅ UUID resolvido: ${orderId}`);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // 🔒 GOVERNANÇA: Validar se há parcelas liquidadas
+    console.log(`[CANCEL-PURCHASE] 🔍 Verificando transações financeiras vinculadas ao pedido ${orderNumber}...`);
+    
+    const { data: linkedTransactions, error: transactionsError } = await supabase
+      .from('financial_transactions')
+      .select('sku, status, amount, administrative_status')
+      .eq('company_id', auth.companyId)
+      .eq('origin', 'Pedido')
+      .eq('reference', orderNumber);
+
+    if (transactionsError) {
+      console.error('[CANCEL-PURCHASE] ❌ Erro ao buscar transações:', transactionsError);
+      return c.json({ success: false, error: 'Erro ao verificar transações financeiras' }, 500);
+    }
+
+    const activeTransactions = (linkedTransactions || []).filter(
+      t => t.administrative_status === 'active' || !t.administrative_status
+    );
+
+    console.log(`[CANCEL-PURCHASE] 📊 Transações encontradas: ${activeTransactions.length}`);
+
+    const liquidatedStatuses = ['Pago', 'Recebido'];
+    const liquidatedTransactions = activeTransactions.filter(t => 
+      liquidatedStatuses.includes(t.status)
+    );
+
+    if (liquidatedTransactions.length > 0) {
+      console.warn(`[CANCEL-PURCHASE] ⚠️ ${liquidatedTransactions.length} parcela(s) liquidada(s) encontrada(s)`);
+      
+      const liquidatedAmount = liquidatedTransactions.reduce(
+        (sum, t) => sum + parseFloat(t.amount), 
+        0
+      );
+
+      return c.json({
+        success: false,
+        error: `Não é possível cancelar este pedido. ${liquidatedTransactions.length} parcela(s) já foi(ram) liquidada(s) (total: R$ ${liquidatedAmount.toFixed(2)}). Para reverter, estorne todas as parcelas liquidadas primeiro.`,
+        liquidatedTransactions: liquidatedTransactions.map(t => ({
+          id: t.sku,
+          status: t.status,
+          amount: parseFloat(t.amount)
+        }))
+      }, 400);
+    }
+
+    console.log(`[CANCEL-PURCHASE] ✅ Nenhuma parcela liquidada, prosseguindo com cancelamento...`);
+
+    // ✅ Buscar movimentações de estoque do pedido (entradas)
+    const { data: stockMovements, error: movementsError } = await supabase
+      .from('stock_movements')
+      .select('*')
+      .eq('company_id', auth.companyId)
+      .eq('reference_type', 'purchase_order')
+      .eq('reference_id', orderId)
+      .eq('movement_type', 'entrada');
+
+    if (movementsError) {
+      console.error('[CANCEL-PURCHASE] ❌ Erro ao buscar movimentações:', movementsError);
+      return c.json({ success: false, error: 'Erro ao buscar movimentações de estoque' }, 500);
+    }
+
+    console.log(`[CANCEL-PURCHASE] 📦 Encontradas ${stockMovements?.length || 0} movimentações de entrada para reverter`);
+
+    const revertedBatches: any[] = [];
+    let totalStockRemoved = 0;
+
+    if (stockMovements && stockMovements.length > 0) {
+      for (const movement of stockMovements) {
+        const { product_id, batch_id, quantity } = movement;
+
+        console.log(`[CANCEL-PURCHASE] 🔄 Revertendo movimentação:`, { product_id, batch_id, quantity });
+
+        if (batch_id) {
+          const { data: existingBatch, error: batchError } = await supabase
+            .from('product_batches')
+            .select('*')
+            .eq('id', batch_id)
+            .eq('company_id', auth.companyId)
+            .single();
+
+          if (batchError || !existingBatch) {
+            console.error(`[CANCEL-PURCHASE] ⚠️ Lote ${batch_id} não encontrado, pulando...`);
+            continue;
+          }
+
+          const newQuantity = existingBatch.current_quantity - quantity;
+          const { error: updateError } = await supabase
+            .from('product_batches')
+            .update({ 
+              current_quantity: newQuantity >= 0 ? newQuantity : 0,
+              status: newQuantity <= 0 ? 'Esgotado' : existingBatch.status,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', batch_id);
+
+          if (updateError) {
+            console.error('[CANCEL-PURCHASE] ❌ Erro ao reverter lote:', updateError);
+            return c.json({ success: false, error: 'Erro ao reverter lote' }, 500);
+          }
+
+          console.log(`[CANCEL-PURCHASE] ✅ Lote revertido: ${existingBatch.current_quantity} → ${newQuantity}`);
+          revertedBatches.push({
+            batchId: batch_id,
+            batchNumber: existingBatch.batch_number,
+            quantityBefore: existingBatch.current_quantity,
+            quantityAfter: newQuantity
+          });
+
+          await supabase.from('batch_movements').insert({
+            company_id: auth.companyId,
+            product_id: product_id,
+            batch_id: batch_id,
+            batch_number: existingBatch.batch_number,
+            movement_type: 'saida',
+            movement_subtype: 'cancelamento',
+            quantity: quantity,
+            reference_type: 'purchase_order',
+            reference_id: orderId,
+            notes: `Cancelamento de pedido ${orderNumber}`,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        const { data: product, error: productError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', product_id)
+          .eq('company_id', auth.companyId)
+          .single();
+
+        if (product && !productError) {
+          const newStock = product.current_stock - quantity;
+          await supabase
+            .from('products')
+            .update({ 
+              current_stock: newStock >= 0 ? newStock : 0,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', product_id);
+
+          console.log(`[CANCEL-PURCHASE] ✅ Estoque produto revertido: ${product.current_stock} → ${newStock}`);
+          totalStockRemoved += quantity;
+        }
+
+        await supabase.from('stock_movements').insert({
+          company_id: auth.companyId,
+          product_id: product_id,
+          batch_id: batch_id,
+          movement_type: 'saida',
+          movement_subtype: 'cancelamento',
+          quantity: quantity,
+          reference_type: 'purchase_order',
+          reference_id: orderId,
+          notes: `Remoção por cancelamento de pedido ${orderNumber}`,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    // 🔒 CANCELAR TRANSAÇÕES FINANCEIRAS VINCULADAS
+    const now = new Date().toISOString();
+    let canceledTransactionsCount = 0;
+    const canceledTransactionsList: any[] = [];
+
+    if (activeTransactions.length > 0) {
+      console.log(`[CANCEL-PURCHASE] 💰 Cancelando ${activeTransactions.length} transação(ões) financeira(s)...`);
+
+      for (const transaction of activeTransactions) {
+        const { error: cancelError } = await supabase
+          .from('financial_transactions')
+          .update({
+            administrative_status: 'canceled',
+            cancellation_reason: `Cancelamento do pedido ${orderNumber}: ${reason}`,
+            canceled_at: now,
+            canceled_by: userId,
+            canceled_by_name: userName
+          })
+          .eq('sku', transaction.sku)
+          .eq('company_id', auth.companyId);
+
+        if (cancelError) {
+          console.error(`[CANCEL-PURCHASE] ⚠️ Erro ao cancelar transação ${transaction.sku}:`, cancelError);
+        } else {
+          console.log(`[CANCEL-PURCHASE] ✅ Transação ${transaction.sku} cancelada - R$ ${parseFloat(transaction.amount).toFixed(2)}`);
+          canceledTransactionsCount++;
+          canceledTransactionsList.push({
+            id: transaction.sku,
+            amount: parseFloat(transaction.amount),
+            status: transaction.status
+          });
+
+          await supabase
+            .from('accounts_payable')
+            .delete()
+            .eq('company_id', auth.companyId)
+            .or(`invoice_number.eq.${transaction.sku},reference.eq.${transaction.sku}`);
+        }
+      }
+    }
+
+    // ✅ ATUALIZAR STATUS DO PEDIDO PARA "CANCELADO"
+    const { error: updateOrderError } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Cancelado',
+        cancellation_reason: reason,
+        canceled_at: now,
+        canceled_by: userId,
+        updated_at: now
+      })
+      .eq('id', orderId)
+      .eq('company_id', auth.companyId);
+
+    if (updateOrderError) {
+      console.error('[CANCEL-PURCHASE] ❌ Erro ao atualizar status do pedido:', updateOrderError);
+      return c.json({ success: false, error: 'Erro ao atualizar status do pedido' }, 500);
+    }
+
+    console.log(`[CANCEL-PURCHASE] ✅ Status do pedido ${orderNumber} atualizado para "Cancelado"`);
+    console.log(`[CANCEL-PURCHASE] ✅ Cancelamento concluído!`);
+    console.log(`[CANCEL-PURCHASE]    📦 Estoque removido: ${totalStockRemoved} unidades`);
+    console.log(`[CANCEL-PURCHASE]    💰 Transações canceladas: ${canceledTransactionsCount}`);
+    console.log(`[CANCEL-PURCHASE]    📝 Motivo: ${reason}`);
+
+    return c.json({
+      success: true,
+      data: {
+        orderId,
+        orderNumber,
+        status: 'Cancelado',
+        stockMovements: {
+          movementsReverted: stockMovements?.length || 0,
+          batchesReverted: revertedBatches.length,
+          totalStockRemoved,
+          batches: revertedBatches
+        },
+        financialTransactions: {
+          canceled: canceledTransactionsCount,
+          transactions: canceledTransactionsList
+        },
+        cancellationReason: reason,
+        canceledBy: userName,
+        canceledAt: now
+      }
+    });
+
+  } catch (error) {
+    console.error('[CANCEL-PURCHASE] ❌ Erro geral:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+console.log('[DATA-ROUTES] 🎯 ROTA DE CANCELAMENTO DE COMPRA COM GOVERNANÇA REGISTRADA:');
+console.log('[DATA-ROUTES]    → POST /api/purchase-orders/:id/cancel');
+console.log('[DATA-ROUTES]       ✅ Valida parcelas liquidadas');
+console.log('[DATA-ROUTES]       ✅ Cancela transações financeiras vinculadas');
+console.log('[DATA-ROUTES]       ✅ Remove produtos do estoque');
+console.log('[DATA-ROUTES]       ✅ Atualiza status do pedido');
 
 export default app;

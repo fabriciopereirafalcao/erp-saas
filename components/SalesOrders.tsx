@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus, Receipt, AlertCircle } from "lucide-react";
+import { Plus, Search, FileText, Package, TrendingUp, ShoppingCart, User, Calendar, Tag, Percent, DollarSign, CreditCard, Truck, X, Minus, Edit, Copy, MoreHorizontal, MoreVertical, History, AlertTriangle, CheckCircle2, Clock, UserPlus, Receipt, AlertCircle, XCircle } from "lucide-react";
 import { useERP } from "../contexts/ERPContext";
 import { getActiveTransactions } from "../utils/transactionFilters";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import { formatDateLocal, parseDateLocal, addDaysToDate, getTodayString } from "
 import { SalesAndPurchasePersonManagement } from "./SalesAndPurchasePersonManagement";
 import { BatchAllocationModal } from "./BatchAllocationModal";
 import { ShipSalesOrderModal } from "./ShipSalesOrderModal";
+import { CancelOrderDialog } from "./dialogs/CancelOrderDialog";
 import type { BatchAllocation } from "../contexts/ERPContext";
 import { projectId } from '../utils/supabase/info';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,7 +57,7 @@ interface SalesOrdersProps {
 }
 
 export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
-  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
+  const { salesOrders, customers, inventory, updateSalesOrderStatus, addSalesOrder, updateSalesOrder, cancelSalesOrder, priceTables, getPriceTableById, companySettings, financialTransactions, accountCategories } = useERP();
   const { accessToken } = useAuth();
   const [salespeopleAPI, setSalespeopleAPI] = useState<any[]>([]); // ✅ NOVO: Lista de vendedores do banco
   
@@ -89,6 +90,11 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
   // ✅ NOVO: Estados para modal de expedição
   const [isShipModalOpen, setIsShipModalOpen] = useState(false);
   const [selectedOrderForShip, setSelectedOrderForShip] = useState<typeof salesOrders[0] | null>(null);
+  
+  // ✅ FASE 3: Estados para modal de cancelamento
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<typeof salesOrders[0] | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
   
   // Estados para controlar abertura dos calendários
   const [isIssueDateOpen, setIsIssueDateOpen] = useState(false);
@@ -937,6 +943,21 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
     }
     
     toast.success("Abrindo módulo de NF-e...");
+  };
+
+  // ✅ FASE 3: Função para cancelar pedido
+  const handleCancelOrder = async (reason: string) => {
+    if (!selectedOrderForCancel) {
+      return { success: false, error: "Nenhum pedido selecionado" };
+    }
+
+    setIsCanceling(true);
+    
+    const result = await cancelSalesOrder(selectedOrderForCancel.id, reason);
+    
+    setIsCanceling(false);
+    
+    return result;
   };
 
   const totalProcessing = salesOrders.filter(o => o.status === "Processando").length;
@@ -2129,6 +2150,20 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                             <span className="ml-1 text-xs">(requer confirmação)</span>
                           }
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedOrderForCancel(order);
+                            setIsCancelDialogOpen(true);
+                          }}
+                          disabled={order.status === "Cancelado" || order.status === "Concluído"}
+                          className={`${order.status === "Cancelado" || order.status === "Concluído" ? "opacity-50 cursor-not-allowed" : ""} text-destructive`}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Cancelar Pedido
+                          {(order.status === "Cancelado" || order.status === "Concluído") && 
+                            <span className="ml-1 text-xs">(não disponível)</span>
+                          }
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -2404,6 +2439,27 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
           }}
         />
       )}
+
+      {/* ✅ FASE 3: Modal de Cancelamento de Pedido */}
+      <CancelOrderDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        orderType="sale"
+        orderNumber={selectedOrderForCancel?.id || ""}
+        onConfirm={handleCancelOrder}
+        isLoading={isCanceling}
+        impactSummary={selectedOrderForCancel ? {
+          financialTransactionsCount: safeFinancialTransactions.filter(
+            t => t.reference === selectedOrderForCancel.id && 
+                 t.origin === "Pedido" &&
+                 (t.status === "A Receber" || t.status === "Vencido" || t.status === "A vencer")
+          ).length,
+          stockQuantity: selectedOrderForCancel.items 
+            ? selectedOrderForCancel.items.reduce((sum, item) => sum + item.quantity, 0)
+            : selectedOrderForCancel.quantity || 0,
+          totalAmount: selectedOrderForCancel.totalAmount
+        } : undefined}
+      />
     </div>
   );
 }

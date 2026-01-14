@@ -196,6 +196,15 @@ app.post('/cancel', async (c) => {
       }, 400);
     }
 
+    // 🔒 REGRA DE GOVERNANÇA: Transações de pedido não podem ser canceladas diretamente
+    if (transaction.origin === 'Pedido') {
+      console.warn(`⚠️ [CANCEL] Tentativa de cancelar transação vinculada a pedido: ${transaction.reference}`);
+      return c.json({
+        success: false,
+        error: `Esta transação está vinculada ao pedido ${transaction.reference}. Para cancelar, cancele o pedido através do módulo de Pedidos.`
+      }, 400);
+    }
+
     // Atualizar transação (Soft Delete)
     const now = new Date().toISOString();
     const { data: updatedTransaction, error: updateError } = await supabase
@@ -327,6 +336,15 @@ app.post('/substitute', async (c) => {
       return c.json({
         success: false,
         error: 'Apenas transações ativas podem ser substituídas'
+      }, 400);
+    }
+
+    // 🔒 REGRA DE GOVERNANÇA: Transações de pedido não podem ser substituídas diretamente
+    if (oldTransaction.origin === 'Pedido') {
+      console.warn(`⚠️ [SUBSTITUTE] Tentativa de substituir transação vinculada a pedido: ${oldTransaction.reference}`);
+      return c.json({
+        success: false,
+        error: `Esta transação está vinculada ao pedido ${oldTransaction.reference}. Para alterar, edite o pedido através do módulo de Pedidos.`
       }, 400);
     }
 

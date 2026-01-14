@@ -11,7 +11,7 @@ import { Badge } from "./ui/badge";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown, Info, RotateCcw, X } from "lucide-react";
+import { Search, Plus, Edit2, Calendar as CalendarIcon, TrendingUp, TrendingDown, Activity, DollarSign, CheckCircle2, AlertTriangle, Clock, FileText, Package, ArrowDownCircle, ArrowUpCircle, CreditCard, MoreVertical, ArrowRightLeft, ChevronDown, Info, RotateCcw, X, ExternalLink, Link2 } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { FeatureInfoBadge } from "./FeatureInfoBadge";
 import { SettlementDateWarningDialog } from "./SettlementDateWarningDialog";
@@ -174,6 +174,42 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       }
     }
     return null;
+  };
+
+  // ✅ FASE 4: Helper para navegar para o pedido vinculado
+  const handleGoToOrder = (txn: any) => {
+    const linkedOrder = getLinkedOrder(txn);
+    if (!linkedOrder) {
+      toast.error("Pedido não encontrado", {
+        description: "O pedido vinculado a esta transação não foi encontrado."
+      });
+      return;
+    }
+
+    // Determinar se é pedido de venda ou compra
+    const isSalesOrder = safeSalesOrders.some(o => o.id === txn.reference);
+    const orderType = isSalesOrder ? "venda" : "compra";
+    
+    toast.success(`Navegando para Pedido ${orderType === "venda" ? "de Venda" : "de Compra"}`, {
+      description: `Pedido ${txn.reference} será destacado.`,
+      duration: 3000
+    });
+
+    // TODO: Implementar navegação quando houver sistema de rotas
+    // Por enquanto, apenas mostra feedback ao usuário
+    console.log(`[NAVEGAÇÃO] Indo para ${orderType}:`, txn.reference);
+  };
+
+  // ✅ FASE 4: Helper para mostrar toast ao tentar editar transação de pedido
+  const handleAttemptEditOrderTransaction = (txn: any) => {
+    toast.error("Não é possível editar esta transação", {
+      description: `Esta transação está vinculada ao pedido ${txn.reference}. Edite o pedido para alterar valores.`,
+      action: {
+        label: "Ir para o Pedido",
+        onClick: () => handleGoToOrder(txn)
+      },
+      duration: 5000
+    });
   };
 
   // Helper: verificar se está vencido
@@ -1820,13 +1856,34 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                               </DropdownMenuItem>
                             )}
 
-                            {/* Opção de Editar */}
-                            {canEditField(txn, 'description') && (
-                              <DropdownMenuItem onClick={() => handleEdit(txn, "single")}>
-                                <Edit2 className="w-4 h-4 mr-2" />
-                                Editar Transação
-                              </DropdownMenuItem>
-                            )}
+                            {/* ✅ FASE 4: Botão "Ir para o Pedido" - sempre visível */}
+                            <DropdownMenuItem 
+                              onClick={() => handleGoToOrder(txn)}
+                              className="text-blue-600 font-medium"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Ir para o Pedido
+                            </DropdownMenuItem>
+
+                            {/* ✅ FASE 4: Opção de Editar - bloqueada com feedback */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleAttemptEditOrderTransaction(txn)}
+                                    disabled={!canEditField(txn, 'description')}
+                                    className="opacity-50 cursor-not-allowed"
+                                  >
+                                    <Edit2 className="w-4 h-4 mr-2" />
+                                    Editar Transação
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Transação vinculada ao pedido {txn.reference}</p>
+                                  <p className="text-xs">Edite o pedido para alterar valores</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
 
                             {/* Opção de Substituir */}
                             <DropdownMenuItem 
@@ -1840,19 +1897,34 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                               Substituir Transação
                             </DropdownMenuItem>
 
-                            {/* Opção de Cancelar */}
-                            {canDelete(txn) && (
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setCancellingTransaction(txn);
-                                  setShowCancelDialog(true);
-                                }}
-                                className="text-red-600"
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                Cancelar Transação
-                              </DropdownMenuItem>
-                            )}
+                            {/* ✅ FASE 4: Opção de Cancelar - bloqueada com tooltip */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      toast.error("Não é possível cancelar esta transação", {
+                                        description: `Esta transação está vinculada ao pedido ${txn.reference}. Cancele o pedido para cancelar a transação.`,
+                                        action: {
+                                          label: "Ir para o Pedido",
+                                          onClick: () => handleGoToOrder(txn)
+                                        },
+                                        duration: 5000
+                                      });
+                                    }}
+                                    disabled={!canDelete(txn)}
+                                    className="text-red-400 opacity-50 cursor-not-allowed"
+                                  >
+                                    <X className="w-4 h-4 mr-2" />
+                                    Cancelar Transação
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Transação vinculada ao pedido {txn.reference}</p>
+                                  <p className="text-xs">Cancele o pedido para cancelar a transação</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -1871,16 +1943,31 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={txn.origin === "Manual" ? "bg-purple-50 border-purple-200" : "bg-blue-50 border-blue-200"}
-                      >
-                        {txn.origin === "Manual" ? (
-                          <><FileText className="w-3 h-3 mr-1 inline" />Manual</>
-                        ) : (
-                          <><Package className="w-3 h-3 mr-1 inline" />Pedido</>
-                        )}
-                      </Badge>
+                      {/* ✅ FASE 4: Badge melhorado com link para pedido */}
+                      {txn.origin === "Manual" ? (
+                        <Badge variant="outline" className="bg-purple-50 border-purple-200">
+                          <FileText className="w-3 h-3 mr-1 inline" />Manual
+                        </Badge>
+                      ) : (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className="bg-blue-50 border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
+                                onClick={() => handleGoToOrder(txn)}
+                              >
+                                <Link2 className="w-3 h-3 mr-1 inline" />
+                                Pedido {txn.reference}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Vinculado ao pedido {txn.reference}</p>
+                              <p className="text-xs text-blue-300">Clique para navegar</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </TableCell>
                     <TableCell>{formatDateLocal(txn.date)}</TableCell>
                     <TableCell>
