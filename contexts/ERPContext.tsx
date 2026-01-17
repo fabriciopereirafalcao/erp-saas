@@ -3962,6 +3962,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      // ✅ Obter usuário atual
+      const currentUser = getCurrentUser();
+
       // Chamar backend
       const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/sales-orders/${id}/cancel`, {
         method: 'POST',
@@ -3971,8 +3974,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           reason,
-          userId: user?.id || 'system',
-          userName: user?.user_metadata?.full_name || user?.email || 'Sistema'
+          userId: currentUser.id,
+          userName: currentUser.name
         })
       });
 
@@ -4054,6 +4057,9 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      // ✅ Obter usuário atual
+      const currentUser = getCurrentUser();
+
       // Chamar backend
       const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/purchase-orders/${id}/cancel`, {
         method: 'POST',
@@ -4063,8 +4069,8 @@ export function ERPProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           reason,
-          userId: user?.id || 'system',
-          userName: user?.user_metadata?.full_name || user?.email || 'Sistema'
+          userId: currentUser.id,
+          userName: currentUser.name
         })
       });
 

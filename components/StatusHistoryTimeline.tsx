@@ -35,7 +35,7 @@ export function StatusHistoryTimeline({ history, open, onOpenChange, orderId }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Histórico de Status - Pedido {orderId}</DialogTitle>
           <DialogDescription>
@@ -43,7 +43,7 @@ export function StatusHistoryTimeline({ history, open, onOpenChange, orderId }: 
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[600px] pr-4">
+        <ScrollArea className="flex-1 pr-4">
           <div className="relative">
             {/* Timeline vertical */}
             <div className="absolute left-[15px] top-0 bottom-0 w-0.5 bg-gray-200" />

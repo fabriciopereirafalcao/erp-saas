@@ -4,8 +4,9 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Alert, AlertDescription } from "../ui/alert";
-import { AlertTriangle, XCircle, Package, DollarSign, Info } from "lucide-react";
+import { AlertTriangle, XCircle, Package, DollarSign, Info, Lock } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { FeatureInfoBadge } from "../FeatureInfoBadge";
 
 interface CancelOrderDialogProps {
   open: boolean;
@@ -80,11 +81,18 @@ export function CancelOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <XCircle className="h-6 w-6 text-destructive" />
-            Cancelar Pedido de {orderTypeLabel}
+          <DialogTitle className="flex items-center justify-between text-xl">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-6 w-6 text-destructive" />
+              Cancelar Pedido de {orderTypeLabel}
+            </div>
+            <FeatureInfoBadge
+              title="🔒 Governança de Transações"
+              description={`• Transações financeiras vinculadas serão automaticamente canceladas\n• Apenas transações pendentes podem ser canceladas\n• Parcelas liquidadas impedem o cancelamento (requerem estorno)\n• O motivo será registrado para fins de auditoria`}
+              variant="blue"
+            />
           </DialogTitle>
           <DialogDescription>
             Você está prestes a cancelar o pedido <strong>{orderNumber}</strong>. 
@@ -92,7 +100,7 @@ export function CancelOrderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto px-1">
           {/* Alerta de impacto */}
           <Alert>
             <AlertTriangle className="h-4 w-4" />
@@ -165,23 +173,9 @@ export function CancelOrderDialog({
               )}
             </div>
           </div>
-
-          {/* Informação de governança */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              <strong>🔒 Governança de Transações:</strong>
-              <ul className="mt-1 space-y-1">
-                <li>• Transações financeiras vinculadas serão automaticamente canceladas</li>
-                <li>• Apenas transações pendentes podem ser canceladas</li>
-                <li>• Parcelas liquidadas impedem o cancelamento (requerem estorno)</li>
-                <li>• O motivo será registrado para fins de auditoria</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button
             variant="outline"
             onClick={handleCancel}

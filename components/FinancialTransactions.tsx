@@ -49,7 +49,8 @@ function FinancialTransactionsComponent({ validateBeforeAction, onNavigateToOrde
     reverseTransactionSettlement,
     salesOrders,
     purchaseOrders,
-    validateSettlementDate
+    validateSettlementDate,
+    reconciliationStatus
   } = useERP();
 
   // ✅ Hook de validação de políticas
@@ -2920,6 +2921,7 @@ function FinancialTransactionsComponent({ validateBeforeAction, onNavigateToOrde
         open={showReverseDialog}
         onOpenChange={setShowReverseDialog}
         onConfirm={reverseTransactionSettlement}
+        reconciliationStatus={reconciliationStatus}
       />
     </div>
   );

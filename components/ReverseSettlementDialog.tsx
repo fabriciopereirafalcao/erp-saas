@@ -15,19 +15,22 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { RotateCcw, X, AlertTriangle } from "lucide-react";
 import { FinancialTransaction } from "../contexts/ERPContext";
 import { formatDateLocal } from "../utils/dateUtils";
+import { toast } from "sonner";
 
 interface ReverseSettlementDialogProps {
   transaction: FinancialTransaction | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (transactionId: string, reason: string) => Promise<void>;
+  reconciliationStatus?: Record<string, boolean>; // ✅ NOVO: Status de conciliação
 }
 
 export function ReverseSettlementDialog({
   transaction,
   open,
   onOpenChange,
-  onConfirm
+  onConfirm,
+  reconciliationStatus
 }: ReverseSettlementDialogProps) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -60,11 +63,31 @@ export function ReverseSettlementDialog({
 
     if (!transaction) return;
 
+    // ✅ VALIDAÇÃO: Bloquear estorno se houver conciliação na data de liquidação
+    if (reconciliationStatus && transaction.effectiveDate && transaction.bankAccountId) {
+      const reconciliationKey = `${transaction.bankAccountId}-${transaction.effectiveDate}`;
+      if (reconciliationStatus[reconciliationKey]) {
+        setError("Não é possível estornar: a data de liquidação está conciliada. Desconcilie primeiro.");
+        toast.error("Estorno bloqueado", {
+          description: "A data de liquidação está conciliada. Você deve desconciliar manualmente antes de estornar.",
+          duration: 6000
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     setError("");
 
     try {
       await onConfirm(transaction.id, reason);
+      
+      // ✅ Toast informativo (movido do alert)
+      toast.info("Estorno registrado", {
+        description: "O estorno foi registrado no histórico para auditoria. Revise conciliações bancárias se necessário.",
+        duration: 5000
+      });
+      
       handleCancel();
     } catch (err) {
       setError("Erro ao estornar liquidação");
@@ -84,7 +107,7 @@ export function ReverseSettlementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RotateCcw className="w-5 h-5 text-blue-600" />
@@ -95,7 +118,7 @@ export function ReverseSettlementDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto px-1">
           {/* Informações da Transação */}
           <div className="p-3 bg-gray-50 rounded-lg space-y-1">
             <div className="flex justify-between text-sm">
@@ -181,16 +204,9 @@ export function ReverseSettlementDialog({
               </AlertDescription>
             </Alert>
           )}
-
-          {/* Alert informativo */}
-          <Alert>
-            <AlertDescription className="text-sm">
-              <strong>Importante:</strong> O estorno será registrado no histórico da transação para fins de auditoria. Se houver conciliação bancária, será necessário revisar manualmente.
-            </AlertDescription>
-          </Alert>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={handleCancel} disabled={loading}>
             <X className="w-4 h-4 mr-2" />
             Cancelar
