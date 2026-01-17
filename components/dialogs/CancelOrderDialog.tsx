@@ -83,14 +83,15 @@ export function CancelOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between text-xl">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-6 w-6 text-destructive" />
-              Cancelar Pedido de {orderTypeLabel}
-            </div>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <XCircle className="h-6 w-6 text-destructive" />
+            Cancelar Pedido de {orderTypeLabel}
             <FeatureInfoBadge
               title="🔒 Governança de Transações"
-              description={`• Transações financeiras vinculadas serão automaticamente canceladas\n• Apenas transações pendentes podem ser canceladas\n• Parcelas liquidadas impedem o cancelamento (requerem estorno)\n• O motivo será registrado para fins de auditoria`}
+              description="• Transações financeiras vinculadas serão automaticamente canceladas
+• Apenas transações pendentes podem ser canceladas
+• Parcelas liquidadas impedem o cancelamento (requerem estorno)
+• O motivo será registrado para fins de auditoria"
               variant="blue"
             />
           </DialogTitle>

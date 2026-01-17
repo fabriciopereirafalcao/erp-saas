@@ -2475,9 +2475,18 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                  t.origin === "Pedido" &&
                  (t.status === "A Receber" || t.status === "Vencido" || t.status === "A vencer")
           ).length,
-          stockQuantity: selectedOrderForCancel.items 
-            ? selectedOrderForCancel.items.reduce((sum, item) => sum + item.quantity, 0)
-            : selectedOrderForCancel.quantity || 0,
+          stockQuantity: (() => {
+            // ✅ Calcular quantidade total corretamente para pedidos multi-item e single-item
+            if (selectedOrderForCancel.items && selectedOrderForCancel.items.length > 0) {
+              const total = selectedOrderForCancel.items.reduce((sum, item) => sum + item.quantity, 0);
+              console.log(`[CANCEL] Pedido ${selectedOrderForCancel.id} - items (${selectedOrderForCancel.items.length}): ${total} unidades`);
+              return total;
+            } else {
+              const qty = selectedOrderForCancel.quantity || 0;
+              console.log(`[CANCEL] Pedido ${selectedOrderForCancel.id} - single-item: ${qty} unidades`);
+              return qty;
+            }
+          })(),
           totalAmount: selectedOrderForCancel.totalAmount
         } : undefined}
       />

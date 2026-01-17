@@ -3966,7 +3966,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const currentUser = getCurrentUser();
 
       // Chamar backend
-      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/sales-orders/${id}/cancel`, {
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/sales-orders/${id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -4061,7 +4061,7 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       const currentUser = getCurrentUser();
 
       // Chamar backend
-      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/api/purchase-orders/${id}/cancel`, {
+      const response = await authFetch(`https://${projectId}.supabase.co/functions/v1/make-server-686b5e88/data/api/purchase-orders/${id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
