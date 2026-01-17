@@ -28,9 +28,11 @@ import { CancelTransactionDialog } from "./CancelTransactionDialog";
 import { SubstituteTransactionDialog } from "./SubstituteTransactionDialog";
 import { ReverseSettlementDialog } from "./ReverseSettlementDialog";
 
-interface FinancialTransactionsProps extends FullTransactionProtectionProps {}
+interface FinancialTransactionsProps extends FullTransactionProtectionProps {
+  onNavigateToOrder?: (orderType: 'sales' | 'purchases', orderId: string) => void;
+}
 
-function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTransactionsProps) {
+function FinancialTransactionsComponent({ validateBeforeAction, onNavigateToOrder }: FinancialTransactionsProps) {
   const {
     financialTransactions,
     customers,
@@ -195,9 +197,12 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
       duration: 3000
     });
 
-    // TODO: Implementar navegação quando houver sistema de rotas
-    // Por enquanto, apenas mostra feedback ao usuário
     console.log(`[NAVEGAÇÃO] Indo para ${orderType}:`, txn.reference);
+    
+    // Navegar para a view correta
+    if (onNavigateToOrder) {
+      onNavigateToOrder(isSalesOrder ? 'sales' : 'purchases', txn.reference);
+    }
   };
 
   // ✅ FASE 4: Helper para mostrar toast ao tentar editar transação de pedido
@@ -1885,17 +1890,34 @@ function FinancialTransactionsComponent({ validateBeforeAction }: FinancialTrans
                               </Tooltip>
                             </TooltipProvider>
 
-                            {/* Opção de Substituir */}
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSubstitutingTransaction(txn);
-                                setShowSubstituteDialog(true);
-                              }}
-                              className="text-blue-600"
-                            >
-                              <ArrowRightLeft className="w-4 h-4 mr-2" />
-                              Substituir Transação
-                            </DropdownMenuItem>
+                            {/* ✅ FASE 4: Opção de Substituir - bloqueada com tooltip */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      toast.error("Não é possível substituir esta transação", {
+                                        description: `Esta transação está vinculada ao pedido ${txn.reference}. Edite o pedido para alterar valores.`,
+                                        action: {
+                                          label: "Ir para o Pedido",
+                                          onClick: () => handleGoToOrder(txn)
+                                        },
+                                        duration: 5000
+                                      });
+                                    }}
+                                    disabled={!canEditField(txn, 'description')}
+                                    className="text-blue-400 opacity-50 cursor-not-allowed"
+                                  >
+                                    <ArrowRightLeft className="w-4 h-4 mr-2" />
+                                    Substituir Transação
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Transação vinculada ao pedido {txn.reference}</p>
+                                  <p className="text-xs">Edite o pedido para alterar valores</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
 
                             {/* ✅ FASE 4: Opção de Cancelar - bloqueada com tooltip */}
                             <TooltipProvider>

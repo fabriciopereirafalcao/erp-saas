@@ -534,15 +534,24 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
 
     // CORREÇÃO: Validar estoque para cada item do pedido
     for (const item of orderItems) {
-      const product = safeInventory.find(p => p.id === item.productId);
+      // ✅ EXCEÇÃO: Ao editar pedido, buscar produto por nome se productId não encontrado
+      let product = safeInventory.find(p => p.id === item.productId);
+      
+      // Se não encontrar por ID (pedido antigo ou produto sem ID), buscar por nome
+      if (!product) {
+        product = safeInventory.find(p => p.productName === item.productName);
+      }
+      
       if (!product) {
         toast.error(`Produto "${item.productName}" não encontrado no estoque!`);
         return;
       }
 
       // Calcular estoque disponível (considerando reservas)
+      // ✅ IMPORTANTE: Ao editar, excluir o próprio pedido das reservas
       const reservedStock = salesOrders
         .filter(order => 
+          order.id !== editingOrderId && // Excluir o pedido sendo editado
           order.productName === item.productName && 
           (order.status === "Processando" || order.status === "Confirmado")
         )
@@ -845,11 +854,13 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
       billingDate: order.billingDate || "",
       deliveryDate: order.deliveryDate,
       priceTableId: order.priceTableId || "",
+      revenueCategoryId: order.revenueCategoryId || "",
       orderDiscountType: "percentage",
       orderDiscountAmount: 0,
       paymentCondition: order.paymentCondition || "1",
       firstInstallmentDays: order.firstInstallmentDays || 0,
       dueDateReference: order.dueDateReference || "issue",
+      bankAccountId: order.bankAccountId || "",
       customerNotes: "",
       internalNotes: ""
     });

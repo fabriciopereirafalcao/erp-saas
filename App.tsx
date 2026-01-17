@@ -281,7 +281,13 @@ function AppContent() {
       case "financialTransactions":
         return (
           <PlanAccessGuard feature="financial">
-            <FinancialTransactions />
+            <FinancialTransactions 
+              onNavigateToOrder={(orderType, orderId) => {
+                setCurrentView(orderType === 'sales' ? 'sales-orders' : 'purchase-orders');
+                // TODO: Highlight the specific order
+                console.log(`[APP] Navegando para ${orderType} - ${orderId}`);
+              }}
+            />
           </PlanAccessGuard>
         );
       case "accountsPayableReceivable":
