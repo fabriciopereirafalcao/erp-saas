@@ -88,12 +88,16 @@ export function CancelOrderDialog({
             Cancelar Pedido de {orderTypeLabel}
             <FeatureInfoBadge
               title="🔒 Governança de Transações"
-              description="• Transações financeiras vinculadas serão automaticamente canceladas
-• Apenas transações pendentes podem ser canceladas
-• Parcelas liquidadas impedem o cancelamento (requerem estorno)
-• O motivo será registrado para fins de auditoria"
               variant="blue"
-            />
+              position="inline"
+            >
+              <ul className="list-disc list-inside space-y-2 text-sm">
+                <li>Transações financeiras vinculadas serão automaticamente canceladas</li>
+                <li>Apenas transações pendentes podem ser canceladas</li>
+                <li>Parcelas liquidadas impedem o cancelamento (requerem estorno)</li>
+                <li>O motivo será registrado para fins de auditoria</li>
+              </ul>
+            </FeatureInfoBadge>
           </DialogTitle>
           <DialogDescription>
             Você está prestes a cancelar o pedido <strong>{orderNumber}</strong>. 

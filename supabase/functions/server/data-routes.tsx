@@ -5768,6 +5768,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
 
     // ✅ RESOLVER UUID: Aceitar tanto UUID quanto order_number (PV-0001)
     let orderId = orderIdParam;
+    let orderNumber = orderIdParam; // ✅ CORREÇÃO: variável separada para evitar "Assignment to constant variable"
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdParam);
     
     if (!isUUID) {
@@ -5794,7 +5795,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       }
       
       orderId = orderData.id; // ✅ Usar o UUID real
-      orderIdParam = orderData.order_number; // Atualizar para usar order_number
+      orderNumber = orderData.order_number; // ✅ Atualizar variável separada
       console.log(`[CANCEL-SALES] ✅ UUID resolvido: ${orderId}`);
     }
 
@@ -5804,14 +5805,14 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
     );
 
     // 🔒 GOVERNANÇA: Validar se há parcelas liquidadas
-    console.log(`[CANCEL-SALES] 🔍 Verificando transações financeiras vinculadas ao pedido ${orderIdParam}...`);
+    console.log(`[CANCEL-SALES] 🔍 Verificando transações financeiras vinculadas ao pedido ${orderNumber}...`);
     
     const { data: linkedTransactions, error: transactionsError } = await supabase
       .from('financial_transactions')
       .select('sku, status, amount, administrative_status')
       .eq('company_id', auth.companyId)
       .eq('origin', 'Pedido')
-      .eq('reference', orderIdParam);
+      .eq('reference', orderNumber);
 
     if (transactionsError) {
       console.error('[CANCEL-SALES] ❌ Erro ao buscar transações:', transactionsError);
@@ -5928,7 +5929,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
             quantity: quantity,
             reference_type: 'sales_order',
             reference_id: orderId,
-            notes: `Cancelamento de pedido ${orderIdParam}`,
+            notes: `Cancelamento de pedido ${orderNumber}`,
             created_at: new Date().toISOString()
           });
         }
@@ -5965,7 +5966,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
           quantity: quantity,
           reference_type: 'sales_order',
           reference_id: orderId,
-          notes: `Devolução por cancelamento de pedido ${orderIdParam}`,
+          notes: `Devolução por cancelamento de pedido ${orderNumber}`,
           created_at: new Date().toISOString()
         });
       }
@@ -5984,7 +5985,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
           .from('financial_transactions')
           .update({
             administrative_status: 'canceled',
-            cancellation_reason: `Cancelamento do pedido ${orderIdParam}: ${reason}`,
+            cancellation_reason: `Cancelamento do pedido ${orderNumber}: ${reason}`,
             canceled_at: now,
             canceled_by: userId,
             canceled_by_name: userName
@@ -6031,7 +6032,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       return c.json({ success: false, error: 'Erro ao atualizar status do pedido' }, 500);
     }
 
-    console.log(`[CANCEL-SALES] ✅ Status do pedido ${orderIdParam} atualizado para "Cancelado"`);
+    console.log(`[CANCEL-SALES] ✅ Status do pedido ${orderNumber} atualizado para "Cancelado"`);
 
     console.log(`[CANCEL-SALES] ✅ Cancelamento concluído!`);
     console.log(`[CANCEL-SALES]    📦 Estoque restaurado: ${totalStockRestored} unidades`);
@@ -6042,7 +6043,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
       success: true,
       data: {
         orderId,
-        orderNumber: orderIdParam,
+        orderNumber: orderNumber,
         status: 'Cancelado',
         stockMovements: {
           movementsReverted: stockMovements?.length || 0,
