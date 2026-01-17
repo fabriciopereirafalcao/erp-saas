@@ -2297,14 +2297,20 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
       />
 
       {/* Histórico de Status */}
-      {selectedOrderForHistory && (
-        <StatusHistoryTimeline
-          history={selectedOrderForHistory.statusHistory || []}
-          open={isHistoryOpen}
-          onOpenChange={setIsHistoryOpen}
-          orderId={selectedOrderForHistory.id}
-        />
-      )}
+      {selectedOrderForHistory && (() => {
+        // ✅ Buscar pedido atualizado do state para garantir histórico mais recente
+        const currentOrder = safeSalesOrders.find(o => o.id === selectedOrderForHistory.id);
+        const orderToShow = currentOrder || selectedOrderForHistory;
+        
+        return (
+          <StatusHistoryTimeline
+            history={orderToShow.statusHistory || []}
+            open={isHistoryOpen}
+            onOpenChange={setIsHistoryOpen}
+            orderId={orderToShow.id}
+          />
+        );
+      })()}
 
       {/* Gerenciamento de Vendedores e Compradores */}
       <SalesAndPurchasePersonManagement

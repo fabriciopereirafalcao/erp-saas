@@ -177,7 +177,7 @@ export function ReverseSettlementDialog({
             <Alert>
               <AlertTriangle className="w-4 h-4" />
               <AlertDescription className="text-sm">
-                <strong>Atenção:</strong> Esta transação está vinculada ao pedido {transaction.reference}. O status do pedido não será alterado automaticamente.
+                <strong>Atenção:</strong> Esta transação está vinculada ao pedido {transaction.reference}. O status do pedido será recalculado automaticamente após o estorno.
               </AlertDescription>
             </Alert>
           )}

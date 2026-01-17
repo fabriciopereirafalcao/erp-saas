@@ -5500,6 +5500,148 @@ export function ERPProvider({ children }: { children: ReactNode }) {
       // ✅ REMOVIDO: Sincronização com accounts_receivable/payable (agora computed properties)
       // As contas pendentes são automaticamente recalculadas
 
+      // ✅ GOVERNANÇA: Recalcular status do pedido se transação está vinculada
+      const transaction = financialTransactions.find(t => t.id === id);
+      if (transaction?.reference && transaction.origin === "Pedido") {
+        const orderId = transaction.reference;
+        
+        // Verificar se é pedido de venda ou compra
+        if (orderId.startsWith('PV-')) {
+          const order = salesOrders.find(o => o.id === orderId);
+          
+          if (order) {
+            // Buscar todas as transações do pedido (excluindo a que está sendo estornada)
+            const orderTransactions = financialTransactions.filter(
+              t => t.reference === orderId && t.origin === "Pedido" && t.administrative_status === 'active'
+            );
+
+            // Contar quantas estão recebidas APÓS o estorno (excluir a atual)
+            const receivedCount = orderTransactions.filter(t => 
+              t.status === "Recebido" && t.id !== id
+            ).length;
+            const totalCount = orderTransactions.length;
+
+            let newStatus: SalesOrder['status'];
+            
+            if (receivedCount === totalCount) {
+              // Todas as parcelas recebidas - Concluído
+              newStatus = "Concluído";
+            } else if (receivedCount > 0) {
+              // Algumas parcelas recebidas - Parcialmente Concluído
+              newStatus = "Parcialmente Concluído";
+            } else {
+              // Nenhuma parcela recebida - volta para Entregue
+              newStatus = "Entregue";
+            }
+
+            // Só atualizar se o status mudou
+            if (order.status !== newStatus && order.status !== "Cancelado") {
+              const historyEntry: StatusHistoryEntry = {
+                id: `HIST-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                user: user.name,
+                previousStatus: order.status,
+                newStatus,
+                actionsExecuted: [`↩️ Status recalculado após estorno de liquidação: ${receivedCount}/${totalCount} parcelas recebidas`],
+                generatedIds: []
+              };
+
+              setSalesOrders(prev => prev.map(o => 
+                o.id === orderId ? {
+                  ...o,
+                  status: newStatus,
+                  statusHistory: [...(o.statusHistory || []), historyEntry]
+                } : o
+              ));
+
+              console.log(`📊 Status do pedido ${orderId} recalculado após estorno: ${order.status} → ${newStatus} (${receivedCount}/${totalCount} parcelas)`);
+              
+              // Registrar auditoria da mudança de status
+              auditLog({
+                module: AUDIT_MODULES.SALES_ORDER,
+                action: AUDIT_ACTIONS.STATUS_CHANGE,
+                details: {
+                  orderId,
+                  previousStatus: order.status,
+                  newStatus,
+                  reason: `Recálculo automático após estorno - ${receivedCount}/${totalCount} parcelas recebidas`,
+                  receivedCount,
+                  totalCount,
+                  reversedTransactionId: id
+                },
+                entityType: 'Pedido de Venda',
+                entityId: orderId
+              });
+            }
+          }
+        } else if (orderId.startsWith('PC-')) {
+          // Pedido de compra
+          const purchaseOrder = purchaseOrders.find(o => o.id === orderId);
+          
+          if (purchaseOrder) {
+            // Buscar todas as transações do pedido
+            const orderTransactions = financialTransactions.filter(
+              t => t.reference === orderId && t.origin === "Pedido" && t.administrative_status === 'active'
+            );
+
+            // Contar quantas estão pagas APÓS o estorno (excluir a atual)
+            const paidCount = orderTransactions.filter(t => 
+              t.status === "Pago" && t.id !== id
+            ).length;
+            const totalCount = orderTransactions.length;
+
+            let newStatus: PurchaseOrder['status'];
+            
+            if (paidCount === totalCount) {
+              newStatus = "Concluído";
+            } else if (paidCount > 0) {
+              newStatus = "Parcialmente Concluído";
+            } else {
+              newStatus = "Recebido";
+            }
+
+            // Só atualizar se o status mudou
+            if (purchaseOrder.status !== newStatus && purchaseOrder.status !== "Cancelado") {
+              const historyEntry: StatusHistoryEntry = {
+                id: `HIST-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                user: user.name,
+                previousStatus: purchaseOrder.status,
+                newStatus,
+                actionsExecuted: [`↩️ Status recalculado após estorno de liquidação: ${paidCount}/${totalCount} parcelas pagas`],
+                generatedIds: []
+              };
+
+              setPurchaseOrders(prev => prev.map(o => 
+                o.id === orderId ? {
+                  ...o,
+                  status: newStatus,
+                  statusHistory: [...(o.statusHistory || []), historyEntry]
+                } : o
+              ));
+
+              console.log(`📊 Status do pedido de compra ${orderId} recalculado após estorno: ${purchaseOrder.status} → ${newStatus} (${paidCount}/${totalCount} parcelas)`);
+              
+              auditLog({
+                module: AUDIT_MODULES.SALES_ORDER,
+                action: AUDIT_ACTIONS.STATUS_CHANGE,
+                details: {
+                  orderId,
+                  previousStatus: purchaseOrder.status,
+                  newStatus,
+                  reason: `Recálculo automático após estorno - ${paidCount}/${totalCount} parcelas pagas`,
+                  paidCount,
+                  totalCount,
+                  reversedTransactionId: id
+                },
+                entityType: 'Pedido de Compra',
+                entityId: orderId
+              });
+            }
+          }
+        }
+      }
+
       toast.success('Liquidação estornada com sucesso', {
         description: 'A transação voltou ao status pendente'
       });
