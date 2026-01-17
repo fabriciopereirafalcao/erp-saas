@@ -5268,14 +5268,24 @@ export function ERPProvider({ children }: { children: ReactNode }) {
     const transaction = financialTransactions.find(t => t.id === id);
     
     if (transaction?.origin === 'Pedido') {
-      toast.error(
-        'Não é possível editar esta transação!',
-        {
-          description: `Esta transação está vinculada ao pedido ${transaction.reference}. Para alterar, edite o pedido através do módulo de Pedidos.`
-        }
-      );
-      console.warn(`⚠️ [GOVERNANÇA] Tentativa de editar transação ${id} vinculada ao pedido ${transaction.reference}`);
-      return;
+      // ✅ EXCEÇÃO: Permitir mudança de status (liquidação) e campos relacionados
+      const allowedFields = ['status', 'effectiveDate', 'markedBy', 'markedAt', 'bankAccountId', 'bankAccountName', 'paymentMethodId', 'paymentMethodName', 'hasStartDateOverride'];
+      const updatingFields = Object.keys(updates);
+      const hasDisallowedFields = updatingFields.some(field => !allowedFields.includes(field));
+      
+      if (hasDisallowedFields) {
+        toast.error(
+          'Não é possível editar esta transação!',
+          {
+            description: `Esta transação está vinculada ao pedido ${transaction.reference}. Para alterar, edite o pedido através do módulo de Pedidos.`
+          }
+        );
+        console.warn(`⚠️ [GOVERNANÇA] Tentativa de editar transação ${id} vinculada ao pedido ${transaction.reference}`);
+        return;
+      }
+      
+      // ✅ Permitir liquidação (mudança de status)
+      console.log(`✅ [GOVERNANÇA] Liquidação permitida para transação ${id} vinculada ao pedido ${transaction.reference}`);
     }
     
     setFinancialTransactions(prev => prev.map(transaction => 

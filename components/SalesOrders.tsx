@@ -900,8 +900,11 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
       shippingNotes: ""
     });
 
-    setIsDialogOpen(true);
-    toast.info(`Editando pedido ${order.id}`);
+    // ✅ Abrir modal com pequeno delay para garantir que estados foram atualizados
+    setTimeout(() => {
+      setIsDialogOpen(true);
+      toast.info(`Editando pedido ${order.id}`);
+    }, 50);
   };
 
   // Função para preparar emissão de NF-e
@@ -1392,6 +1395,7 @@ export function SalesOrders({ onNavigateToNFe }: SalesOrdersProps = {}) {
                           <Select 
                             value={orderHeader.paymentCondition} 
                             onValueChange={(value) => setOrderHeader({...orderHeader, paymentCondition: value})}
+                            disabled={editingOrderId !== null}
                           >
                             <SelectTrigger>
                               <SelectValue />
