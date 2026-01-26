@@ -5854,6 +5854,7 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
     console.log(`[CANCEL-SALES] ✅ Nenhuma parcela liquidada, prosseguindo com cancelamento...`);
 
     // ✅ Buscar movimentações de estoque do pedido (saídas)
+    console.log(`[CANCEL-SALES] 🔍 Buscando movimentações de estoque para orderId (UUID): ${orderId}`);
     const { data: stockMovements, error: movementsError } = await supabase
       .from('stock_movements')
       .select('*')
@@ -5864,7 +5865,10 @@ app.post('/api/sales-orders/:id/cancel', async (c) => {
 
     if (movementsError) {
       console.error('[CANCEL-SALES] ❌ Erro ao buscar movimentações:', movementsError);
-      return c.json({ success: false, error: 'Erro ao buscar movimentações de estoque' }, 500);
+      console.error('[CANCEL-SALES] ❌ Detalhes do erro:', JSON.stringify(movementsError, null, 2));
+      console.error('[CANCEL-SALES] ❌ orderId usado:', orderId);
+      console.error('[CANCEL-SALES] ❌ company_id usado:', auth.companyId);
+      return c.json({ success: false, error: `Erro ao buscar movimentações: ${movementsError.message || movementsError.code}` }, 500);
     }
 
     console.log(`[CANCEL-SALES] 📦 Encontradas ${stockMovements?.length || 0} movimentações de saída para reverter`);
